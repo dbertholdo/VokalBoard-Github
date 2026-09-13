@@ -998,23 +998,21 @@ form button.link-button:hover { color: var(--accent-dark); }
     overflow: hidden;
 }
 
-/* --- passarinho voando (marca do VokalBoard, ver base.html) ------------- */
+/* --- passarinho voando (marca do VokalBoard, ver base.html) -------------
+   O bater de asas de verdade vive dentro do próprio bird-flying.svg
+   (ele já nasce virado pra direita = direção do voo); aqui só cuidamos
+   do trajeto pela tela. */
 .vb-flying-bird {
     position: fixed;
     left: -8vw;
-    font-size: 1.9rem;
-    line-height: 1;
+    width: 56px;
+    height: auto;
     pointer-events: none;
     z-index: 500;
     filter: drop-shadow(0 2px 4px rgba(28, 31, 46, 0.18));
     animation-name: vb-fly-across;
     animation-timing-function: ease-in-out;
     animation-fill-mode: forwards;
-}
-
-.vb-flying-bird .vb-flap {
-    display: inline-block;
-    animation: vb-flap 0.45s ease-in-out infinite alternate;
 }
 
 @keyframes vb-fly-across {
@@ -1025,11 +1023,23 @@ form button.link-button:hover { color: var(--accent-dark); }
     100% { transform: translate(122vw, 0); }
 }
 
-@keyframes vb-flap {
-    from { transform: scaleY(1); }
-    to   { transform: scaleY(0.75); }
-}
-
 @media (prefers-reduced-motion: reduce) {
     .vb-flying-bird { display: none; }
+}
+
+/* --- ícones do passarinho-marca no cabeçalho/rodapé ---------------------- */
+.brand-icon {
+    vertical-align: -6px;
+    margin-right: 2px;
+}
+
+.footer-bird-icon {
+    vertical-align: -2px;
+}
+
+.hero-bird-icon {
+    width: 40px;
+    height: auto;
+    vertical-align: -8px;
+    margin-right: 4px;
 }
