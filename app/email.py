@@ -25,12 +25,21 @@ EMAIL_FROM = os.getenv("EMAIL_FROM", "VokalBoard <onboarding@resend.dev>")
 def send_email(to: str, subject: str, html: str) -> None:
     if EMAIL_BACKEND == "resend" and RESEND_API_KEY:
         try:
-            httpx.post(
+            response = httpx.post(
                 "https://api.resend.com/emails",
                 headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
                 json={"from": EMAIL_FROM, "to": [to], "subject": subject, "html": html},
                 timeout=10,
             )
+            # httpx só levanta HTTPError em problema de rede/conexão — uma
+            # recusa da API (chave inválida, domínio de teste que só manda
+            # pro dono da conta, etc.) volta como uma resposta HTTP normal
+            # (4xx/5xx) que passava batido aqui antes, sem deixar rastro
+            # nenhum no log. Agora isso fica visível.
+            if response.status_code >= 400:
+                print(f"[email] Resend recusou o envio para {to} (HTTP {response.status_code}): {response.text}")
+            else:
+                print(f"[email] enviado via Resend para {to} (HTTP {response.status_code})")
         except httpx.HTTPError as exc:
             # Não derruba a requisição do usuário por causa de um problema no envio de e-mail.
             print(f"[email] falha ao enviar via Resend: {exc}")
