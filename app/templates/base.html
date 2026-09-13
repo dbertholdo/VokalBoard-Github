@@ -8,6 +8,22 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+    {# ------------------------------------------------------------
+       Fundo decorativo: folhas ou nuvens (escolhido aleatoriamente
+       a cada carregamento), bem clarinho, balançando/derivando
+       devagar (a animação vive dentro do próprio SVG — ver
+       bg-leaves.svg/bg-clouds.svg). Só para dar um ar "vivo" ao
+       site; nunca atrapalha a leitura ou cliques (pointer-events:
+       none), e cada folha/nuvem respeita prefers-reduced-motion.
+    ------------------------------------------------------------ #}
+    <div class="site-bg" id="site-bg" aria-hidden="true"></div>
+    <script>
+        (function () {
+            var bg = document.getElementById('site-bg');
+            if (bg) bg.classList.add(Math.random() < 0.5 ? 'bg-leaves' : 'bg-clouds');
+        })();
+    </script>
+
     <header class="site-header">
         <a class="brand" href="/"><img class="brand-icon" src="/static/img/bird-logo.svg" alt="" width="32" height="23"> VokalBoard</a>
         <nav>
@@ -63,34 +79,49 @@
     </footer>
 
     {# ------------------------------------------------------------
-       Passarinho voando: de vez em quando (a cada ~40–90s), o
+       Passarinho voando: de vez em quando (a cada 1–2 min), o
        mascote atravessa a tela da esquerda pra direita, batendo as
        asas de verdade (a animação da asa vive dentro do próprio
        bird-flying.svg, então ele sempre bate asa na direção certa,
-       de frente pro voo) — só decoração de marca, não atrapalha
-       nada (pointer-events: none) e respeita quem prefere menos
-       animação (prefers-reduced-motion). Ver .vb-flying-bird no
-       style.css.
+       de frente pro voo). 1 em cada 10 voos ele solta um "oi" num
+       balãozinho (ver GREETINGS abaixo). Só decoração de marca, não
+       atrapalha nada (pointer-events: none) e respeita quem prefere
+       menos animação (prefers-reduced-motion). Ver .vb-flying-wrap
+       no style.css.
     ------------------------------------------------------------ #}
     <script>
         (function () {
             if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
+            var GREETINGS = ["Hey, there!", "Servus!", "Grias di", "yooo!!!", "Na?", "Hab' die Ehre!", "E aí!", "Grüezi!", "Hoi!", "Moin!"];
+
             function spawnBird() {
+                var wrap = document.createElement('div');
+                wrap.className = 'vb-flying-wrap';
+                wrap.style.top = (6 + Math.random() * 22) + '%';
+                wrap.style.animationDuration = (7 + Math.random() * 3) + 's';
+
                 var bird = document.createElement('img');
                 bird.className = 'vb-flying-bird';
                 bird.src = '/static/img/bird-flying.svg';
                 bird.alt = '';
-                bird.style.top = (6 + Math.random() * 22) + '%';
-                bird.style.animationDuration = (7 + Math.random() * 3) + 's';
-                document.body.appendChild(bird);
-                bird.addEventListener('animationend', function () {
-                    bird.remove();
+                wrap.appendChild(bird);
+
+                if (Math.random() < 0.1) {
+                    var bubble = document.createElement('span');
+                    bubble.className = 'vb-bubble';
+                    bubble.textContent = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+                    wrap.appendChild(bubble);
+                }
+
+                document.body.appendChild(wrap);
+                wrap.addEventListener('animationend', function () {
+                    wrap.remove();
                 });
             }
 
             function scheduleNext() {
-                var delay = 40000 + Math.random() * 50000; // 40–90s
+                var delay = 60000 + Math.random() * 60000; // 1–2 min
                 setTimeout(function () { spawnBird(); scheduleNext(); }, delay);
             }
 

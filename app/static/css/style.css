@@ -1001,19 +1001,50 @@ form button.link-button:hover { color: var(--accent-dark); }
 
 /* --- passarinho voando (marca do VokalBoard, ver base.html) -------------
    O bater de asas de verdade vive dentro do próprio bird-flying.svg
-   (ele já nasce virado pra direita = direção do voo); aqui só cuidamos
-   do trajeto pela tela. */
-.vb-flying-bird {
+   (ele já nasce virado pra direita = direção do voo); aqui cuidamos do
+   trajeto pela tela (.vb-flying-wrap) e do balãozinho de fala que
+   aparece de vez em quando (.vb-bubble), grudado nele durante o voo. */
+.vb-flying-wrap {
     position: fixed;
     left: -8vw;
-    width: 56px;
-    height: auto;
     pointer-events: none;
     z-index: 500;
-    filter: drop-shadow(0 2px 4px rgba(28, 31, 46, 0.18));
     animation-name: vb-fly-across;
     animation-timing-function: ease-in-out;
     animation-fill-mode: forwards;
+}
+
+.vb-flying-bird {
+    display: block;
+    width: 56px;
+    height: auto;
+    filter: drop-shadow(0 2px 4px rgba(28, 31, 46, 0.18));
+}
+
+.vb-bubble {
+    position: absolute;
+    top: -10px;
+    left: 58px;
+    background: var(--card-bg);
+    color: var(--ink);
+    padding: 4px 11px;
+    border-radius: 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(28, 31, 46, 0.18);
+}
+
+.vb-bubble::after {
+    content: "";
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    background: var(--card-bg);
+    bottom: -3px;
+    left: 12px;
+    transform: rotate(45deg);
+    box-shadow: -1px 1px 1px rgba(28, 31, 46, 0.06);
 }
 
 @keyframes vb-fly-across {
@@ -1025,7 +1056,27 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .vb-flying-bird { display: none; }
+    .vb-flying-wrap { display: none; }
+}
+
+/* --- fundo decorativo (folhas ou nuvens, ver base.html) ------------------ */
+.site-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-repeat: repeat;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.site-bg.bg-leaves {
+    background-image: url('/static/img/bg-leaves.svg');
+    background-size: 420px 420px;
+}
+
+.site-bg.bg-clouds {
+    background-image: url('/static/img/bg-clouds.svg');
+    background-size: 600px 360px;
 }
 
 /* --- ícones do passarinho-marca no cabeçalho/rodapé ---------------------- */
