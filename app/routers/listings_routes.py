@@ -180,6 +180,14 @@ def board(
     """
     user = get_current_user(request)
 
+    # E-mail verificado é obrigatório pra ver os anúncios (não só pra
+    # publicar) — quem não está logado ainda pode navegar normalmente
+    # (é a vitrine pública que incentiva o cadastro); quem já criou
+    # conta mas não confirmou o e-mail é mandado pra home, que mostra
+    # o aviso e o botão de reenviar o link de confirmação.
+    if user and not user["email_verified"]:
+        return RedirectResponse(url="/?verify_required=1", status_code=303)
+
     conditions = ["l.is_active = TRUE"]
     params = {}
 
@@ -497,10 +505,13 @@ def listing_detail(request: Request, listing_id: int):
         "is_saved": is_saved,
         "already_reported": already_reported,
         "reported_just_now": request.query_params.get("reported") == "1",
-        # Freemium: sem login dá pra ver que o anúncio existe (título,
-        # cidade, tipo, bolinha de status) mas não a descrição completa
-        # nem os dados de contato — isso incentiva o cadastro.
-        "locked": user is None,
+        # Freemium: sem login (ou logado mas com e-mail ainda não
+        # confirmado) dá pra ver que o anúncio existe (título, cidade,
+        # tipo, bolinha de status) mas não a descrição completa nem os
+        # dados de contato — isso incentiva o cadastro E a confirmação
+        # do e-mail. "anon" e "unverified" mostram CTAs diferentes no
+        # template (registrar/entrar vs. reenviar confirmação).
+        "lock_reason": "anon" if user is None else ("unverified" if not user["email_verified"] else None),
     }
     return render(request, "listing_detail.html", context)
 

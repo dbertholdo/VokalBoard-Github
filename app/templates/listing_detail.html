@@ -21,15 +21,24 @@
         {% if listing.event_date %} · 📅 {{ listing.event_date }}{% endif %}
     </p>
 
-    {% if locked %}
+    {% if lock_reason %}
         <p class="description">{{ listing.description[:120] }}{% if listing.description|length > 120 %}…{% endif %}</p>
         <div class="locked-box">
-            <h3>🔒 {{ t('locked_listing_title') }}</h3>
-            <p>{{ t('locked_listing_text') }}</p>
-            <p class="hero-actions">
-                <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
-                <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
-            </p>
+            {% if lock_reason == "unverified" %}
+                <h3>✉️ {{ t('locked_listing_unverified_title') }}</h3>
+                <p>{{ t('locked_listing_unverified_text') }}</p>
+                <form method="post" action="/resend-verification" class="hero-actions">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-link button-primary">{{ t('verify_banner_resend') }}</button>
+                </form>
+            {% else %}
+                <h3>🔒 {{ t('locked_listing_title') }}</h3>
+                <p>{{ t('locked_listing_text') }}</p>
+                <p class="hero-actions">
+                    <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
+                    <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
+                </p>
+            {% endif %}
         </div>
     {% else %}
         <p class="description">{{ listing.description }}</p>

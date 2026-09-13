@@ -266,6 +266,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "de": "Registriere dich kostenlos, um die vollständige Beschreibung und die Kontaktdaten zu sehen.",
         "en": "Sign up for free to see the full description and contact details.",
     },
+    "locked_listing_unverified_title": {"de": "E-Mail-Bestätigung nötig", "en": "Email verification needed"},
+    "locked_listing_unverified_text": {
+        "de": "Bitte bestätige zuerst deine E-Mail-Adresse, um die vollständige Beschreibung und die Kontaktdaten zu sehen.",
+        "en": "Please verify your email address first to see the full description and contact details.",
+    },
     "locked_profile_title": {"de": "Profil nur für Mitglieder", "en": "Profile for members only"},
     "locked_profile_text": {
         "de": "Registriere dich kostenlos, um Biografie, Hörbeispiele und Anzeigen zu sehen.",
