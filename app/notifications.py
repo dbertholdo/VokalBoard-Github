@@ -76,7 +76,7 @@ def notify_matching_users(base_url: str, listing_id: int, listing_type: str, tit
             <a href="{listing_url}">{listing_url}</a><br>
             You're getting this because match alerts are on for your account — you can turn them off anytime in your profile.</p>
         """
-        send_email(recipient["email"], f"Neue passende Anzeige: {title} — Maestro & Cantor", html)
+        send_email(recipient["email"], f"Neue passende Anzeige: {title} — VokalBoard", html)
 
 
 def notify_new_message(base_url: str, recipient_email: str, recipient_name: str, sender_name: str) -> None:
@@ -96,13 +96,13 @@ def notify_new_message(base_url: str, recipient_email: str, recipient_name: str,
     safe_sender_name = html_module.escape(sender_name)
     html = f"""
         <p>Hallo {safe_recipient_name},</p>
-        <p><strong>{safe_sender_name}</strong> hat dir eine neue Nachricht auf Maestro &amp; Cantor geschickt.</p>
+        <p><strong>{safe_sender_name}</strong> hat dir eine neue Nachricht auf VokalBoard geschickt.</p>
         <p><a href="{inbox_url}">{inbox_url}</a></p>
         <p>Du erhältst diese Benachrichtigung, weil Nachrichten-E-Mails für dein Konto aktiviert sind.
         Das kannst du jederzeit in deinem Profil ausschalten.</p>
         <hr>
-        <p>(EN) <strong>{safe_sender_name}</strong> sent you a new message on Maestro &amp; Cantor.
+        <p>(EN) <strong>{safe_sender_name}</strong> sent you a new message on VokalBoard.
         <a href="{inbox_url}">{inbox_url}</a><br>
         You're getting this because message e-mails are on for your account — you can turn them off anytime in your profile.</p>
     """
-    send_email(recipient_email, f"Nova mensagem de {sender_name} — Maestro & Cantor", html)
+    send_email(recipient_email, f"Nova mensagem de {sender_name} — VokalBoard", html)

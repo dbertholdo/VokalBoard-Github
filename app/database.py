@@ -15,7 +15,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg2://maestro_user:maestro_pass@localhost:5432/maestro_cantor",
+    "postgresql+psycopg2://vokalboard_user:vokalboard_pass@localhost:5432/vokalboard",
 )
 
 # pool_pre_ping evita erros de "conexão fechada" em plataformas de deploy

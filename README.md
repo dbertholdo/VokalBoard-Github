@@ -1,4 +1,4 @@
-# Maestro & Cantor
+# VokalBoard
 
 Quadro de avisos (bulletin board) para conectar cantores e maestros na
 Alemanha — inspirado em ideias como Audition Oracle/Theapolis, mas no
@@ -36,7 +36,7 @@ propósito para maximizar aprendizado, não "produtividade máxima".
 ## Estrutura do projeto
 
 ```
-maestro-cantor/
+vokalboard/
 ├── app/
 │   ├── main.py                 # cria o app FastAPI, monta rotas
 │   ├── database.py             # conexão + helpers de SQL puro
@@ -154,7 +154,7 @@ cada `FOREIGN KEY` e índice.
 Pré-requisito: [Docker](https://www.docker.com/) instalado.
 
 ```bash
-cd maestro-cantor
+cd vokalboard
 docker compose up --build
 ```
 
@@ -174,12 +174,12 @@ também apagar os dados do banco e começar do zero).
 ## Rodando sem Docker (Python local + Postgres local)
 
 ```bash
-# 1. Crie um banco PostgreSQL local chamado maestro_cantor
-createdb maestro_cantor
+# 1. Crie um banco PostgreSQL local chamado vokalboard
+createdb vokalboard
 
 # 2. Rode o schema
-psql maestro_cantor < db/schema.sql
-psql maestro_cantor < db/seed_sample_data.sql   # opcional
+psql vokalboard < db/schema.sql
+psql vokalboard < db/seed_sample_data.sql   # opcional
 
 # 3. Configure o .env
 cp .env.example .env
@@ -280,7 +280,7 @@ enviar e-mails de verdade em produção, configure no `.env`:
 ```
 EMAIL_BACKEND=resend
 RESEND_API_KEY=sua-chave-aqui
-EMAIL_FROM="Maestro & Cantor <onboarding@resend.dev>"
+EMAIL_FROM="VokalBoard <onboarding@resend.dev>"
 ```
 
 O projeto usa a API do [Resend](https://resend.com/) como exemplo (tem
@@ -293,13 +293,13 @@ função.
 
 **CSRF (Cross-Site Request Forgery)** é um ataque em que um site
 malicioso faz o navegador da vítima enviar, sem ela perceber, uma
-requisição para *outro* site (aqui, o Maestro & Cantor) aproveitando que
+requisição para *outro* site (aqui, o VokalBoard) aproveitando que
 o navegador já manda automaticamente os cookies de sessão daquele site
 em toda requisição — inclusive as disparadas por uma página diferente.
 
-Exemplo concreto: você está logado no Maestro & Cantor. Sem perceber,
+Exemplo concreto: você está logado no VokalBoard. Sem perceber,
 visita `site-malicioso.com`, que tem um formulário invisível apontando
-para `POST maestro-cantor.de/listings/42/delete`. Se o servidor só
+para `POST vokalboard.de/listings/42/delete`. Se o servidor só
 checasse "existe uma sessão válida?", o navegador enviaria seu cookie de
 sessão automaticamente, e o ataque funcionaria — seu anúncio seria
 apagado sem você ter clicado em nada no site de verdade.
@@ -369,7 +369,7 @@ ORDER BY views DESC;
 ## Praticando SQL com este projeto
 
 Algumas sugestões de exercícios usando o `psql` direto no banco
-(`docker compose exec db psql -U maestro_user -d maestro_cantor`):
+(`docker compose exec db psql -U vokalboard_user -d vokalboard`):
 
 1. Liste todos os anúncios ativos com o nome de quem postou (JOIN simples).
 2. Conte quantos anúncios existem por `listing_type` (GROUP BY + COUNT).
@@ -430,7 +430,7 @@ plataforma para saber se a aplicação está de pé.
 ## Domínio e hospedagem (indo além do subdomínio grátis)
 
 Railway/Render te dão um subdomínio tipo `seu-app.up.railway.app` de
-graça — ótimo para testar. Para um domínio próprio (`maestro-cantor.de`,
+graça — ótimo para testar. Para um domínio próprio (`vokalboard.de`,
 por exemplo):
 
 - **Registrar o domínio:** recomendo separar "onde registro o domínio"

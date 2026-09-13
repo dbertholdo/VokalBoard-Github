@@ -53,14 +53,14 @@ def send_verification_email(request: Request, user_id: int, email: str, full_nam
     verify_url = f"{str(request.base_url).rstrip('/')}/verify-email?token={token}"
     html = f"""
         <p>Hallo {html_module.escape(full_name)},</p>
-        <p>Bitte bestätige deine E-Mail-Adresse für Maestro &amp; Cantor:</p>
+        <p>Bitte bestätige deine E-Mail-Adresse für VokalBoard:</p>
         <p><a href="{verify_url}">{verify_url}</a></p>
         <p>Dieser Link ist {VERIFICATION_TOKEN_HOURS} Stunden gültig.</p>
         <hr>
-        <p>(EN) Please confirm your email address for Maestro &amp; Cantor using the link above.
+        <p>(EN) Please confirm your email address for VokalBoard using the link above.
         This link is valid for {VERIFICATION_TOKEN_HOURS} hours.</p>
     """
-    send_email(email, "Bestätige deine E-Mail-Adresse — Maestro & Cantor", html)
+    send_email(email, "Bestätige deine E-Mail-Adresse — VokalBoard", html)
 
 
 def send_password_reset_email(request: Request, user_id: int, email: str, full_name: str) -> None:
@@ -79,7 +79,7 @@ def send_password_reset_email(request: Request, user_id: int, email: str, full_n
         <p>(EN) Click the link above to set a new password. Valid for {RESET_TOKEN_HOURS} hours.
         If you didn't request this, just ignore this email.</p>
     """
-    send_email(email, "Passwort zurücksetzen — Maestro & Cantor", html)
+    send_email(email, "Passwort zurücksetzen — VokalBoard", html)
 
 
 def _register_context(request: Request, error: str | None = None, ref: str = ""):

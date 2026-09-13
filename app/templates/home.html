@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ t('home_title') if user else t('home_anon_title') }} — Maestro & Cantor{% endblock %}
+{% block title %}{{ t('home_title') if user else t('home_anon_title') }} — VokalBoard{% endblock %}
 
 {% block content %}
 {% if verify_required %}
@@ -74,7 +74,7 @@
 
 {% else %}
     <div class="hero">
-        <h1>{{ t('home_anon_title') }}</h1>
+        <h1>🐦 {{ t('home_anon_title') }}</h1>
         <p class="subtitle">{{ t('home_anon_subtitle') }}</p>
         <p class="hero-actions">
             <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>

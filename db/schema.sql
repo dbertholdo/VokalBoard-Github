@@ -1,5 +1,5 @@
 -- ============================================================
--- Schema: Maestro & Cantor — quadro de avisos para conectar
+-- Schema: VokalBoard — quadro de avisos para conectar
 -- cantores e maestros na Alemanha.
 --
 -- Este schema foi desenhado de propósito com tabelas de apoio

@@ -177,7 +177,7 @@ def check_and_notify_new_badges(user_id: int, base_url: str) -> None:
             <p>(EN) You've unlocked a new badge: <strong>{badge_name_en}</strong> 🎉<br>
             <a href="{profile_url}">{profile_url}</a></p>
         """
-        send_email(user["email"], "Neue Auszeichnung freigeschaltet — Maestro & Cantor", html)
+        send_email(user["email"], "Neue Auszeichnung freigeschaltet — VokalBoard", html)
 
 
 def _badge_names(b: dict) -> tuple[str, str]:

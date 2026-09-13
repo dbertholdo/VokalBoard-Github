@@ -15,7 +15,7 @@ from app.routers import auth_routes, listings_routes, profile_routes, messages_r
 
 load_dotenv()
 
-app = FastAPI(title="Maestro & Cantor")
+app = FastAPI(title="VokalBoard")
 
 _DEFAULT_SECRET_KEY = "dev-secret-key-troque-em-producao"
 if os.getenv("SECRET_KEY", _DEFAULT_SECRET_KEY) == _DEFAULT_SECRET_KEY:

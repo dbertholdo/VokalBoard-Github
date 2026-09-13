@@ -19,7 +19,7 @@ import httpx
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "console")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "Maestro & Cantor <onboarding@resend.dev>")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "VokalBoard <onboarding@resend.dev>")
 
 
 def send_email(to: str, subject: str, html: str) -> None:

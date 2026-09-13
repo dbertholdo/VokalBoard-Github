@@ -523,7 +523,7 @@ def export_my_data(request: Request):
     return Response(
         content=body,
         media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="maestro-cantor-dados-{user_id}.json"'},
+        headers={"Content-Disposition": f'attachment; filename="vokalboard-dados-{user_id}.json"'},
     )
 
 

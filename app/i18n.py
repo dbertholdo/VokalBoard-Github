@@ -490,8 +490,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # --- código de conduta -----------------------------------------------------
     "conduct_title": {"de": "Verhaltenskodex", "en": "Code of conduct"},
     "conduct_intro": {
-        "de": "Maestro & Cantor ist ein Ort, an dem sich Sänger(innen) und Dirigent(innen) respektvoll und professionell begegnen sollen. Diese Regeln gelten für alle.",
-        "en": "Maestro & Cantor is meant to be a place where singers and conductors meet respectfully and professionally. These rules apply to everyone.",
+        "de": "VokalBoard ist ein Ort, an dem sich Sänger(innen) und Dirigent(innen) respektvoll und professionell begegnen sollen. Diese Regeln gelten für alle.",
+        "en": "VokalBoard is meant to be a place where singers and conductors meet respectfully and professionally. These rules apply to everyone.",
     },
 
     # --- badges (gamificação leve, sem ranking) -------------------------------
