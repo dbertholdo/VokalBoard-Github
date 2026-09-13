@@ -1,0 +1,127 @@
+{# ------------------------------------------------------------------
+   Campos de localização em cascata: País > Estado > Cidade.
+
+   Reutilizado no cadastro, na edição de perfil e no formulário de
+   anúncio, pra não duplicar essa lógica (e a lista de estados/
+   cidades) em três lugares diferentes.
+
+   O template que inclui este parcial precisa definir antes:
+     - loc_country, loc_state, loc_city: valores atuais (string, pode
+       ser vazio) — usados pra pré-selecionar ao editar algo existente.
+   E o contexto do router precisa ter passado:
+     - country_options, state_options, city_options
+------------------------------------------------------------------ #}
+<label>{{ t('listing_form_country_label') }}
+    <select name="country" id="loc-country-select">
+        {% for c in country_options %}
+            <option value="{{ c }}" {% if (loc_country or 'DE') == c %}selected{% endif %}>{{ t('filter_country_' ~ c.lower()) }}</option>
+        {% endfor %}
+    </select>
+</label>
+
+<label>{{ t('listing_form_state_label') }}
+    <select name="state" id="loc-state-select" required>
+    </select>
+    <input type="text" name="state" id="loc-state-other-input" maxlength="100" hidden disabled
+           placeholder="{{ t('listing_form_state_other_placeholder') }}">
+</label>
+
+<label>{{ t('listing_form_city_label') }}
+    <select name="city" id="loc-city-select" required>
+    </select>
+    <input type="text" name="city" id="loc-city-other-input" maxlength="100" hidden disabled
+           placeholder="{{ t('listing_form_city_other_placeholder') }}">
+    <button type="button" id="loc-city-toggle-other" class="link-button" hidden></button>
+</label>
+
+<script>
+(function() {
+    const COUNTRY_STATE_OPTIONS = {{ state_options | tojson }};
+    const CITY_OPTIONS = {{ city_options | tojson }};
+    const countrySelect = document.getElementById('loc-country-select');
+    const stateSelect = document.getElementById('loc-state-select');
+    const stateOtherInput = document.getElementById('loc-state-other-input');
+    const citySelect = document.getElementById('loc-city-select');
+    const cityOtherInput = document.getElementById('loc-city-other-input');
+    const cityToggleBtn = document.getElementById('loc-city-toggle-other');
+    const currentState = "{{ (loc_state or '') | e }}";
+    const currentCity = "{{ (loc_city or '') | e }}";
+    let cityManualMode = false;
+
+    function updateStateOptions() {
+        const states = COUNTRY_STATE_OPTIONS[countrySelect.value];
+
+        if (states) {
+            stateSelect.hidden = false;
+            stateSelect.disabled = false;
+            stateSelect.required = true;
+            stateOtherInput.hidden = true;
+            stateOtherInput.disabled = true;
+            stateOtherInput.required = false;
+
+            stateSelect.innerHTML = '<option value="">—</option>' + states.map(
+                s => `<option value="${s}">${s}</option>`
+            ).join('');
+            if (currentState && states.includes(currentState)) {
+                stateSelect.value = currentState;
+            }
+        } else {
+            stateSelect.hidden = true;
+            stateSelect.disabled = true;
+            stateSelect.required = false;
+            stateOtherInput.hidden = false;
+            stateOtherInput.disabled = false;
+            stateOtherInput.required = true;
+            if (currentState) {
+                stateOtherInput.value = currentState;
+            }
+        }
+    }
+
+    function currentStateValue() {
+        return stateSelect.hidden ? stateOtherInput.value : stateSelect.value;
+    }
+
+    function updateCityOptions() {
+        const cities = CITY_OPTIONS[currentStateValue()];
+
+        if (cities && !cityManualMode) {
+            citySelect.hidden = false;
+            citySelect.disabled = false;
+            citySelect.required = true;
+            cityOtherInput.hidden = true;
+            cityOtherInput.disabled = true;
+            cityOtherInput.required = false;
+
+            citySelect.innerHTML = '<option value="">—</option>' + cities.map(
+                c => `<option value="${c}">${c}</option>`
+            ).join('');
+            if (currentCity && cities.includes(currentCity)) {
+                citySelect.value = currentCity;
+            }
+            cityToggleBtn.hidden = false;
+            cityToggleBtn.textContent = "{{ t('listing_form_city_not_listed') }}";
+        } else {
+            citySelect.hidden = true;
+            citySelect.disabled = true;
+            citySelect.required = false;
+            cityOtherInput.hidden = false;
+            cityOtherInput.disabled = false;
+            cityOtherInput.required = true;
+            if (currentCity && !cityOtherInput.value) {
+                cityOtherInput.value = currentCity;
+            }
+            cityToggleBtn.hidden = !cities;
+            cityToggleBtn.textContent = "{{ t('listing_form_city_choose_from_list') }}";
+        }
+    }
+
+    countrySelect.addEventListener('change', () => { updateStateOptions(); cityManualMode = false; updateCityOptions(); });
+    stateSelect.addEventListener('change', () => { cityManualMode = false; updateCityOptions(); });
+    stateOtherInput.addEventListener('input', updateCityOptions);
+    cityToggleBtn.addEventListener('click', () => { cityManualMode = !cityManualMode; updateCityOptions(); });
+
+    updateStateOptions();
+    updateCityOptions();
+})();
+</script>

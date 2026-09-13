@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ t('impressum_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('impressum_title') }}</h1>
+
+<p class="field-help">
+    {{ t('impressum_operated_from_notice') }}
+    Angaben gemäß Art. 5 TMG bzw. § 5 ECG (Anbieterkennzeichnung), soweit auf
+    dieses in Brasilien betriebene Angebot anwendbar.
+</p>
+
+<div class="legal-block">
+    <h3>Betreiber / Operator</h3>
+    <p>
+        [PREENCHER: Nome completo ou razão social]<br>
+        [PREENCHER: Endereço completo — rua, número, cidade, CEP, país]<br>
+        Brasil
+    </p>
+
+    <h3>Kontakt / Contact</h3>
+    <p>
+        E-Mail: [PREENCHER: e-mail de contato]<br>
+        Telefon (optional): [PREENCHER: telefone, se desejar informar]
+    </p>
+
+    <h3>Verantwortlich für den Inhalt / Responsible for content</h3>
+    <p>[PREENCHER: nome da pessoa responsável pelo conteúdo, se diferente do operador]</p>
+</div>
+
+<h3>Haftungsausschluss / Disclaimer</h3>
+<p>
+    Maestro &amp; Cantor ist ein Lernprojekt und dient als Schwarzes Brett, über
+    das Sänger(innen) und Dirigent(innen) selbst Kontakt aufnehmen. Für die
+    Inhalte der veröffentlichten Anzeigen sind ausschließlich die jeweiligen
+    Verfasser(innen) verantwortlich.
+</p>
+<p class="field-help">
+    (EN) Maestro &amp; Cantor is a learning project and bulletin board through
+    which singers and conductors contact each other directly. The authors of
+    each listing are solely responsible for its content.
+</p>
+
+<p><a href="/datenschutz">{{ t('footer_privacy') }} →</a></p>
+{% endblock %}

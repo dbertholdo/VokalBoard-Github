@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ t('conduct_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('conduct_title') }}</h1>
+<p>{{ t('conduct_intro') }}</p>
+
+{% if lang == 'en' %}
+<ol class="conduct-list">
+    <li><strong>Be respectful.</strong> No harassment, discrimination, hate speech, or personal attacks — based on voice type, gender, origin, religion, disability, or anything else.</li>
+    <li><strong>Be honest.</strong> Don't post fake listings, fake availability, or misrepresent your experience, repertoire, or credentials.</li>
+    <li><strong>No spam or scams.</strong> No unrelated advertising, pyramid schemes, or requests for money outside of a legitimate, clearly described fee.</li>
+    <li><strong>Respect privacy.</strong> Don't share someone else's contact details, messages, or personal information without their consent.</li>
+    <li><strong>Keep it professional.</strong> This board is for engagements, auditions, and professional collaboration — not for dating or unrelated solicitations.</li>
+    <li><strong>Report, don't retaliate.</strong> If someone breaks these rules, use the "Report listing" or "Block" buttons instead of confronting them publicly.</li>
+</ol>
+<p>
+    Violations may lead to a listing being removed or an account being blocked
+    by other members, and — at the operator's discretion — to the account
+    being suspended. See our <a href="/impressum">legal notice</a> for contact
+    details.
+</p>
+{% else %}
+<ol class="conduct-list">
+    <li><strong>Sei respektvoll.</strong> Keine Belästigung, Diskriminierung, Hassrede oder persönlichen Angriffe — egal ob wegen Stimmtyp, Geschlecht, Herkunft, Religion, Behinderung oder irgendetwas anderem.</li>
+    <li><strong>Sei ehrlich.</strong> Keine falschen Anzeigen, erfundene Verfügbarkeit oder falsche Angaben zu Erfahrung, Repertoire oder Qualifikationen.</li>
+    <li><strong>Kein Spam und keine Betrugsversuche.</strong> Keine themenfremde Werbung, keine Schneeballsysteme, keine Geldforderungen außerhalb eines klar beschriebenen, legitimen Honorars.</li>
+    <li><strong>Respektiere die Privatsphäre.</strong> Teile keine Kontaktdaten, Nachrichten oder persönlichen Informationen anderer ohne deren Zustimmung.</li>
+    <li><strong>Bleib professionell.</strong> Dieses Schwarze Brett dient Engagements, Vorsingen und professioneller Zusammenarbeit — nicht Dating oder themenfremden Anfragen.</li>
+    <li><strong>Melden statt eskalieren.</strong> Wenn jemand gegen diese Regeln verstößt, nutze die Funktionen "Anzeige melden" oder "Blockieren", statt die Person öffentlich zu konfrontieren.</li>
+</ol>
+<p>
+    Verstöße können dazu führen, dass eine Anzeige entfernt wird oder ein
+    Konto von anderen Mitgliedern blockiert wird — und, nach Ermessen des
+    Betreibers, dass das Konto gesperrt wird. Kontaktdaten findest du im
+    <a href="/impressum">Impressum</a>.
+</p>
+{% endif %}
+{% endblock %}

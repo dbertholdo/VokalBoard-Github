@@ -1,0 +1,1730 @@
+-- ============================================================
+-- Schema: Maestro & Cantor — quadro de avisos para conectar
+-- cantores e maestros na Alemanha.
+--
+-- Este schema foi desenhado de propósito com tabelas de apoio
+-- (lookup tables) e chaves estrangeiras para você poder praticar
+-- JOINs, filtros com WHERE, agregações com GROUP BY, etc.
+-- ============================================================
+
+-- Extensão para gerar UUIDs (opcional, aqui usamos SERIAL/BIGSERIAL
+-- por simplicidade e para você também praticar IDs incrementais)
+-- CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+DROP TABLE IF EXISTS user_badges CASCADE;
+DROP TABLE IF EXISTS blocked_users CASCADE;
+DROP TABLE IF EXISTS listing_reports CASCADE;
+DROP TABLE IF EXISTS saved_listings CASCADE;
+DROP TABLE IF EXISTS ratings CASCADE;
+DROP TABLE IF EXISTS profile_views CASCADE;
+DROP TABLE IF EXISTS messages CASCADE;
+DROP TABLE IF EXISTS password_reset_tokens CASCADE;
+DROP TABLE IF EXISTS email_verification_tokens CASCADE;
+DROP TABLE IF EXISTS user_social_links CASCADE;
+DROP TABLE IF EXISTS singer_audio_links CASCADE;
+DROP TABLE IF EXISTS singer_composer_tags CASCADE;
+DROP TABLE IF EXISTS listings CASCADE;
+DROP TABLE IF EXISTS conductor_profiles CASCADE;
+DROP TABLE IF EXISTS singer_profiles CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS voice_types CASCADE;
+DROP TABLE IF EXISTS cities CASCADE;
+
+-- ------------------------------------------------------------
+-- Tabela de apoio (lookup): categorias de voz (SATB simplificado,
+-- conforme pedido: Soprano / Alto / Tenor / Baixo). Um(a) maestro(a)
+-- não tem tipo de voz (voice_type_id fica NULL para eles).
+-- ------------------------------------------------------------
+CREATE TABLE voice_types (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(50) NOT NULL UNIQUE,
+    sort_order  SMALLINT NOT NULL DEFAULT 0
+);
+
+-- ------------------------------------------------------------
+-- Tabela de apoio (lookup): cidades reais da Alemanha, Áustria e
+-- Suíça, cada uma já amarrada ao seu estado/cantão (ver `state` em
+-- users/listings) e ao país. Usada para popular os selects em
+-- cascata País > Estado > Cidade no cadastro/perfil e no formulário
+-- de anúncio, em vez de deixar "cidade" como texto livre — isso
+-- evita variações ("München" vs "Munich" vs "Muenchen") que
+-- quebrariam o match por cidade entre cantores e maestros.
+--
+-- Dados de origem: GeoNames (geonames.org, CC BY 4.0), cidades com
+-- população aproximada >= 15.000 habitantes — ver
+-- scripts/generate_cities_seed.py, que gera o INSERT no final deste
+-- arquivo. Não é uma lista exaustiva de todo povoado; por isso o
+-- formulário sempre mantém uma opção "Outra cidade" como texto livre
+-- de fallback.
+-- ------------------------------------------------------------
+CREATE TABLE cities (
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(100) NOT NULL,
+    state         VARCHAR(100) NOT NULL,
+    country_code  VARCHAR(10) NOT NULL CHECK (country_code IN ('DE', 'AT', 'CH')),
+    population    INTEGER,
+    UNIQUE (name, state, country_code)
+);
+
+CREATE INDEX idx_cities_state ON cities(state);
+CREATE INDEX idx_cities_country ON cities(country_code);
+
+-- ------------------------------------------------------------
+-- Usuários (cantores e maestros)
+--
+-- email_verified: fica FALSE até a pessoa clicar no link enviado por
+-- e-mail no cadastro (ver email_verification_tokens). Publicar
+-- anúncios e enviar mensagens exige e-mail verificado (reduz spam).
+-- ------------------------------------------------------------
+CREATE TABLE users (
+    id              BIGSERIAL PRIMARY KEY,
+    email           VARCHAR(255) NOT NULL UNIQUE,
+    password_hash   VARCHAR(255) NOT NULL,
+    full_name       VARCHAR(150) NOT NULL,
+    role            VARCHAR(20)  NOT NULL CHECK (role IN ('singer', 'conductor')),
+    city            VARCHAR(100),
+    state           VARCHAR(100),                          -- Bundesland/Kanton — mesma lista usada nos anúncios (ver `cities`)
+    country         VARCHAR(10) NOT NULL DEFAULT 'DE' CHECK (country IN ('DE', 'AT', 'CH', 'OTHER')),
+    phone           VARCHAR(50),
+    email_verified  BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Exclusão de conta "soft delete": quando a pessoa pede pra excluir
+    -- a conta, só marcamos deleted_at (não fazemos DELETE de verdade).
+    -- A conta some da visão de todo mundo (perfil, anúncios) e o login
+    -- passa a oferecer "reativar" em vez de logar direto. Um processo
+    -- de manutenção externo (ver scripts/purge_deleted_accounts.py)
+    -- apaga de vez quem está marcado há mais de 6 meses.
+    deleted_at      TIMESTAMPTZ,
+    -- Foto de perfil: caminho relativo dentro de /static (ex:
+    -- "/static/avatars/42.jpg"), não a imagem em si — o arquivo fica
+    -- no disco (ver app/avatars.py). NULL = sem foto, mostra um
+    -- avatar genérico no lugar.
+    avatar_url      VARCHAR(300),
+    -- Alertas de anúncio compatível: liga/desliga o e-mail que a
+    -- pessoa recebe quando alguém posta uma vaga que combina com o
+    -- tipo de voz/papel dela (ver app/notifications.py). Padrão
+    -- ligado; pode ser desligado em /profile.
+    notify_matches  BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Aviso por e-mail quando a pessoa recebe uma mensagem nova (ver
+    -- app/routers/messages_routes.py). Separado de notify_matches
+    -- porque são dois tipos de e-mail bem diferentes — a pessoa pode
+    -- querer um sem o outro.
+    notify_messages BOOLEAN NOT NULL DEFAULT TRUE,
+    -- "Convide um amigo": código curto único, gerado no cadastro
+    -- (ver app/referrals.py), usado num link tipo /register?ref=CODE.
+    referral_code       VARCHAR(12) UNIQUE,
+    referred_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    -- Nível de usuário especial pra tarefas administrativas simples
+    -- DENTRO do app (ver /admin em app/routers/admin_routes.py) — bem
+    -- mais restrito que o Adminer (que já dá acesso total ao banco):
+    -- isso aqui é só uma telinha de leitura pra triagem rápida de
+    -- denúncias/bloqueios, sem precisar abrir o Adminer/SQL toda vez.
+    -- Não existe cadastro de admin pela interface — vira admin só via
+    -- UPDATE direto no banco (ver README, seção "Nível de admin").
+    is_admin        BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_city ON users(city);
+CREATE INDEX idx_users_state ON users(state);
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+CREATE INDEX idx_users_referred_by ON users(referred_by_user_id);
+
+-- ------------------------------------------------------------
+-- Redes sociais / site pessoal (opcional). Cada linha é uma
+-- plataforma diferente para não repetir a lógica de audio_links
+-- desnecessariamente — aqui o conjunto de plataformas é fixo, então
+-- uma linha por plataforma com UNIQUE(user_id, platform) evita
+-- duplicatas e facilita mostrar sempre na mesma ordem.
+-- ------------------------------------------------------------
+CREATE TABLE user_social_links (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    platform    VARCHAR(20) NOT NULL CHECK (platform IN ('website', 'facebook', 'instagram', 'twitter', 'whatsapp')),
+    url         VARCHAR(500) NOT NULL,
+    UNIQUE (user_id, platform)
+);
+
+-- ------------------------------------------------------------
+-- Tokens de verificação de e-mail ("clique para ativar") e de
+-- recuperação de senha ("esqueci minha senha"). Mesma forma para os
+-- dois: um token aleatório, uma validade curta, e um "used_at" para
+-- que o link só funcione uma vez.
+--
+-- Nota de segurança: para simplificar o aprendizado, o token fica
+-- em texto puro na tabela. Num projeto "de verdade" o ideal é guardar
+-- um hash do token (como se faz com senhas) e comparar hashes — assim,
+-- mesmo um vazamento do banco não expõe tokens ativos.
+-- ------------------------------------------------------------
+CREATE TABLE email_verification_tokens (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token       VARCHAR(64) NOT NULL UNIQUE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    used_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE password_reset_tokens (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token       VARCHAR(64) NOT NULL UNIQUE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    used_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ------------------------------------------------------------
+-- Perfil específico de cantor (1:1 com users quando role='singer')
+--
+-- bio: biografia curta, limitada a 1000 caracteres (CHECK abaixo).
+-- ------------------------------------------------------------
+CREATE TABLE singer_profiles (
+    user_id         BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    voice_type_id   INTEGER REFERENCES voice_types(id),
+    fach            VARCHAR(100),          -- ex: "Lyric Soprano", "Spinto" (opcional, avançado)
+    bio             TEXT CHECK (char_length(bio) <= 1000),
+    experience_years SMALLINT
+);
+
+-- ------------------------------------------------------------
+-- Hashtags de compositores que o(a) cantor(a) já cantou.
+-- Tabela separada (em vez de um array/coluna de texto) de propósito:
+-- assim dá pra praticar JOIN/GROUP BY, por exemplo "quais são os
+-- compositores mais citados na plataforma".
+--
+-- O limite de 10 hashtags por cantor(a) é validado na aplicação
+-- (app/routers/profile_routes.py) — como exercício extra de SQL,
+-- você pode tentar reforçar esse limite com uma trigger no banco.
+-- ------------------------------------------------------------
+CREATE TABLE singer_composer_tags (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tag         VARCHAR(50) NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, tag)
+);
+
+CREATE INDEX idx_singer_composer_tags_user ON singer_composer_tags(user_id);
+CREATE INDEX idx_singer_composer_tags_tag ON singer_composer_tags(tag);
+
+-- ------------------------------------------------------------
+-- Links de "Audiobeispiel" (exemplo de áudio). Em vez de hospedar
+-- arquivos de áudio (o que exigiria object storage tipo S3, já que
+-- Render/Railway têm disco efêmero), o(a) cantor(a) só cola um link
+-- de YouTube, SoundCloud, etc. Até 3 por pessoa, validado na aplicação.
+-- ------------------------------------------------------------
+CREATE TABLE singer_audio_links (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    url         VARCHAR(500) NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_singer_audio_links_user ON singer_audio_links(user_id);
+
+-- ------------------------------------------------------------
+-- Perfil específico de maestro (1:1 com users quando role='conductor')
+-- ------------------------------------------------------------
+CREATE TABLE conductor_profiles (
+    user_id         BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    ensemble_name   VARCHAR(150),          -- coro/orquestra que representa (se houver)
+    bio             TEXT CHECK (char_length(bio) <= 1000),
+    experience_years SMALLINT,
+    website_url     VARCHAR(300)
+);
+
+-- ------------------------------------------------------------
+-- Anúncios (o "bulletin board" propriamente dito)
+--
+-- listing_type:
+--   'seeking_singer'     -> maestro (ou cantor) procurando cantor(a)
+--   'seeking_conductor'  -> cantor procurando maestro/regência
+--   'singer_available'   -> cantor anunciando disponibilidade
+--   'conductor_available'-> maestro anunciando disponibilidade
+-- ------------------------------------------------------------
+CREATE TABLE listings (
+    id              BIGSERIAL PRIMARY KEY,
+    author_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    listing_type    VARCHAR(30) NOT NULL CHECK (
+        listing_type IN ('seeking_singer', 'seeking_conductor', 'singer_available', 'conductor_available')
+    ),
+    title           VARCHAR(150) NOT NULL,
+    description     TEXT NOT NULL,
+    city            VARCHAR(100),
+    country         VARCHAR(10) NOT NULL DEFAULT 'DE' CHECK (country IN ('DE', 'AT', 'CH', 'OTHER')),
+    state           VARCHAR(100),                          -- "Estado"/Bundesland — obrigatório na aplicação, mas
+                                                             -- sem NOT NULL aqui pelo mesmo motivo que "city": mantém
+                                                             -- o schema tolerante e deixa a validação no app.
+    voice_type_id   INTEGER REFERENCES voice_types(id),   -- NULL = "todas as vozes" quando aplicável
+    repertoire      VARCHAR(200),                          -- "Obra": ex "Mozart, Requiem"
+    venue           VARCHAR(200),                          -- "Onde" / Ort: igreja, sala de concerto, etc.
+    fee             VARCHAR(100),                          -- "Cachê": texto livre (ex: "250€", "a combinar")
+    ensemble_type   VARCHAR(10) CHECK (ensemble_type IN ('solo', 'choir', 'both')),  -- solo / coro / ambos (opcional)
+    event_date      DATE,                                  -- data do evento/audição, se houver
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_listings_type ON listings(listing_type);
+CREATE INDEX idx_listings_city ON listings(city);
+CREATE INDEX idx_listings_country ON listings(country);
+CREATE INDEX idx_listings_voice_type ON listings(voice_type_id);
+CREATE INDEX idx_listings_active_created ON listings(is_active, created_at DESC);
+-- Adicionados junto com os filtros de Estado e Período em /board, e o
+-- de author_id porque ele entra em praticamente todo JOIN com users
+-- (inclusive os que checam deleted_at) — sem índice, cada consulta
+-- faria um sequential scan na tabela inteira. Bom exercício: rode
+-- `EXPLAIN ANALYZE` numa query do board antes/depois de ter esses
+-- índices pra ver a diferença no plano de execução.
+CREATE INDEX idx_listings_state ON listings(state);
+CREATE INDEX idx_listings_event_date ON listings(event_date);
+CREATE INDEX idx_listings_author ON listings(author_id);
+
+-- ------------------------------------------------------------
+-- Mensagens internas (inbox / enviadas / lixeira), pra não precisar
+-- expor e-mail/telefone pra quem só quer mandar uma mensagem rápida.
+--
+-- sender_status / recipient_status: cada lado tem seu próprio estado
+-- ('active' ou 'trashed') — jogar na lixeira só afeta a SUA visão da
+-- conversa. "Esvaziar lixeira" (na aplicação) apaga a linha de vez;
+-- como simplificação didática, isso remove a mensagem para os dois
+-- lados de uma vez (não só pra quem esvaziou). Um exercício de SQL
+-- mais avançado seria só fazer o DELETE físico quando AMBOS os lados
+-- já estiverem com status='trashed'.
+-- ------------------------------------------------------------
+CREATE TABLE messages (
+    id                  BIGSERIAL PRIMARY KEY,
+    sender_id           BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    listing_id          BIGINT REFERENCES listings(id) ON DELETE SET NULL,
+    body                TEXT NOT NULL CHECK (char_length(body) <= 2000),
+    read_at             TIMESTAMPTZ,
+    sender_status       VARCHAR(10) NOT NULL DEFAULT 'active' CHECK (sender_status IN ('active', 'trashed')),
+    recipient_status    VARCHAR(10) NOT NULL DEFAULT 'active' CHECK (recipient_status IN ('active', 'trashed')),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_messages_recipient ON messages(recipient_id, recipient_status, created_at DESC);
+CREATE INDEX idx_messages_sender ON messages(sender_id, sender_status, created_at DESC);
+
+-- ------------------------------------------------------------
+-- Contagem de visitas de perfil — propositalmente SEM nenhuma tela
+-- na aplicação que mostre isso a ninguém (nem ao próprio dono do
+-- perfil). É só um log para você, como administrador, consultar
+-- direto no banco quando quiser uma métrica de uso. Exemplo:
+--
+--   SELECT profile_user_id, COUNT(*) AS views
+--   FROM profile_views
+--   GROUP BY profile_user_id
+--   ORDER BY views DESC;
+-- ------------------------------------------------------------
+CREATE TABLE profile_views (
+    id                  BIGSERIAL PRIMARY KEY,
+    profile_user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    viewer_user_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,  -- NULL = visitante não logado
+    viewed_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_profile_views_profile ON profile_views(profile_user_id, viewed_at DESC);
+
+-- ------------------------------------------------------------
+-- Avaliações (0 a 5 estrelas) entre cantores e maestros.
+--
+-- Privacidade por desenho: só quem RECEBEU a avaliação (rated_id) pode
+-- ver as avaliações que recebeu (consultado em /profile, nunca em
+-- /users/{id} nem em nenhum outro lugar público). Quem avaliou também
+-- sabe o que escreveu (é o autor), mas terceiros não veem nada — nem
+-- outras pessoas avaliadas, nem visitantes. UNIQUE(rater_id, rated_id):
+-- uma pessoa só tem UMA avaliação ativa por outra pessoa; reavaliar
+-- atualiza a mesma linha (UPSERT) em vez de acumular.
+-- ------------------------------------------------------------
+CREATE TABLE ratings (
+    id          BIGSERIAL PRIMARY KEY,
+    rater_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rated_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    listing_id  BIGINT REFERENCES listings(id) ON DELETE SET NULL,
+    stars       SMALLINT NOT NULL CHECK (stars BETWEEN 0 AND 5),
+    comment     VARCHAR(500),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (rater_id <> rated_id),
+    UNIQUE (rater_id, rated_id)
+);
+
+CREATE INDEX idx_ratings_rated ON ratings(rated_id);
+
+-- ------------------------------------------------------------
+-- Favoritos: anúncios que a pessoa marcou "quero ver depois" sem
+-- necessariamente já ter mandado mensagem. UNIQUE(user_id, listing_id)
+-- evita duplicar o favorito — favoritar de novo não faz nada, "des-
+-- favoritar" é um DELETE simples da linha.
+-- ------------------------------------------------------------
+CREATE TABLE saved_listings (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    listing_id  BIGINT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, listing_id)
+);
+
+CREATE INDEX idx_saved_listings_user ON saved_listings(user_id, created_at DESC);
+CREATE INDEX idx_saved_listings_listing ON saved_listings(listing_id);
+
+-- ------------------------------------------------------------
+-- Denúncias de anúncio ("Denunciar anúncio") — exige um motivo escrito
+-- (reason), como pedido. Sem tela de moderação na aplicação (por
+-- enquanto): assim como profile_views, é uma tabela pra você, como
+-- administrador, consultar direto no banco:
+--
+--   SELECT lr.*, l.title, u.email AS reporter_email
+--   FROM listing_reports lr
+--   JOIN listings l ON l.id = lr.listing_id
+--   JOIN users u ON u.id = lr.reporter_id
+--   ORDER BY lr.created_at DESC;
+-- ------------------------------------------------------------
+CREATE TABLE listing_reports (
+    id          BIGSERIAL PRIMARY KEY,
+    listing_id  BIGINT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    reporter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reason      TEXT NOT NULL CHECK (char_length(reason) >= 10),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_listing_reports_listing ON listing_reports(listing_id);
+
+-- ------------------------------------------------------------
+-- Bloqueio de usuário: quem bloqueia para de ver os anúncios da
+-- pessoa bloqueada (no /board e nos matches da Home) e nenhum dos
+-- dois lados consegue mais mandar mensagem pro outro (checado em
+-- messages_routes.py). UNIQUE(blocker_id, blocked_id): só um bloqueio
+-- ativo por par.
+-- ------------------------------------------------------------
+CREATE TABLE blocked_users (
+    id          BIGSERIAL PRIMARY KEY,
+    blocker_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    blocked_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reason      VARCHAR(500),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (blocker_id <> blocked_id),
+    UNIQUE (blocker_id, blocked_id)
+);
+
+CREATE INDEX idx_blocked_users_blocker ON blocked_users(blocker_id);
+CREATE INDEX idx_blocked_users_blocked ON blocked_users(blocked_id);
+
+-- ------------------------------------------------------------
+-- Badges já desbloqueados por cada pessoa (ver app/badges.py).
+--
+-- Os badges em si são CALCULADOS na hora a partir de outras tabelas
+-- (indicação, anúncios, mensagens, perfil completo, visitas...) — essa
+-- tabela aqui não guarda a "regra" de nenhum badge, só um REGISTRO de
+-- quando cada um foi desbloqueado pela primeira vez. Serve pra duas
+-- coisas: (1) mandar o e-mail de "você desbloqueou um badge" só uma
+-- vez por badge/nível (sem isso, todo recálculo mandaria e-mail de
+-- novo); (2) badges com "nível" (ex: visitas 100/500/1000, aniversário
+-- 1/2/3 anos) guardam cada degrau alcançado como uma linha separada.
+--
+-- tier = '' (string vazia, não NULL) para badges sem nível — assim o
+-- UNIQUE abaixo funciona igual pra todos (NULL não conta como "igual"
+-- a outro NULL num UNIQUE do Postgres, string vazia sim).
+-- ------------------------------------------------------------
+CREATE TABLE user_badges (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    badge_key   VARCHAR(50) NOT NULL,
+    tier        VARCHAR(20) NOT NULL DEFAULT '',
+    unlocked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    notified_at TIMESTAMPTZ,
+    UNIQUE (user_id, badge_key, tier)
+);
+
+CREATE INDEX idx_user_badges_user ON user_badges(user_id);
+
+-- ------------------------------------------------------------
+-- Dados iniciais (seed) — categorias de voz simplificadas (SATB)
+-- ------------------------------------------------------------
+INSERT INTO voice_types (name, sort_order) VALUES
+    ('Soprano', 1),
+    ('Alto', 2),
+    ('Tenor', 3),
+    ('Baixo', 4);
+
+-- ------------------------------------------------------------
+-- Dados iniciais (seed) — cidades da Alemanha, Áustria e Suíça
+-- (ver db/seed_cities.sql / scripts/generate_cities_seed.py)
+-- ------------------------------------------------------------
+INSERT INTO cities (name, state, country_code, population) VALUES
+    ('Stuttgart', 'Baden-Württemberg', 'DE', 612663),
+    ('Mannheim', 'Baden-Württemberg', 'DE', 307960),
+    ('Karlsruhe', 'Baden-Württemberg', 'DE', 283799),
+    ('Freiburg', 'Baden-Württemberg', 'DE', 237460),
+    ('Heidelberg', 'Baden-Württemberg', 'DE', 143345),
+    ('Heilbronn', 'Baden-Württemberg', 'DE', 120733),
+    ('Ulm', 'Baden-Württemberg', 'DE', 120451),
+    ('Pforzheim', 'Baden-Württemberg', 'DE', 119313),
+    ('Reutlingen', 'Baden-Württemberg', 'DE', 112627),
+    ('Esslingen', 'Baden-Württemberg', 'DE', 92390),
+    ('Tübingen', 'Baden-Württemberg', 'DE', 92322),
+    ('Ludwigsburg', 'Baden-Württemberg', 'DE', 87603),
+    ('Villingen-Schwenningen', 'Baden-Württemberg', 'DE', 81770),
+    ('Konstanz', 'Baden-Württemberg', 'DE', 81275),
+    ('Aalen', 'Baden-Württemberg', 'DE', 67085),
+    ('Sindelfingen', 'Baden-Württemberg', 'DE', 61311),
+    ('Schwäbisch Gmünd', 'Baden-Württemberg', 'DE', 61216),
+    ('Offenburg', 'Baden-Württemberg', 'DE', 59238),
+    ('Friedrichshafen', 'Baden-Württemberg', 'DE', 58403),
+    ('Göppingen', 'Baden-Württemberg', 'DE', 58040),
+    ('Baden-Baden', 'Baden-Württemberg', 'DE', 56881),
+    ('Waiblingen', 'Baden-Württemberg', 'DE', 52945),
+    ('Lahr', 'Baden-Württemberg', 'DE', 50775),
+    ('Heidenheim an der Brenz', 'Baden-Württemberg', 'DE', 50067),
+    ('Leonberg', 'Baden-Württemberg', 'DE', 49480),
+    ('Ravensburg', 'Baden-Württemberg', 'DE', 48825),
+    ('Rastatt', 'Baden-Württemberg', 'DE', 47906),
+    ('Bruchsal', 'Baden-Württemberg', 'DE', 47784),
+    ('Singen', 'Baden-Württemberg', 'DE', 47621),
+    ('Stuttgart-Ost', 'Baden-Württemberg', 'DE', 47500),
+    ('Lörrach', 'Baden-Württemberg', 'DE', 47002),
+    ('Albstadt', 'Baden-Württemberg', 'DE', 46950),
+    ('Böblingen', 'Baden-Württemberg', 'DE', 46282),
+    ('Fellbach', 'Baden-Württemberg', 'DE', 43935),
+    ('Bietigheim-Bissingen', 'Baden-Württemberg', 'DE', 43556),
+    ('Filderstadt', 'Baden-Württemberg', 'DE', 43550),
+    ('Weinheim', 'Baden-Württemberg', 'DE', 43325),
+    ('Rottenburg', 'Baden-Württemberg', 'DE', 42721),
+    ('Schorndorf', 'Baden-Württemberg', 'DE', 41647),
+    ('Leinfelden-Echterdingen', 'Baden-Württemberg', 'DE', 41185),
+    ('Nürtingen', 'Baden-Württemberg', 'DE', 40210),
+    ('Kirchheim unter Teck', 'Baden-Württemberg', 'DE', 40206),
+    ('Kehl', 'Baden-Württemberg', 'DE', 39584),
+    ('Backnang', 'Baden-Württemberg', 'DE', 38818),
+    ('Ettlingen', 'Baden-Württemberg', 'DE', 38578),
+    ('Sinsheim', 'Baden-Württemberg', 'DE', 37036),
+    ('Schwäbisch Hall', 'Baden-Württemberg', 'DE', 36543),
+    ('Crailsheim', 'Baden-Württemberg', 'DE', 35755),
+    ('Tuttlingen', 'Baden-Württemberg', 'DE', 34847),
+    ('Rheinfelden', 'Baden-Württemberg', 'DE', 34674),
+    ('Balingen', 'Baden-Württemberg', 'DE', 34414),
+    ('Herrenberg', 'Baden-Württemberg', 'DE', 34192),
+    ('Kornwestheim', 'Baden-Württemberg', 'DE', 33980),
+    ('Ostfildern', 'Baden-Württemberg', 'DE', 33598),
+    ('Biberach an der Riß', 'Baden-Württemberg', 'DE', 32333),
+    ('Weil am Rhein', 'Baden-Württemberg', 'DE', 32236),
+    ('Radolfzell', 'Baden-Württemberg', 'DE', 31734),
+    ('Bretten', 'Baden-Württemberg', 'DE', 30274),
+    ('Winnenden', 'Baden-Württemberg', 'DE', 29876),
+    ('Gaggenau', 'Baden-Württemberg', 'DE', 29529),
+    ('Vaihingen an der Enz', 'Baden-Württemberg', 'DE', 28798),
+    ('Geislingen an der Steige', 'Baden-Württemberg', 'DE', 28655),
+    ('Bühl', 'Baden-Württemberg', 'DE', 28608),
+    ('Stuttgart Feuerbach', 'Baden-Württemberg', 'DE', 28046),
+    ('Ehingen', 'Baden-Württemberg', 'DE', 27764),
+    ('Wiesloch', 'Baden-Württemberg', 'DE', 27731),
+    ('Emmendingen', 'Baden-Württemberg', 'DE', 27383),
+    ('Leimen', 'Baden-Württemberg', 'DE', 27142),
+    ('Wangen', 'Baden-Württemberg', 'DE', 27045),
+    ('Mühlacker', 'Baden-Württemberg', 'DE', 26787),
+    ('Achern', 'Baden-Württemberg', 'DE', 26733),
+    ('Remseck am Neckar', 'Baden-Württemberg', 'DE', 26549),
+    ('Neckarsulm', 'Baden-Württemberg', 'DE', 26431),
+    ('Weinstadt-Endersbach', 'Baden-Württemberg', 'DE', 26166),
+    ('Stuttgart Mühlhausen', 'Baden-Württemberg', 'DE', 26111),
+    ('Horb am Neckar', 'Baden-Württemberg', 'DE', 25651),
+    ('Rottweil', 'Baden-Württemberg', 'DE', 25510),
+    ('Mosbach', 'Baden-Württemberg', 'DE', 25106),
+    ('Ellwangen', 'Baden-Württemberg', 'DE', 25001),
+    ('Wertheim', 'Baden-Württemberg', 'DE', 24869),
+    ('Ditzingen', 'Baden-Württemberg', 'DE', 24149),
+    ('Freudenstadt', 'Baden-Württemberg', 'DE', 23868),
+    ('Weingarten', 'Baden-Württemberg', 'DE', 23802),
+    ('Calw', 'Baden-Württemberg', 'DE', 23740),
+    ('Nagold', 'Baden-Württemberg', 'DE', 22912),
+    ('Öhringen', 'Baden-Württemberg', 'DE', 22765),
+    ('Schwetzingen', 'Baden-Württemberg', 'DE', 22593),
+    ('Bad Mergentheim', 'Baden-Württemberg', 'DE', 22472),
+    ('Waldshut-Tiengen', 'Baden-Württemberg', 'DE', 22404),
+    ('Leutkirch', 'Baden-Württemberg', 'DE', 22362),
+    ('Eislingen', 'Baden-Württemberg', 'DE', 22325),
+    ('Metzingen', 'Baden-Württemberg', 'DE', 22112),
+    ('Donaueschingen', 'Baden-Württemberg', 'DE', 21604),
+    ('Überlingen', 'Baden-Württemberg', 'DE', 21507),
+    ('Eppingen', 'Baden-Württemberg', 'DE', 21179),
+    ('Hockenheim', 'Baden-Württemberg', 'DE', 20614),
+    ('Bad Rappenau', 'Baden-Württemberg', 'DE', 20581),
+    ('Rheinstetten', 'Baden-Württemberg', 'DE', 20378),
+    ('Oberkirch', 'Baden-Württemberg', 'DE', 20375),
+    ('Giengen an der Brenz', 'Baden-Württemberg', 'DE', 20201),
+    ('Waghäusel', 'Baden-Württemberg', 'DE', 20178),
+    ('Waldkirch', 'Baden-Württemberg', 'DE', 20155),
+    ('Mössingen', 'Baden-Württemberg', 'DE', 20010),
+    ('Bad Waldsee', 'Baden-Württemberg', 'DE', 19840),
+    ('Hechingen', 'Baden-Württemberg', 'DE', 19400),
+    ('Schopfheim', 'Baden-Württemberg', 'DE', 19386),
+    ('Weil der Stadt', 'Baden-Württemberg', 'DE', 19338),
+    ('Eselsberg', 'Baden-Württemberg', 'DE', 19075),
+    ('Gerlingen', 'Baden-Württemberg', 'DE', 19050),
+    ('Laupheim', 'Baden-Württemberg', 'DE', 19012),
+    ('Sachsenheim', 'Baden-Württemberg', 'DE', 18594),
+    ('Schramberg', 'Baden-Württemberg', 'DE', 18565),
+    ('Pfullingen', 'Baden-Württemberg', 'DE', 18269),
+    ('Buchen in Odenwald', 'Baden-Württemberg', 'DE', 18226),
+    ('Tettnang', 'Baden-Württemberg', 'DE', 18135),
+    ('Müllheim', 'Baden-Württemberg', 'DE', 18097),
+    ('Korntal', 'Baden-Württemberg', 'DE', 18081),
+    ('Bad Saulgau', 'Baden-Württemberg', 'DE', 17911),
+    ('Renningen', 'Baden-Württemberg', 'DE', 17442),
+    ('Stockach', 'Baden-Württemberg', 'DE', 16844),
+    ('Sigmaringen', 'Baden-Württemberg', 'DE', 16592),
+    ('Bad Säckingen', 'Baden-Württemberg', 'DE', 16549),
+    ('Baiersbronn', 'Baden-Württemberg', 'DE', 16248),
+    ('Petershausen-West', 'Baden-Württemberg', 'DE', 16021),
+    ('Ebersbach an der Fils', 'Baden-Württemberg', 'DE', 15919),
+    ('Unterkrozingen', 'Baden-Württemberg', 'DE', 15908),
+    ('Wendlingen am Neckar', 'Baden-Württemberg', 'DE', 15728),
+    ('Klingenstein', 'Baden-Württemberg', 'DE', 15643),
+    ('Eberbach', 'Baden-Württemberg', 'DE', 15624),
+    ('Marbach am Neckar', 'Baden-Württemberg', 'DE', 15604),
+    ('Lauda-Königshofen', 'Baden-Württemberg', 'DE', 15278),
+    ('Freiberg am Neckar', 'Baden-Württemberg', 'DE', 15235),
+    ('Eggenstein-Leopoldshafen', 'Baden-Württemberg', 'DE', 15189),
+    ('Brackenheim', 'Baden-Württemberg', 'DE', 15083),
+    ('Künzelsau', 'Baden-Württemberg', 'DE', 15070),
+    ('Trossingen', 'Baden-Württemberg', 'DE', 15040),
+    ('München', 'Bayern', 'DE', 1505005),
+    ('Nürnberg', 'Bayern', 'DE', 515543),
+    ('Augsburg', 'Bayern', 'DE', 301105),
+    ('Regensburg', 'Bayern', 'DE', 151389),
+    ('Würzburg', 'Bayern', 'DE', 133731),
+    ('Fürth', 'Bayern', 'DE', 132036),
+    ('Ingolstadt', 'Bayern', 'DE', 120658),
+    ('Erlangen', 'Bayern', 'DE', 102675),
+    ('Bogenhausen', 'Bayern', 'DE', 77542),
+    ('Bayreuth', 'Bayern', 'DE', 72940),
+    ('Landshut', 'Bayern', 'DE', 71863),
+    ('Bamberg', 'Bayern', 'DE', 70047),
+    ('Aschaffenburg', 'Bayern', 'DE', 68551),
+    ('Kempten (Allgäu)', 'Bayern', 'DE', 61399),
+    ('Rosenheim', 'Bayern', 'DE', 60167),
+    ('Schweinfurt', 'Bayern', 'DE', 54012),
+    ('Neu-Ulm', 'Bayern', 'DE', 51389),
+    ('Passau', 'Bayern', 'DE', 50560),
+    ('Hof', 'Bayern', 'DE', 49239),
+    ('Amberg', 'Bayern', 'DE', 44737),
+    ('Straubing', 'Bayern', 'DE', 44580),
+    ('Memmingen', 'Bayern', 'DE', 44192),
+    ('Freising', 'Bayern', 'DE', 42570),
+    ('Weiden', 'Bayern', 'DE', 42550),
+    ('Kaufbeuren', 'Bayern', 'DE', 42505),
+    ('Coburg', 'Bayern', 'DE', 41901),
+    ('Germering', 'Bayern', 'DE', 40916),
+    ('Dachau', 'Bayern', 'DE', 39740),
+    ('Neumarkt in der Oberpfalz', 'Bayern', 'DE', 39557),
+    ('Schwabach', 'Bayern', 'DE', 38554),
+    ('Pasing', 'Bayern', 'DE', 35728),
+    ('Fürstenfeldbruck', 'Bayern', 'DE', 33533),
+    ('Erding', 'Bayern', 'DE', 33519),
+    ('Ansbach', 'Bayern', 'DE', 31839),
+    ('Deggendorf', 'Bayern', 'DE', 31081),
+    ('Forchheim', 'Bayern', 'DE', 30442),
+    ('Friedberg', 'Bayern', 'DE', 29953),
+    ('Unterschleißheim', 'Bayern', 'DE', 28482),
+    ('Neuburg an der Donau', 'Bayern', 'DE', 28370),
+    ('Schwandorf in Bayern', 'Bayern', 'DE', 28235),
+    ('Königsbrunn', 'Bayern', 'DE', 27879),
+    ('Kulmbach', 'Bayern', 'DE', 27565),
+    ('Landsberg am Lech', 'Bayern', 'DE', 27017),
+    ('Lauf an der Pegnitz', 'Bayern', 'DE', 26403),
+    ('Garmisch-Partenkirchen', 'Bayern', 'DE', 26022),
+    ('Zirndorf', 'Bayern', 'DE', 25734),
+    ('Roth', 'Bayern', 'DE', 25083),
+    ('Waldkraiburg', 'Bayern', 'DE', 24676),
+    ('Lindau', 'Bayern', 'DE', 24518),
+    ('Herzogenaurach', 'Bayern', 'DE', 24237),
+    ('Olching', 'Bayern', 'DE', 23978),
+    ('Starnberg', 'Bayern', 'DE', 23940),
+    ('Weilheim', 'Bayern', 'DE', 23378),
+    ('Geretsried', 'Bayern', 'DE', 23364),
+    ('Pfaffenhofen an der Ilm', 'Bayern', 'DE', 23192),
+    ('Neusäß', 'Bayern', 'DE', 22904),
+    ('Senden', 'Bayern', 'DE', 22275),
+    ('Kitzingen', 'Bayern', 'DE', 21387),
+    ('Lichtenfels', 'Bayern', 'DE', 21336),
+    ('Bad Kissingen', 'Bayern', 'DE', 21328),
+    ('Sonthofen', 'Bayern', 'DE', 21285),
+    ('Traunreut', 'Bayern', 'DE', 21244),
+    ('Aichach', 'Bayern', 'DE', 21042),
+    ('Vaterstetten', 'Bayern', 'DE', 21007),
+    ('Unterhaching', 'Bayern', 'DE', 20852),
+    ('Nördlingen', 'Bayern', 'DE', 20352),
+    ('Gersthofen', 'Bayern', 'DE', 20254),
+    ('Günzburg', 'Bayern', 'DE', 19737),
+    ('Sulzbach-Rosenberg', 'Bayern', 'DE', 19379),
+    ('Puchheim', 'Bayern', 'DE', 19357),
+    ('Gauting', 'Bayern', 'DE', 19216),
+    ('Ottobrunn bei München', 'Bayern', 'DE', 19204),
+    ('Gröbenzell', 'Bayern', 'DE', 19110),
+    ('Alzenau in Unterfranken', 'Bayern', 'DE', 18932),
+    ('Dingolfing', 'Bayern', 'DE', 18805),
+    ('Dillingen an der Donau', 'Bayern', 'DE', 18734),
+    ('Marktoberdorf', 'Bayern', 'DE', 18505),
+    ('Traunstein', 'Bayern', 'DE', 18422),
+    ('Donauwörth', 'Bayern', 'DE', 18364),
+    ('Weißenburg in Bayern', 'Bayern', 'DE', 18345),
+    ('Burghausen', 'Bayern', 'DE', 18263),
+    ('Neufahrn bei Freising', 'Bayern', 'DE', 18255),
+    ('Kronach', 'Bayern', 'DE', 18248),
+    ('Marktredwitz', 'Bayern', 'DE', 18204),
+    ('Kolbermoor', 'Bayern', 'DE', 17941),
+    ('Karlsfeld', 'Bayern', 'DE', 17920),
+    ('Taufkirchen', 'Bayern', 'DE', 17791),
+    ('Bad Aibling', 'Bayern', 'DE', 17672),
+    ('Garching', 'Bayern', 'DE', 17656),
+    ('Mühldorf', 'Bayern', 'DE', 17622),
+    ('Haar', 'Bayern', 'DE', 17560),
+    ('Bad Tölz', 'Bayern', 'DE', 17434),
+    ('Moosburg', 'Bayern', 'DE', 17363),
+    ('Cham', 'Bayern', 'DE', 17314),
+    ('Oberasbach', 'Bayern', 'DE', 17306),
+    ('Wolfratshausen', 'Bayern', 'DE', 17191),
+    ('Selb', 'Bayern', 'DE', 17132),
+    ('Bad Reichenhall', 'Bayern', 'DE', 16910),
+    ('Gilching', 'Bayern', 'DE', 16859),
+    ('Holzkirchen', 'Bayern', 'DE', 16770),
+    ('Vilshofen', 'Bayern', 'DE', 16695),
+    ('Bobingen', 'Bayern', 'DE', 16682),
+    ('Illertissen', 'Bayern', 'DE', 16522),
+    ('Gunzenhausen', 'Bayern', 'DE', 16477),
+    ('Wendelstein', 'Bayern', 'DE', 16446),
+    ('Großostheim', 'Bayern', 'DE', 16346),
+    ('Schrobenhausen', 'Bayern', 'DE', 16143),
+    ('Lohr am Main', 'Bayern', 'DE', 16127),
+    ('Penzberg', 'Bayern', 'DE', 16079),
+    ('Freilassing', 'Bayern', 'DE', 15909),
+    ('Bruckmühl', 'Bayern', 'DE', 15851),
+    ('Kelheim', 'Bayern', 'DE', 15723),
+    ('Füssen', 'Bayern', 'DE', 15608),
+    ('Bad Neustadt an der Saale', 'Bayern', 'DE', 15434),
+    ('Altdorf bei Nürnberg', 'Bayern', 'DE', 15312),
+    ('Karlstadt', 'Bayern', 'DE', 15272),
+    ('Berlin', 'Berlin', 'DE', 3426354),
+    ('Neukölln', 'Berlin', 'DE', 164636),
+    ('Kreuzberg', 'Berlin', 'DE', 153135),
+    ('Prenzlauer Berg', 'Berlin', 'DE', 148878),
+    ('Charlottenburg', 'Berlin', 'DE', 129359),
+    ('Schöneberg', 'Berlin', 'DE', 122658),
+    ('Friedrichshain', 'Berlin', 'DE', 117829),
+    ('Marzahn', 'Berlin', 'DE', 111508),
+    ('Mitte', 'Berlin', 'DE', 102338),
+    ('Wilmersdorf', 'Berlin', 'DE', 101877),
+    ('Gesundbrunnen', 'Berlin', 'DE', 93862),
+    ('Lichterfelde', 'Berlin', 'DE', 85885),
+    ('Wedding', 'Berlin', 'DE', 85275),
+    ('Hellersdorf', 'Berlin', 'DE', 84103),
+    ('Reinickendorf', 'Berlin', 'DE', 83972),
+    ('Moabit', 'Berlin', 'DE', 81021),
+    ('Steglitz', 'Berlin', 'DE', 72464),
+    ('Köpenick', 'Berlin', 'DE', 67148),
+    ('Pankow', 'Berlin', 'DE', 65375),
+    ('Tempelhof', 'Berlin', 'DE', 61769),
+    ('Berlin Köpenick', 'Berlin', 'DE', 59561),
+    ('Neu-Hohenschönhausen', 'Berlin', 'DE', 56921),
+    ('Friedrichsfelde', 'Berlin', 'DE', 55423),
+    ('Zehlendorf', 'Berlin', 'DE', 54328),
+    ('Mariendorf', 'Berlin', 'DE', 52734),
+    ('Lichtenrade', 'Berlin', 'DE', 52110),
+    ('Alt-Hohenschönhausen', 'Berlin', 'DE', 50070),
+    ('Treptow', 'Berlin', 'DE', 50000),
+    ('Weißensee', 'Berlin', 'DE', 47693),
+    ('Staaken', 'Berlin', 'DE', 46369),
+    ('Lankwitz', 'Berlin', 'DE', 43558),
+    ('Britz', 'Berlin', 'DE', 42846),
+    ('Rudow', 'Berlin', 'DE', 42631),
+    ('Lichtenberg', 'Berlin', 'DE', 41359),
+    ('Westend', 'Berlin', 'DE', 41328),
+    ('Wilhelmstadt', 'Berlin', 'DE', 40463),
+    ('Buckow', 'Berlin', 'DE', 40146),
+    ('Märkisches Viertel', 'Berlin', 'DE', 40119),
+    ('Spandau', 'Berlin', 'DE', 39653),
+    ('Falkenhagener Feld', 'Berlin', 'DE', 38667),
+    ('Gropiusstadt', 'Berlin', 'DE', 37686),
+    ('Tegel', 'Berlin', 'DE', 36764),
+    ('Fennpfuhl', 'Berlin', 'DE', 33751),
+    ('Marienfelde', 'Berlin', 'DE', 32270),
+    ('Niederschönhausen', 'Berlin', 'DE', 32037),
+    ('Hakenfelde', 'Berlin', 'DE', 31327),
+    ('Mahlsdorf', 'Berlin', 'DE', 29757),
+    ('Altglienicke', 'Berlin', 'DE', 29595),
+    ('Biesdorf', 'Berlin', 'DE', 28955),
+    ('Karlshorst', 'Berlin', 'DE', 28206),
+    ('Friedenau', 'Berlin', 'DE', 27998),
+    ('Rummelsburg', 'Berlin', 'DE', 25697),
+    ('Wittenau', 'Berlin', 'DE', 24726),
+    ('Oberschöneweide', 'Berlin', 'DE', 23638),
+    ('Schmargendorf', 'Berlin', 'DE', 22733),
+    ('Französisch Buchholz', 'Berlin', 'DE', 21449),
+    ('Adlershof', 'Berlin', 'DE', 20210),
+    ('Johannisthal', 'Berlin', 'DE', 19960),
+    ('Charlottenburg-Nord', 'Berlin', 'DE', 19422),
+    ('Kaulsdorf', 'Berlin', 'DE', 19408),
+    ('Friedrichshagen', 'Berlin', 'DE', 19009),
+    ('Baumschulenweg', 'Berlin', 'DE', 18894),
+    ('Karow', 'Berlin', 'DE', 18817),
+    ('Heiligensee', 'Berlin', 'DE', 18099),
+    ('Dahlem', 'Berlin', 'DE', 16916),
+    ('Hermsdorf', 'Berlin', 'DE', 16726),
+    ('Frohnau', 'Berlin', 'DE', 16689),
+    ('Haselhorst', 'Berlin', 'DE', 16471),
+    ('Kladow', 'Berlin', 'DE', 16368),
+    ('Potsdam', 'Brandenburg', 'DE', 184754),
+    ('Cottbus', 'Brandenburg', 'DE', 84754),
+    ('Brandenburg an der Havel', 'Brandenburg', 'DE', 59826),
+    ('Frankfurt (Oder)', 'Brandenburg', 'DE', 57107),
+    ('Eberswalde', 'Brandenburg', 'DE', 41980),
+    ('Oranienburg', 'Brandenburg', 'DE', 40793),
+    ('Falkensee', 'Brandenburg', 'DE', 37468),
+    ('Bernau bei Berlin', 'Brandenburg', 'DE', 34866),
+    ('Schwedt (Oder)', 'Brandenburg', 'DE', 33730),
+    ('Fürstenwalde', 'Brandenburg', 'DE', 33539),
+    ('Königs Wusterhausen', 'Brandenburg', 'DE', 32513),
+    ('Eisenhüttenstadt', 'Brandenburg', 'DE', 32052),
+    ('Neuruppin', 'Brandenburg', 'DE', 31901),
+    ('Blankenfelde-Mahlow', 'Brandenburg', 'DE', 29129),
+    ('Senftenberg', 'Brandenburg', 'DE', 28988),
+    ('Rathenow', 'Brandenburg', 'DE', 27115),
+    ('Strausberg', 'Brandenburg', 'DE', 26649),
+    ('Hennigsdorf', 'Brandenburg', 'DE', 26122),
+    ('Ludwigsfelde', 'Brandenburg', 'DE', 24164),
+    ('Forst', 'Brandenburg', 'DE', 22843),
+    ('Werder', 'Brandenburg', 'DE', 22384),
+    ('Hohen Neuendorf', 'Brandenburg', 'DE', 21893),
+    ('Luckenwalde', 'Brandenburg', 'DE', 21616),
+    ('Guben', 'Brandenburg', 'DE', 21608),
+    ('Prenzlau', 'Brandenburg', 'DE', 20899),
+    ('Wittenberge', 'Brandenburg', 'DE', 20171),
+    ('Wandlitz', 'Brandenburg', 'DE', 19888),
+    ('Teltow', 'Brandenburg', 'DE', 19530),
+    ('Lauchhammer', 'Brandenburg', 'DE', 18990),
+    ('Finsterwalde', 'Brandenburg', 'DE', 18922),
+    ('Kleinmachnow', 'Brandenburg', 'DE', 17892),
+    ('Templin', 'Brandenburg', 'DE', 17634),
+    ('Wittstock', 'Brandenburg', 'DE', 17361),
+    ('Zossen', 'Brandenburg', 'DE', 17138),
+    ('Nauen', 'Brandenburg', 'DE', 16600),
+    ('Neuenhagen', 'Brandenburg', 'DE', 16170),
+    ('Lubnjow', 'Brandenburg', 'DE', 15778),
+    ('Angermünde', 'Brandenburg', 'DE', 15453),
+    ('Bremen', 'Bremen', 'DE', 546501),
+    ('Bremerhaven', 'Bremen', 'DE', 118610),
+    ('Vegesack', 'Bremen', 'DE', 34757),
+    ('Burglesum', 'Bremen', 'DE', 33000),
+    ('Hamburg', 'Hamburg', 'DE', 1973896),
+    ('Wandsbek', 'Hamburg', 'DE', 411422),
+    ('Hamburg-Nord', 'Hamburg', 'DE', 315514),
+    ('Hamburg-Mitte', 'Hamburg', 'DE', 301231),
+    ('Marienthal', 'Hamburg', 'DE', 287101),
+    ('Eimsbüttel', 'Hamburg', 'DE', 269118),
+    ('Altona', 'Hamburg', 'DE', 250192),
+    ('Harburg', 'Hamburg', 'DE', 169221),
+    ('Bergedorf', 'Hamburg', 'DE', 119665),
+    ('Rahlstedt', 'Hamburg', 'DE', 92511),
+    ('Billstedt', 'Hamburg', 'DE', 71077),
+    ('Winterhude', 'Hamburg', 'DE', 56382),
+    ('Wilhelmsburg', 'Hamburg', 'DE', 53064),
+    ('Langenhorn', 'Hamburg', 'DE', 46272),
+    ('Niendorf', 'Hamburg', 'DE', 40906),
+    ('Barmbek-Nord', 'Hamburg', 'DE', 40261),
+    ('Hamm', 'Hamburg', 'DE', 37989),
+    ('Horn', 'Hamburg', 'DE', 37903),
+    ('Lurup', 'Hamburg', 'DE', 36521),
+    ('Barmbek-Süd', 'Hamburg', 'DE', 35880),
+    ('Farmsen-Berne', 'Hamburg', 'DE', 35477),
+    ('Ottensen', 'Hamburg', 'DE', 35136),
+    ('Eidelstedt', 'Hamburg', 'DE', 35078),
+    ('Neugraben-Fischbek', 'Hamburg', 'DE', 32054),
+    ('Schnelsen', 'Hamburg', 'DE', 30100),
+    ('Altona-Altstadt', 'Hamburg', 'DE', 29455),
+    ('Osdorf', 'Hamburg', 'DE', 26420),
+    ('Altona-Nord', 'Hamburg', 'DE', 25802),
+    ('Eißendorf', 'Hamburg', 'DE', 24863),
+    ('Eppendorf', 'Hamburg', 'DE', 24806),
+    ('Poppenbüttel', 'Hamburg', 'DE', 24135),
+    ('Stellingen', 'Hamburg', 'DE', 23472),
+    ('Sasel', 'Hamburg', 'DE', 23131),
+    ('Hoheluft-Ost', 'Hamburg', 'DE', 23116),
+    ('Eilbek', 'Hamburg', 'DE', 22235),
+    ('St. Pauli', 'Hamburg', 'DE', 21902),
+    ('Volksdorf', 'Hamburg', 'DE', 20685),
+    ('Steilshoop', 'Hamburg', 'DE', 19343),
+    ('Harvestehude', 'Hamburg', 'DE', 17666),
+    ('Hummelsbüttel', 'Hamburg', 'DE', 17365),
+    ('Rotherbaum', 'Hamburg', 'DE', 17114),
+    ('Dulsberg', 'Hamburg', 'DE', 17002),
+    ('Hausbruch', 'Hamburg', 'DE', 16927),
+    ('Rissen', 'Hamburg', 'DE', 16051),
+    ('Othmarschen', 'Hamburg', 'DE', 16009),
+    ('Alsterdorf', 'Hamburg', 'DE', 15227),
+    ('Frankfurt am Main', 'Hessen', 'DE', 650000),
+    ('Wiesbaden', 'Hessen', 'DE', 288850),
+    ('Kassel', 'Hessen', 'DE', 197230),
+    ('Darmstadt', 'Hessen', 'DE', 167029),
+    ('Offenbach', 'Hessen', 'DE', 119192),
+    ('Gießen', 'Hessen', 'DE', 89179),
+    ('Hanau am Main', 'Hessen', 'DE', 88648),
+    ('Marburg an der Lahn', 'Hessen', 'DE', 78895),
+    ('Fulda', 'Hessen', 'DE', 63760),
+    ('Rüsselsheim am Main', 'Hessen', 'DE', 59730),
+    ('Wetzlar', 'Hessen', 'DE', 52656),
+    ('Bad Homburg vor der Höhe', 'Hessen', 'DE', 51859),
+    ('Oberursel', 'Hessen', 'DE', 46736),
+    ('Rodgau', 'Hessen', 'DE', 43315),
+    ('Gallus', 'Hessen', 'DE', 42012),
+    ('Dreieich', 'Hessen', 'DE', 41692),
+    ('Bensheim', 'Hessen', 'DE', 41124),
+    ('Maintal', 'Hessen', 'DE', 38987),
+    ('Langen', 'Hessen', 'DE', 38785),
+    ('Biebrich', 'Hessen', 'DE', 38758),
+    ('Hofheim am Taunus', 'Hessen', 'DE', 37750),
+    ('Bad Vilbel', 'Hessen', 'DE', 35961),
+    ('Neu-Isenburg', 'Hessen', 'DE', 35293),
+    ('Limburg an der Lahn', 'Hessen', 'DE', 33820),
+    ('Dietzenbach', 'Hessen', 'DE', 33256),
+    ('Mörfelden-Walldorf', 'Hessen', 'DE', 32753),
+    ('Viernheim', 'Hessen', 'DE', 32620),
+    ('Lampertheim', 'Hessen', 'DE', 32400),
+    ('Bad Hersfeld', 'Hessen', 'DE', 30725),
+    ('Bad Nauheim', 'Hessen', 'DE', 30291),
+    ('Taunusstein', 'Hessen', 'DE', 30145),
+    ('Mühlheim am Main', 'Hessen', 'DE', 28534),
+    ('Kelkheim', 'Hessen', 'DE', 28175),
+    ('Baunatal', 'Hessen', 'DE', 27929),
+    ('Dotzheim', 'Hessen', 'DE', 27557),
+    ('Friedberg', 'Hessen', 'DE', 27484),
+    ('Niederrad', 'Hessen', 'DE', 27043),
+    ('Weiterstadt', 'Hessen', 'DE', 26583),
+    ('Idstein', 'Hessen', 'DE', 25736),
+    ('Heppenheim an der Bergstrasse', 'Hessen', 'DE', 25442),
+    ('Pfungstadt', 'Hessen', 'DE', 25415),
+    ('Obertshausen', 'Hessen', 'DE', 25316),
+    ('Griesheim', 'Hessen', 'DE', 25287),
+    ('Butzbach', 'Hessen', 'DE', 25156),
+    ('Hattersheim', 'Hessen', 'DE', 25035),
+    ('Korbach', 'Hessen', 'DE', 24481),
+    ('Friedrichsdorf', 'Hessen', 'DE', 24435),
+    ('Groß-Gerau', 'Hessen', 'DE', 23641),
+    ('Riedstadt', 'Hessen', 'DE', 23146),
+    ('Bad Soden am Taunus', 'Hessen', 'DE', 23103),
+    ('Dillenburg', 'Hessen', 'DE', 22974),
+    ('Büdingen', 'Hessen', 'DE', 22411),
+    ('Eschborn', 'Hessen', 'DE', 22403),
+    ('Gelnhausen', 'Hessen', 'DE', 21881),
+    ('Karben', 'Hessen', 'DE', 21642),
+    ('Stadtallendorf', 'Hessen', 'DE', 21425),
+    ('Seligenstadt', 'Hessen', 'DE', 21298),
+    ('Groß-Umstadt', 'Hessen', 'DE', 21245),
+    ('Eschwege', 'Hessen', 'DE', 21191),
+    ('Bruchköbel', 'Hessen', 'DE', 20509),
+    ('Herborn', 'Hessen', 'DE', 20473),
+    ('Haiger', 'Hessen', 'DE', 20218),
+    ('Nidderau', 'Hessen', 'DE', 20119),
+    ('Flörsheim', 'Hessen', 'DE', 20023),
+    ('Schwalmstadt', 'Hessen', 'DE', 19279),
+    ('Heusenstamm', 'Hessen', 'DE', 19012),
+    ('Vellmar', 'Hessen', 'DE', 18623),
+    ('Nidda', 'Hessen', 'DE', 18241),
+    ('Bad Wildungen', 'Hessen', 'DE', 18037),
+    ('Reinheim', 'Hessen', 'DE', 17841),
+    ('Arheilgen', 'Hessen', 'DE', 17819),
+    ('Kronberg', 'Hessen', 'DE', 17730),
+    ('Babenhausen', 'Hessen', 'DE', 17695),
+    ('Frankenberg', 'Hessen', 'DE', 17635),
+    ('Kronberg Tal', 'Hessen', 'DE', 17550),
+    ('Michelstadt', 'Hessen', 'DE', 17279),
+    ('Schlüchtern', 'Hessen', 'DE', 17260),
+    ('Hochheim am Main', 'Hessen', 'DE', 17027),
+    ('Bad Arolsen', 'Hessen', 'DE', 16854),
+    ('Eltville', 'Hessen', 'DE', 16845),
+    ('Hofgeismar', 'Hessen', 'DE', 16444),
+    ('Petersberg', 'Hessen', 'DE', 16410),
+    ('Seeheim-Jugenheim', 'Hessen', 'DE', 16395),
+    ('Kirchhain', 'Hessen', 'DE', 16381),
+    ('Hünfeld', 'Hessen', 'DE', 16323),
+    ('Künzell', 'Hessen', 'DE', 16124),
+    ('Witzenhausen', 'Hessen', 'DE', 16055),
+    ('Ginsheim-Gustavsburg', 'Hessen', 'DE', 16043),
+    ('Alsfeld', 'Hessen', 'DE', 15945),
+    ('Königstein im Taunus', 'Hessen', 'DE', 15661),
+    ('Ober-Ramstadt', 'Hessen', 'DE', 15367),
+    ('Bürstadt', 'Hessen', 'DE', 15348),
+    ('Neu-Anspach', 'Hessen', 'DE', 15276),
+    ('Dieburg', 'Hessen', 'DE', 15168),
+    ('Rostock', 'Mecklenburg-Vorpommern', 'DE', 198293),
+    ('Schwerin', 'Mecklenburg-Vorpommern', 'DE', 96641),
+    ('Neubrandenburg', 'Mecklenburg-Vorpommern', 'DE', 68082),
+    ('Stralsund', 'Mecklenburg-Vorpommern', 'DE', 58976),
+    ('Universitäts- und Hansestadt Greifswald', 'Mecklenburg-Vorpommern', 'DE', 52731),
+    ('Wismar', 'Mecklenburg-Vorpommern', 'DE', 45255),
+    ('Güstrow', 'Mecklenburg-Vorpommern', 'DE', 31217),
+    ('Neustrelitz', 'Mecklenburg-Vorpommern', 'DE', 22291),
+    ('Waren', 'Mecklenburg-Vorpommern', 'DE', 21470),
+    ('Kröpeliner-Tor-Vorstadt', 'Mecklenburg-Vorpommern', 'DE', 19542),
+    ('Parchim', 'Mecklenburg-Vorpommern', 'DE', 19161),
+    ('Ribnitz-Damgarten', 'Mecklenburg-Vorpommern', 'DE', 15333),
+    ('Hannover', 'Niedersachsen', 'DE', 515140),
+    ('Braunschweig', 'Niedersachsen', 'DE', 244715),
+    ('Osnabrück', 'Niedersachsen', 'DE', 166462),
+    ('Oldenburg', 'Niedersachsen', 'DE', 159218),
+    ('Wolfsburg', 'Niedersachsen', 'DE', 123064),
+    ('Göttingen', 'Niedersachsen', 'DE', 122149),
+    ('Salzgitter', 'Niedersachsen', 'DE', 104970),
+    ('Hildesheim', 'Niedersachsen', 'DE', 103052),
+    ('Wilhelmshaven', 'Niedersachsen', 'DE', 84393),
+    ('Delmenhorst', 'Niedersachsen', 'DE', 75893),
+    ('Lüneburg', 'Niedersachsen', 'DE', 71260),
+    ('Celle', 'Niedersachsen', 'DE', 71010),
+    ('Garbsen', 'Niedersachsen', 'DE', 63355),
+    ('Hameln', 'Niedersachsen', 'DE', 58666),
+    ('Wolfenbüttel', 'Niedersachsen', 'DE', 54740),
+    ('Nordhorn', 'Niedersachsen', 'DE', 52803),
+    ('Cuxhaven', 'Niedersachsen', 'DE', 52677),
+    ('Emden', 'Niedersachsen', 'DE', 51526),
+    ('Lingen', 'Niedersachsen', 'DE', 51310),
+    ('Langenhagen', 'Niedersachsen', 'DE', 50439),
+    ('Peine', 'Niedersachsen', 'DE', 49953),
+    ('Melle', 'Niedersachsen', 'DE', 46436),
+    ('Hansestadt Stade', 'Niedersachsen', 'DE', 45634),
+    ('Neustadt am Rübenberge', 'Niedersachsen', 'DE', 44668),
+    ('Lehrte', 'Niedersachsen', 'DE', 43920),
+    ('Goslar', 'Niedersachsen', 'DE', 43560),
+    ('Gifhorn', 'Niedersachsen', 'DE', 43000),
+    ('Laatzen', 'Niedersachsen', 'DE', 41838),
+    ('Seevetal', 'Niedersachsen', 'DE', 41266),
+    ('Wunstorf', 'Niedersachsen', 'DE', 41211),
+    ('Buchholz in der Nordheide', 'Niedersachsen', 'DE', 40849),
+    ('Südstadt', 'Niedersachsen', 'DE', 40557),
+    ('Aurich', 'Niedersachsen', 'DE', 40319),
+    ('Linden', 'Niedersachsen', 'DE', 38284),
+    ('Buxtehude', 'Niedersachsen', 'DE', 38192),
+    ('Uelzen', 'Niedersachsen', 'DE', 34996),
+    ('Seelze', 'Niedersachsen', 'DE', 34364),
+    ('Meppen', 'Niedersachsen', 'DE', 34198),
+    ('Papenburg', 'Niedersachsen', 'DE', 34117),
+    ('Leer', 'Niedersachsen', 'DE', 33886),
+    ('Achim', 'Niedersachsen', 'DE', 32870),
+    ('Winsen', 'Niedersachsen', 'DE', 32662),
+    ('Nienburg', 'Niedersachsen', 'DE', 32629),
+    ('Stuhr', 'Niedersachsen', 'DE', 32507),
+    ('Osterholz-Scharmbeck', 'Niedersachsen', 'DE', 31405),
+    ('Georgsmarienhütte', 'Niedersachsen', 'DE', 31244),
+    ('Cloppenburg', 'Niedersachsen', 'DE', 31177),
+    ('Ganderkesee', 'Niedersachsen', 'DE', 31141),
+    ('Burgdorf', 'Niedersachsen', 'DE', 31051),
+    ('Northeim', 'Niedersachsen', 'DE', 30894),
+    ('Springe', 'Niedersachsen', 'DE', 29828),
+    ('Einbeck', 'Niedersachsen', 'DE', 29751),
+    ('Vechta', 'Niedersachsen', 'DE', 29729),
+    ('Bramsche', 'Niedersachsen', 'DE', 28220),
+    ('Lohne', 'Niedersachsen', 'DE', 28089),
+    ('Bad Zwischenahn', 'Niedersachsen', 'DE', 27550),
+    ('Verden', 'Niedersachsen', 'DE', 26924),
+    ('Misburg', 'Niedersachsen', 'DE', 26114),
+    ('Nordenham', 'Niedersachsen', 'DE', 25889),
+    ('Rinteln', 'Niedersachsen', 'DE', 25602),
+    ('Helmstedt', 'Niedersachsen', 'DE', 25515),
+    ('Varel', 'Niedersachsen', 'DE', 25212),
+    ('Hannoversch Münden', 'Niedersachsen', 'DE', 25073),
+    ('Norden', 'Niedersachsen', 'DE', 24767),
+    ('Walsrode', 'Niedersachsen', 'DE', 24448),
+    ('Syke', 'Niedersachsen', 'DE', 24274),
+    ('Wallenhorst', 'Niedersachsen', 'DE', 24201),
+    ('Ronnenberg', 'Niedersachsen', 'DE', 23416),
+    ('Misburg-Nord', 'Niedersachsen', 'DE', 23369),
+    ('Stadthagen', 'Niedersachsen', 'DE', 23076),
+    ('Sehnde', 'Niedersachsen', 'DE', 23060),
+    ('Bad Harzburg', 'Niedersachsen', 'DE', 22954),
+    ('Duderstadt', 'Niedersachsen', 'DE', 22910),
+    ('Isernhagen Farster Bauerschaft', 'Niedersachsen', 'DE', 22601),
+    ('Haren', 'Niedersachsen', 'DE', 22545),
+    ('Rotenburg', 'Niedersachsen', 'DE', 22139),
+    ('Soltau', 'Niedersachsen', 'DE', 21945),
+    ('Seesen', 'Niedersachsen', 'DE', 21909),
+    ('Westerstede', 'Niedersachsen', 'DE', 21902),
+    ('Bad Pyrmont', 'Niedersachsen', 'DE', 21629),
+    ('Schortens', 'Niedersachsen', 'DE', 21357),
+    ('Wittmund', 'Niedersachsen', 'DE', 21355),
+    ('Holzminden', 'Niedersachsen', 'DE', 20998),
+    ('Bothfeld', 'Niedersachsen', 'DE', 20778),
+    ('Edewecht', 'Niedersachsen', 'DE', 20658),
+    ('Friesoythe', 'Niedersachsen', 'DE', 20311),
+    ('Neu Wulmstorf', 'Niedersachsen', 'DE', 20150),
+    ('Hessisch Oldendorf', 'Niedersachsen', 'DE', 20129),
+    ('Rastede', 'Niedersachsen', 'DE', 20046),
+    ('Schwanewede', 'Niedersachsen', 'DE', 20015),
+    ('Bemerode', 'Niedersachsen', 'DE', 19486),
+    ('Bremervörde', 'Niedersachsen', 'DE', 19268),
+    ('Bückeburg', 'Niedersachsen', 'DE', 19221),
+    ('Schneverdingen', 'Niedersachsen', 'DE', 19199),
+    ('Alfeld', 'Niedersachsen', 'DE', 19138),
+    ('Langen', 'Niedersachsen', 'DE', 18863),
+    ('Bad Münder am Deister', 'Niedersachsen', 'DE', 18726),
+    ('Sarstedt', 'Niedersachsen', 'DE', 18718),
+    ('Hemmingen', 'Niedersachsen', 'DE', 18470),
+    ('Lilienthal', 'Niedersachsen', 'DE', 18293),
+    ('Wildeshausen', 'Niedersachsen', 'DE', 18114),
+    ('Munster', 'Niedersachsen', 'DE', 17746),
+    ('Nordstadt', 'Niedersachsen', 'DE', 17429),
+    ('Diepholz', 'Niedersachsen', 'DE', 16783),
+    ('Königslutter am Elm', 'Niedersachsen', 'DE', 16419),
+    ('Loxstedt', 'Niedersachsen', 'DE', 16382),
+    ('Vechelde', 'Niedersachsen', 'DE', 16219),
+    ('Bassum', 'Niedersachsen', 'DE', 16191),
+    ('Brake (Unterweser)', 'Niedersachsen', 'DE', 16150),
+    ('Linden-Nord', 'Niedersachsen', 'DE', 16141),
+    ('Damme', 'Niedersachsen', 'DE', 16024),
+    ('Wardenburg', 'Niedersachsen', 'DE', 16019),
+    ('Uslar', 'Niedersachsen', 'DE', 15951),
+    ('Bad Essen', 'Niedersachsen', 'DE', 15732),
+    ('Weener', 'Niedersachsen', 'DE', 15718),
+    ('Hude', 'Niedersachsen', 'DE', 15567),
+    ('Bad Bentheim', 'Niedersachsen', 'DE', 15508),
+    ('Clausthal-Zellerfeld', 'Niedersachsen', 'DE', 15345),
+    ('Oyten', 'Niedersachsen', 'DE', 15286),
+    ('Köln', 'Nordrhein-Westfalen', 'DE', 1024621),
+    ('Düsseldorf', 'Nordrhein-Westfalen', 'DE', 618685),
+    ('Essen', 'Nordrhein-Westfalen', 'DE', 593085),
+    ('Dortmund', 'Nordrhein-Westfalen', 'DE', 588462),
+    ('Duisburg', 'Nordrhein-Westfalen', 'DE', 504358),
+    ('Bochum', 'Nordrhein-Westfalen', 'DE', 385729),
+    ('Wuppertal', 'Nordrhein-Westfalen', 'DE', 360797),
+    ('Bielefeld', 'Nordrhein-Westfalen', 'DE', 331906),
+    ('Bonn', 'Nordrhein-Westfalen', 'DE', 330579),
+    ('Münster', 'Nordrhein-Westfalen', 'DE', 308258),
+    ('Gelsenkirchen', 'Nordrhein-Westfalen', 'DE', 270028),
+    ('Aachen', 'Nordrhein-Westfalen', 'DE', 265208),
+    ('Mönchengladbach', 'Nordrhein-Westfalen', 'DE', 261742),
+    ('Krefeld', 'Nordrhein-Westfalen', 'DE', 237984),
+    ('Oberhausen', 'Nordrhein-Westfalen', 'DE', 219176),
+    ('Hagen', 'Nordrhein-Westfalen', 'DE', 198972),
+    ('Hamm', 'Nordrhein-Westfalen', 'DE', 178967),
+    ('Mülheim', 'Nordrhein-Westfalen', 'DE', 173050),
+    ('Herne', 'Nordrhein-Westfalen', 'DE', 172108),
+    ('Solingen', 'Nordrhein-Westfalen', 'DE', 164359),
+    ('Leverkusen', 'Nordrhein-Westfalen', 'DE', 162738),
+    ('Neuss', 'Nordrhein-Westfalen', 'DE', 152457),
+    ('Paderborn', 'Nordrhein-Westfalen', 'DE', 142161),
+    ('Recklinghausen', 'Nordrhein-Westfalen', 'DE', 122438),
+    ('Bottrop', 'Nordrhein-Westfalen', 'DE', 119909),
+    ('Remscheid', 'Nordrhein-Westfalen', 'DE', 117118),
+    ('Nippes', 'Nordrhein-Westfalen', 'DE', 113487),
+    ('Porz am Rhein', 'Nordrhein-Westfalen', 'DE', 113415),
+    ('Rodenkirchen', 'Nordrhein-Westfalen', 'DE', 110158),
+    ('Siegen', 'Nordrhein-Westfalen', 'DE', 107242),
+    ('Bergisch Gladbach', 'Nordrhein-Westfalen', 'DE', 106184),
+    ('Moers', 'Nordrhein-Westfalen', 'DE', 103487),
+    ('Gütersloh', 'Nordrhein-Westfalen', 'DE', 96180),
+    ('Düren', 'Nordrhein-Westfalen', 'DE', 93440),
+    ('Iserlohn', 'Nordrhein-Westfalen', 'DE', 91811),
+    ('Witten', 'Nordrhein-Westfalen', 'DE', 91808),
+    ('Ratingen', 'Nordrhein-Westfalen', 'DE', 91606),
+    ('Marl', 'Nordrhein-Westfalen', 'DE', 91398),
+    ('Lünen', 'Nordrhein-Westfalen', 'DE', 91009),
+    ('Velbert', 'Nordrhein-Westfalen', 'DE', 87669),
+    ('Minden', 'Nordrhein-Westfalen', 'DE', 82879),
+    ('Dorsten', 'Nordrhein-Westfalen', 'DE', 79981),
+    ('Lüdenscheid', 'Nordrhein-Westfalen', 'DE', 79386),
+    ('Rheinhausen', 'Nordrhein-Westfalen', 'DE', 78203),
+    ('Castrop-Rauxel', 'Nordrhein-Westfalen', 'DE', 77924),
+    ('Rheine', 'Nordrhein-Westfalen', 'DE', 76491),
+    ('Viersen', 'Nordrhein-Westfalen', 'DE', 76153),
+    ('Gladbeck', 'Nordrhein-Westfalen', 'DE', 75499),
+    ('Arnsberg', 'Nordrhein-Westfalen', 'DE', 74879),
+    ('Troisdorf', 'Nordrhein-Westfalen', 'DE', 74749),
+    ('Wattenscheid', 'Nordrhein-Westfalen', 'DE', 73965),
+    ('Bocholt', 'Nordrhein-Westfalen', 'DE', 73943),
+    ('Detmold', 'Nordrhein-Westfalen', 'DE', 73680),
+    ('Lippstadt', 'Nordrhein-Westfalen', 'DE', 67219),
+    ('Dinslaken', 'Nordrhein-Westfalen', 'DE', 66993),
+    ('Unna', 'Nordrhein-Westfalen', 'DE', 66734),
+    ('Herten', 'Nordrhein-Westfalen', 'DE', 65306),
+    ('Herford', 'Nordrhein-Westfalen', 'DE', 64879),
+    ('Grevenbroich', 'Nordrhein-Westfalen', 'DE', 64779),
+    ('Kerpen', 'Nordrhein-Westfalen', 'DE', 64226),
+    ('Dormagen', 'Nordrhein-Westfalen', 'DE', 63582),
+    ('Bergheim', 'Nordrhein-Westfalen', 'DE', 63558),
+    ('Wesel', 'Nordrhein-Westfalen', 'DE', 61685),
+    ('Langenfeld', 'Nordrhein-Westfalen', 'DE', 59112),
+    ('Stolberg', 'Nordrhein-Westfalen', 'DE', 57684),
+    ('Hattingen', 'Nordrhein-Westfalen', 'DE', 56866),
+    ('Hilden', 'Nordrhein-Westfalen', 'DE', 56565),
+    ('Sankt Augustin', 'Nordrhein-Westfalen', 'DE', 56094),
+    ('Eschweiler', 'Nordrhein-Westfalen', 'DE', 55778),
+    ('Ahlen', 'Nordrhein-Westfalen', 'DE', 55280),
+    ('Bad Salzuflen', 'Nordrhein-Westfalen', 'DE', 54899),
+    ('Euskirchen', 'Nordrhein-Westfalen', 'DE', 54889),
+    ('Meerbusch', 'Nordrhein-Westfalen', 'DE', 54826),
+    ('Hürth', 'Nordrhein-Westfalen', 'DE', 54678),
+    ('Pulheim', 'Nordrhein-Westfalen', 'DE', 53762),
+    ('Gummersbach', 'Nordrhein-Westfalen', 'DE', 53131),
+    ('Menden', 'Nordrhein-Westfalen', 'DE', 52452),
+    ('Bergkamen', 'Nordrhein-Westfalen', 'DE', 52329),
+    ('Frechen', 'Nordrhein-Westfalen', 'DE', 52309),
+    ('Willich', 'Nordrhein-Westfalen', 'DE', 51843),
+    ('Erftstadt', 'Nordrhein-Westfalen', 'DE', 51207),
+    ('Neubrück', 'Nordrhein-Westfalen', 'DE', 51109),
+    ('Ibbenbueren', 'Nordrhein-Westfalen', 'DE', 50577),
+    ('Gronau', 'Nordrhein-Westfalen', 'DE', 50547),
+    ('Schwerte', 'Nordrhein-Westfalen', 'DE', 50399),
+    ('Bad Oeynhausen', 'Nordrhein-Westfalen', 'DE', 49513),
+    ('Kleve', 'Nordrhein-Westfalen', 'DE', 49072),
+    ('Bornheim', 'Nordrhein-Westfalen', 'DE', 48523),
+    ('Soest', 'Nordrhein-Westfalen', 'DE', 48037),
+    ('Hennef (Sieg)', 'Nordrhein-Westfalen', 'DE', 48002),
+    ('Erkrath', 'Nordrhein-Westfalen', 'DE', 47815),
+    ('Dülmen', 'Nordrhein-Westfalen', 'DE', 47495),
+    ('Herzogenrath', 'Nordrhein-Westfalen', 'DE', 47381),
+    ('Bünde', 'Nordrhein-Westfalen', 'DE', 46365),
+    ('Alsdorf', 'Nordrhein-Westfalen', 'DE', 46340),
+    ('Rheda-Wiedenbrück', 'Nordrhein-Westfalen', 'DE', 46123),
+    ('Kamen', 'Nordrhein-Westfalen', 'DE', 45927),
+    ('Meiderich', 'Nordrhein-Westfalen', 'DE', 45297),
+    ('Erkelenz', 'Nordrhein-Westfalen', 'DE', 44650),
+    ('Brühl', 'Nordrhein-Westfalen', 'DE', 44137),
+    ('Ohligs', 'Nordrhein-Westfalen', 'DE', 43063),
+    ('Monheim am Rhein', 'Nordrhein-Westfalen', 'DE', 43038),
+    ('Nettetal', 'Nordrhein-Westfalen', 'DE', 42417),
+    ('Kaarst', 'Nordrhein-Westfalen', 'DE', 42112),
+    ('Lemgo', 'Nordrhein-Westfalen', 'DE', 41943),
+    ('Heinsberg', 'Nordrhein-Westfalen', 'DE', 41505),
+    ('Königswinter', 'Nordrhein-Westfalen', 'DE', 41164),
+    ('Borken', 'Nordrhein-Westfalen', 'DE', 40876),
+    ('Hückelhoven', 'Nordrhein-Westfalen', 'DE', 39828),
+    ('Mettmann', 'Nordrhein-Westfalen', 'DE', 39550),
+    ('Löhne', 'Nordrhein-Westfalen', 'DE', 39521),
+    ('Kamp-Lintfort', 'Nordrhein-Westfalen', 'DE', 39490),
+    ('Siegburg', 'Nordrhein-Westfalen', 'DE', 39135),
+    ('Warendorf', 'Nordrhein-Westfalen', 'DE', 38707),
+    ('Ahaus', 'Nordrhein-Westfalen', 'DE', 38165),
+    ('Haltern am See', 'Nordrhein-Westfalen', 'DE', 38142),
+    ('Beckum', 'Nordrhein-Westfalen', 'DE', 37814),
+    ('Hemer', 'Nordrhein-Westfalen', 'DE', 37502),
+    ('Würselen', 'Nordrhein-Westfalen', 'DE', 37074),
+    ('Wermelskirchen', 'Nordrhein-Westfalen', 'DE', 36816),
+    ('Coesfeld', 'Nordrhein-Westfalen', 'DE', 36631),
+    ('Niederkassel', 'Nordrhein-Westfalen', 'DE', 36480),
+    ('Porta Westfalica', 'Nordrhein-Westfalen', 'DE', 36364),
+    ('Datteln', 'Nordrhein-Westfalen', 'DE', 36338),
+    ('Wesseling', 'Nordrhein-Westfalen', 'DE', 35665),
+    ('Voerde', 'Nordrhein-Westfalen', 'DE', 35661),
+    ('Emsdetten', 'Nordrhein-Westfalen', 'DE', 35582),
+    ('Greven', 'Nordrhein-Westfalen', 'DE', 35080),
+    ('Lage', 'Nordrhein-Westfalen', 'DE', 35054),
+    ('Bonn Hardtberg', 'Nordrhein-Westfalen', 'DE', 35000),
+    ('Steinfurt', 'Nordrhein-Westfalen', 'DE', 34601),
+    ('Kempen', 'Nordrhein-Westfalen', 'DE', 34105),
+    ('Geldern', 'Nordrhein-Westfalen', 'DE', 34013),
+    ('Jülich', 'Nordrhein-Westfalen', 'DE', 33911),
+    ('Goch', 'Nordrhein-Westfalen', 'DE', 33706),
+    ('Korschenbroich', 'Nordrhein-Westfalen', 'DE', 33406),
+    ('Buer', 'Nordrhein-Westfalen', 'DE', 32919),
+    ('Höxter', 'Nordrhein-Westfalen', 'DE', 32713),
+    ('Gevelsberg', 'Nordrhein-Westfalen', 'DE', 32664),
+    ('Ennepetal', 'Nordrhein-Westfalen', 'DE', 32607),
+    ('Meschede', 'Nordrhein-Westfalen', 'DE', 32224),
+    ('Rheinberg', 'Nordrhein-Westfalen', 'DE', 32188),
+    ('Werl', 'Nordrhein-Westfalen', 'DE', 32149),
+    ('Langendreer', 'Nordrhein-Westfalen', 'DE', 32047),
+    ('Emmerich', 'Nordrhein-Westfalen', 'DE', 31829),
+    ('Kreuztal', 'Nordrhein-Westfalen', 'DE', 31772),
+    ('Lohmar', 'Nordrhein-Westfalen', 'DE', 31339),
+    ('Werne', 'Nordrhein-Westfalen', 'DE', 30810),
+    ('Oer-Erkenschwick', 'Nordrhein-Westfalen', 'DE', 30409),
+    ('Tönisvorst', 'Nordrhein-Westfalen', 'DE', 30296),
+    ('Schwelm', 'Nordrhein-Westfalen', 'DE', 30235),
+    ('Waltrop', 'Nordrhein-Westfalen', 'DE', 30220),
+    ('Rietberg', 'Nordrhein-Westfalen', 'DE', 30055),
+    ('Delbrück', 'Nordrhein-Westfalen', 'DE', 29884),
+    ('Haan', 'Nordrhein-Westfalen', 'DE', 29431),
+    ('Oelde', 'Nordrhein-Westfalen', 'DE', 29297),
+    ('Wetter', 'Nordrhein-Westfalen', 'DE', 29146),
+    ('Düsseldorf-Pempelfort', 'Nordrhein-Westfalen', 'DE', 28941),
+    ('Warstein', 'Nordrhein-Westfalen', 'DE', 28532),
+    ('Geilenkirchen', 'Nordrhein-Westfalen', 'DE', 28334),
+    ('Plettenberg', 'Nordrhein-Westfalen', 'DE', 28206),
+    ('Neukirchen-Vluyn', 'Nordrhein-Westfalen', 'DE', 28110),
+    ('Lennestadt', 'Nordrhein-Westfalen', 'DE', 28102),
+    ('Wegberg', 'Nordrhein-Westfalen', 'DE', 28089),
+    ('Leichlingen', 'Nordrhein-Westfalen', 'DE', 28078),
+    ('Kevelaer', 'Nordrhein-Westfalen', 'DE', 28064),
+    ('Baesweiler', 'Nordrhein-Westfalen', 'DE', 27834),
+    ('Heiligenhaus', 'Nordrhein-Westfalen', 'DE', 27700),
+    ('Hörde', 'Nordrhein-Westfalen', 'DE', 27660),
+    ('Dorstfeld', 'Nordrhein-Westfalen', 'DE', 27655),
+    ('Sundern', 'Nordrhein-Westfalen', 'DE', 27654),
+    ('Selm', 'Nordrhein-Westfalen', 'DE', 27540),
+    ('Mechernich', 'Nordrhein-Westfalen', 'DE', 27537),
+    ('Altstadt Sud', 'Nordrhein-Westfalen', 'DE', 27515),
+    ('Hamminkeln', 'Nordrhein-Westfalen', 'DE', 27433),
+    ('Overath', 'Nordrhein-Westfalen', 'DE', 27203),
+    ('Wersten', 'Nordrhein-Westfalen', 'DE', 27151),
+    ('Petershagen', 'Nordrhein-Westfalen', 'DE', 27090),
+    ('Brilon', 'Nordrhein-Westfalen', 'DE', 27030),
+    ('Rösrath', 'Nordrhein-Westfalen', 'DE', 26868),
+    ('Lübbecke', 'Nordrhein-Westfalen', 'DE', 26815),
+    ('Sprockhövel', 'Nordrhein-Westfalen', 'DE', 26400),
+    ('Espelkamp', 'Nordrhein-Westfalen', 'DE', 26378),
+    ('Wiehl', 'Nordrhein-Westfalen', 'DE', 26291),
+    ('Rheinbach', 'Nordrhein-Westfalen', 'DE', 26262),
+    ('Schmallenberg', 'Nordrhein-Westfalen', 'DE', 26132),
+    ('Fischeln', 'Nordrhein-Westfalen', 'DE', 26030),
+    ('Olpe', 'Nordrhein-Westfalen', 'DE', 25686),
+    ('Herdecke', 'Nordrhein-Westfalen', 'DE', 25618),
+    ('Übach-Palenberg', 'Nordrhein-Westfalen', 'DE', 25544),
+    ('Meckenheim', 'Nordrhein-Westfalen', 'DE', 25515),
+    ('Bad Honnef', 'Nordrhein-Westfalen', 'DE', 25348),
+    ('Netphen', 'Nordrhein-Westfalen', 'DE', 25163),
+    ('Bedburg', 'Nordrhein-Westfalen', 'DE', 24937),
+    ('Brackel', 'Nordrhein-Westfalen', 'DE', 24930),
+    ('Attendorn', 'Nordrhein-Westfalen', 'DE', 24773),
+    ('Salzkotten', 'Nordrhein-Westfalen', 'DE', 24561),
+    ('Warburg', 'Nordrhein-Westfalen', 'DE', 24317),
+    ('Harsewinkel', 'Nordrhein-Westfalen', 'DE', 24207),
+    ('Radevormwald', 'Nordrhein-Westfalen', 'DE', 24100),
+    ('Lüdinghausen', 'Nordrhein-Westfalen', 'DE', 24094),
+    ('Verl', 'Nordrhein-Westfalen', 'DE', 24002),
+    ('Wipperfürth', 'Nordrhein-Westfalen', 'DE', 23723),
+    ('Neuehrenfeld', 'Nordrhein-Westfalen', 'DE', 23621),
+    ('Lütgendortmund', 'Nordrhein-Westfalen', 'DE', 23065),
+    ('Opladen', 'Nordrhein-Westfalen', 'DE', 23000),
+    ('Neheim', 'Nordrhein-Westfalen', 'DE', 23000),
+    ('Kalk', 'Nordrhein-Westfalen', 'DE', 22802),
+    ('Kapellen', 'Nordrhein-Westfalen', 'DE', 22711),
+    ('Lengerich', 'Nordrhein-Westfalen', 'DE', 22697),
+    ('Jüchen', 'Nordrhein-Westfalen', 'DE', 22562),
+    ('Rees', 'Nordrhein-Westfalen', 'DE', 22544),
+    ('Eving', 'Nordrhein-Westfalen', 'DE', 22430),
+    ('Vreden', 'Nordrhein-Westfalen', 'DE', 22412),
+    ('Büren', 'Nordrhein-Westfalen', 'DE', 22263),
+    ('Scharnhorst', 'Nordrhein-Westfalen', 'DE', 22065),
+    ('Meinerzhagen', 'Nordrhein-Westfalen', 'DE', 21982),
+    ('Elsdorf', 'Nordrhein-Westfalen', 'DE', 21967),
+    ('Marsberg', 'Nordrhein-Westfalen', 'DE', 21914),
+    ('Alfter', 'Nordrhein-Westfalen', 'DE', 21814),
+    ('Lindlar', 'Nordrhein-Westfalen', 'DE', 21665),
+    ('Aplerbeck', 'Nordrhein-Westfalen', 'DE', 21600),
+    ('Xanten', 'Nordrhein-Westfalen', 'DE', 21587),
+    ('Wilnsdorf', 'Nordrhein-Westfalen', 'DE', 21505),
+    ('Halle', 'Nordrhein-Westfalen', 'DE', 21393),
+    ('Querenburg', 'Nordrhein-Westfalen', 'DE', 21294),
+    ('Versmold', 'Nordrhein-Westfalen', 'DE', 20996),
+    ('Altena', 'Nordrhein-Westfalen', 'DE', 20862),
+    ('Engelskirchen', 'Nordrhein-Westfalen', 'DE', 20786),
+    ('Hiddenhausen', 'Nordrhein-Westfalen', 'DE', 20771),
+    ('Bad Berleburg', 'Nordrhein-Westfalen', 'DE', 20757),
+    ('Wülfrath', 'Nordrhein-Westfalen', 'DE', 20731),
+    ('Ennigerloh', 'Nordrhein-Westfalen', 'DE', 20713),
+    ('Bockum', 'Nordrhein-Westfalen', 'DE', 20617),
+    ('Stadtlohn', 'Nordrhein-Westfalen', 'DE', 20602),
+    ('Geseke', 'Nordrhein-Westfalen', 'DE', 20602),
+    ('Bergneustadt', 'Nordrhein-Westfalen', 'DE', 20567),
+    ('Fröndenberg', 'Nordrhein-Westfalen', 'DE', 20504),
+    ('Nottuln', 'Nordrhein-Westfalen', 'DE', 20427),
+    ('Werdohl', 'Nordrhein-Westfalen', 'DE', 20366),
+    ('Senden', 'Nordrhein-Westfalen', 'DE', 20363),
+    ('Vlotho', 'Nordrhein-Westfalen', 'DE', 20214),
+    ('Zülpich', 'Nordrhein-Westfalen', 'DE', 20208),
+    ('Kürten', 'Nordrhein-Westfalen', 'DE', 20103),
+    ('Wachtberg', 'Nordrhein-Westfalen', 'DE', 20032),
+    ('Hörstel', 'Nordrhein-Westfalen', 'DE', 19894),
+    ('Steinhagen', 'Nordrhein-Westfalen', 'DE', 19869),
+    ('Enger', 'Nordrhein-Westfalen', 'DE', 19852),
+    ('Eitorf', 'Nordrhein-Westfalen', 'DE', 19761),
+    ('Bad Driburg', 'Nordrhein-Westfalen', 'DE', 19553),
+    ('Waldbröl', 'Nordrhein-Westfalen', 'DE', 19533),
+    ('Ochtrup', 'Nordrhein-Westfalen', 'DE', 19441),
+    ('Schwalmtal', 'Nordrhein-Westfalen', 'DE', 19435),
+    ('Bönen', 'Nordrhein-Westfalen', 'DE', 19393),
+    ('Telgte', 'Nordrhein-Westfalen', 'DE', 19389),
+    ('Burscheid', 'Nordrhein-Westfalen', 'DE', 19215),
+    ('Rhede', 'Nordrhein-Westfalen', 'DE', 19140),
+    ('Freudenberg', 'Nordrhein-Westfalen', 'DE', 18601),
+    ('Kierspe', 'Nordrhein-Westfalen', 'DE', 18188),
+    ('Altstadt Nord', 'Nordrhein-Westfalen', 'DE', 17922),
+    ('Uerdingen', 'Nordrhein-Westfalen', 'DE', 17888),
+    ('Holzwickede', 'Nordrhein-Westfalen', 'DE', 17821),
+    ('Brakel', 'Nordrhein-Westfalen', 'DE', 17808),
+    ('Halver', 'Nordrhein-Westfalen', 'DE', 17650),
+    ('Nümbrecht', 'Nordrhein-Westfalen', 'DE', 17427),
+    ('Oerlinghausen', 'Nordrhein-Westfalen', 'DE', 17403),
+    ('Blomberg', 'Nordrhein-Westfalen', 'DE', 17183),
+    ('Gescher', 'Nordrhein-Westfalen', 'DE', 17115),
+    ('Huckarde', 'Nordrhein-Westfalen', 'DE', 16825),
+    ('Wassenberg', 'Nordrhein-Westfalen', 'DE', 16641),
+    ('Hille', 'Nordrhein-Westfalen', 'DE', 16567),
+    ('Harpen', 'Nordrhein-Westfalen', 'DE', 16498),
+    ('Hilchenbach', 'Nordrhein-Westfalen', 'DE', 16467),
+    ('Hückeswagen', 'Nordrhein-Westfalen', 'DE', 16369),
+    ('Kirchlengern', 'Nordrhein-Westfalen', 'DE', 16338),
+    ('Weilerswist', 'Nordrhein-Westfalen', 'DE', 16321),
+    ('Hochfeld', 'Nordrhein-Westfalen', 'DE', 16292),
+    ('Leopoldshöhe', 'Nordrhein-Westfalen', 'DE', 16219),
+    ('Rahden', 'Nordrhein-Westfalen', 'DE', 16140),
+    ('Brüggen', 'Nordrhein-Westfalen', 'DE', 16105),
+    ('Erwitte', 'Nordrhein-Westfalen', 'DE', 16081),
+    ('Grefrath', 'Nordrhein-Westfalen', 'DE', 16016),
+    ('Hövelhof', 'Nordrhein-Westfalen', 'DE', 15962),
+    ('Olsberg', 'Nordrhein-Westfalen', 'DE', 15814),
+    ('Spenge', 'Nordrhein-Westfalen', 'DE', 15625),
+    ('Odenthal', 'Nordrhein-Westfalen', 'DE', 15619),
+    ('Niederkrüchten', 'Nordrhein-Westfalen', 'DE', 15487),
+    ('Bilderstöckchen', 'Nordrhein-Westfalen', 'DE', 15430),
+    ('Bochum-Werne', 'Nordrhein-Westfalen', 'DE', 15345),
+    ('Straelen', 'Nordrhein-Westfalen', 'DE', 15325),
+    ('Beverungen', 'Nordrhein-Westfalen', 'DE', 15266),
+    ('Drensteinfurt', 'Nordrhein-Westfalen', 'DE', 15260),
+    ('Deutz', 'Nordrhein-Westfalen', 'DE', 15238),
+    ('Much', 'Nordrhein-Westfalen', 'DE', 15231),
+    ('Wickede', 'Nordrhein-Westfalen', 'DE', 15225),
+    ('Bad Laasphe', 'Nordrhein-Westfalen', 'DE', 15184),
+    ('Ascheberg', 'Nordrhein-Westfalen', 'DE', 15184),
+    ('Bad Lippspringe', 'Nordrhein-Westfalen', 'DE', 15175),
+    ('Humboldtkolonie', 'Nordrhein-Westfalen', 'DE', 15108),
+    ('Mainz', 'Rheinland-Pfalz', 'DE', 222889),
+    ('Ludwigshafen am Rhein', 'Rheinland-Pfalz', 'DE', 163196),
+    ('Koblenz', 'Rheinland-Pfalz', 'DE', 107319),
+    ('Trier', 'Rheinland-Pfalz', 'DE', 100129),
+    ('Kaiserslautern', 'Rheinland-Pfalz', 'DE', 98732),
+    ('Worms', 'Rheinland-Pfalz', 'DE', 81099),
+    ('Neuwied', 'Rheinland-Pfalz', 'DE', 66805),
+    ('Neustadt an der Weinstraße', 'Rheinland-Pfalz', 'DE', 53984),
+    ('Speyer', 'Rheinland-Pfalz', 'DE', 50343),
+    ('Frankenthal', 'Rheinland-Pfalz', 'DE', 47438),
+    ('Pirmasens', 'Rheinland-Pfalz', 'DE', 43582),
+    ('Bad Kreuznach', 'Rheinland-Pfalz', 'DE', 43213),
+    ('Landau in der Pfalz', 'Rheinland-Pfalz', 'DE', 41612),
+    ('Zweibrücken', 'Rheinland-Pfalz', 'DE', 35221),
+    ('Andernach', 'Rheinland-Pfalz', 'DE', 30408),
+    ('Idar-Oberstein', 'Rheinland-Pfalz', 'DE', 29158),
+    ('Bad Neuenahr-Ahrweiler', 'Rheinland-Pfalz', 'DE', 27823),
+    ('Bingen am Rhein', 'Rheinland-Pfalz', 'DE', 26339),
+    ('Gonsenheim', 'Rheinland-Pfalz', 'DE', 25000),
+    ('Ingelheim am Rhein', 'Rheinland-Pfalz', 'DE', 24998),
+    ('Nieder-Ingelheim', 'Rheinland-Pfalz', 'DE', 24596),
+    ('Germersheim', 'Rheinland-Pfalz', 'DE', 20972),
+    ('Haßloch', 'Rheinland-Pfalz', 'DE', 20779),
+    ('Mayen', 'Rheinland-Pfalz', 'DE', 19414),
+    ('Schifferstadt', 'Rheinland-Pfalz', 'DE', 19209),
+    ('Lahnstein', 'Rheinland-Pfalz', 'DE', 18749),
+    ('Bad Dürkheim', 'Rheinland-Pfalz', 'DE', 18698),
+    ('Konz', 'Rheinland-Pfalz', 'DE', 18539),
+    ('Alzey', 'Rheinland-Pfalz', 'DE', 18241),
+    ('Wittlich', 'Rheinland-Pfalz', 'DE', 17887),
+    ('Sinzig', 'Rheinland-Pfalz', 'DE', 17880),
+    ('Gartenstadt', 'Rheinland-Pfalz', 'DE', 17745),
+    ('Bendorf', 'Rheinland-Pfalz', 'DE', 17495),
+    ('Wörth am Rhein', 'Rheinland-Pfalz', 'DE', 17272),
+    ('Remagen', 'Rheinland-Pfalz', 'DE', 16280),
+    ('Boppard', 'Rheinland-Pfalz', 'DE', 16215),
+    ('Saarbrücken', 'Saarland', 'DE', 182971),
+    ('Neunkirchen', 'Saarland', 'DE', 49843),
+    ('Homburg', 'Saarland', 'DE', 44607),
+    ('Völklingen', 'Saarland', 'DE', 40952),
+    ('Sankt Ingbert', 'Saarland', 'DE', 38697),
+    ('Saarlouis', 'Saarland', 'DE', 38333),
+    ('Merzig', 'Saarland', 'DE', 31118),
+    ('Sankt Wendel', 'Saarland', 'DE', 26904),
+    ('Dillingen', 'Saarland', 'DE', 21526),
+    ('Püttlingen', 'Saarland', 'DE', 21052),
+    ('Blieskastel', 'Saarland', 'DE', 20197),
+    ('Heusweiler', 'Saarland', 'DE', 20006),
+    ('Lebach', 'Saarland', 'DE', 19468),
+    ('Schwalbach', 'Saarland', 'DE', 18708),
+    ('Illingen', 'Saarland', 'DE', 18488),
+    ('Wadgassen', 'Saarland', 'DE', 18464),
+    ('Eppelborn', 'Saarland', 'DE', 18079),
+    ('Bexbach', 'Saarland', 'DE', 17793),
+    ('Schmelz', 'Saarland', 'DE', 17596),
+    ('Losheim', 'Saarland', 'DE', 16660),
+    ('Wadern', 'Saarland', 'DE', 16453),
+    ('Sulzbach', 'Saarland', 'DE', 16376),
+    ('Beckingen', 'Saarland', 'DE', 15983),
+    ('Schiffweiler', 'Saarland', 'DE', 15780),
+    ('Riegelsberg', 'Saarland', 'DE', 15647),
+    ('Dresden', 'Sachsen', 'DE', 564904),
+    ('Leipzig', 'Sachsen', 'DE', 504971),
+    ('Chemnitz', 'Sachsen', 'DE', 247220),
+    ('Zwickau', 'Sachsen', 'DE', 98796),
+    ('Plauen', 'Sachsen', 'DE', 66412),
+    ('Görlitz', 'Sachsen', 'DE', 57751),
+    ('Gohlis', 'Sachsen', 'DE', 45924),
+    ('Freiberg', 'Sachsen', 'DE', 43670),
+    ('Bautzen', 'Sachsen', 'DE', 41972),
+    ('Pirna', 'Sachsen', 'DE', 40322),
+    ('Freital', 'Sachsen', 'DE', 39281),
+    ('Leuben', 'Sachsen', 'DE', 38353),
+    ('Radebeul', 'Sachsen', 'DE', 32979),
+    ('Hoyerswerda', 'Sachsen', 'DE', 30759),
+    ('Riesa', 'Sachsen', 'DE', 29373),
+    ('Meissen', 'Sachsen', 'DE', 28492),
+    ('Grimma', 'Sachsen', 'DE', 27529),
+    ('Delitzsch', 'Sachsen', 'DE', 25895),
+    ('Markkleeberg', 'Sachsen', 'DE', 25331),
+    ('Zittau', 'Sachsen', 'DE', 25286),
+    ('Blasewitz', 'Sachsen', 'DE', 24863),
+    ('Döbeln', 'Sachsen', 'DE', 23819),
+    ('Limbach-Oberfrohna', 'Sachsen', 'DE', 23673),
+    ('Annaberg-Buchholz', 'Sachsen', 'DE', 23092),
+    ('Coswig', 'Sachsen', 'DE', 22304),
+    ('Gorbitz', 'Sachsen', 'DE', 21599),
+    ('Glauchau', 'Sachsen', 'DE', 21442),
+    ('Auerbach', 'Sachsen', 'DE', 21358),
+    ('Löbtau', 'Sachsen', 'DE', 21205),
+    ('Klotzsche', 'Sachsen', 'DE', 21064),
+    ('Loschwitz', 'Sachsen', 'DE', 20696),
+    ('Werdau', 'Sachsen', 'DE', 20520),
+    ('Borna', 'Sachsen', 'DE', 18806),
+    ('Torgau', 'Sachsen', 'DE', 18746),
+    ('Radeberg', 'Sachsen', 'DE', 18683),
+    ('Aue', 'Sachsen', 'DE', 18554),
+    ('Schkeuditz', 'Sachsen', 'DE', 18487),
+    ('Löbau', 'Sachsen', 'DE', 18374),
+    ('Crimmitschau', 'Sachsen', 'DE', 18272),
+    ('Großenhain', 'Sachsen', 'DE', 18183),
+    ('Äußere Neustadt', 'Sachsen', 'DE', 18098),
+    ('Meerane', 'Sachsen', 'DE', 17325),
+    ('Kamenz', 'Sachsen', 'DE', 16918),
+    ('Schneeberg', 'Sachsen', 'DE', 16784),
+    ('Marienberg', 'Sachsen', 'DE', 16716),
+    ('Heidenau', 'Sachsen', 'DE', 16686),
+    ('Mittweida', 'Sachsen', 'DE', 16619),
+    ('Hohenstein-Ernstthal', 'Sachsen', 'DE', 16542),
+    ('Eilenburg', 'Sachsen', 'DE', 16539),
+    ('Oschatz', 'Sachsen', 'DE', 16000),
+    ('Schwarzenberg', 'Sachsen', 'DE', 15475),
+    ('Wurzen', 'Sachsen', 'DE', 15233),
+    ('Weißwasser', 'Sachsen', 'DE', 15002),
+    ('Magdeburg', 'Sachsen-Anhalt', 'DE', 244329),
+    ('Halle (Saale)', 'Sachsen-Anhalt', 'DE', 237865),
+    ('Neue Neustadt', 'Sachsen-Anhalt', 'DE', 226851),
+    ('Dessau', 'Sachsen-Anhalt', 'DE', 67747),
+    ('Halle-Neustadt', 'Sachsen-Anhalt', 'DE', 44515),
+    ('Halberstadt', 'Sachsen-Anhalt', 'DE', 39729),
+    ('Weißenfels', 'Sachsen-Anhalt', 'DE', 37929),
+    ('Stendal', 'Sachsen-Anhalt', 'DE', 37722),
+    ('Bitterfeld-Wolfen', 'Sachsen-Anhalt', 'DE', 36592),
+    ('Merseburg', 'Sachsen-Anhalt', 'DE', 34780),
+    ('Wernigerode', 'Sachsen-Anhalt', 'DE', 32167),
+    ('Bernburg', 'Sachsen-Anhalt', 'DE', 32113),
+    ('Schönebeck', 'Sachsen-Anhalt', 'DE', 30419),
+    ('Wittenberg', 'Sachsen-Anhalt', 'DE', 30000),
+    ('Naumburg', 'Sachsen-Anhalt', 'DE', 29722),
+    ('Köthen', 'Sachsen-Anhalt', 'DE', 28710),
+    ('Zeitz', 'Sachsen-Anhalt', 'DE', 28328),
+    ('Aschersleben', 'Sachsen-Anhalt', 'DE', 25647),
+    ('Wolfen', 'Sachsen-Anhalt', 'DE', 25251),
+    ('Burg bei Magdeburg', 'Sachsen-Anhalt', 'DE', 24958),
+    ('Sangerhausen', 'Sachsen-Anhalt', 'DE', 23347),
+    ('Staßfurt', 'Sachsen-Anhalt', 'DE', 23181),
+    ('Quedlinburg', 'Sachsen-Anhalt', 'DE', 23139),
+    ('Eisleben Lutherstadt', 'Sachsen-Anhalt', 'DE', 22505),
+    ('Zerbst', 'Sachsen-Anhalt', 'DE', 21124),
+    ('Hansestadt Salzwedel', 'Sachsen-Anhalt', 'DE', 21058),
+    ('Haldensleben I', 'Sachsen-Anhalt', 'DE', 20294),
+    ('Oschersleben', 'Sachsen-Anhalt', 'DE', 18859),
+    ('Blankenburg', 'Sachsen-Anhalt', 'DE', 15963),
+    ('Hettstedt', 'Sachsen-Anhalt', 'DE', 15949),
+    ('Kiel', 'Schleswig-Holstein', 'DE', 252668),
+    ('Lübeck', 'Schleswig-Holstein', 'DE', 212207),
+    ('Flensburg', 'Schleswig-Holstein', 'DE', 85838),
+    ('Norderstedt', 'Schleswig-Holstein', 'DE', 82844),
+    ('Neumünster', 'Schleswig-Holstein', 'DE', 80196),
+    ('Elmshorn', 'Schleswig-Holstein', 'DE', 48703),
+    ('Pinneberg', 'Schleswig-Holstein', 'DE', 40577),
+    ('Wedel', 'Schleswig-Holstein', 'DE', 34912),
+    ('Itzehoe', 'Schleswig-Holstein', 'DE', 33047),
+    ('Ahrensburg', 'Schleswig-Holstein', 'DE', 30103),
+    ('Geesthacht', 'Schleswig-Holstein', 'DE', 29487),
+    ('Rendsburg', 'Schleswig-Holstein', 'DE', 28323),
+    ('Reinbek', 'Schleswig-Holstein', 'DE', 25261),
+    ('Bad Oldesloe', 'Schleswig-Holstein', 'DE', 24322),
+    ('Schleswig', 'Schleswig-Holstein', 'DE', 24114),
+    ('Eckernförde', 'Schleswig-Holstein', 'DE', 21563),
+    ('Husum', 'Schleswig-Holstein', 'DE', 20841),
+    ('Heide', 'Schleswig-Holstein', 'DE', 20599),
+    ('Quickborn', 'Schleswig-Holstein', 'DE', 20410),
+    ('Kaltenkirchen', 'Schleswig-Holstein', 'DE', 19747),
+    ('Bad Schwartau', 'Schleswig-Holstein', 'DE', 19722),
+    ('Mölln', 'Schleswig-Holstein', 'DE', 18469),
+    ('Uetersen', 'Schleswig-Holstein', 'DE', 17921),
+    ('Elmschenhagen', 'Schleswig-Holstein', 'DE', 17097),
+    ('Eutin', 'Schleswig-Holstein', 'DE', 16984),
+    ('Stockelsdorf', 'Schleswig-Holstein', 'DE', 16562),
+    ('Halstenbek', 'Schleswig-Holstein', 'DE', 16212),
+    ('Glinde', 'Schleswig-Holstein', 'DE', 16210),
+    ('Bad Segeberg', 'Schleswig-Holstein', 'DE', 16052),
+    ('Neustadt in Holstein', 'Schleswig-Holstein', 'DE', 15930),
+    ('Ratekau', 'Schleswig-Holstein', 'DE', 15921),
+    ('Preetz', 'Schleswig-Holstein', 'DE', 15768),
+    ('Erfurt', 'Thüringen', 'DE', 218793),
+    ('Jena', 'Thüringen', 'DE', 104712),
+    ('Gera', 'Thüringen', 'DE', 104659),
+    ('Weimar', 'Thüringen', 'DE', 64727),
+    ('Gotha', 'Thüringen', 'DE', 46615),
+    ('Nordhausen', 'Thüringen', 'DE', 43912),
+    ('Suhl', 'Thüringen', 'DE', 43509),
+    ('Eisenach', 'Thüringen', 'DE', 40747),
+    ('Ilmenau', 'Thüringen', 'DE', 38834),
+    ('Altenburg', 'Thüringen', 'DE', 38568),
+    ('Mühlhausen', 'Thüringen', 'DE', 38108),
+    ('Saalfeld', 'Thüringen', 'DE', 28023),
+    ('Arnstadt', 'Thüringen', 'DE', 25678),
+    ('Rudolstadt', 'Thüringen', 'DE', 24852),
+    ('Apolda', 'Thüringen', 'DE', 24793),
+    ('Greiz', 'Thüringen', 'DE', 24147),
+    ('Sonneberg', 'Thüringen', 'DE', 23908),
+    ('Sondershausen', 'Thüringen', 'DE', 21802),
+    ('Meiningen', 'Thüringen', 'DE', 21580),
+    ('Lusan', 'Thüringen', 'DE', 21507),
+    ('Sömmerda', 'Thüringen', 'DE', 20853),
+    ('Schmalkalden', 'Thüringen', 'DE', 19553),
+    ('Heilbad Heiligenstadt', 'Thüringen', 'DE', 17230),
+    ('Bad Langensalza', 'Thüringen', 'DE', 16717),
+    ('Bad Salzungen', 'Thüringen', 'DE', 16410),
+    ('Zeulenroda-Triebes', 'Thüringen', 'DE', 15677),
+    ('Eisenzicken', 'Burgenland', 'AT', 54353),
+    ('Klagenfurt am Wörthersee', 'Kärnten', 'AT', 100316),
+    ('Villach', 'Kärnten', 'AT', 58882),
+    ('Wolfsberg', 'Kärnten', 'AT', 25035),
+    ('Sankt Peter', 'Kärnten', 'AT', 20320),
+    ('Sankt Martin', 'Kärnten', 'AT', 20000),
+    ('Wiener Neustadt', 'Niederösterreich', 'AT', 44820),
+    ('Baden', 'Niederösterreich', 'AT', 26286),
+    ('Sankt Pölten', 'Niederösterreich', 'AT', 21911),
+    ('Mödling', 'Niederösterreich', 'AT', 20555),
+    ('Stockerau', 'Niederösterreich', 'AT', 16292),
+    ('Klosterneuburg', 'Niederösterreich', 'AT', 15614),
+    ('Amstetten', 'Niederösterreich', 'AT', 15559),
+    ('Perchtoldsdorf', 'Niederösterreich', 'AT', 15047),
+    ('Linz', 'Oberösterreich', 'AT', 204846),
+    ('Steyr', 'Oberösterreich', 'AT', 38331),
+    ('Traun', 'Oberösterreich', 'AT', 25345),
+    ('Ansfelden', 'Oberösterreich', 'AT', 18251),
+    ('Wels', 'Oberösterreich', 'AT', 16857),
+    ('Salzburg', 'Salzburg', 'AT', 157245),
+    ('Saalfelden am Steinernen Meer', 'Salzburg', 'AT', 16790),
+    ('Graz', 'Steiermark', 'AT', 303270),
+    ('Jakomini', 'Steiermark', 'AT', 32912),
+    ('Lend', 'Steiermark', 'AT', 31147),
+    ('Gries', 'Steiermark', 'AT', 29363),
+    ('Geidorf', 'Steiermark', 'AT', 24767),
+    ('Eggenberg', 'Steiermark', 'AT', 20511),
+    ('Andritz', 'Steiermark', 'AT', 19020),
+    ('Straßgang', 'Steiermark', 'AT', 16268),
+    ('Sankt Leonhard', 'Steiermark', 'AT', 15853),
+    ('Wetzelsdorf', 'Steiermark', 'AT', 15687),
+    ('Sankt Peter', 'Steiermark', 'AT', 15187),
+    ('Innsbruck', 'Tirol', 'AT', 132493),
+    ('Hötting', 'Tirol', 'AT', 35043),
+    ('Pradl', 'Tirol', 'AT', 32588),
+    ('Wilten', 'Tirol', 'AT', 18142),
+    ('Telfs', 'Tirol', 'AT', 15229),
+    ('Dornbirn', 'Vorarlberg', 'AT', 49278),
+    ('Feldkirch', 'Vorarlberg', 'AT', 33420),
+    ('Bregenz', 'Vorarlberg', 'AT', 29806),
+    ('Lustenau', 'Vorarlberg', 'AT', 22821),
+    ('Hohenems', 'Vorarlberg', 'AT', 16317),
+    ('Bludenz', 'Vorarlberg', 'AT', 15102),
+    ('Wien', 'Wien', 'AT', 1691468),
+    ('Favoriten', 'Wien', 'AT', 201882),
+    ('Donaustadt', 'Wien', 'AT', 187007),
+    ('Floridsdorf', 'Wien', 'AT', 162779),
+    ('Ottakring', 'Wien', 'AT', 104627),
+    ('Simmering', 'Wien', 'AT', 101420),
+    ('Landstraße', 'Wien', 'AT', 98389),
+    ('Penzing', 'Wien', 'AT', 98176),
+    ('Meidling', 'Wien', 'AT', 97624),
+    ('Brigittenau', 'Wien', 'AT', 86967),
+    ('Fünfhaus', 'Wien', 'AT', 76396),
+    ('Döbling', 'Wien', 'AT', 75418),
+    ('Hernals', 'Wien', 'AT', 57546),
+    ('Margareten', 'Wien', 'AT', 54412),
+    ('Hietzing', 'Wien', 'AT', 54265),
+    ('Währing', 'Wien', 'AT', 51402),
+    ('Aspern', 'Wien', 'AT', 50687),
+    ('Alsergrund', 'Wien', 'AT', 41645),
+    ('Neubau', 'Wien', 'AT', 31521),
+    ('Mariahilf', 'Wien', 'AT', 31381),
+    ('Josefstadt', 'Wien', 'AT', 24499),
+    ('Essling', 'Wien', 'AT', 21200),
+    ('Innere Stadt', 'Wien', 'AT', 16450),
+    ('Aarau', 'Aargau', 'CH', 21503),
+    ('Baden', 'Aargau', 'CH', 19340),
+    ('Wettingen', 'Aargau', 'CH', 18191),
+    ('Herisau', 'Appenzell Ausserrhoden', 'CH', 15744),
+    ('Reinach', 'Basel-Landschaft', 'CH', 19216),
+    ('Allschwil', 'Basel-Landschaft', 'CH', 18189),
+    ('Muttenz', 'Basel-Landschaft', 'CH', 16927),
+    ('Basel', 'Basel-Stadt', 'CH', 177595),
+    ('Riehen', 'Basel-Stadt', 'CH', 20000),
+    ('Bern', 'Bern', 'CH', 121631),
+    ('Thun', 'Bern', 'CH', 43723),
+    ('Köniz', 'Bern', 'CH', 41784),
+    ('Burgdorf', 'Bern', 'CH', 16420),
+    ('Steffisburg', 'Bern', 'CH', 15709),
+    ('Fribourg', 'Freiburg', 'CH', 38365),
+    ('Bulle', 'Freiburg', 'CH', 23438),
+    ('Genève', 'Genf', 'CH', 201741),
+    ('Vernier', 'Genf', 'CH', 30086),
+    ('Lancy', 'Genf', 'CH', 27291),
+    ('Meyrin', 'Genf', 'CH', 19772),
+    ('Carouge', 'Genf', 'CH', 19344),
+    ('Onex', 'Genf', 'CH', 17302),
+    ('Chur', 'Graubünden', 'CH', 35373),
+    ('Luzern', 'Luzern', 'CH', 81691),
+    ('Emmen', 'Luzern', 'CH', 30926),
+    ('Kriens', 'Luzern', 'CH', 25010),
+    ('Littau', 'Luzern', 'CH', 16121),
+    ('La Chaux-de-Fonds', 'Neuenburg', 'CH', 37942),
+    ('Neuchâtel', 'Neuenburg', 'CH', 33475),
+    ('Schaffhausen', 'Schaffhausen', 'CH', 36587),
+    ('Einsiedeln', 'Schwyz', 'CH', 15867),
+    ('Schwyz', 'Schwyz', 'CH', 15181),
+    ('Olten', 'Solothurn', 'CH', 18362),
+    ('Solothurn', 'Solothurn', 'CH', 16777),
+    ('Grenchen', 'Solothurn', 'CH', 15927),
+    ('St. Gallen', 'St. Gallen', 'CH', 75833),
+    ('Rapperswil', 'St. Gallen', 'CH', 34776),
+    ('Wil', 'St. Gallen', 'CH', 23955),
+    ('Jona', 'St. Gallen', 'CH', 17655),
+    ('Gossau', 'St. Gallen', 'CH', 17043),
+    ('Lugano', 'Tessin', 'CH', 63185),
+    ('Bellinzona', 'Tessin', 'CH', 43220),
+    ('Locarno', 'Tessin', 'CH', 15824),
+    ('Frauenfeld', 'Thurgau', 'CH', 25607),
+    ('Kreuzlingen', 'Thurgau', 'CH', 21997),
+    ('Lausanne', 'Waadt', 'CH', 139111),
+    ('Yverdon-les-Bains', 'Waadt', 'CH', 30157),
+    ('Montreux', 'Waadt', 'CH', 25984),
+    ('Renens', 'Waadt', 'CH', 20927),
+    ('Vevey', 'Waadt', 'CH', 19891),
+    ('Nyon', 'Waadt', 'CH', 16797),
+    ('Pully', 'Waadt', 'CH', 16263),
+    ('Morges', 'Waadt', 'CH', 15705),
+    ('Sitten', 'Wallis', 'CH', 34708),
+    ('Martigny-Ville', 'Wallis', 'CH', 18301),
+    ('Monthey', 'Wallis', 'CH', 17777),
+    ('Sierre', 'Wallis', 'CH', 16790),
+    ('Zug', 'Zug', 'CH', 30542),
+    ('Baar', 'Zug', 'CH', 20546),
+    ('Cham', 'Zug', 'CH', 16719),
+    ('Zürich', 'Zürich', 'CH', 415367),
+    ('Winterthur', 'Zürich', 'CH', 111840),
+    ('Uster', 'Zürich', 'CH', 34715),
+    ('Wetzikon', 'Zürich', 'CH', 24764),
+    ('Horgen', 'Zürich', 'CH', 22662),
+    ('Opfikon', 'Zürich', 'CH', 21554),
+    ('Dietikon', 'Zürich', 'CH', 20893),
+    ('Bülach', 'Zürich', 'CH', 20443),
+    ('Dübendorf', 'Zürich', 'CH', 19882),
+    ('Kloten', 'Zürich', 'CH', 16289),
+    ('Adliswil', 'Zürich', 'CH', 15230);

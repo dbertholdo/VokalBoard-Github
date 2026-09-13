@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}{{ t('profile_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('profile_title') }}</h1>
+
+{% if saved %}<p class="success">{{ t('profile_saved') }}</p>{% endif %}
+{% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
+
+<div class="completeness-box">
+    <div class="completeness-bar-track">
+        <div class="completeness-bar-fill" style="width: {{ completeness.percent }}%;"></div>
+    </div>
+    <p class="completeness-label">{{ t('completeness_label') }}: <strong>{{ completeness.percent }}%</strong>
+        ({{ completeness.done }}/{{ completeness.total }})
+        — {{ t('completeness_hint') }}</p>
+</div>
+
+<div class="badges-box">
+    <h3>🏅 {{ t('badges_title') }}</h3>
+    <p class="field-help">{{ t('badges_help') }}</p>
+    <ul class="badge-grid">
+        {% for b in badges %}
+            <li class="badge-tile {% if not b.unlocked %}badge-locked{% endif %}">
+                <span class="badge-tile-icon">{{ b.icon }}</span>
+                <span class="badge-tile-label">{{ t('badge_' ~ b.key ~ '_label') }}{% if b.unlocked and b.key == 'views' %} ({{ b.threshold }}+){% endif %}
+                    {%- if b.unlocked and b.key == 'anniversary' %}
+                        {% if lang == "de" %} ({{ b.years }} {{ "Jahr" if b.years == 1 else "Jahre" }}){% else %} ({{ b.years }} {{ "year" if b.years == 1 else "years" }}){% endif %}
+                    {%- endif %}</span>
+                <span class="badge-tile-desc">{{ t('badge_' ~ b.key ~ '_desc') }}</span>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<form method="post" action="/profile" class="stacked-form" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <fieldset class="avatar-fieldset">
+        <legend>{{ t('profile_avatar_label') }}</legend>
+        {% if user.avatar_url %}
+            <img class="avatar-preview" src="{{ user.avatar_url }}" alt="">
+            <label class="checkbox-label">
+                <input type="checkbox" name="remove_avatar" value="1">
+                {{ t('profile_avatar_remove') }}
+            </label>
+        {% else %}
+            <div class="avatar-preview avatar-placeholder">{{ user.full_name[0] | upper }}</div>
+        {% endif %}
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp">
+        <p class="field-help">{{ t('register_avatar_help') }}</p>
+    </fieldset>
+
+    <fieldset>
+        <legend>{{ t('profile_location_label') }}</legend>
+        <p class="field-help">{{ t('profile_location_help') }}</p>
+        {% set loc_country = user.country if user.country else 'DE' %}
+        {% set loc_state = user.state if user.state else '' %}
+        {% set loc_city = user.city if user.city else '' %}
+        {% include "_location_fields.html" %}
+    </fieldset>
+
+    <label class="checkbox-label">
+        <input type="checkbox" name="notify_matches" value="1" {% if user.notify_matches %}checked{% endif %}>
+        {{ t('notify_matches_label') }}
+    </label>
+    <p class="field-help">{{ t('notify_matches_help') }}</p>
+
+    <label class="checkbox-label">
+        <input type="checkbox" name="notify_messages" value="1" {% if user.notify_messages %}checked{% endif %}>
+        {{ t('notify_messages_label') }}
+    </label>
+    <p class="field-help">{{ t('notify_messages_help') }}</p>
+
+    {% if user.role == "singer" %}
+        <label>{{ t('profile_voice_type_label') }}
+            <select name="voice_type_id">
+                <option value="">—</option>
+                {% for vt in voice_types %}
+                    <option value="{{ vt.id }}" {% if singer_profile and singer_profile.voice_type_id == vt.id %}selected{% endif %}>{{ vt.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ "Zeichen max." if lang == "de" else "characters max." }})
+            <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ singer_profile.bio if singer_profile and singer_profile.bio else "" }}</textarea>
+        </label>
+
+        <label>{{ t('profile_hashtags_label') }}
+            <input type="text" name="composer_hashtags" value="{{ composer_tags | join(', ') }}" placeholder="Mozart, Verdi, Puccini">
+        </label>
+        <p class="field-help">{{ t('register_hashtags_help') }}</p>
+
+        <label>{{ t('audio_links_label') }}
+            <textarea name="audio_links" rows="3" placeholder="https://www.youtube.com/watch?v=...">{{ audio_links | join('\n') }}</textarea>
+        </label>
+        <p class="field-help">{{ t('audio_links_help') }}</p>
+    {% else %}
+        <input type="hidden" name="voice_type_id" value="">
+        <label>{{ t('profile_ensemble_label') }}
+            <input type="text" name="ensemble_name" value="{{ conductor_profile.ensemble_name if conductor_profile and conductor_profile.ensemble_name else "" }}">
+        </label>
+
+        <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ "Zeichen max." if lang == "de" else "characters max." }})
+            <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ conductor_profile.bio if conductor_profile and conductor_profile.bio else "" }}</textarea>
+        </label>
+    {% endif %}
+
+    <fieldset>
+        <legend>{{ t('social_links_title') }}</legend>
+        <p class="field-help">{{ t('social_links_help') }}</p>
+        {% for platform in social_platforms %}
+            <label>{{ t('social_platform_' ~ platform) }}
+                <input type="url" name="social_{{ platform }}" maxlength="500"
+                       placeholder="https://..."
+                       value="{{ social_links[platform] if platform in social_links else '' }}">
+            </label>
+        {% endfor %}
+    </fieldset>
+
+    <button type="submit">{{ t('profile_save') }}</button>
+</form>
+
+<p><a href="/users/{{ user.id }}">{{ t('view_profile') }} ({{ "öffentliche Ansicht" if lang == "de" else "public view" }})</a></p>
+
+<h2>⭐ {{ t('my_ratings_title') }}</h2>
+<p class="field-help">{{ t('my_ratings_help') }}</p>
+{% if rating_summary and rating_summary.count and rating_summary.count > 0 %}
+    <p class="rating-summary">{{ rating_summary.avg_stars }} ⭐ ({{ rating_summary.count }} {{ t('my_ratings_count_label') }})</p>
+{% else %}
+    <p class="empty-state">{{ t('my_ratings_none') }}</p>
+{% endif %}
+{% if my_ratings and my_ratings|length > 0 %}
+    <ul class="ratings-list">
+        {% for r in my_ratings %}
+            <li class="rating-item">
+                <strong>{{ r.stars }} ⭐</strong> — {{ r.rater_name }}
+                {% if r.comment %}<p class="rating-comment">"{{ r.comment }}"</p>{% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<div class="referral-box">
+    <h3>🎁 {{ t('referral_section_title') }}</h3>
+    <p class="field-help">{{ t('referral_section_text') }}</p>
+    <div class="referral-link-row">
+        <input type="text" id="referral-url-field" value="{{ referral_url }}" readonly onclick="this.select();">
+        <button type="button" class="button-link" onclick="
+            navigator.clipboard.writeText(document.getElementById('referral-url-field').value);
+            this.textContent = '{{ t('referral_copied') }}';
+        ">{{ t('referral_copy_button') }}</button>
+    </div>
+    <p class="referral-count">{{ t('referral_count_label') }}: <strong>{{ referral_count }}</strong></p>
+</div>
+
+<h2>{{ t('account_section_title') }}</h2>
+<p><a href="/profile/change-password">🔑 {{ t('change_password_title') }}</a></p>
+<p><a href="/my-favorites">⭐ {{ t('nav_favorites') }}</a></p>
+<p><a href="/profile/export">⬇️ {{ t('export_data_link') }}</a></p>
+<p class="field-help">{{ t('export_data_help') }}</p>
+
+<h2>🚫 {{ t('blocked_users_title') }}</h2>
+<p class="field-help">{{ t('blocked_users_help') }}</p>
+{% if blocked_users and blocked_users|length > 0 %}
+    <ul class="blocked-users-list">
+        {% for b in blocked_users %}
+            <li>
+                <span><a href="/users/{{ b.id }}">{{ b.full_name }}</a>{% if b.reason %} — <span class="field-help">{{ b.reason }}</span>{% endif %}</span>
+                <form method="post" action="/users/{{ b.id }}/unblock" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-link button-secondary">{{ t('unblock_user_button') }}</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p class="empty-state">{{ t('blocked_users_empty') }}</p>
+{% endif %}
+
+<div class="danger-zone">
+    <h3>{{ t('danger_zone_title') }}</h3>
+    <p class="field-help">{{ t('delete_account_help') }}</p>
+    <details>
+        <summary>{{ t('delete_account_toggle') }}</summary>
+        <form method="post" action="/profile/delete-account" class="stacked-form narrow"
+              onsubmit="return confirm('{{ t('delete_account_confirm') }}');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label>{{ t('delete_account_password_label') }}
+                <input type="password" name="current_password" required>
+            </label>
+            <button type="submit" class="danger">{{ t('delete_account_submit') }}</button>
+        </form>
+    </details>
+</div>
+{% endblock %}

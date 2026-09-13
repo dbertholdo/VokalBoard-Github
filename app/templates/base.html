@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Maestro & Cantor{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="/">🎼 Maestro &amp; Cantor</a>
+        <nav>
+            {% if user %}
+                <a href="/">{{ t('nav_home') }}</a>
+                <a href="/board">{{ t('nav_board') }}</a>
+                <a href="/profile">{{ t('nav_profile') }}</a>
+                <a href="/my-listings">{{ t('nav_my_listings') }}</a>
+                <a href="/my-favorites">{{ t('nav_favorites') }}</a>
+                <a href="/messages">{{ t('nav_messages') }}{% if unread_count and unread_count > 0 %} <span class="badge-count">{{ unread_count }}</span>{% endif %}</a>
+                {% if user.is_admin %}<a href="/admin">Admin</a>{% endif %}
+                <span class="whoami">
+                    {% if user.avatar_url %}<img class="nav-avatar" src="{{ user.avatar_url }}" alt="">{% endif %}
+                    {{ user.full_name }} ({{ t('role_singer') if user.role == "singer" else t('role_conductor') }})
+                </span>
+                <a href="/logout">{{ t('nav_logout') }}</a>
+            {% else %}
+                <a href="/board">{{ t('nav_board') }}</a>
+                <a href="/login">{{ t('nav_login') }}</a>
+                <a href="/register">{{ t('nav_register') }}</a>
+            {% endif %}
+            <span class="lang-switch">
+                <a href="{{ lang_urls.de }}" class="{{ 'active' if lang == 'de' else '' }}">DE</a>
+                <span>/</span>
+                <a href="{{ lang_urls.en }}" class="{{ 'active' if lang == 'en' else '' }}">EN</a>
+            </span>
+        </nav>
+    </header>
+
+    {% if user and not user.email_verified %}
+        <div class="verify-banner">
+            <span>✉️ {{ t('verify_banner_text') }}</span>
+            <form method="post" action="/resend-verification">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="link-button">{{ t('verify_banner_resend') }}</button>
+            </form>
+        </div>
+    {% endif %}
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <p>{{ t('footer_text') }}</p>
+        <p class="footer-links">
+            <a href="/impressum">{{ t('footer_impressum') }}</a>
+            <span>·</span>
+            <a href="/datenschutz">{{ t('footer_privacy') }}</a>
+            <span>·</span>
+            <a href="/code-of-conduct">{{ t('footer_conduct') }}</a>
+        </p>
+    </footer>
+</body>
+</html>

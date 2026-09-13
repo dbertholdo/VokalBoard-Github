@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ t('register_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('register_title') }}</h1>
+
+{% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
+
+{% if ref %}<p class="success">{{ t('register_referred_notice') }}</p>{% endif %}
+
+<form method="post" action="/register" class="stacked-form narrow" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="ref" value="{{ ref }}">
+    <label>{{ t('register_avatar_label') }}
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp">
+    </label>
+    <p class="field-help">{{ t('register_avatar_help') }}</p>
+
+    <label>{{ t('register_category_label') }}
+        <select name="category" id="category-select" required>
+            <option value="soprano">{{ t('register_category_soprano') }}</option>
+            <option value="alto">{{ t('register_category_alto') }}</option>
+            <option value="tenor">{{ t('register_category_tenor') }}</option>
+            <option value="baixo">{{ t('register_category_baixo') }}</option>
+            <option value="conductor">{{ t('register_category_conductor') }}</option>
+        </select>
+    </label>
+
+    <label>{{ t('register_fullname_label') }}
+        <input type="text" name="full_name" required>
+    </label>
+
+    <label>{{ t('register_email_label') }}
+        <input type="email" name="email" required>
+    </label>
+
+    <label>{{ t('register_password_label') }}
+        <input type="password" name="password" required minlength="6">
+    </label>
+
+    {% set loc_country = 'DE' %}
+    {% set loc_state = '' %}
+    {% set loc_city = '' %}
+    {% include "_location_fields.html" %}
+
+    <label>{{ t('register_phone_label') }}
+        <input type="text" name="phone">
+    </label>
+
+    <fieldset id="singer-fields">
+        <legend>{{ t('role_singer') }}</legend>
+        <label>{{ t('register_bio_label') }}
+            <textarea name="bio" id="bio-field" rows="5" maxlength="{{ max_bio_length }}"></textarea>
+        </label>
+        <label>{{ t('register_hashtags_label') }}
+            <input type="text" name="composer_hashtags" placeholder="Mozart, Verdi, Puccini">
+        </label>
+        <p class="field-help">{{ t('register_hashtags_help') }}</p>
+
+        <label>{{ t('audio_links_label') }}
+            <textarea name="audio_links" rows="3" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+        </label>
+        <p class="field-help">{{ t('audio_links_help') }}</p>
+    </fieldset>
+
+    <fieldset id="conductor-fields" style="display:none;">
+        <legend>{{ t('role_conductor') }}</legend>
+        <label>{{ t('register_ensemble_label') }}
+            <input type="text" name="ensemble_name">
+        </label>
+    </fieldset>
+
+    {% include "_captcha_fields.html" %}
+    <button type="submit">{{ t('register_submit') }}</button>
+</form>
+
+<p>{{ t('register_have_account') }} <a href="/login">{{ t('nav_login') }}</a></p>
+
+<script>
+    const categorySelect = document.getElementById('category-select');
+    const singerFields = document.getElementById('singer-fields');
+    const conductorFields = document.getElementById('conductor-fields');
+    categorySelect.addEventListener('change', () => {
+        const isConductor = categorySelect.value === 'conductor';
+        singerFields.style.display = isConductor ? 'none' : 'block';
+        conductorFields.style.display = isConductor ? 'block' : 'none';
+    });
+</script>
+{% endblock %}

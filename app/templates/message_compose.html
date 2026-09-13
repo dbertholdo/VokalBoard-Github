@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ t('message_compose_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('message_compose_title') }}</h1>
+
+{% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
+
+{% if not recipient %}
+    <p class="empty-state">{{ t('listing_not_found') }} <a href="/board">{{ t('back_to_board') }}</a></p>
+{% else %}
+    <form method="post" action="/messages/send" class="stacked-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="recipient_id" value="{{ recipient.id }}">
+        {% if listing %}<input type="hidden" name="listing_id" value="{{ listing.id }}">{% endif %}
+
+        <label>{{ t('message_to_label') }}
+            <input type="text" value="{{ recipient.full_name }}" disabled>
+        </label>
+
+        {% if listing %}
+            <p class="field-help">{{ t('message_about_listing') }}: {{ listing.title }}</p>
+        {% endif %}
+
+        <label>{{ t('message_body_label') }} ({{ max_message_length }} {{ "Zeichen max." if lang == "de" else "characters max." }})
+            <textarea name="body" rows="8" maxlength="{{ max_message_length }}"></textarea>
+        </label>
+
+        <button type="submit">✉️ {{ t('message_send') }}</button>
+    </form>
+{% endif %}
+{% endblock %}

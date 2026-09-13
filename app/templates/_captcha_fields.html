@@ -1,0 +1,13 @@
+{# Honeypot: campo escondido via CSS (.honeypot-field em style.css) —
+   humanos nunca veem nem preenchem, bots genéricos preenchem tudo.
+   tabindex="-1" e autocomplete="off" evitam que alguém chegue nele
+   sem querer navegando por Tab. #}
+<div class="honeypot-field" aria-hidden="true">
+    <label for="website-field">Website</label>
+    <input type="text" id="website-field" name="{{ honeypot_field }}" tabindex="-1" autocomplete="off">
+</div>
+
+{% if captcha_enabled %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}"></div>
+{% endif %}

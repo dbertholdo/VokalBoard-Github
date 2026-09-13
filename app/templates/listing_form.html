@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ t('listing_form_edit_title') if is_edit else t('listing_form_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('listing_form_edit_title') if is_edit else t('listing_form_title') }}</h1>
+
+{% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
+
+<form method="post" action="{{ ('/listings/' ~ listing_id ~ '/edit') if is_edit else '/listings/new' }}" class="stacked-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ t('listing_form_type_label') }}
+        <select name="listing_type" id="listing-type-select" required>
+            {% for key in listing_type_keys %}
+                <option value="{{ key }}" {% if values.listing_type == key %}selected{% endif %}>{{ t('listing_type_' ~ key) }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>{{ t('listing_form_title_label') }}
+        <input type="text" name="title" maxlength="150" required value="{{ values.title if values else '' }}">
+    </label>
+
+    <label>{{ t('listing_form_description_label') }}
+        <textarea name="description" rows="6" required>{{ values.description if values else '' }}</textarea>
+    </label>
+
+    {% set loc_country = values.country if values and values.country else 'DE' %}
+    {% set loc_state = values.state if values and values.state else '' %}
+    {% set loc_city = values.city if values and values.city else '' %}
+    {% include "_location_fields.html" %}
+
+    <label>{{ t('listing_form_ensemble_type_label') }}
+        <select name="ensemble_type">
+            <option value="">—</option>
+            {% for key in ensemble_type_keys %}
+                <option value="{{ key }}" {% if values.ensemble_type == key %}selected{% endif %}>{{ t('ensemble_type_' ~ key) }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        <span class="label-generic">{{ t('listing_form_voice_type_label') }}</span>
+        <span class="label-job" hidden>{{ t('listing_form_voice_type_required_label') }}</span>
+        <select name="voice_type_id">
+            <option value="">{{ t('voice_type_all') }}</option>
+            {% for vt in voice_types %}
+                <option value="{{ vt.id }}" {% if values.voice_type_id|string == vt.id|string %}selected{% endif %}>{{ vt.name }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        <span class="label-generic">{{ t('listing_form_repertoire_label') }}</span>
+        <span class="label-job" hidden>{{ t('listing_form_work_label') }}</span>
+        <input type="text" name="repertoire" id="repertoire-input" maxlength="200"
+               placeholder="{{ t('listing_form_repertoire_placeholder') }}"
+               value="{{ values.repertoire if values else '' }}">
+    </label>
+
+    <fieldset id="job-fields" hidden>
+        <legend>{{ t('listing_type_seeking_singer') }}</legend>
+        <label>{{ t('listing_form_venue_label') }}
+            <input type="text" name="venue" id="venue-input" maxlength="200" value="{{ values.venue if values else '' }}">
+        </label>
+        <label>{{ t('listing_form_fee_label') }}
+            <input type="text" name="fee" id="fee-input" maxlength="100"
+                   placeholder="{{ t('listing_form_fee_placeholder') }}"
+                   value="{{ values.fee if values else '' }}">
+        </label>
+    </fieldset>
+
+    <label>{{ t('listing_form_event_date_label') }}
+        <input type="date" name="event_date" value="{{ values.event_date if values else '' }}">
+    </label>
+
+    <button type="submit">{{ t('listing_form_update_submit') if is_edit else t('listing_form_submit') }}</button>
+</form>
+
+<script>
+    const typeSelect = document.getElementById('listing-type-select');
+    const jobFields = document.getElementById('job-fields');
+    const feeInput = document.getElementById('fee-input');
+    const repertoireInput = document.getElementById('repertoire-input');
+    const labelGeneric = document.querySelectorAll('.label-generic');
+    const labelJob = document.querySelectorAll('.label-job');
+
+    function updateJobFields() {
+        const isJob = typeSelect.value === 'seeking_singer';
+        jobFields.hidden = !isJob;
+        feeInput.required = isJob;
+        repertoireInput.required = isJob;
+        labelGeneric.forEach(el => { el.hidden = isJob; });
+        labelJob.forEach(el => { el.hidden = !isJob; });
+    }
+
+    typeSelect.addEventListener('change', updateJobFields);
+    updateJobFields();
+</script>
+{% endblock %}

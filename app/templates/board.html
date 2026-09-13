@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}{{ t('board_title') }} — Maestro & Cantor{% endblock %}
+
+{% block content %}
+<h1>{{ t('board_title') }}</h1>
+<p class="subtitle">{{ t('board_subtitle') }}</p>
+
+<form class="filters" method="get" action="/board">
+    <input type="text" name="q" placeholder="{{ t('filter_search_placeholder') }}" value="{{ filters.q }}">
+
+    <select name="country" id="filter-country-select">
+        <option value="">{{ t('filter_all_countries') }}</option>
+        {% for c in country_options %}
+            <option value="{{ c }}" {% if filters.country == c %}selected{% endif %}>{{ t('filter_country_' ~ c.lower()) }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="state" id="filter-state-select">
+        <option value="">{{ t('filter_all_states') }}</option>
+    </select>
+
+    {# Cidade: em cascata com o Estado quando dá (lista curada, ver
+       app/locations.py); sem estado escolhido, ou pra achar uma
+       cidade fora da lista, sempre dá pra digitar livre — a busca
+       por cidade sempre foi um ILIKE parcial no backend. #}
+    <select name="city" id="filter-city-select" hidden disabled>
+        <option value="">{{ t('filter_all_cities') }}</option>
+    </select>
+    <input type="text" name="city" id="filter-city-other-input" placeholder="{{ t('filter_city_placeholder') }}" value="{{ filters.city }}">
+    <button type="button" id="filter-city-toggle-other" class="link-button" hidden></button>
+
+    <input type="text" name="tag" placeholder="{{ t('filter_hashtag_placeholder') }}" value="{{ filters.tag }}">
+
+    <select name="listing_type">
+        <option value="">{{ t('filter_all_types') }}</option>
+        {% for key in listing_type_keys %}
+            <option value="{{ key }}" {% if filters.listing_type == key %}selected{% endif %}>{{ t('listing_type_' ~ key) }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="voice_type_id">
+        <option value="">{{ t('filter_all_voice_types') }}</option>
+        {% for vt in voice_types %}
+            <option value="{{ vt.id }}" {% if filters.voice_type_id|string == vt.id|string %}selected{% endif %}>{{ vt.name }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="ensemble_type">
+        <option value="">{{ t('filter_all_ensemble_types') }}</option>
+        {% for key in ensemble_type_keys %}
+            <option value="{{ key }}" {% if filters.ensemble_type == key %}selected{% endif %}>{{ t('ensemble_type_' ~ key) }}</option>
+        {% endfor %}
+    </select>
+
+    <label class="filter-date-label">{{ t('filter_period_from_label') }}
+        <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </label>
+    <label class="filter-date-label">{{ t('filter_period_to_label') }}
+        <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </label>
+
+    <label class="show-past-toggle">
+        <input type="checkbox" name="show_past" value="1" {% if filters.show_past %}checked{% endif %}>
+        {{ t('filter_show_past') }}
+    </label>
+
+    <button type="submit">{{ t('filter_button') }}</button>
+    <a class="clear-link" href="/board">{{ t('filter_clear') }}</a>
+</form>
+
+{% if total is defined and total > 0 %}
+    <p class="results-count">{{ total }} {{ t('board_results_label') }}</p>
+{% endif %}
+
+{% if listings|length == 0 %}
+    <p class="empty-state">{{ t('empty_state') }}</p>
+{% endif %}
+
+<ul class="listing-grid">
+    {% for l in listings %}
+    <li class="listing-card">
+        <a href="/listings/{{ l.id }}">
+            <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
+            {% if l.event_status %}
+                <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
+            {% endif %}
+            {% if l.is_saved %}<span class="favorite-star" title="{{ t('favorite_marker') }}">⭐</span>{% endif %}
+            <h3>{{ l.title }}</h3>
+            <p class="meta">
+                {% if l.city %}📍 {{ l.city }}{% if l.country and l.country != "DE" %} ({{ l.country }}){% endif %}{% endif %}
+                {% if l.voice_type_name %} · 🎤 {{ l.voice_type_name }}{% endif %}
+                {% if l.repertoire %} · 🎵 {{ l.repertoire }}{% endif %}
+                {% if l.fee %} · 💶 {{ l.fee }}{% endif %}
+            </p>
+            {% if user %}
+                <p class="excerpt">{{ l.description[:160] }}{% if l.description|length > 160 %}…{% endif %}</p>
+            {% endif %}
+            <p class="author">{{ t('by_author') }} {{ l.author_name }}</p>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+
+{% if total_pages is defined and total_pages > 1 %}
+<nav class="pagination">
+    {% if page > 1 %}
+        <a href="{{ request.url.include_query_params(page=page - 1) }}">&larr; {{ t('pagination_prev') }}</a>
+    {% endif %}
+    <span class="pagination-status">{{ t('pagination_page') }} {{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+        <a href="{{ request.url.include_query_params(page=page + 1) }}">{{ t('pagination_next') }} &rarr;</a>
+    {% endif %}
+</nav>
+{% endif %}
+
+<script>
+    const STATE_OPTIONS = {{ state_options | tojson }};
+    const CITY_OPTIONS = {{ city_options | tojson }};
+    const filterCountry = document.getElementById('filter-country-select');
+    const filterState = document.getElementById('filter-state-select');
+    const filterCity = document.getElementById('filter-city-select');
+    const filterCityOther = document.getElementById('filter-city-other-input');
+    const filterCityToggle = document.getElementById('filter-city-toggle-other');
+    const currentStateFilter = "{{ filters.state | e }}";
+    const currentCityFilter = "{{ filters.city | e }}";
+    let cityManualMode = !currentStateFilter || !CITY_OPTIONS[currentStateFilter];
+
+    function updateFilterStates() {
+        const states = STATE_OPTIONS[filterCountry.value];
+        if (states) {
+            filterState.disabled = false;
+            filterState.innerHTML = '<option value="">{{ t("filter_all_states") }}</option>' + states.map(
+                s => `<option value="${s}">${s}</option>`
+            ).join('');
+            if (currentStateFilter && states.includes(currentStateFilter)) {
+                filterState.value = currentStateFilter;
+            }
+        } else {
+            filterState.disabled = false;
+            filterState.innerHTML = '<option value="">{{ t("filter_all_states") }}</option>';
+        }
+    }
+
+    function updateFilterCities() {
+        const cities = CITY_OPTIONS[filterState.value];
+
+        if (cities && !cityManualMode) {
+            filterCity.hidden = false;
+            filterCity.disabled = false;
+            filterCityOther.hidden = true;
+            filterCityOther.disabled = true;
+
+            filterCity.innerHTML = '<option value="">{{ t("filter_all_cities") }}</option>' + cities.map(
+                c => `<option value="${c}">${c}</option>`
+            ).join('');
+            if (currentCityFilter && cities.includes(currentCityFilter)) {
+                filterCity.value = currentCityFilter;
+            }
+            filterCityToggle.hidden = false;
+            filterCityToggle.textContent = "{{ t('listing_form_city_not_listed') }}";
+        } else {
+            filterCity.hidden = true;
+            filterCity.disabled = true;
+            filterCityOther.hidden = false;
+            filterCityOther.disabled = false;
+            filterCityToggle.hidden = !cities;
+            filterCityToggle.textContent = "{{ t('listing_form_city_choose_from_list') }}";
+        }
+    }
+
+    filterCountry.addEventListener('change', updateFilterStates);
+    filterState.addEventListener('change', () => { cityManualMode = false; updateFilterCities(); });
+    filterCityToggle.addEventListener('click', () => { cityManualMode = !cityManualMode; updateFilterCities(); });
+
+    updateFilterStates();
+    updateFilterCities();
+</script>
+{% endblock %}

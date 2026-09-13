@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}{{ t('privacy_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('privacy_title') }}</h1>
+
+<p class="field-help">
+    {{ t('privacy_disclaimer') }}
+</p>
+
+{% if lang == 'en' %}
+<div class="legal-block">
+    <h3>1. Data controller</h3>
+    <p>
+        The data controller for this site is the operator named in the
+        <a href="/impressum">legal notice (Impressum)</a>, which also lists
+        contact details. This site is operated from Brazil.
+    </p>
+</div>
+
+<h3>2. What we collect and why</h3>
+<p><strong>When you just browse</strong> (no account): our hosting provider's
+server automatically logs technical data for every request (IP address,
+browser/device info, date/time, requested page) for a short period, to
+operate and secure the site (legitimate interest, Art. 6(1)(f) GDPR).</p>
+<p><strong>Cookies</strong>: a session cookie (keeps you logged in) and a
+language cookie (remembers DE/EN). Both are technically necessary — no
+tracking, advertising, or analytics cookies are used, and no cookie banner
+is shown because none of these require consent under German law (§ 25(2)
+TTDSG).</p>
+<p><strong>When you register</strong>: name, email, password (stored as a
+one-way hash, never in plain text), role (singer/conductor), and any
+optional details you add — city, phone, bio, voice type, composer tags,
+audio links, social links, profile photo. Legal basis: performance of a
+contract with you (Art. 6(1)(b) GDPR), since this data is what makes the
+service work.</p>
+<p><strong>Listings and messages</strong>: the content of any listing you
+post and any message you send is stored so the service can function
+(Art. 6(1)(b)). Messages are visible only to sender and recipient.</p>
+<p><strong>Referrals</strong>: your unique referral code and, if you signed
+up through someone else's link, a reference to who referred you.</p>
+<p><strong>Optional emails</strong>: if enabled in your profile, we email
+you about matching listings or new messages (Art. 6(1)(a) — consent, since
+you can turn each off independently at any time in <a href="/profile">your
+profile</a>).</p>
+<p><strong>Profile visits</strong>: we log that your profile was viewed
+(and by whom, if logged in) purely as an internal usage metric for the
+site operator — this is never shown to you or to anyone else in the
+interface, including through the badge system, which only ever reveals
+that a milestone was crossed (e.g. "100+"), never the exact figure.</p>
+<p><strong>Reports and blocks</strong>: if you report a listing or block
+another user, we store that action (and your stated reason, for reports)
+to keep the community safe (Art. 6(1)(f), legitimate interest in trust
+and safety).</p>
+
+<h3>3. Who we share data with</h3>
+<p>We do not sell your data. It may be processed by:</p>
+<p>
+- Our hosting/database provider, to run the site.<br>
+- Our transactional email provider (currently Resend, api.resend.com, or
+  none in local/console mode — see EMAIL_BACKEND in the project's
+  configuration), solely to deliver verification, password-reset, match,
+  and message-notification emails.<br>
+- Other users, but only what you choose to make public on your profile or
+  in a listing; your email/phone are shown only to someone you're already
+  in contact with through a listing you or they posted.
+</p>
+
+<h3>4. International data transfer</h3>
+<p>
+Because this site is operated from Brazil while primarily serving people
+in Germany, Austria and Switzerland, personal data may be transferred
+between these countries. <strong>[TO REVIEW WITH A LAWYER]</strong> — the
+specific safeguard used (e.g. EU Standard Contractual Clauses, or reliance
+on an adequacy mechanism) depends on the final hosting/email-provider
+setup and should be confirmed and documented here before the site accepts
+real users' data.
+</p>
+
+<h3>5. How long we keep data</h3>
+<p>
+Account data is kept while your account is active. If you delete your
+account, it is deactivated immediately (hidden from everyone) and fully
+erased after 6 months, unless you log back in and reactivate it within
+that window. You can request full erasure sooner by contacting us (see
+Impressum). A downloadable export of your own data is available anytime
+at <a href="/profile/export">/profile/export</a> (GDPR Art. 20).
+</p>
+
+<h3>6. Your rights</h3>
+<p>Under GDPR Art. 15–21, you have the right to: access the data we hold
+about you; have inaccurate data corrected; have your data erased; restrict
+or object to certain processing; and receive your data in a portable
+format. To exercise any of these, contact us using the details in the
+<a href="/impressum">Impressum</a>. You also have the right to lodge a
+complaint with a data protection supervisory authority.</p>
+
+<h3>7. Security</h3>
+<p>Passwords are hashed with bcrypt (never stored or logged in plain
+text); the connection is protected in transit, and form submissions are
+protected against cross-site request forgery (CSRF).</p>
+
+<h3>8. Changes to this notice</h3>
+<p>We may update this page as the site's features change. Check back
+occasionally for the latest version.</p>
+
+{% else %}
+<div class="legal-block">
+    <h3>1. Verantwortlicher</h3>
+    <p>
+        Verantwortlich für die Datenverarbeitung auf dieser Website ist der
+        Betreiber, der im <a href="/impressum">Impressum</a> genannt ist
+        (dort auch die Kontaktdaten). Dieses Portal wird von Brasilien aus
+        betrieben.
+    </p>
+</div>
+
+<h3>2. Welche Daten wir erfassen und warum</h3>
+<p><strong>Beim bloßen Besuch</strong> (ohne Konto): Der Server unseres
+Hosting-Anbieters protokolliert automatisch technische Daten bei jedem
+Zugriff (IP-Adresse, Browser-/Geräteinformationen, Datum/Uhrzeit,
+aufgerufene Seite) für kurze Zeit, um den Betrieb und die Sicherheit der
+Seite zu gewährleisten (berechtigtes Interesse, Art. 6 Abs. 1 lit. f
+DSGVO).</p>
+<p><strong>Cookies</strong>: ein Session-Cookie (hält dich eingeloggt) und
+ein Sprach-Cookie (merkt sich DE/EN). Beide sind technisch notwendig —
+es werden keine Tracking-, Werbe- oder Analyse-Cookies verwendet, und es
+wird kein Cookie-Banner angezeigt, weil dafür nach deutschem Recht
+(§ 25 Abs. 2 TTDSG) keine Einwilligung nötig ist.</p>
+<p><strong>Bei der Registrierung</strong>: Name, E-Mail, Passwort (als
+Einweg-Hash gespeichert, niemals im Klartext), Rolle (Sänger(in)/
+Dirigent(in)) sowie alle optionalen Angaben, die du hinzufügst — Stadt,
+Telefon, Biografie, Stimmtyp, Komponisten-Hashtags, Audio-Links,
+Social-Media-Links, Profilfoto. Rechtsgrundlage: Vertragserfüllung
+(Art. 6 Abs. 1 lit. b DSGVO), da diese Daten die Grundlage des Dienstes
+sind.</p>
+<p><strong>Anzeigen und Nachrichten</strong>: der Inhalt jeder Anzeige,
+die du veröffentlichst, und jeder Nachricht, die du verschickst, wird
+gespeichert, damit der Dienst funktioniert (Art. 6 Abs. 1 lit. b).
+Nachrichten sind nur für Absender(in) und Empfänger(in) sichtbar.</p>
+<p><strong>Empfehlungen (Freunde einladen)</strong>: dein eindeutiger
+Empfehlungscode und, falls du über den Link einer anderen Person
+beigetreten bist, ein Verweis darauf, wer dich eingeladen hat.</p>
+<p><strong>Optionale E-Mails</strong>: wenn in deinem Profil aktiviert,
+schicken wir dir E-Mails über passende Anzeigen oder neue Nachrichten
+(Art. 6 Abs. 1 lit. a — Einwilligung, da du jede davon jederzeit einzeln
+in <a href="/profile">deinem Profil</a> abschalten kannst).</p>
+<p><strong>Profilbesuche</strong>: wir protokollieren, dass dein Profil
+angesehen wurde (und von wem, falls eingeloggt) rein als interne
+Nutzungsmetrik für den Betreiber — das wird dir oder sonst jemandem
+niemals in der Oberfläche angezeigt, auch nicht über das
+Auszeichnungssystem, das immer nur zeigt, dass eine Schwelle überschritten
+wurde (z. B. "100+"), nie die genaue Zahl.</p>
+<p><strong>Meldungen und Blockierungen</strong>: wenn du eine Anzeige
+meldest oder eine andere Person blockierst, speichern wir das (bei
+Meldungen inklusive des von dir angegebenen Grundes), um die Community
+sicher zu halten (Art. 6 Abs. 1 lit. f, berechtigtes Interesse an
+Vertrauen und Sicherheit).</p>
+
+<h3>3. Mit wem wir Daten teilen</h3>
+<p>Wir verkaufen deine Daten nicht. Sie können verarbeitet werden von:</p>
+<p>
+- Unserem Hosting-/Datenbank-Anbieter, um die Seite zu betreiben.<br>
+- Unserem Anbieter für Transaktions-E-Mails (aktuell Resend,
+  api.resend.com, oder keinem im lokalen/Konsolen-Modus — siehe
+  EMAIL_BACKEND in der Projektkonfiguration), ausschließlich um
+  Verifizierungs-, Passwort-Reset-, Match- und
+  Nachrichten-Benachrichtigungs-E-Mails zuzustellen.<br>
+- Anderen Nutzer(innen), aber nur das, was du selbst auf deinem Profil
+  oder in einer Anzeige öffentlich machst; deine E-Mail/Telefonnummer
+  werden nur Personen gezeigt, mit denen du über eine Anzeige bereits in
+  Kontakt stehst.
+</p>
+
+<h3>4. Internationale Datenübermittlung</h3>
+<p>
+Da dieses Portal von Brasilien aus betrieben wird, aber sich vor allem an
+Personen in Deutschland, Österreich und der Schweiz richtet, können
+personenbezogene Daten zwischen diesen Ländern übermittelt werden.
+<strong>[NOCH MIT ANWALT/ANWÄLTIN ZU PRÜFEN]</strong> — welcher konkrete
+Schutzmechanismus verwendet wird (z. B. EU-Standardvertragsklauseln oder
+ein Angemessenheitsbeschluss), hängt vom endgültigen Hosting-/
+E-Mail-Anbieter ab und sollte geklärt und hier dokumentiert werden, bevor
+die Seite echte Nutzerdaten entgegennimmt.
+</p>
+
+<h3>5. Wie lange wir Daten speichern</h3>
+<p>
+Kontodaten werden gespeichert, solange dein Konto aktiv ist. Wenn du dein
+Konto löschst, wird es sofort deaktiviert (für alle unsichtbar) und nach
+6 Monaten endgültig gelöscht, außer du loggst dich innerhalb dieser Frist
+wieder ein und reaktivierst es. Eine schnellere vollständige Löschung
+kannst du jederzeit anfragen (Kontakt siehe Impressum). Einen
+herunterladbaren Export deiner eigenen Daten gibt es jederzeit unter
+<a href="/profile/export">/profile/export</a> (DSGVO Art. 20).
+</p>
+
+<h3>6. Deine Rechte</h3>
+<p>Nach Art. 15–21 DSGVO hast du das Recht auf: Auskunft über die bei uns
+gespeicherten Daten; Berichtigung unrichtiger Daten; Löschung; Einschränkung
+oder Widerspruch gegen bestimmte Verarbeitungen; sowie Erhalt deiner Daten
+in einem übertragbaren Format. Um eines dieser Rechte auszuüben, kontaktiere
+uns über die Angaben im <a href="/impressum">Impressum</a>. Du hast
+außerdem das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu
+beschweren.</p>
+
+<h3>7. Sicherheit</h3>
+<p>Passwörter werden mit bcrypt gehasht (nie im Klartext gespeichert oder
+protokolliert); die Verbindung ist bei der Übertragung geschützt, und
+Formular-Übermittlungen sind gegen Cross-Site-Request-Forgery (CSRF)
+abgesichert.</p>
+
+<h3>8. Änderungen dieser Erklärung</h3>
+<p>Wir können diese Seite aktualisieren, wenn sich die Funktionen der
+Website ändern. Schau gelegentlich vorbei, um die aktuelle Version zu
+sehen.</p>
+{% endif %}
+{% endblock %}

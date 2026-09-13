@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ t('my_listings_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('my_listings_title') }}</h1>
+
+<p><a class="button-link button-primary" href="/listings/new">{{ t('my_listings_new_button') }}</a></p>
+
+{% if listings|length == 0 %}
+    <p class="empty-state">{{ t('my_listings_empty') }} <a href="/listings/new">{{ t('my_listings_publish_first') }}</a></p>
+{% endif %}
+
+<ul class="listing-grid">
+    {% for l in listings %}
+    <li class="listing-card">
+        <a href="/listings/{{ l.id }}">
+            <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
+            {% if l.event_status %}
+                <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
+            {% endif %}
+            <h3>{{ l.title }}</h3>
+            <p class="meta">
+                {% if l.city %}📍 {{ l.city }}{% endif %}
+                {% if not l.is_active %} · <em>{{ t('inactive_label') }}</em>{% endif %}
+            </p>
+        </a>
+        <a href="/listings/{{ l.id }}/edit" class="author">✏️ {{ t('edit_button') }}</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}

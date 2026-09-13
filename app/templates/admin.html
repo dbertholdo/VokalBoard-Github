@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+
+{% block content %}
+<h1>Admin</h1>
+<p class="field-help">
+    Painel só de leitura, pra uma olhada rápida sem abrir o Adminer/SQL.
+    Pra editar ou apagar algo (ex: remover um anúncio denunciado, banir
+    alguém), use o Adminer (<code>docker compose --profile admin up</code>,
+    <a href="http://localhost:8080" target="_blank" rel="noopener noreferrer">localhost:8080</a>)
+    ou uma consulta direta no banco.
+</p>
+
+<div class="admin-stats">
+    <div class="admin-stat"><strong>{{ stats.users }}</strong><span>Usuários ativos</span></div>
+    <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Anúncios ativos</span></div>
+    <div class="admin-stat"><strong>{{ stats.messages }}</strong><span>Mensagens trocadas</span></div>
+    <div class="admin-stat"><strong>{{ stats.blocked_pairs }}</strong><span>Pares bloqueados</span></div>
+    <div class="admin-stat"><strong>{{ stats.open_reports }}</strong><span>Denúncias registradas</span></div>
+</div>
+
+<h2>🚩 Denúncias recentes</h2>
+{% if reports|length == 0 %}
+    <p class="empty-state">Nenhuma denúncia registrada.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for r in reports %}
+            <li>
+                <p>
+                    <a href="/listings/{{ r.listing_id }}">{{ r.listing_title }}</a>
+                    ({{ t('by_author') }} {{ r.author_name }})
+                    — {{ t('report_listing_button') }}: {{ r.reporter_name }}
+                </p>
+                <p class="field-help">"{{ r.reason }}" — {{ r.created_at }}</p>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<h2>🚫 Bloqueios recentes</h2>
+{% if blocks|length == 0 %}
+    <p class="empty-state">Nenhum bloqueio registrado.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for b in blocks %}
+            <li>
+                <p>{{ b.blocker_name }} bloqueou {{ b.blocked_name }}</p>
+                {% if b.reason %}<p class="field-help">"{{ b.reason }}" — {{ b.created_at }}</p>{% else %}<p class="field-help">{{ b.created_at }}</p>{% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}

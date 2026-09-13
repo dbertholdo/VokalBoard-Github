@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{{ profile_user.full_name if profile_user else t('listing_not_found') }}{% endblock %}
+
+{% block content %}
+{% if not profile_user %}
+    <p>{{ t('listing_not_found') }} <a href="/board">{{ t('back_to_board') }}</a></p>
+{% else %}
+    <a class="back-link" href="/board">&larr; {{ t('back_to_board') }}</a>
+    {% if profile_user.avatar_url %}
+        <img class="avatar-preview" src="{{ profile_user.avatar_url }}" alt="">
+    {% else %}
+        <div class="avatar-preview avatar-placeholder">{{ profile_user.full_name[0] | upper }}</div>
+    {% endif %}
+    <h1>{{ profile_user.full_name }}</h1>
+
+    {% if user and user.id != profile_user.id and blocked_either_way %}
+        {# Bloqueio precisa ser invisível dos dois lados — quem bloqueou
+           ou foi bloqueado não vê nada além disso, nem o motivo. #}
+        <div class="locked-box">
+            <p>{{ t('profile_unavailable_blocked') }}</p>
+            {% if is_blocked %}
+                <form method="post" action="/users/{{ profile_user.id }}/unblock" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-link button-secondary">🚫 {{ t('unblock_user_button') }}</button>
+                </form>
+            {% endif %}
+        </div>
+    {% else %}
+    <p class="meta">
+        {{ t('role_singer') if profile_user.role == "singer" else t('role_conductor') }}
+        {% if profile_user.city %} · 📍 {{ profile_user.city }}{% endif %}
+        {% if singer_profile and singer_profile.voice_type_name %} · 🎤 {{ singer_profile.voice_type_name }}{% endif %}
+        {% if conductor_profile and conductor_profile.ensemble_name %} · {{ conductor_profile.ensemble_name }}{% endif %}
+    </p>
+
+    {% if badges and badges|length > 0 %}
+        <p class="badge-row">
+            {% for b in badges %}
+                <span class="badge-pill" title="{{ t('badge_' ~ b.key ~ '_desc') }}">
+                    {{ b.icon }} {{ t('badge_' ~ b.key ~ '_label') }}{% if b.key == 'views' %} ({{ b.threshold }}+){% endif %}
+                    {%- if b.key == 'anniversary' %}
+                        {% if lang == "de" %} ({{ b.years }} {{ "Jahr" if b.years == 1 else "Jahre" }}){% else %} ({{ b.years }} {{ "year" if b.years == 1 else "years" }}){% endif %}
+                    {%- endif %}
+                </span>
+            {% endfor %}
+        </p>
+    {% endif %}
+
+    {% if user and user.id != profile_user.id %}
+        <p><a href="/messages/new?to={{ profile_user.id }}" class="button-link">✉️ {{ t('message_send_here') }}</a></p>
+
+        <details class="block-user-details">
+            <summary class="block-user-summary">🚫 {{ t('block_user_button') }}</summary>
+            <form method="post" action="/users/{{ profile_user.id }}/block" class="stacked-form narrow">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label>{{ t('block_user_reason_label') }}
+                    <textarea name="reason" rows="2" maxlength="500" placeholder="{{ t('block_user_reason_placeholder') }}"></textarea>
+                </label>
+                <button type="submit" class="button-link button-danger">{{ t('block_user_confirm') }}</button>
+            </form>
+        </details>
+    {% endif %}
+
+    {% if locked %}
+        <div class="locked-box">
+            <h3>🔒 {{ t('locked_profile_title') }}</h3>
+            <p>{{ t('locked_profile_text') }}</p>
+            <p class="hero-actions">
+                <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
+                <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
+            </p>
+        </div>
+    {% else %}
+        <h3>{{ t('profile_bio_label') }}</h3>
+        {% set bio = (singer_profile.bio if singer_profile else (conductor_profile.bio if conductor_profile else None)) %}
+        <p class="description">{{ bio if bio else t('no_bio') }}</p>
+
+        {% if composer_tags and composer_tags|length > 0 %}
+            <h3>{{ t('profile_hashtags_label') }}</h3>
+            <p class="hashtags">
+                {% for tag in composer_tags %}<span class="hashtag">#{{ tag }}</span>{% endfor %}
+            </p>
+        {% endif %}
+
+        {% if audio_links and audio_links|length > 0 %}
+            <h3>{{ t('audio_links_title') }}</h3>
+            <ul class="audio-links">
+                {% for link in audio_links %}
+                    <li><a href="{{ link }}" target="_blank" rel="noopener noreferrer">{{ t('audio_link_play') }} — {{ link }}</a></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if social_links and social_links|length > 0 %}
+            <h3>{{ t('social_links_title') }}</h3>
+            <p class="social-links">
+                {% for platform, url in social_links.items() %}
+                    <a class="social-badge social-badge-{{ platform }}" href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ t('social_platform_' ~ platform) }}</a>
+                {% endfor %}
+            </p>
+        {% endif %}
+
+        {% if can_rate %}
+            <h3>⭐ {{ t('rating_widget_title') }}</h3>
+            {% if request.query_params.get('rated') == '1' %}<p class="success">{{ t('rating_saved') }}</p>{% endif %}
+            <p class="field-help">{{ t('rating_widget_help') }}</p>
+            <form method="post" action="/users/{{ profile_user.id }}/rate" class="stacked-form narrow rating-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label>{{ t('rating_stars_label') }}
+                    <select name="stars">
+                        {% for n in range(0, 6) %}
+                            <option value="{{ n }}" {% if rating_given and rating_given.stars == n %}selected{% endif %}>{{ n }} ⭐</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>{{ t('rating_comment_label') }}
+                    <textarea name="comment" rows="3" maxlength="500">{{ rating_given.comment if rating_given and rating_given.comment else "" }}</textarea>
+                </label>
+                <button type="submit">{{ t('rating_submit') }}</button>
+            </form>
+        {% endif %}
+
+        <h3>{{ t('public_profile_active_listings') }}</h3>
+        {% if listings|length == 0 %}
+            <p class="empty-state">{{ t('public_profile_none') }}</p>
+        {% else %}
+            <ul class="listing-grid">
+                {% for l in listings %}
+                <li class="listing-card">
+                    <a href="/listings/{{ l.id }}">
+                        <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
+                        {% if l.event_status %}
+                            <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
+                        {% endif %}
+                        <h3>{{ l.title }}</h3>
+                        <p class="meta">{% if l.city %}📍 {{ l.city }}{% endif %}</p>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endif %}
+    {% endif %}
+{% endif %}
+{% endblock %}

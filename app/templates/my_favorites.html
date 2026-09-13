@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav_favorites') }} — Maestro & Cantor{% endblock %}
+
+{% block content %}
+<h1>⭐ {{ t('nav_favorites') }}</h1>
+<p class="subtitle">{{ t('favorites_subtitle') }}</p>
+
+{% if listings|length == 0 %}
+    <p class="empty-state">{{ t('favorites_empty') }}</p>
+{% endif %}
+
+<ul class="listing-grid">
+    {% for l in listings %}
+    <li class="listing-card">
+        <a href="/listings/{{ l.id }}">
+            <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
+            {% if l.event_status %}
+                <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
+            {% endif %}
+            <h3>{{ l.title }}</h3>
+            <p class="meta">
+                {% if l.city %}📍 {{ l.city }}{% if l.country and l.country != "DE" %} ({{ l.country }}){% endif %}{% endif %}
+                {% if l.voice_type_name %} · 🎤 {{ l.voice_type_name }}{% endif %}
+                {% if l.repertoire %} · 🎵 {{ l.repertoire }}{% endif %}
+                {% if l.fee %} · 💶 {{ l.fee }}{% endif %}
+            </p>
+            <p class="excerpt">{{ l.description[:160] }}{% if l.description|length > 160 %}…{% endif %}</p>
+            <p class="author">{{ t('by_author') }} {{ l.author_name }}</p>
+        </a>
+        <form method="post" action="/listings/{{ l.id }}/unsave">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link-button">✕ {{ t('favorite_remove') }}</button>
+        </form>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}

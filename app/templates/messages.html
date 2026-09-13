@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}
+    {% if folder == "sent" %}{{ t('messages_sent_title') }}
+    {% elif folder == "trash" %}{{ t('messages_trash_title') }}
+    {% else %}{{ t('messages_inbox_title') }}
+    {% endif %} — Maestro & Cantor
+{% endblock %}
+
+{% block content %}
+<h1>
+    {% if folder == "sent" %}{{ t('messages_sent_title') }}
+    {% elif folder == "trash" %}{{ t('messages_trash_title') }}
+    {% else %}{{ t('messages_inbox_title') }}
+    {% endif %}
+</h1>
+
+<div class="message-tabs">
+    <a href="/messages" class="{{ 'active' if folder == 'inbox' else '' }}">{{ t('messages_tab_inbox') }}</a>
+    <a href="/messages/sent" class="{{ 'active' if folder == 'sent' else '' }}">{{ t('messages_tab_sent') }}</a>
+    <a href="/messages/trash" class="{{ 'active' if folder == 'trash' else '' }}">{{ t('messages_tab_trash') }}</a>
+</div>
+
+{% if folder == "trash" and messages|length > 0 %}
+    <form method="post" action="/messages/trash/empty" onsubmit="return confirm('{{ t('message_empty_trash_confirm') }}');" style="margin-bottom:16px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="danger">🗑️ {{ t('message_empty_trash_button') }}</button>
+    </form>
+{% endif %}
+
+{% if messages|length == 0 %}
+    <p class="empty-state">
+        {% if folder == "sent" %}{{ t('messages_empty_sent') }}
+        {% elif folder == "trash" %}{{ t('messages_empty_trash') }}
+        {% else %}{{ t('messages_empty_inbox') }}
+        {% endif %}
+    </p>
+{% else %}
+    <ul class="message-list">
+        {% for m in messages %}
+        <li class="{{ 'message-list-item-trash' if folder == 'trash' else '' }}">
+            <a class="message-row {{ 'unread' if folder == 'inbox' and not m.read_at else '' }}" href="/messages/{{ m.id }}">
+                <span class="meta">
+                    {% if folder == "sent" %}{{ t('message_to') }} {{ m.other_name }}
+                    {% else %}{{ t('message_from') }} {{ m.other_name }}
+                    {% endif %}
+                    {% if m.listing_title %} · {{ t('message_about_listing') }}: {{ m.listing_title }}{% endif %}
+                    {% if folder == "inbox" and not m.read_at %} · <strong>{{ t('message_unread') }}</strong>{% endif %}
+                    · {{ m.created_at }}
+                </span>
+                <p class="snippet">{{ m.body[:120] }}{% if m.body|length > 120 %}…{% endif %}</p>
+            </a>
+            {% if folder == "trash" %}
+            <form method="post" action="/messages/{{ m.id }}/restore" class="message-restore-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="link-button">↩ {{ t('message_restore_button') }}</button>
+            </form>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}

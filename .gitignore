@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+*.egg-info/
+.DS_Store
+
+# Fotos de perfil enviadas pelos usuários — conteúdo gerado em
+# runtime, não faz parte do código-fonte (ver app/avatars.py).
+app/static/avatars/*
+!app/static/avatars/.gitkeep

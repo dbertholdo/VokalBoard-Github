@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ listing.title if listing else t('listing_not_found') }}{% endblock %}
+
+{% block content %}
+{% if not listing %}
+    <p>{{ t('listing_not_found') }} <a href="/board">{{ t('back_to_board') }}</a></p>
+{% else %}
+    <a class="back-link" href="/board">&larr; {{ t('back_to_board') }}</a>
+    <span class="badge badge-{{ listing.listing_type }}">{{ t('listing_type_' ~ listing.listing_type) }}</span>
+    {% if listing.event_status %}
+        <span class="event-dot event-dot-{{ listing.event_status }}" title="{{ t('event_status_' ~ listing.event_status) }}"></span>
+    {% endif %}
+    <h1>{{ listing.title }}</h1>
+    <p class="meta">
+        {% if listing.city %}📍 {{ listing.city }}{% if listing.state %}, {{ listing.state }}{% endif %}{% endif %}
+        {% if listing.ensemble_type %} · {{ t('ensemble_type_' ~ listing.ensemble_type) }}{% endif %}
+        {% if listing.voice_type_name %} · 🎤 {{ listing.voice_type_name }}{% elif listing.listing_type == "seeking_singer" %} · 🎤 {{ t('voice_type_all') }}{% endif %}
+        {% if listing.repertoire %} · 🎵 {{ listing.repertoire }}{% endif %}
+        {% if listing.venue %} · 🏛️ {{ listing.venue }}{% endif %}
+        {% if listing.fee %} · 💶 {{ listing.fee }}{% endif %}
+        {% if listing.event_date %} · 📅 {{ listing.event_date }}{% endif %}
+    </p>
+
+    {% if locked %}
+        <p class="description">{{ listing.description[:120] }}{% if listing.description|length > 120 %}…{% endif %}</p>
+        <div class="locked-box">
+            <h3>🔒 {{ t('locked_listing_title') }}</h3>
+            <p>{{ t('locked_listing_text') }}</p>
+            <p class="hero-actions">
+                <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
+                <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
+            </p>
+        </div>
+    {% else %}
+        <p class="description">{{ listing.description }}</p>
+
+        <div class="contact-box">
+            <h3>{{ t('contact_title') }}</h3>
+            <p><strong><a href="/users/{{ listing.author_id }}">{{ listing.author_name }}</a></strong>
+               — <a href="/users/{{ listing.author_id }}">{{ t('view_profile') }}</a></p>
+            <p>✉️ <a href="mailto:{{ listing.author_email }}">{{ listing.author_email }}</a></p>
+            {% if listing.author_phone %}<p>📞 {{ listing.author_phone }}</p>{% endif %}
+            {% if user.id != listing.author_id %}
+                <p><a href="/messages/new?to={{ listing.author_id }}&listing_id={{ listing.id }}" class="button-link">✉️ {{ t('message_send_here') }}</a></p>
+                {% if already_messaged %}
+                    <p class="already-messaged-note">✅ {{ t('already_messaged_text') }}</p>
+                {% endif %}
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {% if user and user.id != listing.author_id %}
+        <div class="listing-favorite-action">
+            {% if is_saved %}
+                <form method="post" action="/listings/{{ listing.id }}/unsave">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-link favorited">⭐ {{ t('favorite_remove') }}</button>
+                </form>
+            {% else %}
+                <form method="post" action="/listings/{{ listing.id }}/save">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-link">☆ {{ t('favorite_add') }}</button>
+                </form>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {% if user and user.id == listing.author_id %}
+        <div class="listing-owner-actions">
+            <a href="/listings/{{ listing.id }}/edit" class="button-link">{{ t('edit_button') }}</a>
+            <form method="post" action="/listings/{{ listing.id }}/delete" onsubmit="return confirm('{{ t('delete_confirm') }}');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="danger">{{ t('delete_button') }}</button>
+            </form>
+        </div>
+    {% endif %}
+
+    {% if user and user.id != listing.author_id %}
+        <div class="listing-report-action">
+            {% if reported_just_now %}
+                <p class="success">✅ {{ t('report_listing_sent') }}</p>
+            {% elif already_reported %}
+                <p class="field-help">🚩 {{ t('report_listing_already') }}</p>
+            {% else %}
+                <details class="block-user-details">
+                    <summary class="block-user-summary">🚩 {{ t('report_listing_button') }}</summary>
+                    <form method="post" action="/listings/{{ listing.id }}/report" class="stacked-form narrow">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <label>{{ t('report_listing_reason_label') }}
+                            <textarea name="reason" rows="3" minlength="10" maxlength="500" required placeholder="{{ t('report_listing_reason_placeholder') }}"></textarea>
+                        </label>
+                        <p class="field-help">{{ t('report_listing_reason_help') }}</p>
+                        <button type="submit" class="button-link button-danger">{{ t('report_listing_confirm') }}</button>
+                    </form>
+                </details>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock %}

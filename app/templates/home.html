@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ t('home_title') if user else t('home_anon_title') }} — Maestro & Cantor{% endblock %}
+
+{% block content %}
+{% if verify_required %}
+    <p class="error">{{ t('verify_required_banner') }}</p>
+{% endif %}
+{% if request.query_params.get('account_deleted') == '1' %}
+    <p class="success">{{ t('account_deleted_banner') }}</p>
+{% endif %}
+
+{% if user %}
+    <div id="spam-notice" class="dismissible-notice" hidden>
+        <span>📩 {{ t('spam_notice_text') }}</span>
+        <button type="button" onclick="dismissSpamNotice();">✕ <span class="sr-only">{{ t('spam_notice_dismiss') }}</span></button>
+    </div>
+    <script>
+        (function () {
+            // Reaparece uma vez por semana (não fica escondido pra sempre
+            // depois do primeiro "x") — guarda só a DATA do último fechar,
+            // não um "nunca mais mostrar".
+            var ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+            try {
+                var dismissedAt = localStorage.getItem('spamNoticeDismissedAt');
+                var expired = !dismissedAt || (Date.now() - parseInt(dismissedAt, 10)) > ONE_WEEK_MS;
+                if (expired) {
+                    document.getElementById('spam-notice').hidden = false;
+                }
+            } catch (e) {
+                // localStorage indisponível (ex: modo privado) — mostra o
+                // aviso mesmo assim, só sem lembrar a escolha entre visitas.
+                document.getElementById('spam-notice').hidden = false;
+            }
+        })();
+        function dismissSpamNotice() {
+            document.getElementById('spam-notice').hidden = true;
+            try { localStorage.setItem('spamNoticeDismissedAt', String(Date.now())); } catch (e) {}
+        }
+    </script>
+
+    <h1>{{ t('home_welcome').replace('{name}', user.full_name) }}</h1>
+
+    <div class="matches-section">
+        <h2>{{ t('home_matches_title') }}</h2>
+        <p class="subtitle">{{ t('home_matches_subtitle') }}</p>
+
+        {% if matches|length == 0 %}
+            <p class="empty-state">{{ t('home_matches_empty') }}</p>
+        {% else %}
+            <ul class="listing-grid">
+                {% for l in matches %}
+                <li class="listing-card">
+                    <a href="/listings/{{ l.id }}">
+                        <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
+                        {% if l.event_status %}
+                            <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
+                        {% endif %}
+                        <h3>{{ l.title }}</h3>
+                        <p class="meta">
+                            {% if l.city %}📍 {{ l.city }}{% endif %}
+                            {% if l.voice_type_name %} · 🎤 {{ l.voice_type_name }}{% endif %}
+                            {% if l.fee %} · 💶 {{ l.fee }}{% endif %}
+                        </p>
+                        <p class="excerpt">{{ l.description[:160] }}{% if l.description|length > 160 %}…{% endif %}</p>
+                        <p class="author">{{ t('by_author') }} {{ l.author_name }}</p>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <p><a class="button-link" href="/board">{{ t('home_cta_browse') }} →</a></p>
+
+{% else %}
+    <div class="hero">
+        <h1>{{ t('home_anon_title') }}</h1>
+        <p class="subtitle">{{ t('home_anon_subtitle') }}</p>
+        <p class="hero-actions">
+            <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
+            <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
+        </p>
+    </div>
+
+    <h2>{{ t('home_teaser_title') }}</h2>
+    <ul class="listing-grid">
+        {% for l in teaser_listings %}
+        <li class="listing-card locked-card">
+            <a href="/listings/{{ l.id }}">
+                <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
+                {% if l.event_status %}
+                    <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
+                {% endif %}
+                <h3>{{ l.title }}</h3>
+                <p class="meta">{% if l.city %}📍 {{ l.city }}{% endif %}</p>
+                <p class="locked-hint">🔒 {{ t('locked_listing_title') }}</p>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    <p><a class="button-link" href="/board">{{ t('home_cta_browse') }} →</a></p>
+{% endif %}
+{% endblock %}

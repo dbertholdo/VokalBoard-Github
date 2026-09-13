@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: maestro_user
+      POSTGRES_PASSWORD: maestro_pass
+      POSTGRES_DB: maestro_cantor
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Roda automaticamente na primeira vez que o container do banco sobe:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/1_schema.sql
+      - ./db/seed_sample_data.sql:/docker-entrypoint-initdb.d/2_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maestro_user -d maestro_cantor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://maestro_user:maestro_pass@db:5432/maestro_cantor
+      SECRET_KEY: dev-secret-key-troque-em-producao
+      PORT: 8000
+      # CAPTCHA (Cloudflare Turnstile) — opcional, vazio por padrão (só
+      # o honeypot protege nesse caso). Ver .env.example.
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/code/app
+
+  # Adminer: interface web pra ver/editar o banco em tempo real, sem
+  # precisar escrever nenhuma linha de código de administração própria
+  # (ver seção "Administrar o site e ver o banco" no README). Fica num
+  # "profile" separado ("admin") pra NÃO subir sozinho com `docker
+  # compose up` — só quando você pedir explicitamente:
+  #   docker compose --profile admin up
+  # NUNCA exponha a porta 8080 publicamente sem autenticação extra na
+  # frente (ex: túnel SSH, ou um proxy com login) — o Adminer sozinho
+  # só tem a senha do próprio Postgres te protegendo.
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    profiles: ["admin"]
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+volumes:
+  db_data:

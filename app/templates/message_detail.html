@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ t('messages_inbox_title') }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/messages">&larr; {{ t('messages_inbox_title') }}</a>
+
+{% if not message %}
+    <p>{{ t('listing_not_found') }}</p>
+{% else %}
+    <p class="meta">
+        {{ t('message_from') }} <strong>{{ message.sender_name }}</strong>
+        {{ t('message_to') }} <strong>{{ message.recipient_name }}</strong>
+        {% if message.listing_title %} · {{ t('message_about_listing') }}: {{ message.listing_title }}{% endif %}
+        · {{ message.created_at }}
+    </p>
+
+    <div class="message-body-box">{{ message.body }}</div>
+
+    <div class="message-actions">
+        <a href="/messages/new?to={{ other_id }}{% if message.listing_id %}&listing_id={{ message.listing_id }}{% endif %}" class="button-link">↩️ {{ t('message_reply') }}</a>
+
+        {% set is_sender = (message.sender_id == user.id) %}
+        <form method="post" action="/messages/{{ message.id }}/trash">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="danger">🗑️ {{ t('message_trash_button') }}</button>
+        </form>
+    </div>
+{% endif %}
+{% endblock %}

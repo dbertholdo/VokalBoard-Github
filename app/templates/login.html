@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ t('login_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('login_title') }}</h1>
+
+{% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
+
+<form method="post" action="/login" class="stacked-form narrow">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ t('login_email_label') }}
+        <input type="email" name="email" required>
+    </label>
+    <label>{{ t('login_password_label') }}
+        <input type="password" name="password" required>
+    </label>
+    <button type="submit">{{ t('login_submit') }}</button>
+</form>
+
+<p><a href="/forgot-password">{{ t('login_forgot_password_link') }}</a></p>
+<p>{{ t('login_no_account') }} <a href="/register">{{ t('nav_register') }}</a></p>
+{% endblock %}
