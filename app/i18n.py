@@ -147,6 +147,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "register_error_duplicate": {"de": "Es gibt bereits ein Konto mit dieser E-Mail.", "en": "An account with this email already exists."},
     "register_error_invalid_category": {"de": "Bitte wählen Sie eine gültige Kategorie.", "en": "Please choose a valid category."},
     "register_error_invalid_country": {"de": "Bitte wählen Sie ein gültiges Land.", "en": "Please choose a valid country."},
+    "register_error_missing_location": {"de": "Bitte geben Sie Bundesland/Kanton und Stadt an.", "en": "Please provide your state/canton and city."},
     "register_error_too_many_tags": {
         "de": "Maximal 10 Komponisten-Hashtags erlaubt.",
         "en": "A maximum of 10 composer hashtags is allowed.",

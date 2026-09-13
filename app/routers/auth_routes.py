@@ -135,6 +135,12 @@ async def register_submit(
     if country not in COUNTRY_OPTIONS:
         return render(request, "register.html", _register_context(request, error="register_error_invalid_country", ref=ref), status_code=400)
 
+    # Cidade e estado/cantão são obrigatórios pra ajudar nos matches —
+    # verificado aqui no servidor também (não só no HTML/JS), pra não
+    # dar pra burlar desligando o JavaScript ou enviando o form direto.
+    if not city.strip() or not state.strip():
+        return render(request, "register.html", _register_context(request, error="register_error_missing_location", ref=ref), status_code=400)
+
     existing = fetch_one("SELECT id FROM users WHERE email = :email", {"email": email})
     if existing:
         return render(
