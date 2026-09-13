@@ -1,18 +1,19 @@
 /* ============================================================
-   Paleta e tipografia — de volta ao esquema "fresh" (índigo/teal,
-   tudo sans-serif) do redesign anterior, que o Daniel preferiu ao
-   estilo "quiet luxury" (marfim/bordô/serifa) que veio depois.
+   Paleta e tipografia — esquema verde, inspirado nas cores do
+   passarinho-mascote (ver app/static/img/bird-logo.svg): o verde
+   mais escuro da asa como cor principal (botões/links), o
+   verde-menta do corpo como tom secundário nos gradientes/títulos.
    ============================================================ */
 :root {
-    --bg: #f6f7fb;
+    --bg: #f5faf8;
     --ink: #1c1f2e;
-    --muted: #6b7280;
-    --accent: #5b5fef;
-    --accent-dark: #4548c9;
-    --accent-light: #edeeff;
-    --accent2: #14b8a6;
-    --accent2-light: #e3faf6;
-    --border: #e3e5f0;
+    --muted: #667b74;
+    --accent: #12a488;
+    --accent-dark: #0c7d68;
+    --accent-light: #dff6ee;
+    --accent2: #5fbf93;
+    --accent2-light: #e9fbf2;
+    --border: #dcece5;
     --card-bg: #ffffff;
 }
 

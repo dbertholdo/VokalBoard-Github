@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}VokalBoard{% endblock %}</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐦</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="/static/img/bird-logo.svg">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <header class="site-header">
-        <a class="brand" href="/">🐦 VokalBoard</a>
+        <a class="brand" href="/"><img class="brand-icon" src="/static/img/bird-logo.svg" alt="" width="32" height="23"> VokalBoard</a>
         <nav>
             {% if user %}
                 <a href="/">{{ t('nav_home') }}</a>
@@ -52,7 +52,7 @@
     </main>
 
     <footer class="site-footer">
-        <p>🐦 {{ t('footer_text') }}</p>
+        <p><img class="footer-bird-icon" src="/static/img/bird-logo.svg" alt="" width="20" height="14"> {{ t('footer_text') }}</p>
         <p class="footer-links">
             <a href="/impressum">{{ t('footer_impressum') }}</a>
             <span>·</span>
@@ -63,24 +63,29 @@
     </footer>
 
     {# ------------------------------------------------------------
-       Passarinho voando: de vez em quando (a cada ~40–90s), um 🐦
-       atravessa a tela — só decoração de marca, não atrapalha nada
-       (pointer-events: none) e respeita quem prefere menos animação
-       (prefers-reduced-motion). Ver .vb-flying-bird no style.css.
+       Passarinho voando: de vez em quando (a cada ~40–90s), o
+       mascote atravessa a tela da esquerda pra direita, batendo as
+       asas de verdade (a animação da asa vive dentro do próprio
+       bird-flying.svg, então ele sempre bate asa na direção certa,
+       de frente pro voo) — só decoração de marca, não atrapalha
+       nada (pointer-events: none) e respeita quem prefere menos
+       animação (prefers-reduced-motion). Ver .vb-flying-bird no
+       style.css.
     ------------------------------------------------------------ #}
     <script>
         (function () {
             if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
             function spawnBird() {
-                var bird = document.createElement('div');
+                var bird = document.createElement('img');
                 bird.className = 'vb-flying-bird';
+                bird.src = '/static/img/bird-flying.svg';
+                bird.alt = '';
                 bird.style.top = (6 + Math.random() * 22) + '%';
                 bird.style.animationDuration = (7 + Math.random() * 3) + 's';
-                bird.innerHTML = '<span class="vb-flap">🐦</span>';
                 document.body.appendChild(bird);
-                bird.addEventListener('animationend', function (e) {
-                    if (e.target === bird) bird.remove();
+                bird.addEventListener('animationend', function () {
+                    bird.remove();
                 });
             }
 
