@@ -4,12 +4,15 @@
 {% block content %}
 <h1>Admin</h1>
 <p class="field-help">
-    Painel só de leitura, pra uma olhada rápida sem abrir o Adminer/SQL.
-    Pra editar ou apagar algo (ex: remover um anúncio denunciado, banir
-    alguém), use o Adminer (<code>docker compose --profile admin up</code>,
+    Visão geral só de leitura. Pra gerenciar contas de verdade
+    (confirmar e-mail, resetar senha, promover admin, desativar ou
+    apagar), veja <a href="/admin/users">Usuários</a>. Pra edições mais
+    profundas/pontuais no banco, use o Adminer
+    (<code>docker compose --profile admin up</code>,
     <a href="http://localhost:8080" target="_blank" rel="noopener noreferrer">localhost:8080</a>)
     ou uma consulta direta no banco.
 </p>
+<p><a href="/admin/users" class="button-link button-primary">👥 Gerenciar usuários</a></p>
 
 <div class="admin-stats">
     <div class="admin-stat"><strong>{{ stats.users }}</strong><span>Usuários ativos</span></div>

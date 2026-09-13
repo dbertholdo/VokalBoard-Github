@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Admin — {{ target.full_name }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/admin/users">&larr; Usuários</a>
+<h1>{{ target.full_name }}{% if target.is_admin %} <span class="badge">admin</span>{% endif %}</h1>
+<p class="meta">
+    ✉️ {{ target.email }} {% if target.email_verified %}✅{% else %}(não verificado){% endif %}
+    {% if target.city %} · 📍 {{ target.city }}{% if target.state %}, {{ target.state }}{% endif %}{% endif %}
+    · {{ "Cantor(a)" if target.role == "singer" else "Maestro(a)" }}
+    · desde {{ target.created_at }}
+    {% if target.deleted_at %} · <span class="badge-danger">conta desativada em {{ target.deleted_at }}</span>{% endif %}
+</p>
+
+{% if request.query_params.get('self_demote_blocked') == '1' %}
+    <p class="error">⚠️ Você não pode remover seu próprio acesso de admin, desativar ou apagar a sua própria conta por aqui. Peça a outro admin.</p>
+{% endif %}
+{% if request.query_params.get('reset_sent') == '1' %}
+    <p class="success">✅ E-mail de redefinição de senha enviado.</p>
+{% endif %}
+
+<div class="admin-stats">
+    <div class="admin-stat"><strong>{% if stats.avg_rating %}⭐ {{ stats.avg_rating }}{% else %}—{% endif %}</strong><span>Nota média ({{ stats.rating_count }} avaliações)</span></div>
+    <div class="admin-stat"><strong>{{ stats.profile_views }}</strong><span>Visitas ao perfil</span></div>
+    <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Anúncios ativos</span></div>
+    <div class="admin-stat"><strong>{{ stats.messages_received }}</strong><span>Mensagens recebidas</span></div>
+    <div class="admin-stat"><strong>{{ stats.messages_sent }}</strong><span>Mensagens enviadas</span></div>
+</div>
+
+<h2>Avaliações recebidas</h2>
+{% if recent_ratings|length == 0 %}
+    <p class="empty-state">Ainda não recebeu nenhuma avaliação.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for r in recent_ratings %}
+            <li>
+                <p>⭐ {{ r.stars }} — {{ r.rater_name }}</p>
+                {% if r.comment %}<p class="field-help">"{{ r.comment }}" — {{ r.created_at }}</p>{% else %}<p class="field-help">{{ r.created_at }}</p>{% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<h2>Gerenciar conta</h2>
+<div class="admin-actions">
+    {% if not target.email_verified %}
+        <form method="post" action="/admin/users/{{ target.id }}/verify-email">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="button-link">✅ Confirmar e-mail manualmente</button>
+        </form>
+    {% endif %}
+
+    <form method="post" action="/admin/users/{{ target.id }}/send-reset">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="button-link">✉️ Mandar link de redefinição de senha</button>
+    </form>
+
+    {% if not is_self %}
+        <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" onsubmit="return confirm('{{ 'Remover acesso de admin?' if target.is_admin else 'Tornar esta pessoa admin?' }}');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="button-link">{{ '⬇️ Remover admin' if target.is_admin else '⬆️ Tornar admin' }}</button>
+        </form>
+
+        {% if target.deleted_at %}
+            <form method="post" action="/admin/users/{{ target.id }}/reactivate">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="button-link">♻️ Reativar conta</button>
+            </form>
+        {% else %}
+            <form method="post" action="/admin/users/{{ target.id }}/deactivate" onsubmit="return confirm('Desativar esta conta? A pessoa poderá reativar ao fazer login.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="button-link button-danger">🚫 Desativar conta</button>
+            </form>
+        {% endif %}
+
+        <div class="danger-zone">
+            <details class="block-user-details">
+                <summary class="block-user-summary">☠️ Apagar conta pra sempre</summary>
+                <p class="field-help">Isso apaga a conta e tudo relacionado (anúncios, mensagens, avaliações) de forma definitiva. Não tem como desfazer.</p>
+                <form method="post" action="/admin/users/{{ target.id }}/delete-forever" onsubmit="return confirm('Tem certeza ABSOLUTA? Isso não pode ser desfeito.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="danger">Apagar permanentemente</button>
+                </form>
+            </details>
+        </div>
+    {% else %}
+        <p class="field-help">Ações de admin/desativar/apagar não ficam disponíveis para a sua própria conta aqui — peça a outro admin, se precisar.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -989,6 +989,70 @@ form button.link-button:hover { color: var(--accent-dark); }
     border-bottom: 1px solid var(--border);
 }
 
+/* --- admin: gestão de usuários (/admin/users) ---------------------------- */
+.admin-users-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin: 12px 0 20px;
+}
+
+.admin-users-filter label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.admin-users-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+}
+
+.admin-users-table th,
+.admin-users-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+.admin-users-table th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.admin-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+}
+
+.admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 12px;
+}
+
+.badge-danger {
+    display: inline-block;
+    background: rgba(217, 83, 79, 0.12);
+    color: #d9534f;
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
 /* --- honeypot anti-bot (ver app/captcha.py) ------------------------------ */
 .honeypot-field {
     position: absolute;
