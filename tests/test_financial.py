@@ -1,16 +1,16 @@
 """
-Testes da Zona Vermelha / painel financeiro (ver app/routers/financial_routes.py
-e app/permissions.py):
+Tests for the Red Zone / financial dashboard (see app/routers/financial_routes.py
+and app/permissions.py):
 
-1. Níveis de acesso: comum/moderador/admin não enxergam a Zona Vermelha,
-   só god mode (nível 3).
-2. A trava de segurança: toggle do Modo Capitalismo e mudança de preço
-   exigem senha de novo, mesmo já logado como god mode — e uma senha
-   errada não muda nada.
-3. Toda ação sensível fica no audit_log, sucesso ou falha.
-4. Painel financeiro: lançar/apagar despesa, exportar CSV.
-5. Fechamento mensal/anual: cria e os três formatos de export respondem
-   200 com o content-type certo.
+1. Access levels: regular/moderator/admin users cannot see the Red Zone,
+   only god mode (level 3).
+2. The security lock: toggling Capitalism Mode and changing the price
+   require the password again, even while already logged in as god
+   mode — and a wrong password changes nothing.
+3. Every sensitive action lands in audit_log, whether it succeeds or fails.
+4. Financial dashboard: create/delete expense, export CSV.
+5. Monthly/annual closing: creates it, and all three export formats
+   respond 200 with the correct content-type.
 """
 import uuid
 
@@ -31,12 +31,13 @@ def _promote(user_id: int, level: int):
 
 @pytest.fixture(autouse=True)
 def _cleanup_financial_test_rows():
-    """Estas tabelas não têm nenhuma relação com sectest_ (o cleanup de
-    tests/conftest.py só apaga USUÁRIOS com esse prefixo de e-mail) —
-    sem isso, cada execução da suíte deixaria despesas/fechamentos/logs
-    de teste acumulando pra sempre no banco de dev. Marca o maior id de
-    cada tabela antes do teste e apaga tudo que ficou acima disso
-    depois — simples e não depende de nenhuma coluna nova.
+    """These tables have no relationship at all to sectest_ (the cleanup
+    in tests/conftest.py only deletes USERS with that email prefix) —
+    without this, every run of the suite would leave test
+    expenses/closings/logs piling up forever in the dev database.
+    Records the highest id of each table before the test and deletes
+    everything above that afterward — simple, and doesn't depend on
+    any new column.
     """
     max_ids = {
         t: (fetch_one(f"SELECT COALESCE(MAX(id), 0) AS n FROM {t}")["n"])
@@ -44,7 +45,7 @@ def _cleanup_financial_test_rows():
     }
     yield
     for t, max_id in max_ids.items():
-        execute(f"DELETE FROM {t} WHERE id > :max_id", {"max_id": max_id})  # nosec B608 - t vem só da tupla fixa acima
+        execute(f"DELETE FROM {t} WHERE id > :max_id", {"max_id": max_id})  # nosec B608 - t comes only from the fixed tuple above
 
 
 @pytest.fixture()
@@ -57,30 +58,30 @@ def god_user(client):
 
 class TestAccessLevels:
     def test_common_user_cannot_see_zona_vermelha(self, client):
-        user_id, email, password = register_test_user(client, full_name="Comum Test")
+        user_id, email, password = register_test_user(client, full_name="Regular User Test")
         login(client, email, password)
         r = client.get("/financeiro", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/"
 
     def test_admin_level_2_cannot_see_zona_vermelha(self, client):
-        user_id, email, password = register_test_user(client, full_name="Admin Nivel 2")
+        user_id, email, password = register_test_user(client, full_name="Admin Level 2")
         _promote(user_id, 2)
         login(client, email, password)
         r = client.get("/financeiro", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/"
-        # mas o painel /admin "normal" continua acessível
+        # but the "regular" /admin dashboard is still accessible
         r2 = client.get("/admin", follow_redirects=False)
         assert r2.status_code == 200
 
     def test_moderator_level_1_cannot_reach_admin_users(self, client):
-        user_id, email, password = register_test_user(client, full_name="Moderador Test")
+        user_id, email, password = register_test_user(client, full_name="Moderator Test")
         _promote(user_id, 1)
         login(client, email, password)
-        # painel de leitura /admin já entra (nível >= 1)
+        # the read-only /admin dashboard already lets them in (level >= 1)
         assert client.get("/admin", follow_redirects=False).status_code == 200
-        # mas gestão de usuários exige nível 2+
+        # but user management requires level 2+
         r = client.get("/admin/users", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/"
@@ -88,13 +89,13 @@ class TestAccessLevels:
     def test_god_mode_sees_zona_vermelha(self, god_user, client):
         r = client.get("/financeiro")
         assert r.status_code == 200
-        assert "Modo Capitalismo" in r.text
+        assert "Capitalism Mode" in r.text
 
     def test_only_god_mode_can_promote_another_to_god_mode(self, client):
-        # admin nível 2 tentando promover outra pessoa a god mode não deveria conseguir
-        admin_id, admin_email, admin_password = register_test_user(client, full_name="Admin Promotor")
+        # a level-2 admin trying to promote someone else to god mode should not be able to
+        admin_id, admin_email, admin_password = register_test_user(client, full_name="Promoting Admin")
         _promote(admin_id, 2)
-        target_id, _, _ = register_test_user(client, full_name="Alvo Promocao")
+        target_id, _, _ = register_test_user(client, full_name="Promotion Target")
         _promote(target_id, 2)
         login(client, admin_email, admin_password)
 
@@ -106,7 +107,7 @@ class TestAccessLevels:
             follow_redirects=False,
         )
         level_after = fetch_one("SELECT role_level FROM users WHERE id = :id", {"id": target_id})["role_level"]
-        assert level_after == 2, "admin comum não deveria conseguir promover ninguém a god mode"
+        assert level_after == 2, "a regular admin should not be able to promote anyone to god mode"
 
 
 class TestSecurityLockOnSensitiveActions:
@@ -114,16 +115,16 @@ class TestSecurityLockOnSensitiveActions:
         r = client.get("/financeiro")
         token = extract_csrf(r.text)
 
-        # senha errada: nada muda
+        # wrong password: nothing changes
         client.post(
             "/financeiro/toggle-capitalismo",
-            data={"csrf_token": token, "current_password": "senha-errada-de-proposito"},
+            data={"csrf_token": token, "current_password": "wrong-password-on-purpose"},
             follow_redirects=False,
         )
         setting = fetch_one("SELECT value FROM system_settings WHERE key = 'capitalismo_mode_enabled'")
-        assert setting["value"] == "false", "senha errada não deveria ter ligado o Modo Capitalismo"
+        assert setting["value"] == "false", "a wrong password should not have turned on Capitalism Mode"
 
-        # senha certa: liga
+        # correct password: turns it on
         client.post(
             "/financeiro/toggle-capitalismo",
             data={"csrf_token": token, "current_password": DEFAULT_PASSWORD},
@@ -132,7 +133,7 @@ class TestSecurityLockOnSensitiveActions:
         setting_after = fetch_one("SELECT value FROM system_settings WHERE key = 'capitalismo_mode_enabled'")
         assert setting_after["value"] == "true"
 
-        # desliga de novo, pra não vazar estado pro próximo teste
+        # turn it back off, so state doesn't leak into the next test
         client.post(
             "/financeiro/toggle-capitalismo",
             data={"csrf_token": token, "current_password": DEFAULT_PASSWORD},
@@ -146,7 +147,7 @@ class TestSecurityLockOnSensitiveActions:
 
         client.post(
             "/financeiro/toggle-capitalismo",
-            data={"csrf_token": token, "current_password": "errada"},
+            data={"csrf_token": token, "current_password": "wrong"},
             follow_redirects=False,
         )
         after_fail = fetch_one("SELECT COUNT(*) AS n FROM audit_log")["n"]
@@ -164,7 +165,7 @@ class TestSecurityLockOnSensitiveActions:
         assert last_action["action"] == "toggle_capitalismo_mode"
         assert last_action["actor_user_id"] == god_user["id"]
 
-        # desliga de novo pra não vazar estado
+        # turn it back off so state doesn't leak
         client.post(
             "/financeiro/toggle-capitalismo",
             data={"csrf_token": token, "current_password": DEFAULT_PASSWORD},
@@ -186,7 +187,7 @@ class TestSecurityLockOnSensitiveActions:
         eur = fetch_one("SELECT value FROM system_settings WHERE key = 'subscription_price_eur_cents'")
         assert eur["value"] == "790"
 
-        # volta ao padrão pra não vazar estado entre testes
+        # revert to the default so state doesn't leak between tests
         client.post(
             "/financeiro/set-price",
             data={
@@ -206,13 +207,13 @@ class TestFinancialPanel:
         client.post(
             "/financeiro/expenses",
             data={
-                "csrf_token": token, "description": "Hospedagem Railway", "amount": "12.50",
+                "csrf_token": token, "description": "Railway Hosting", "amount": "12.50",
                 "currency": "EUR", "category": "hosting", "expense_date": "2026-09-01",
                 "is_recurring": "1", "recurrence_interval": "monthly",
             },
             follow_redirects=False,
         )
-        expense = fetch_one("SELECT * FROM expenses WHERE description = 'Hospedagem Railway'")
+        expense = fetch_one("SELECT * FROM expenses WHERE description = 'Railway Hosting'")
         assert expense is not None
         assert expense["amount_cents"] == 1250
         assert expense["is_recurring"] is True
@@ -228,10 +229,10 @@ class TestFinancialPanel:
         r = client.get("/financeiro/expenses/export.csv")
         assert r.status_code == 200
         assert "text/csv" in r.headers["content-type"]
-        assert "descricao" in r.text
+        assert "description" in r.text
 
     def test_non_god_mode_cannot_reach_financial_panel(self, client):
-        user_id, email, password = register_test_user(client, full_name="Sem Acesso")
+        user_id, email, password = register_test_user(client, full_name="No Access")
         login(client, email, password)
         assert client.get("/financeiro/painel", follow_redirects=False).status_code == 303
         assert client.get("/financeiro/expenses/export.csv", follow_redirects=False).status_code == 303
@@ -270,8 +271,8 @@ class TestFinancialClosing:
 
 class TestCapitalismoBannerHidden:
     def test_banner_hidden_while_capitalismo_mode_off(self, client):
-        user_id, email, password = register_test_user(client, full_name="Banner Test")
+        user_id, email, password = register_test_user(client, full_name="Banner Test User")
         login(client, email, password)
         r = client.get("/")
         assert "capitalismo-banner" not in r.text
-        assert "Assine já" not in r.text
+        assert "Subscribe now" not in r.text

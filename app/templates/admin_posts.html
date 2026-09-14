@@ -3,78 +3,98 @@
 
 {% block content %}
 <a class="back-link" href="/admin">&larr; Admin</a>
-<h1>📝 Posts</h1>
-<p class="field-help">
-    Avisos, parcerias, dicas — aparecem num feed na página inicial, pra
-    todo mundo (logado ou não). Só admin cria. "Despublicar" esconde o
-    post da home sem apagar o texto; dá pra publicar de novo depois.
+<h1><svg class="icon"><use href="/static/img/icons.svg#icon-posts"></use></svg> Posts</h1>
+<p class="admin-tip-banner">
+    💡 Announcements, partnerships, tips — they appear in a feed on the home
+    page, for everyone (logged in or not). Only admins can create one.
+    "Unpublish" hides the post from the home page without deleting the
+    text; it can be published again later.
 </p>
 
 {% if created %}
-    <p class="success">✅ Post publicado.</p>
+    <p class="success"><svg class="icon"><use href="/static/img/icons.svg#icon-check"></use></svg> Post published.</p>
 {% endif %}
 {% if request.query_params.get('error') == 'empty' %}
-    <p class="error">Título e texto não podem ficar em branco.</p>
+    <p class="error">Title and text cannot be blank.</p>
 {% endif %}
 {% if request.query_params.get('error') == 'too_long' %}
-    <p class="error">Título ou texto passou do limite ({{ title_max }} / {{ body_max }} caracteres, contando o HTML da formatação) — encurte e tente de novo.</p>
+    <p class="error">Title or text exceeded the limit ({{ title_max }} / {{ body_max }} characters, counting formatting HTML) — shorten it and try again.</p>
 {% endif %}
 
-<form method="post" action="/admin/posts" class="stacked-form narrow" enctype="multipart/form-data">
+<form method="post" action="/admin/posts" class="stacked-form post-form" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>Título
+    <label>Title
         <input type="text" name="title" maxlength="{{ title_max }}" required>
     </label>
 
     <div class="post-editor" data-post-editor data-upload-url="/admin/posts/upload-image" data-csrf-token="{{ csrf_token }}">
-        <label class="field-label">Texto</label>
+        <label class="field-label">Text</label>
         <div class="post-editor-toolbar" data-post-editor-toolbar>
-            <button type="button" data-cmd="bold" title="Negrito"><strong>B</strong></button>
-            <button type="button" data-cmd="italic" title="Itálico"><em>I</em></button>
-            <button type="button" data-cmd="underline" title="Sublinhado"><u>S</u></button>
+            <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
+            <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
+            <button type="button" data-cmd="underline" title="Underline"><u>S</u></button>
             <span class="post-editor-sep"></span>
-            <button type="button" data-cmd="formatBlock" data-value="h2" title="Título">H2</button>
-            <button type="button" data-cmd="formatBlock" data-value="h3" title="Subtítulo">H3</button>
-            <button type="button" data-cmd="formatBlock" data-value="p" title="Parágrafo">¶</button>
+            <button type="button" data-cmd="formatBlock" data-value="h2" title="Heading">H2</button>
+            <button type="button" data-cmd="formatBlock" data-value="h3" title="Subheading">H3</button>
+            <button type="button" data-cmd="formatBlock" data-value="p" title="Paragraph">¶</button>
             <span class="post-editor-sep"></span>
-            <button type="button" data-cmd="insertUnorderedList" title="Lista com marcadores">• Lista</button>
-            <button type="button" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
-            <button type="button" data-cmd="formatBlock" data-value="blockquote" title="Citação">" Citação</button>
+            <button type="button" data-cmd="insertUnorderedList" title="Bulleted list">• List</button>
+            <button type="button" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+            <button type="button" data-cmd="formatBlock" data-value="blockquote" title="Quote">" Quote</button>
             <span class="post-editor-sep"></span>
-            <button type="button" data-cmd="createLink" title="Inserir link">🔗 Link</button>
-            <button type="button" data-cmd="insertImage" title="Inserir imagem">🖼️ Imagem</button>
+            <button type="button" data-cmd="createLink" title="Insert link"><svg class="icon"><use href="/static/img/icons.svg#icon-link"></use></svg> Link</button>
+            <button type="button" data-cmd="insertImage" title="Insert image"><svg class="icon"><use href="/static/img/icons.svg#icon-image"></use></svg> Image</button>
             <span class="post-editor-status" data-post-editor-status></span>
         </div>
-        <div class="post-editor-area" data-post-editor-area contenteditable="true" aria-label="Texto do post"></div>
+        <div class="post-editor-toolbar-row2">
+            <label class="post-editor-color-field">
+                Color
+                <input type="color" data-post-editor-color value="#1c1f2e" title="Text color">
+            </label>
+            <label class="post-editor-font-field">
+                Font
+                <select data-post-editor-font title="Font">
+                    <option value="">Default</option>
+                    <option value="Georgia, 'Times New Roman', serif">Serif</option>
+                    <option value="'Courier New', monospace">Monospace</option>
+                    <option value="Verdana, Geneva, sans-serif">Verdana</option>
+                </select>
+            </label>
+        </div>
+        <div class="post-editor-area" data-post-editor-area contenteditable="true" aria-label="Post text"></div>
         <input type="file" accept="image/*" hidden data-post-editor-image-input>
         <textarea name="body" hidden data-post-editor-hidden maxlength="{{ body_max }}" required></textarea>
-        <p class="field-help">Selecione o texto e clique nos botões pra formatar — igual ao WordPress. As imagens ficam salvas no servidor assim que você escolhe o arquivo.</p>
+        <p class="field-help">Select text and click the buttons to format it — just like WordPress. Drop an image straight into the text to upload and place it, or use the Image button; click an inserted image to align it, and drag it to move it elsewhere in the post.</p>
     </div>
 
-    <button type="submit" class="button-link button-primary">Publicar</button>
+    <button type="submit" class="button-link button-primary">Publish</button>
 </form>
 <script src="/static/js/post-editor.js" nonce="{{ csp_nonce }}"></script>
 
-<h2>Posts existentes</h2>
+<h2>Existing posts</h2>
 {% if posts|length == 0 %}
-    <p class="empty-state">Nenhum post ainda.</p>
+    <p class="empty-state">No posts yet.</p>
 {% else %}
     <ul class="admin-list">
         {% for p in posts %}
             <li>
                 <p>
                     <strong>{{ p.title }}</strong>
-                    {% if not p.is_published %}<span class="badge">rascunho / despublicado</span>{% endif %}
+                    {% if not p.is_published %}<span class="badge">draft / unpublished</span>{% endif %}
                 </p>
                 <div class="post-body-full">{{ p.body | safe }}</div>
                 <p class="field-help">{{ t('by_author') }} {{ p.author_name }} — {{ p.created_at }}</p>
                 <form method="post" action="/admin/posts/{{ p.id }}/toggle-publish" style="display:inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="button-link">{{ '🙈 Despublicar' if p.is_published else '👁️ Publicar' }}</button>
+                    <button type="submit" class="button-link">
+                        {% if p.is_published %}<svg class="icon"><use href="/static/img/icons.svg#icon-eye-off"></use></svg> Unpublish
+                        {% else %}<svg class="icon"><use href="/static/img/icons.svg#icon-eye"></use></svg> Publish
+                        {% endif %}
+                    </button>
                 </form>
-                <form method="post" action="/admin/posts/{{ p.id }}/delete" data-confirm="Apagar este post de vez?" style="display:inline;">
+                <form method="post" action="/admin/posts/{{ p.id }}/delete" data-confirm="Delete this post for good?" style="display:inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="button-link button-danger">🗑️ Apagar</button>
+                    <button type="submit" class="button-link button-danger"><svg class="icon"><use href="/static/img/icons.svg#icon-trash"></use></svg> Delete</button>
                 </form>
             </li>
         {% endfor %}

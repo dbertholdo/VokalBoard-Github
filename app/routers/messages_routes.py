@@ -12,14 +12,14 @@ router = APIRouter()
 
 MAX_MESSAGE_LENGTH = 2000
 
-# Freio contra spam/assédio por mensagem — pensado pra NUNCA atrapalhar
-# uma conversa normal (mesmo animada) nem impedir contato entre duas
-# pessoas, só evitar rajada. Dois limites, os dois por hora corrida:
-# um geral (quantas mensagens a pessoa manda no total) e um por
-# destinatário (quantas manda pra UMA MESMA pessoa) — o segundo é o
-# que realmente importa contra assédio (alguém insistindo com a mesma
-# pessoa), o primeiro é só uma rede de segurança extra contra spam em
-# massa pra gente diferente.
+# Brake against message spam/harassment — designed to NEVER get in
+# the way of a normal conversation (even a lively one) or prevent
+# contact between two people, just to avoid a burst. Two limits, both
+# per rolling hour: a general one (how many messages the person sends
+# in total) and one per recipient (how many they send to ONE SAME
+# person) — the second is the one that really matters against
+# harassment (someone insisting with the same person), the first is
+# just an extra safety net against mass spam to different people.
 MAX_MESSAGES_PER_HOUR = 20
 MAX_MESSAGES_PER_RECIPIENT_PER_HOUR = 5
 
@@ -133,10 +133,10 @@ def send_message(
     if not body or recipient_id == user["id"]:
         return RedirectResponse(url="/messages", status_code=303)
 
-    # Freio contra rajada de mensagens (ver constantes ali em cima) —
-    # checado ANTES do bloqueio de conteúdo pra dar o aviso certo. Não
-    # é permanente: passada 1 hora da mensagem mais antiga contada, o
-    # limite libera sozinho.
+    # Brake against a burst of messages (see constants above) —
+    # checked BEFORE the content check, to give the right warning.
+    # It's not permanent: once 1 hour has passed since the oldest
+    # counted message, the limit clears on its own.
     sent_last_hour = fetch_one(
         "SELECT count(*) AS n FROM messages WHERE sender_id = :id AND created_at > now() - interval '1 hour'",
         {"id": user["id"]},
@@ -172,8 +172,8 @@ def send_message(
         }
         return render(request, "message_compose.html", context, status_code=429)
 
-    # Bloqueio impede mensagem nos dois sentidos: nem quem bloqueou nem
-    # quem foi bloqueado consegue mandar mensagem pro outro lado.
+    # A block prevents messages in both directions: neither whoever
+    # blocked nor whoever was blocked can send a message to the other side.
     blocked = fetch_one(
         """
         SELECT 1 FROM blocked_users
@@ -205,10 +205,10 @@ def send_message(
         },
     )
 
-    # "Receber um e-mail toda vez que recebe uma mensagem" — em segundo
-    # plano, pra não atrasar o redirecionamento de quem enviou. Só
-    # dispara se a pessoa tiver e-mail verificado e o aviso ligado
-    # (users.notify_messages, ver /profile).
+    # "Get an e-mail every time you receive a message" — in the
+    # background, so as not to delay the redirect for whoever sent
+    # it. Only fires if the person has a verified e-mail and the
+    # notice turned on (users.notify_messages, see /profile).
     if recipient["email_verified"] and recipient["notify_messages"]:
         background_tasks.add_task(
             notify_new_message,
@@ -218,8 +218,8 @@ def send_message(
             user["full_name"],
         )
 
-    # Badges que dependem de mensagens (contato, resposta rápida) —
-    # checa pra quem ENVIOU (a ação foi dela).
+    # Badges that depend on messages (contact, fast response) —
+    # checks for whoever SENT it (the action was theirs).
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
 
     return RedirectResponse(url="/messages/sent", status_code=303)
@@ -306,9 +306,10 @@ def empty_trash(request: Request, csrf_token: str = Form("")):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Simplificação didática: esvaziar a lixeira apaga a linha de vez,
-    # o que remove a mensagem também do lado da outra pessoa (mesmo que
-    # ela não tenha jogado a dela fora). Veja a nota em db/schema.sql.
+    # Didactic simplification: emptying the trash deletes the row for
+    # good, which also removes the message from the other person's
+    # side (even if they haven't thrown theirs away). See the note in
+    # db/schema.sql.
     execute(
         """
         DELETE FROM messages

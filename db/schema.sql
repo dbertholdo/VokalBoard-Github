@@ -1,14 +1,14 @@
 -- ============================================================
--- Schema: VokalBoard — quadro de avisos para conectar
--- cantores e maestros na Alemanha.
+-- Schema: VokalBoard — bulletin board connecting
+-- singers and conductors in Germany.
 --
--- Este schema foi desenhado de propósito com tabelas de apoio
--- (lookup tables) e chaves estrangeiras para você poder praticar
--- JOINs, filtros com WHERE, agregações com GROUP BY, etc.
+-- This schema is deliberately designed with lookup tables
+-- and foreign keys so you can practice JOINs, filters with
+-- WHERE, aggregations with GROUP BY, etc.
 -- ============================================================
 
--- Extensão para gerar UUIDs (opcional, aqui usamos SERIAL/BIGSERIAL
--- por simplicidade e para você também praticar IDs incrementais)
+-- Extension for generating UUIDs (optional, here we use SERIAL/BIGSERIAL
+-- for simplicity and so you can also practice with incremental IDs)
 -- CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 DROP TABLE IF EXISTS user_badges CASCADE;
@@ -31,9 +31,9 @@ DROP TABLE IF EXISTS voice_types CASCADE;
 DROP TABLE IF EXISTS cities CASCADE;
 
 -- ------------------------------------------------------------
--- Tabela de apoio (lookup): categorias de voz (SATB simplificado,
--- conforme pedido: Soprano / Alto / Tenor / Baixo). Um(a) maestro(a)
--- não tem tipo de voz (voice_type_id fica NULL para eles).
+-- Lookup table: voice categories (simplified SATB,
+-- as requested: Soprano / Alto / Tenor / Bass). A conductor
+-- has no voice type (voice_type_id is NULL for them).
 -- ------------------------------------------------------------
 CREATE TABLE voice_types (
     id          SERIAL PRIMARY KEY,
@@ -42,20 +42,20 @@ CREATE TABLE voice_types (
 );
 
 -- ------------------------------------------------------------
--- Tabela de apoio (lookup): cidades reais da Alemanha, Áustria e
--- Suíça, cada uma já amarrada ao seu estado/cantão (ver `state` em
--- users/listings) e ao país. Usada para popular os selects em
--- cascata País > Estado > Cidade no cadastro/perfil e no formulário
--- de anúncio, em vez de deixar "cidade" como texto livre — isso
--- evita variações ("München" vs "Munich" vs "Muenchen") que
--- quebrariam o match por cidade entre cantores e maestros.
+-- Lookup table: real cities in Germany, Austria and
+-- Switzerland, each already tied to its state/canton (see `state` in
+-- users/listings) and country. Used to populate the cascading
+-- Country > State > City selects in signup/profile and in the
+-- listing form, instead of leaving "city" as free text — this
+-- avoids variations ("München" vs "Munich" vs "Muenchen") that
+-- would break city matching between singers and conductors.
 --
--- Dados de origem: GeoNames (geonames.org, CC BY 4.0), cidades com
--- população aproximada >= 15.000 habitantes — ver
--- scripts/generate_cities_seed.py, que gera o INSERT no final deste
--- arquivo. Não é uma lista exaustiva de todo povoado; por isso o
--- formulário sempre mantém uma opção "Outra cidade" como texto livre
--- de fallback.
+-- Source data: GeoNames (geonames.org, CC BY 4.0), cities with
+-- approximate population >= 15,000 — see
+-- scripts/generate_cities_seed.py, which generates the INSERT at the
+-- end of this file. It's not an exhaustive list of every settlement;
+-- that's why the form always keeps an "Other city" free-text
+-- fallback option.
 -- ------------------------------------------------------------
 CREATE TABLE cities (
     id            SERIAL PRIMARY KEY,
@@ -70,11 +70,11 @@ CREATE INDEX idx_cities_state ON cities(state);
 CREATE INDEX idx_cities_country ON cities(country_code);
 
 -- ------------------------------------------------------------
--- Usuários (cantores e maestros)
+-- Users (singers and conductors)
 --
--- email_verified: fica FALSE até a pessoa clicar no link enviado por
--- e-mail no cadastro (ver email_verification_tokens). Publicar
--- anúncios e enviar mensagens exige e-mail verificado (reduz spam).
+-- email_verified: stays FALSE until the person clicks the link sent
+-- by email at signup (see email_verification_tokens). Posting
+-- listings and sending messages requires a verified email (reduces spam).
 -- ------------------------------------------------------------
 CREATE TABLE users (
     id              BIGSERIAL PRIMARY KEY,
@@ -83,63 +83,63 @@ CREATE TABLE users (
     full_name       VARCHAR(150) NOT NULL,
     role            VARCHAR(20)  NOT NULL CHECK (role IN ('singer', 'conductor')),
     city            VARCHAR(100),
-    state           VARCHAR(100),                          -- Bundesland/Kanton — mesma lista usada nos anúncios (ver `cities`)
+    state           VARCHAR(100),                          -- Bundesland/Kanton — same list used in listings (see `cities`)
     country         VARCHAR(10) NOT NULL DEFAULT 'DE' CHECK (country IN ('DE', 'AT', 'CH', 'OTHER')),
     phone           VARCHAR(50),
     email_verified  BOOLEAN NOT NULL DEFAULT FALSE,
-    -- Exclusão de conta "soft delete": quando a pessoa pede pra excluir
-    -- a conta, só marcamos deleted_at (não fazemos DELETE de verdade).
-    -- A conta some da visão de todo mundo (perfil, anúncios) e o login
-    -- passa a oferecer "reativar" em vez de logar direto. Um processo
-    -- de manutenção externo (ver scripts/purge_deleted_accounts.py)
-    -- apaga de vez quem está marcado há mais de 6 meses.
+    -- Account deletion "soft delete": when the person asks to delete
+    -- their account, we only set deleted_at (we don't actually DELETE).
+    -- The account disappears from everyone's view (profile, listings) and
+    -- login then offers "reactivate" instead of logging straight in. An
+    -- external maintenance process (see scripts/purge_deleted_accounts.py)
+    -- permanently deletes anyone marked for more than 6 months.
     deleted_at      TIMESTAMPTZ,
-    -- Foto de perfil: caminho relativo dentro de /static (ex:
-    -- "/static/avatars/42.jpg"), não a imagem em si — o arquivo fica
-    -- no disco (ver app/avatars.py). NULL = sem foto, mostra um
-    -- avatar genérico no lugar.
+    -- Profile photo: relative path inside /static (e.g.
+    -- "/static/avatars/42.jpg"), not the image itself — the file lives
+    -- on disk (see app/avatars.py). NULL = no photo, shows a
+    -- generic avatar instead.
     avatar_url      VARCHAR(300),
-    -- Alertas de anúncio compatível: liga/desliga o e-mail que a
-    -- pessoa recebe quando alguém posta uma vaga que combina com o
-    -- tipo de voz/papel dela (ver app/notifications.py). Padrão
-    -- ligado; pode ser desligado em /profile.
+    -- Matching listing alerts: turns on/off the email the
+    -- person receives when someone posts a listing that matches their
+    -- voice type/role (see app/notifications.py). Default
+    -- on; can be turned off in /profile.
     notify_matches  BOOLEAN NOT NULL DEFAULT TRUE,
-    -- Aviso por e-mail quando a pessoa recebe uma mensagem nova (ver
-    -- app/routers/messages_routes.py). Separado de notify_matches
-    -- porque são dois tipos de e-mail bem diferentes — a pessoa pode
-    -- querer um sem o outro.
+    -- Email notification when the person receives a new message (see
+    -- app/routers/messages_routes.py). Separate from notify_matches
+    -- because these are two quite different types of email — the person
+    -- may want one without the other.
     notify_messages BOOLEAN NOT NULL DEFAULT TRUE,
-    -- "Convide um amigo": código curto único, gerado no cadastro
-    -- (ver app/referrals.py), usado num link tipo /register?ref=CODE.
+    -- "Refer a friend": unique short code, generated at signup
+    -- (see app/referrals.py), used in a link like /register?ref=CODE.
     referral_code       VARCHAR(12) UNIQUE,
     referred_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
-    -- Nível de usuário especial pra tarefas administrativas simples
-    -- DENTRO do app (ver /admin em app/routers/admin_routes.py) — bem
-    -- mais restrito que o Adminer (que já dá acesso total ao banco):
-    -- isso aqui é só uma telinha de leitura pra triagem rápida de
-    -- denúncias/bloqueios, sem precisar abrir o Adminer/SQL toda vez.
-    -- Não existe cadastro de admin pela interface — vira admin só via
-    -- UPDATE direto no banco (ver README, seção "Nível de admin").
+    -- Special user level for simple administrative tasks
+    -- INSIDE the app (see /admin in app/routers/admin_routes.py) — much
+    -- more restricted than Adminer (which already gives full database
+    -- access): this is just a small read-only screen for quick triage
+    -- of reports/blocks, without having to open Adminer/SQL every time.
+    -- There's no admin signup through the interface — you only become
+    -- admin via a direct UPDATE in the database (see README, "Admin level" section).
     is_admin        BOOLEAN NOT NULL DEFAULT FALSE,
-    -- Nível de acesso administrativo, em camadas (substitui o antigo
-    -- "é admin ou não é" por uma escala real — ver app/permissions.py):
-    --   0 = usuário comum
-    --   1 = moderador (só a fila de denúncias/bloqueios, sem mexer em
-    --       usuários nem em nada financeiro)
-    --   2 = admin (tudo que /admin já fazia antes: usuários, posts,
-    --       análise de dados)
-    --   3 = "god mode" — único nível que enxerga a Zona Vermelha
-    --       (Modo Capitalismo, preço de assinatura, painel financeiro)
-    -- is_admin continua existindo por compatibilidade (telas antigas,
-    -- README) e é mantido em sincronia com role_level >= 2 sempre que
-    -- alguém é promovido/rebaixado por /admin/users — ver
+    -- Administrative access level, in tiers (replaces the old
+    -- "is admin or isn't" with a real scale — see app/permissions.py):
+    --   0 = regular user
+    --   1 = moderator (only the reports/blocks queue, no touching
+    --       users or anything financial)
+    --   2 = admin (everything /admin already did before: users, posts,
+    --       data analysis)
+    --   3 = "god mode" — the only level that can see the Red Zone
+    --       (Capitalism Mode, subscription pricing, financial dashboard)
+    -- is_admin still exists for backward compatibility (old screens,
+    -- README) and is kept in sync with role_level >= 2 whenever
+    -- someone is promoted/demoted via /admin/users — see
     -- app/permissions.py:sync_is_admin_flag.
     role_level      SMALLINT NOT NULL DEFAULT 0 CHECK (role_level BETWEEN 0 AND 3),
-    -- Atualizado (no máximo a cada poucos minutos, não a cada request —
-    -- ver app/render.py) toda vez que a pessoa logada carrega uma
-    -- página. Usado só pra "usuários ativos agora/últimos 60 min" no
-    -- painel de Análise de Dados — não é rastreamento, é só a MESMA
-    -- informação que "visto por último" em qualquer app de mensagem.
+    -- Updated (at most every few minutes, not on every request —
+    -- see app/render.py) every time the logged-in person loads a
+    -- page. Used only for "users active now/last 60 min" in the
+    -- Data Analysis dashboard — it's not tracking, it's just the SAME
+    -- information as "last seen" in any messaging app.
     last_seen_at    TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -152,20 +152,21 @@ CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX idx_users_referred_by ON users(referred_by_user_id);
 CREATE INDEX idx_users_role_level ON users(role_level);
 
--- Migração de quem já era is_admin=TRUE antes de role_level existir:
--- vira nível 3 (god mode) automaticamente, pra não perder acesso a
--- nada que já tinha. Rodar isso é seguro mesmo em bancos que já têm
--- a coluna (não sobrescreve quem já foi ajustado manualmente para um
--- nível específico, só cobre quem ainda está em 0 apesar de admin).
+-- Migration for anyone who was already is_admin=TRUE before role_level
+-- existed: automatically becomes level 3 (god mode), so they don't
+-- lose access to anything they already had. Safe to run even on
+-- databases that already have the column (doesn't overwrite anyone
+-- already manually adjusted to a specific level, only covers whoever
+-- is still at 0 despite being admin).
 UPDATE users SET role_level = 3 WHERE is_admin = TRUE AND role_level = 0;
 
--- Trigger de segurança: mantém role_level em sincronia mesmo quando
--- is_admin é alterado por FORA da aplicação (ex: o UPDATE manual do
--- README pra criar o primeiro admin, ou uma edição direta no Adminer).
--- Sem isso, seguir o README antigo ("UPDATE users SET is_admin = TRUE
--- ...") deixaria a pessoa marcada como admin mas SEM acesso a nada,
--- porque toda checagem de permissão agora olha role_level, não
--- is_admin — ver app/permissions.py.
+-- Safety trigger: keeps role_level in sync even when
+-- is_admin is changed from OUTSIDE the application (e.g. the manual
+-- UPDATE from the README to create the first admin, or a direct edit
+-- in Adminer). Without this, following the old README ("UPDATE users
+-- SET is_admin = TRUE ...") would leave the person marked as admin but
+-- WITHOUT access to anything, because every permission check now looks
+-- at role_level, not is_admin — see app/permissions.py.
 CREATE OR REPLACE FUNCTION sync_role_level_from_is_admin() RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.is_admin AND NEW.role_level < 2 THEN
@@ -184,11 +185,11 @@ CREATE TRIGGER trg_sync_role_level
     EXECUTE FUNCTION sync_role_level_from_is_admin();
 
 -- ------------------------------------------------------------
--- Zona Vermelha: configurações sensíveis (Modo Capitalismo, preço de
--- assinatura, etc). Guardadas como chave/valor em vez de colunas
--- fixas pra não precisar de migração toda vez que um novo "toggle"
--- sensível é adicionado. Só é lido/escrito por app/routers/financial_routes.py,
--- sempre atrás de reautenticação por senha — ver audit_log abaixo.
+-- Red Zone: sensitive settings (Capitalism Mode, subscription
+-- price, etc). Stored as key/value instead of fixed columns
+-- so we don't need a migration every time a new sensitive
+-- "toggle" is added. Only read/written by app/routers/financial_routes.py,
+-- always gated behind password reauthentication — see audit_log below.
 CREATE TABLE system_settings (
     key                 VARCHAR(100) PRIMARY KEY,
     value                TEXT,
@@ -196,18 +197,18 @@ CREATE TABLE system_settings (
     updated_by_user_id   BIGINT REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Valores padrão: Modo Capitalismo começa DESLIGADO (ninguém vê nada
--- de cobrança) e os preços ficam definidos mas inertes até ser ligado.
+-- Default values: Capitalism Mode starts OFF (nobody sees any
+-- billing) and the prices are set but dormant until it's turned on.
 INSERT INTO system_settings (key, value) VALUES
     ('capitalismo_mode_enabled', 'false'),
     ('subscription_price_eur_cents', '590'),
     ('subscription_price_chf_cents', '690')
 ON CONFLICT (key) DO NOTHING;
 
--- Log de auditoria das ações sensíveis da Zona Vermelha (ligar/desligar
--- o Modo Capitalismo, mudar preço) — quem, quando, de qual IP. Não é
--- apagável pela interface de propósito (é o registro justamente pra
--- quando algo der errado).
+-- Audit log of Red Zone sensitive actions (turning Capitalism
+-- Mode on/off, changing price) — who, when, from which IP. Not
+-- deletable through the interface on purpose (it's precisely the
+-- record for when something goes wrong).
 CREATE TABLE audit_log (
     id              BIGSERIAL PRIMARY KEY,
     actor_user_id   BIGINT REFERENCES users(id) ON DELETE SET NULL,
@@ -219,7 +220,7 @@ CREATE TABLE audit_log (
 CREATE INDEX idx_audit_log_created_at ON audit_log(created_at DESC);
 
 -- ------------------------------------------------------------
--- Painel financeiro interno (Zona Vermelha, nível 3 apenas)
+-- Internal financial dashboard (Red Zone, level 3 only)
 -- ------------------------------------------------------------
 CREATE TABLE expenses (
     id                      BIGSERIAL PRIMARY KEY,
@@ -228,14 +229,14 @@ CREATE TABLE expenses (
     currency                VARCHAR(3) NOT NULL DEFAULT 'EUR',
     category                VARCHAR(50) NOT NULL DEFAULT 'other',
     expense_date            DATE NOT NULL,
-    -- Despesa recorrente: quando marcada, recurrence_interval diz de
-    -- quanto em quanto tempo ela "recarrega" — a tela do painel usa
-    -- isso só pra sugerir o lançamento do mês seguinte automaticamente
-    -- (não lança sozinho sem confirmação, de propósito).
+    -- Recurring expense: when checked, recurrence_interval says how
+    -- often it "recharges" — the dashboard screen uses this only to
+    -- suggest next month's entry automatically
+    -- (it does not post it by itself without confirmation, on purpose).
     is_recurring            BOOLEAN NOT NULL DEFAULT FALSE,
     recurrence_interval     VARCHAR(20) CHECK (recurrence_interval IN ('monthly', 'yearly') OR recurrence_interval IS NULL),
-    -- Anexo de comprovante: mesmo esquema de app/avatars.py (caminho
-    -- relativo dentro de /static, arquivo em disco).
+    -- Receipt attachment: same scheme as app/avatars.py (relative
+    -- path inside /static, file on disk).
     receipt_url             VARCHAR(300),
     created_by_user_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -243,13 +244,13 @@ CREATE TABLE expenses (
 CREATE INDEX idx_expenses_date ON expenses(expense_date DESC);
 CREATE INDEX idx_expenses_recurring ON expenses(is_recurring);
 
--- Perfis de importação de extrato: guarda o mapeamento de colunas que
--- você define uma vez por banco (CSV) pra não precisar redigitar toda
--- vez — ver "Como funciona o upload de extrato" no changelog.
+-- Bank statement import profiles: stores the column mapping that
+-- you define once per bank (CSV) so you don't have to retype it every
+-- time — see "How statement upload works" in the changelog.
 CREATE TABLE bank_import_profiles (
     id              BIGSERIAL PRIMARY KEY,
     name            VARCHAR(100) NOT NULL UNIQUE,
-    column_mapping  JSONB NOT NULL,   -- ex: {"date": "Data", "amount": "Valor", "description": "Descrição"}
+    column_mapping  JSONB NOT NULL,   -- e.g.: {"date": "Date", "amount": "Amount", "description": "Description"}
     date_format     VARCHAR(20) NOT NULL DEFAULT '%d/%m/%Y',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -261,25 +262,25 @@ CREATE TABLE bank_transactions (
     amount_cents          BIGINT NOT NULL,
     currency              VARCHAR(3) NOT NULL DEFAULT 'EUR',
     description           VARCHAR(300),
-    -- Conciliação manual simples: liga a linha do extrato a uma
-    -- despesa já lançada, se você marcar que "é a mesma coisa".
+    -- Simple manual reconciliation: links the statement line to an
+    -- expense already recorded, if you mark it as "the same thing".
     matched_expense_id    BIGINT REFERENCES expenses(id) ON DELETE SET NULL,
     imported_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_bank_transactions_date ON bank_transactions(transaction_date DESC);
 
--- Assinaturas pagas — existe desde já (mesmo com o Modo Capitalismo
--- desligado) pra o painel de analytics por país e o fechamento
--- mensal/anual já funcionarem no dia em que a cobrança for ligada,
--- sem precisar de mais uma migração na hora.
+-- Paid subscriptions — exists already (even with Capitalism Mode
+-- off) so the per-country analytics dashboard and the monthly/annual
+-- closing already work on the day billing is turned on,
+-- without needing yet another migration at that point.
 CREATE TABLE subscriptions (
     id                  BIGSERIAL PRIMARY KEY,
     user_id             BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     price_paid_cents    BIGINT NOT NULL,
     currency            VARCHAR(3) NOT NULL,
-    -- País do usuário no momento da compra (cópia, não referência —
-    -- pra analytics histórico não mudar se a pessoa depois trocar de
-    -- país no perfil).
+    -- User's country at the time of purchase (a copy, not a reference —
+    -- so historical analytics don't change if the person later changes
+    -- their country in their profile).
     country             VARCHAR(10),
     started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at          TIMESTAMPTZ,
@@ -288,9 +289,9 @@ CREATE TABLE subscriptions (
 CREATE INDEX idx_subscriptions_user ON subscriptions(user_id);
 CREATE INDEX idx_subscriptions_active_country ON subscriptions(is_active, country);
 
--- "Fechamento" mensal/anual: uma foto congelada do resumo financeiro
--- até uma data, guardada pra sempre poder comparar/reexportar depois
--- mesmo que despesas novas sejam lançadas retroativamente.
+-- Monthly/annual "closing": a frozen snapshot of the financial
+-- summary as of a date, kept so it can always be compared/re-exported
+-- later even if new expenses are recorded retroactively.
 CREATE TABLE financial_closings (
     id                      BIGSERIAL PRIMARY KEY,
     period_type             VARCHAR(10) NOT NULL CHECK (period_type IN ('monthly', 'annual')),
@@ -298,9 +299,9 @@ CREATE TABLE financial_closings (
     period_end               DATE NOT NULL,
     total_revenue_cents      BIGINT NOT NULL,
     total_expenses_cents     BIGINT NOT NULL,
-    -- Detalhamento completo (por categoria, por moeda, etc) guardado
-    -- como JSON pra poder reexportar em Excel/CSV/PDF depois sem
-    -- precisar reconsultar o banco do zero.
+    -- Full breakdown (by category, by currency, etc) stored
+    -- as JSON so it can be re-exported to Excel/CSV/PDF later
+    -- without needing to re-query the database from scratch.
     snapshot                 JSONB,
     closed_by_user_id        BIGINT REFERENCES users(id) ON DELETE SET NULL,
     created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -308,11 +309,11 @@ CREATE TABLE financial_closings (
 CREATE INDEX idx_financial_closings_period ON financial_closings(period_type, period_start DESC);
 
 -- ------------------------------------------------------------
--- Redes sociais / site pessoal (opcional). Cada linha é uma
--- plataforma diferente para não repetir a lógica de audio_links
--- desnecessariamente — aqui o conjunto de plataformas é fixo, então
--- uma linha por plataforma com UNIQUE(user_id, platform) evita
--- duplicatas e facilita mostrar sempre na mesma ordem.
+-- Social networks / personal website (optional). Each row is a
+-- different platform so we don't unnecessarily repeat the audio_links
+-- logic — here the set of platforms is fixed, so
+-- one row per platform with UNIQUE(user_id, platform) avoids
+-- duplicates and makes it easy to always show them in the same order.
 -- ------------------------------------------------------------
 CREATE TABLE user_social_links (
     id          BIGSERIAL PRIMARY KEY,
@@ -323,15 +324,15 @@ CREATE TABLE user_social_links (
 );
 
 -- ------------------------------------------------------------
--- Tokens de verificação de e-mail ("clique para ativar") e de
--- recuperação de senha ("esqueci minha senha"). Mesma forma para os
--- dois: um token aleatório, uma validade curta, e um "used_at" para
--- que o link só funcione uma vez.
+-- Email verification tokens ("click to activate") and
+-- password recovery tokens ("forgot my password"). Same shape for
+-- both: a random token, a short expiry, and a "used_at" so
+-- the link only works once.
 --
--- Nota de segurança: para simplificar o aprendizado, o token fica
--- em texto puro na tabela. Num projeto "de verdade" o ideal é guardar
--- um hash do token (como se faz com senhas) e comparar hashes — assim,
--- mesmo um vazamento do banco não expõe tokens ativos.
+-- Security note: to keep the learning simple, the token is stored
+-- as plain text in the table. In a "real" project the ideal is to store
+-- a hash of the token (like you do with passwords) and compare hashes — that
+-- way, even a database leak doesn't expose active tokens.
 -- ------------------------------------------------------------
 CREATE TABLE email_verification_tokens (
     id          BIGSERIAL PRIMARY KEY,
@@ -352,15 +353,16 @@ CREATE TABLE password_reset_tokens (
 );
 
 -- ------------------------------------------------------------
--- Bloqueio progressivo de login (proteção contra força bruta).
+-- Progressive login lockout (brute-force protection).
 --
--- Guarda, por e-mail (não por user_id — assim protege até e-mails que
--- não têm conta aqui, dificultando descobrir por tentativa se um
--- e-mail está cadastrado ou não), quantas tentativas erradas seguidas
--- aconteceram e até quando o login fica bloqueado. A progressão dos
--- tempos de bloqueio (5 min -> 10 min -> 1h -> 24h) mora no código
--- (ver app/login_throttle.py), não aqui — esta tabela só guarda o
--- estado atual de cada e-mail. Acertar a senha zera a linha.
+-- Stores, per email (not per user_id — this way it protects even
+-- emails without an account here, making it harder to discover by
+-- trial whether an email is registered or not), how many consecutive
+-- failed attempts have happened and until when the login stays
+-- locked. The progression of lockout times (5 min -> 10 min -> 1h ->
+-- 24h) lives in the code (see app/login_throttle.py), not here — this
+-- table only stores the current state of each email. Getting the
+-- password right resets the row.
 -- ------------------------------------------------------------
 CREATE TABLE login_lockouts (
     email         VARCHAR(255) PRIMARY KEY,
@@ -371,12 +373,12 @@ CREATE TABLE login_lockouts (
 );
 
 -- ------------------------------------------------------------
--- Freio contra criação em massa de contas falsas por script (ver
--- app/register_throttle.py) — parecido com login_lockouts, mas mais
--- suave e por IP (não por e-mail): NUNCA impede uma pessoa de
--- terminar o próprio cadastro, reenviar e-mail de verificação ou
--- redefinir senha — só limita quantas contas NOVAS a mesma rede
--- consegue criar numa janela de tempo curta.
+-- Throttle against mass creation of fake accounts by script (see
+-- app/register_throttle.py) — similar to login_lockouts, but gentler
+-- and by IP (not by email): it NEVER stops a person from
+-- finishing their own signup, resending the verification email or
+-- resetting their password — it only limits how many NEW accounts the
+-- same network can create within a short time window.
 -- ------------------------------------------------------------
 CREATE TABLE registration_attempts (
     ip_address    VARCHAR(64) PRIMARY KEY,
@@ -385,16 +387,16 @@ CREATE TABLE registration_attempts (
 );
 
 -- ------------------------------------------------------------
--- Contador de visitas gerais ao site (não confundir com
--- profile_views, que só conta visita a UM perfil). Usado no painel
--- "Análise de Dados" do admin (ver app/routers/admin_routes.py) pra
--- entender horário/dia da semana/dia do mês de maior uso.
+-- Counter for general site visits (not to be confused with
+-- profile_views, which only counts visits to ONE profile). Used in
+-- the admin "Data Analysis" dashboard (see app/routers/admin_routes.py)
+-- to understand the hour/day of week/day of month with the most usage.
 --
--- De propósito NÃO guarda IP nem nenhum identificador da pessoa —
--- "visitor_key" é só pra saber que já contamos ESSA sessão de
--- navegador nas últimas 12h (mesmo padrão de "cooldown" usado em
--- profile_views), não pra identificar quem é. is_authenticated marca
--- só se a pessoa estava logada ou não no momento, sem guardar QUEM.
+-- Deliberately does NOT store IP or any identifier of the person —
+-- "visitor_key" is only to know we already counted THIS browser
+-- session in the last 12h (same "cooldown" pattern used in
+-- profile_views), not to identify who it is. is_authenticated only
+-- marks whether the person was logged in at the time, without storing WHO.
 -- ------------------------------------------------------------
 CREATE TABLE site_visits (
     id                BIGSERIAL PRIMARY KEY,
@@ -406,16 +408,17 @@ CREATE TABLE site_visits (
 CREATE INDEX idx_site_visits_visited_at ON site_visits(visited_at);
 
 -- ------------------------------------------------------------
--- Posts de admin/moderador (avisos, parcerias, dicas) que aparecem
--- num feed na página inicial — pensado pra comunicação do tipo
--- "quadro de avisos oficial", separado dos anúncios (listings) que
--- os próprios usuários postam. author_id é sempre um admin (a rota
--- que insere aqui já exige is_admin), mas a FK não restringe isso
--- por SQL — quem perde o admin depois não some do rodapé "por
--- fulano(a)" do post antigo, só não consegue mais criar novos.
+-- Admin/moderator posts (notices, partnerships, tips) that appear
+-- in a feed on the home page — meant for "official bulletin
+-- board"-style communication, separate from the listings that
+-- users themselves post. author_id is always an admin (the route
+-- that inserts here already requires is_admin), but the FK doesn't
+-- enforce that in SQL — someone who later loses admin doesn't
+-- disappear from the "by so-and-so" footer of their old post, they
+-- just can't create new ones anymore.
 --
--- is_published: soft-hide (mantém histórico) em vez de DELETE — dá
--- pra "despublicar" um post sem perder o texto, e reativar depois.
+-- is_published: soft-hide (keeps history) instead of DELETE — lets
+-- you "unpublish" a post without losing the text, and reactivate it later.
 -- ------------------------------------------------------------
 CREATE TABLE posts (
     id            BIGSERIAL PRIMARY KEY,
@@ -428,27 +431,27 @@ CREATE TABLE posts (
 CREATE INDEX idx_posts_published_created ON posts(is_published, created_at DESC);
 
 -- ------------------------------------------------------------
--- Perfil específico de cantor (1:1 com users quando role='singer')
+-- Singer-specific profile (1:1 with users when role='singer')
 --
--- bio: biografia curta, limitada a 1000 caracteres (CHECK abaixo).
+-- bio: short biography, limited to 1000 characters (CHECK below).
 -- ------------------------------------------------------------
 CREATE TABLE singer_profiles (
     user_id         BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     voice_type_id   INTEGER REFERENCES voice_types(id),
-    fach            VARCHAR(100),          -- ex: "Lyric Soprano", "Spinto" (opcional, avançado)
+    fach            VARCHAR(100),          -- e.g.: "Lyric Soprano", "Spinto" (optional, advanced)
     bio             TEXT CHECK (char_length(bio) <= 1000),
     experience_years SMALLINT
 );
 
 -- ------------------------------------------------------------
--- Hashtags de compositores que o(a) cantor(a) já cantou.
--- Tabela separada (em vez de um array/coluna de texto) de propósito:
--- assim dá pra praticar JOIN/GROUP BY, por exemplo "quais são os
--- compositores mais citados na plataforma".
+-- Composer hashtags the singer has already performed.
+-- A separate table (instead of an array/text column) on purpose:
+-- this lets you practice JOIN/GROUP BY, e.g. "which are the
+-- most-cited composers on the platform".
 --
--- O limite de 10 hashtags por cantor(a) é validado na aplicação
--- (app/routers/profile_routes.py) — como exercício extra de SQL,
--- você pode tentar reforçar esse limite com uma trigger no banco.
+-- The limit of 10 hashtags per singer is validated in the
+-- application (app/routers/profile_routes.py) — as an extra SQL
+-- exercise, you can try enforcing this limit with a database trigger.
 -- ------------------------------------------------------------
 CREATE TABLE singer_composer_tags (
     id          BIGSERIAL PRIMARY KEY,
@@ -462,10 +465,10 @@ CREATE INDEX idx_singer_composer_tags_user ON singer_composer_tags(user_id);
 CREATE INDEX idx_singer_composer_tags_tag ON singer_composer_tags(tag);
 
 -- ------------------------------------------------------------
--- Links de "Audiobeispiel" (exemplo de áudio). Em vez de hospedar
--- arquivos de áudio (o que exigiria object storage tipo S3, já que
--- Render/Railway têm disco efêmero), o(a) cantor(a) só cola um link
--- de YouTube, SoundCloud, etc. Até 3 por pessoa, validado na aplicação.
+-- "Audiobeispiel" (audio sample) links. Instead of hosting
+-- audio files (which would require object storage like S3, since
+-- Render/Railway have ephemeral disks), the singer just pastes a
+-- YouTube, SoundCloud, etc. link. Up to 3 per person, validated in the application.
 -- ------------------------------------------------------------
 CREATE TABLE singer_audio_links (
     id          BIGSERIAL PRIMARY KEY,
@@ -477,24 +480,24 @@ CREATE TABLE singer_audio_links (
 CREATE INDEX idx_singer_audio_links_user ON singer_audio_links(user_id);
 
 -- ------------------------------------------------------------
--- Perfil específico de maestro (1:1 com users quando role='conductor')
+-- Conductor-specific profile (1:1 with users when role='conductor')
 -- ------------------------------------------------------------
 CREATE TABLE conductor_profiles (
     user_id         BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    ensemble_name   VARCHAR(150),          -- coro/orquestra que representa (se houver)
+    ensemble_name   VARCHAR(150),          -- choir/orchestra they represent (if any)
     bio             TEXT CHECK (char_length(bio) <= 1000),
     experience_years SMALLINT,
     website_url     VARCHAR(300)
 );
 
 -- ------------------------------------------------------------
--- Anúncios (o "bulletin board" propriamente dito)
+-- Listings (the "bulletin board" itself)
 --
 -- listing_type:
---   'seeking_singer'     -> maestro (ou cantor) procurando cantor(a)
---   'seeking_conductor'  -> cantor procurando maestro/regência
---   'singer_available'   -> cantor anunciando disponibilidade
---   'conductor_available'-> maestro anunciando disponibilidade
+--   'seeking_singer'     -> conductor (or singer) looking for a singer
+--   'seeking_conductor'  -> singer looking for a conductor
+--   'singer_available'   -> singer announcing their availability
+--   'conductor_available'-> conductor announcing their availability
 -- ------------------------------------------------------------
 CREATE TABLE listings (
     id              BIGSERIAL PRIMARY KEY,
@@ -506,15 +509,15 @@ CREATE TABLE listings (
     description     TEXT NOT NULL,
     city            VARCHAR(100),
     country         VARCHAR(10) NOT NULL DEFAULT 'DE' CHECK (country IN ('DE', 'AT', 'CH', 'OTHER')),
-    state           VARCHAR(100),                          -- "Estado"/Bundesland — obrigatório na aplicação, mas
-                                                             -- sem NOT NULL aqui pelo mesmo motivo que "city": mantém
-                                                             -- o schema tolerante e deixa a validação no app.
-    voice_type_id   INTEGER REFERENCES voice_types(id),   -- NULL = "todas as vozes" quando aplicável
-    repertoire      VARCHAR(200),                          -- "Obra": ex "Mozart, Requiem"
-    venue           VARCHAR(200),                          -- "Onde" / Ort: igreja, sala de concerto, etc.
-    fee             VARCHAR(100),                          -- "Cachê": texto livre (ex: "250€", "a combinar")
-    ensemble_type   VARCHAR(10) CHECK (ensemble_type IN ('solo', 'choir', 'both')),  -- solo / coro / ambos (opcional)
-    event_date      DATE,                                  -- data do evento/audição, se houver
+    state           VARCHAR(100),                          -- "Estado"/Bundesland — required in the application, but
+                                                             -- without NOT NULL here for the same reason as "city": keeps
+                                                             -- the schema tolerant and leaves validation to the app.
+    voice_type_id   INTEGER REFERENCES voice_types(id),   -- NULL = "all voices" when applicable
+    repertoire      VARCHAR(200),                          -- "Piece": e.g. "Mozart, Requiem"
+    venue           VARCHAR(200),                          -- "Where" / Ort: church, concert hall, etc.
+    fee             VARCHAR(100),                          -- "Fee": free text (e.g. "250€", "negotiable")
+    ensemble_type   VARCHAR(10) CHECK (ensemble_type IN ('solo', 'choir', 'both')),  -- solo / choir / both (optional)
+    event_date      DATE,                                  -- date of the event/audition, if any
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -525,27 +528,27 @@ CREATE INDEX idx_listings_city ON listings(city);
 CREATE INDEX idx_listings_country ON listings(country);
 CREATE INDEX idx_listings_voice_type ON listings(voice_type_id);
 CREATE INDEX idx_listings_active_created ON listings(is_active, created_at DESC);
--- Adicionados junto com os filtros de Estado e Período em /board, e o
--- de author_id porque ele entra em praticamente todo JOIN com users
--- (inclusive os que checam deleted_at) — sem índice, cada consulta
--- faria um sequential scan na tabela inteira. Bom exercício: rode
--- `EXPLAIN ANALYZE` numa query do board antes/depois de ter esses
--- índices pra ver a diferença no plano de execução.
+-- Added together with the State and Period filters in /board, and the
+-- one on author_id because it's involved in practically every JOIN with
+-- users (including the ones that check deleted_at) — without an index,
+-- every query would do a sequential scan of the whole table. Good
+-- exercise: run `EXPLAIN ANALYZE` on a board query before/after having
+-- these indexes to see the difference in the execution plan.
 CREATE INDEX idx_listings_state ON listings(state);
 CREATE INDEX idx_listings_event_date ON listings(event_date);
 CREATE INDEX idx_listings_author ON listings(author_id);
 
 -- ------------------------------------------------------------
--- Mensagens internas (inbox / enviadas / lixeira), pra não precisar
--- expor e-mail/telefone pra quem só quer mandar uma mensagem rápida.
+-- Internal messages (inbox / sent / trash), so people don't need to
+-- expose their email/phone to someone who just wants to send a quick message.
 --
--- sender_status / recipient_status: cada lado tem seu próprio estado
--- ('active' ou 'trashed') — jogar na lixeira só afeta a SUA visão da
--- conversa. "Esvaziar lixeira" (na aplicação) apaga a linha de vez;
--- como simplificação didática, isso remove a mensagem para os dois
--- lados de uma vez (não só pra quem esvaziou). Um exercício de SQL
--- mais avançado seria só fazer o DELETE físico quando AMBOS os lados
--- já estiverem com status='trashed'.
+-- sender_status / recipient_status: each side has its own state
+-- ('active' or 'trashed') — moving to trash only affects YOUR view of
+-- the conversation. "Empty trash" (in the application) deletes the row
+-- for good; as a didactic simplification, this removes the message for
+-- both sides at once (not just for whoever emptied it). A more
+-- advanced SQL exercise would be to only do the physical DELETE once
+-- BOTH sides already have status='trashed'.
 -- ------------------------------------------------------------
 CREATE TABLE messages (
     id                  BIGSERIAL PRIMARY KEY,
@@ -563,10 +566,10 @@ CREATE INDEX idx_messages_recipient ON messages(recipient_id, recipient_status, 
 CREATE INDEX idx_messages_sender ON messages(sender_id, sender_status, created_at DESC);
 
 -- ------------------------------------------------------------
--- Contagem de visitas de perfil — propositalmente SEM nenhuma tela
--- na aplicação que mostre isso a ninguém (nem ao próprio dono do
--- perfil). É só um log para você, como administrador, consultar
--- direto no banco quando quiser uma métrica de uso. Exemplo:
+-- Profile view count — deliberately WITHOUT any screen in the
+-- application that shows this to anyone (not even to the profile's
+-- own owner). It's just a log for you, as the administrator, to
+-- query directly in the database when you want a usage metric. Example:
 --
 --   SELECT profile_user_id, COUNT(*) AS views
 --   FROM profile_views
@@ -576,22 +579,22 @@ CREATE INDEX idx_messages_sender ON messages(sender_id, sender_status, created_a
 CREATE TABLE profile_views (
     id                  BIGSERIAL PRIMARY KEY,
     profile_user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    viewer_user_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,  -- NULL = visitante não logado
+    viewer_user_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,  -- NULL = visitor not logged in
     viewed_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_profile_views_profile ON profile_views(profile_user_id, viewed_at DESC);
 
 -- ------------------------------------------------------------
--- Avaliações (0 a 5 estrelas) entre cantores e maestros.
+-- Ratings (0 to 5 stars) between singers and conductors.
 --
--- Privacidade por desenho: só quem RECEBEU a avaliação (rated_id) pode
--- ver as avaliações que recebeu (consultado em /profile, nunca em
--- /users/{id} nem em nenhum outro lugar público). Quem avaliou também
--- sabe o que escreveu (é o autor), mas terceiros não veem nada — nem
--- outras pessoas avaliadas, nem visitantes. UNIQUE(rater_id, rated_id):
--- uma pessoa só tem UMA avaliação ativa por outra pessoa; reavaliar
--- atualiza a mesma linha (UPSERT) em vez de acumular.
+-- Privacy by design: only whoever RECEIVED the rating (rated_id) can
+-- see the ratings they received (queried in /profile, never in
+-- /users/{id} or anywhere else public). Whoever rated also knows
+-- what they wrote (they're the author), but third parties see
+-- nothing — not other rated people, not visitors. UNIQUE(rater_id,
+-- rated_id): a person only has ONE active rating for another person;
+-- rating again updates the same row (UPSERT) instead of accumulating.
 -- ------------------------------------------------------------
 CREATE TABLE ratings (
     id          BIGSERIAL PRIMARY KEY,
@@ -609,10 +612,10 @@ CREATE TABLE ratings (
 CREATE INDEX idx_ratings_rated ON ratings(rated_id);
 
 -- ------------------------------------------------------------
--- Favoritos: anúncios que a pessoa marcou "quero ver depois" sem
--- necessariamente já ter mandado mensagem. UNIQUE(user_id, listing_id)
--- evita duplicar o favorito — favoritar de novo não faz nada, "des-
--- favoritar" é um DELETE simples da linha.
+-- Favorites: listings the person marked "want to see later" without
+-- necessarily having sent a message yet. UNIQUE(user_id, listing_id)
+-- prevents duplicating the favorite — favoriting again does nothing,
+-- "un-favoriting" is a simple DELETE of the row.
 -- ------------------------------------------------------------
 CREATE TABLE saved_listings (
     id          BIGSERIAL PRIMARY KEY,
@@ -626,10 +629,10 @@ CREATE INDEX idx_saved_listings_user ON saved_listings(user_id, created_at DESC)
 CREATE INDEX idx_saved_listings_listing ON saved_listings(listing_id);
 
 -- ------------------------------------------------------------
--- Denúncias de anúncio ("Denunciar anúncio") — exige um motivo escrito
--- (reason), como pedido. Sem tela de moderação na aplicação (por
--- enquanto): assim como profile_views, é uma tabela pra você, como
--- administrador, consultar direto no banco:
+-- Listing reports ("Report listing") — requires a written reason
+-- (reason), as requested. No moderation screen in the application
+-- (for now): just like profile_views, it's a table for you, as the
+-- administrator, to query directly in the database:
 --
 --   SELECT lr.*, l.title, u.email AS reporter_email
 --   FROM listing_reports lr
@@ -648,11 +651,11 @@ CREATE TABLE listing_reports (
 CREATE INDEX idx_listing_reports_listing ON listing_reports(listing_id);
 
 -- ------------------------------------------------------------
--- Bloqueio de usuário: quem bloqueia para de ver os anúncios da
--- pessoa bloqueada (no /board e nos matches da Home) e nenhum dos
--- dois lados consegue mais mandar mensagem pro outro (checado em
--- messages_routes.py). UNIQUE(blocker_id, blocked_id): só um bloqueio
--- ativo por par.
+-- User block: whoever blocks stops seeing the blocked person's
+-- listings (on /board and in the Home matches) and neither side can
+-- send the other a message anymore (checked in
+-- messages_routes.py). UNIQUE(blocker_id, blocked_id): only one
+-- active block per pair.
 -- ------------------------------------------------------------
 CREATE TABLE blocked_users (
     id          BIGSERIAL PRIMARY KEY,
@@ -668,20 +671,22 @@ CREATE INDEX idx_blocked_users_blocker ON blocked_users(blocker_id);
 CREATE INDEX idx_blocked_users_blocked ON blocked_users(blocked_id);
 
 -- ------------------------------------------------------------
--- Badges já desbloqueados por cada pessoa (ver app/badges.py).
+-- Badges already unlocked by each person (see app/badges.py).
 --
--- Os badges em si são CALCULADOS na hora a partir de outras tabelas
--- (indicação, anúncios, mensagens, perfil completo, visitas...) — essa
--- tabela aqui não guarda a "regra" de nenhum badge, só um REGISTRO de
--- quando cada um foi desbloqueado pela primeira vez. Serve pra duas
--- coisas: (1) mandar o e-mail de "você desbloqueou um badge" só uma
--- vez por badge/nível (sem isso, todo recálculo mandaria e-mail de
--- novo); (2) badges com "nível" (ex: visitas 100/500/1000, aniversário
--- 1/2/3 anos) guardam cada degrau alcançado como uma linha separada.
+-- The badges themselves are CALCULATED on the fly from other tables
+-- (referrals, listings, messages, complete profile, views...) — this
+-- table doesn't store the "rule" for any badge, just a RECORD of
+-- when each one was first unlocked. It serves two purposes: (1)
+-- sending the "you unlocked a badge" e-mail only once per
+-- badge/tier (without this, every recalculation would send the
+-- e-mail again); (2) badges with a "tier" (e.g. 100/500/1000 views,
+-- 1/2/3-year anniversary) store each milestone reached as a
+-- separate row.
 --
--- tier = '' (string vazia, não NULL) para badges sem nível — assim o
--- UNIQUE abaixo funciona igual pra todos (NULL não conta como "igual"
--- a outro NULL num UNIQUE do Postgres, string vazia sim).
+-- tier = '' (empty string, not NULL) for badges without a tier —
+-- this way the UNIQUE below works the same for all of them (NULL
+-- doesn't count as "equal" to another NULL in a Postgres UNIQUE,
+-- an empty string does).
 -- ------------------------------------------------------------
 CREATE TABLE user_badges (
     id          BIGSERIAL PRIMARY KEY,
@@ -702,11 +707,11 @@ INSERT INTO voice_types (name, sort_order) VALUES
     ('Soprano', 1),
     ('Alto', 2),
     ('Tenor', 3),
-    ('Baixo', 4);
+    ('Bass', 4);
 
 -- ------------------------------------------------------------
--- Dados iniciais (seed) — cidades da Alemanha, Áustria e Suíça
--- (ver db/seed_cities.sql / scripts/generate_cities_seed.py)
+-- Seed data — cities of Germany, Austria and Switzerland
+-- (see db/seed_cities.sql / scripts/generate_cities_seed.py)
 -- ------------------------------------------------------------
 INSERT INTO cities (name, state, country_code, population) VALUES
     ('Stuttgart', 'Baden-Württemberg', 'DE', 612663),

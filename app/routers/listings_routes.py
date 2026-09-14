@@ -21,13 +21,13 @@ LISTING_TYPE_KEYS = [
 
 ENSEMBLE_TYPE_KEYS = ["solo", "choir", "both"]
 
-# "event_status" é calculado no próprio SQL (CASE), não fica guardado
-# no banco — assim ele muda sozinho conforme os dias passam, sem
-# precisar de nenhum job/rotina pra manter atualizado.
-#   upcoming (verde) -> evento a mais de 7 dias no futuro
-#   soon     (amarelo) -> evento dentro dos próximos 7 dias
-#   past     (vermelho) -> evento já passou
-#   NULL               -> anúncio sem data de evento (ex: disponibilidade)
+# "event_status" is calculated right in the SQL (CASE), it isn't
+# stored in the database — this way it changes on its own as days go
+# by, with no need for any job/routine to keep it up to date.
+#   upcoming (green)  -> event more than 7 days in the future
+#   soon     (yellow) -> event within the next 7 days
+#   past     (red)    -> event already happened
+#   NULL               -> listing with no event date (e.g. availability)
 EVENT_STATUS_SQL = """
     CASE
         WHEN l.event_date IS NULL THEN NULL
@@ -45,12 +45,12 @@ LISTING_COLUMNS = f"""
 
 BOARD_PAGE_SIZE = 20
 
-# Freio contra "spam de anúncio" (alguém postando dezenas de anúncios
-# em sequência, ex: via automação) — não é sobre login/cadastro, é
-# sobre quantos ANÚNCIOS a mesma conta consegue criar num intervalo
-# curto. Mesmo padrão de "janela móvel" usado em
-# app/routers/messages_routes.py (COUNT direto na tabela, sem
-# precisar de uma tabela de contador à parte).
+# Brake against "listing spam" (someone posting dozens of listings in
+# a row, e.g. via automation) — this isn't about login/signup, it's
+# about how many LISTINGS the same account can create in a short
+# interval. Same "moving window" pattern used in
+# app/routers/messages_routes.py (a direct COUNT on the table, no
+# need for a separate counter table).
 MAX_LISTINGS_PER_WINDOW = 5
 LISTING_WINDOW_MINUTES = 5
 
@@ -65,10 +65,10 @@ def _listing_creation_throttled(author_id: int) -> bool:
 
 def _job_fields_valid(listing_type: str, city: str, repertoire: str, fee: str) -> bool:
     """
-    Anúncios do tipo 'seeking_singer' (procura-se cantor(a) para um
-    trabalho) precisam de Obra, Cidade e Cachê preenchidos — conforme
-    pedido. Tipo de voz não entra na validação porque "em branco" já
-    significa "todas as vozes", uma escolha válida.
+    Listings of type 'seeking_singer' (looking for a singer for a
+    job) need Repertoire, City and Fee filled in — as requested.
+    Voice type doesn't enter the validation because "blank" already
+    means "all voices", a valid choice.
     """
     if listing_type != "seeking_singer":
         return True
@@ -78,16 +78,17 @@ def _job_fields_valid(listing_type: str, city: str, repertoire: str, fee: str) -
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request):
     """
-    Página inicial — agora uma tela de boas-vindas curta, não o quadro
-    de avisos inteiro (isso foi para /board).
+    Home page — now a short welcome screen, not the whole listing
+    board (that moved to /board).
 
-    Logado: "Bem-vindo(a), {nome}" + até 5 vagas que combinam com o
-    perfil (cantor: anúncios 'seeking_singer' da própria categoria de
-    voz; maestro(a): anúncios 'seeking_conductor'), priorizando
-    anúncios da própria cidade.
+    Logged in: "Welcome, {name}" + up to 5 openings that match the
+    profile (singer: 'seeking_singer' listings for their own voice
+    category; conductor: 'seeking_conductor' listings), prioritizing
+    listings from their own city.
 
-    Sem login: um teaser com as 5 vagas mais recentes, sem os detalhes
-    (modelo "freemium" — ver /board e /listings/{id} para o resto).
+    Not logged in: a teaser with the 5 most recent openings, without
+    the details ("freemium" model — see /board and /listings/{id} for
+    the rest).
     """
     user = get_current_user(request)
     matches = []
@@ -120,8 +121,8 @@ def home(request: Request):
                 WHERE {" AND ".join(conditions)}
                 ORDER BY {order_by_city}
                 LIMIT 5
-                """,  # nosec B608 - só fragmentos fixos (conditions/order_by_city, sem input
-                      # direto da pessoa); valores de verdade vão em match_params, por parâmetro.
+                """,  # nosec B608 - only fixed fragments (conditions/order_by_city, no
+                      # direct person input); the real values go in match_params, by parameter.
                 match_params,
             )
         elif user["role"] == "conductor":
@@ -137,8 +138,8 @@ def home(request: Request):
                     AND NOT EXISTS (SELECT 1 FROM blocked_users bu WHERE (bu.blocker_id = :viewer_block_id AND bu.blocked_id = l.author_id) OR (bu.blocker_id = l.author_id AND bu.blocked_id = :viewer_block_id))
                 ORDER BY {order_by_city}
                 LIMIT 5
-                """,  # nosec B608 - só fragmentos fixos (order_by_city, sem input direto
-                      # da pessoa); valores de verdade vão em match_params, por parâmetro.
+                """,  # nosec B608 - only fixed fragments (order_by_city, no direct
+                      # person input); the real values go in match_params, by parameter.
                 match_params,
             )
 
@@ -152,7 +153,7 @@ def home(request: Request):
             WHERE l.is_active = TRUE AND (l.event_date IS NULL OR l.event_date >= CURRENT_DATE)
             ORDER BY l.created_at DESC
             LIMIT 5
-            """  # nosec B608 - só LISTING_COLUMNS (constante fixa, sem input da pessoa) e SQL literal.
+            """  # nosec B608 - only LISTING_COLUMNS (fixed constant, no person input) and a SQL literal.
         )
 
     posts = fetch_all(
@@ -165,9 +166,9 @@ def home(request: Request):
         LIMIT 5
         """
     )
-    # O card na home mostra só um resumo em texto puro (sem a
-    # formatação/imagens do editor) — o post inteiro, com tudo, mora em
-    # /posts/{id} (ver post_detail() logo abaixo).
+    # The card on the home page shows only a plain-text summary
+    # (without the editor's formatting/images) — the whole post, with
+    # everything, lives at /posts/{id} (see post_detail() right below).
     for p in posts:
         p["excerpt"], p["is_truncated"] = html_to_excerpt(p["body"])
 
@@ -184,15 +185,16 @@ def home(request: Request):
 @router.get("/posts/{post_id}", response_class=HTMLResponse)
 def post_detail(request: Request, post_id: int):
     """
-    Página do post inteiro (aberta pra qualquer visitante, logado ou
-    não — mesmo modelo do /board). O card na home só mostra um resumo
-    em texto puro; aqui entra o HTML completo, já sanitizado no
-    momento de salvar (ver app/richtext.py), com formatação e imagens.
+    The full post page (open to any visitor, logged in or not — same
+    model as /board). The card on the home page only shows a
+    plain-text summary; here you get the full HTML, already sanitized
+    when it was saved (see app/richtext.py), with formatting and
+    images.
 
-    Um post despublicado só é visível pra quem tem nível de admin (2+)
-    — pra dar uma última conferida antes de reativar — qualquer outra
-    pessoa recebe 404 (não conta o motivo, pra não vazar que o post
-    existe mas está escondido).
+    An unpublished post is only visible to whoever has admin level
+    (2+) — to give it one last check before reactivating it — anyone
+    else gets a 404 (the reason isn't disclosed, so as not to leak
+    that the post exists but is hidden).
     """
     user = get_current_user(request)
     post = fetch_one(
@@ -230,39 +232,42 @@ def board(
     page: int = 1,
 ):
     """
-    Quadro de avisos completo, com todos os filtros. Aberto para
-    qualquer visitante (mesmo sem login) — o que fica bloqueado sem
-    login é o *detalhe* de cada anúncio (/listings/{id}), não a lista.
+    The full listing board, with all filters. Open to any visitor
+    (even without login) — what's locked without login is the
+    *detail* of each listing (/listings/{id}), not the list.
 
-    Anúncios com evento no passado ficam "arquivados" por padrão (não
-    aparecem aqui, mas continuam no banco e acessíveis por link direto
-    ou em /my-listings) — ?show_past=1 reexibe todos.
+    Listings with a past event are "archived" by default (they don't
+    show up here, but stay in the database and are reachable via a
+    direct link or in /my-listings) — ?show_past=1 shows all of them
+    again.
 
-    Filtro de período (Zeitraum) — "não tenho nada marcado em agosto,
-    me mostre o que existe entre 1º e 31/08": date_from/date_to filtram
-    l.event_date dentro do intervalo. Como escolher um período explícito
-    já é a pessoa dizendo exatamente qual janela de tempo importa pra
-    ela, isso substitui o filtro padrão de "esconder passado" (inclusive
-    permite buscar um período que já passou, de propósito). Anúncios
-    sem event_date (ex: "disponível", sem data marcada) não têm como
-    combinar com um período e ficam de fora quando esse filtro é usado.
+    Date-range filter (Zeitraum) — "I have nothing marked in August,
+    show me what exists between the 1st and 31st": date_from/date_to
+    filter l.event_date within the range. Since choosing an explicit
+    range is already the person saying exactly which time window
+    matters to them, it replaces the default "hide past" filter
+    (deliberately including the ability to search a range that
+    already passed). Listings without an event_date (e.g.
+    "available", with no date set) have no way to match a range and
+    are left out when this filter is used.
     """
     user = get_current_user(request)
 
-    # E-mail verificado é obrigatório pra ver os anúncios (não só pra
-    # publicar) — quem não está logado ainda pode navegar normalmente
-    # (é a vitrine pública que incentiva o cadastro); quem já criou
-    # conta mas não confirmou o e-mail é mandado pra home, que mostra
-    # o aviso e o botão de reenviar o link de confirmação.
+    # A verified e-mail is required to see the listings (not just to
+    # publish) — whoever isn't logged in can still browse normally
+    # (it's the public showcase that encourages signup); whoever
+    # already created an account but hasn't confirmed their e-mail is
+    # sent to the home page, which shows the notice and the button to
+    # resend the confirmation link.
     if user and not user["email_verified"]:
         return RedirectResponse(url="/?verify_required=1", status_code=303)
 
     conditions = ["l.is_active = TRUE"]
     params = {}
 
-    # Quem a pessoa bloqueou some do quadro (anúncios dela não aparecem
-    # mais) — bloquear é uma decisão de uma via só, não precisa checar
-    # o sentido contrário aqui.
+    # Whoever the person blocked disappears from the board (their
+    # listings no longer show up) — blocking is a one-way decision,
+    # there's no need to check the reverse direction here.
     if user:
         conditions.append(
             "NOT EXISTS (SELECT 1 FROM blocked_users bu WHERE (bu.blocker_id = :viewer_block_id AND bu.blocked_id = l.author_id) OR (bu.blocker_id = l.author_id AND bu.blocked_id = :viewer_block_id))"
@@ -324,18 +329,18 @@ def board(
         SELECT count(*) AS n
         FROM listings l
         WHERE {where_clause}
-        """,  # nosec B608 - where_clause é só a junção de fragmentos fixos (`conditions`,
-              # montados ali em cima); os valores de verdade da busca vão em `params`.
+        """,  # nosec B608 - where_clause is just the join of fixed fragments (`conditions`,
+              # assembled above); the real search values go in `params`.
         params,
     )
     total = total_row["n"] if total_row else 0
     total_pages = max(1, (total + BOARD_PAGE_SIZE - 1) // BOARD_PAGE_SIZE)
 
-    # "is_saved": pra desenhar a estrelinha de favorito já marcada
-    # certa em cada card, sem precisar de uma segunda consulta por
-    # anúncio (N+1) — um EXISTS correlacionado resolve numa query só.
-    # Sem login, ninguém tem favorito nenhum (:viewer_id = NULL não bate
-    # com nada em saved_listings.user_id, que é NOT NULL).
+    # "is_saved": to draw the little favorite star already correctly
+    # marked on each card, without needing a second query per listing
+    # (N+1) — a correlated EXISTS resolves it in a single query.
+    # Without login, nobody has any favorite (:viewer_id = NULL
+    # doesn't match anything in saved_listings.user_id, which is NOT NULL).
     listings = fetch_all(
         f"""
         SELECT
@@ -352,7 +357,7 @@ def board(
         WHERE {where_clause}
         ORDER BY l.created_at DESC
         LIMIT :limit OFFSET :offset
-        """,  # nosec B608 - mesmo where_clause de fragmentos fixos explicado acima.
+        """,  # nosec B608 - same fixed-fragment where_clause explained above.
         {**params, "limit": BOARD_PAGE_SIZE, "offset": offset, "viewer_id": user["id"] if user else None},
     )
 
@@ -482,8 +487,8 @@ def create_listing(
         context["error"] = "error_listing_rate_limited"
         return render(request, "listing_form.html", context, status_code=429)
 
-    # "Estado" é obrigatório para qualquer anúncio (não só vagas) —
-    # junto com Obra/Cidade/Cachê no caso específico de seeking_singer.
+    # "State" is required for any listing (not just openings) —
+    # together with Repertoire/City/Fee in the specific case of seeking_singer.
     if not state.strip() or not _job_fields_valid(listing_type, city, repertoire, fee):
         context = _listing_form_error_context(
             user, listing_type, title, description, city, state, country,
@@ -514,9 +519,10 @@ def create_listing(
         },
     )
 
-    # Alerta de anúncio compatível: manda e-mail pra quem tem o perfil
-    # certo (cantor(a) da voz procurada, ou maestro(a)) — em segundo
-    # plano, pra não atrasar o redirecionamento de quem postou.
+    # Matching-listing alert: sends an e-mail to whoever has the
+    # right profile (a singer with the voice being sought, or a
+    # conductor) — in the background, so as not to delay the
+    # redirect for whoever posted.
     background_tasks.add_task(
         notify_matching_users,
         str(request.base_url),
@@ -545,14 +551,14 @@ def listing_detail(request: Request, listing_id: int):
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
         LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
         WHERE l.id = :id
-        """,  # nosec B608 - só LISTING_COLUMNS (constante fixa); o id vai por parâmetro.
+        """,  # nosec B608 - only LISTING_COLUMNS (fixed constant); the id goes by parameter.
         {"id": listing_id},
     )
     user = get_current_user(request)
 
-    # "Mensagem já enviada para este anúncio" — não impede reenviar,
-    # só evita que a pessoa esqueça e fique enchendo a caixa de
-    # entrada de quem postou com a mesma pergunta várias vezes.
+    # "Message already sent for this listing" — doesn't prevent
+    # sending again, just keeps the person from forgetting and
+    # flooding the poster's inbox with the same question several times.
     already_messaged = False
     if user and listing and user["id"] != listing["author_id"]:
         existing_message = fetch_one(
@@ -583,12 +589,13 @@ def listing_detail(request: Request, listing_id: int):
         "is_saved": is_saved,
         "already_reported": already_reported,
         "reported_just_now": request.query_params.get("reported") == "1",
-        # Freemium: sem login (ou logado mas com e-mail ainda não
-        # confirmado) dá pra ver que o anúncio existe (título, cidade,
-        # tipo, bolinha de status) mas não a descrição completa nem os
-        # dados de contato — isso incentiva o cadastro E a confirmação
-        # do e-mail. "anon" e "unverified" mostram CTAs diferentes no
-        # template (registrar/entrar vs. reenviar confirmação).
+        # Freemium: without login (or logged in but with an e-mail
+        # not yet confirmed) you can see that the listing exists
+        # (title, city, type, status dot) but not the full
+        # description or the contact info — this encourages both
+        # signup AND e-mail confirmation. "anon" and "unverified"
+        # show different CTAs in the template (register/log in vs.
+        # resend confirmation).
         "lock_reason": "anon" if user is None else ("unverified" if not user["email_verified"] else None),
     }
     return render(request, "listing_detail.html", context)
@@ -597,11 +604,12 @@ def listing_detail(request: Request, listing_id: int):
 @router.post("/listings/{listing_id}/report")
 def report_listing(request: Request, listing_id: int, csrf_token: str = Form(""), reason: str = Form("")):
     """
-    Denunciar anúncio: exige que a pessoa escreva o motivo (mínimo de
-    10 caracteres, reforçado também no banco via CHECK). Não existe
-    nenhuma tela de moderação no site — as denúncias ficam guardadas
-    em listing_reports pra serem consultadas direto no banco por quem
-    administra o site (mesmo padrão já usado em profile_views).
+    Report listing: requires the person to write the reason (minimum
+    10 characters, also enforced in the database via CHECK). There's
+    no moderation screen in the site — reports are stored in
+    listing_reports to be queried directly in the database by
+    whoever administers the site (the same pattern already used in
+    profile_views).
     """
     verify_csrf(request, csrf_token)
     user = get_current_user(request)
@@ -740,7 +748,7 @@ def my_listings(request: Request):
         FROM listings l
         WHERE l.author_id = :author_id
         ORDER BY l.created_at DESC
-        """,  # nosec B608 - só EVENT_STATUS_SQL (constante fixa); author_id vai por parâmetro.
+        """,  # nosec B608 - only EVENT_STATUS_SQL (fixed constant); author_id goes by parameter.
         {"author_id": user["id"]},
     )
     context = {
@@ -759,9 +767,9 @@ def save_listing(request: Request, listing_id: int, csrf_token: str = Form("")):
 
     listing = fetch_one("SELECT id FROM listings WHERE id = :id", {"id": listing_id})
     if listing:
-        # ON CONFLICT DO NOTHING: favoritar de novo algo que já está
-        # favoritado simplesmente não faz nada (idempotente), em vez
-        # de dar erro de UNIQUE constraint.
+        # ON CONFLICT DO NOTHING: favoriting again something that's
+        # already favorited simply does nothing (idempotent), instead
+        # of raising a UNIQUE constraint error.
         execute(
             """
             INSERT INTO saved_listings (user_id, listing_id) VALUES (:user_id, :listing_id)
@@ -783,9 +791,9 @@ def unsave_listing(request: Request, listing_id: int, csrf_token: str = Form("")
         "DELETE FROM saved_listings WHERE user_id = :user_id AND listing_id = :listing_id",
         {"user_id": user["id"], "listing_id": listing_id},
     )
-    # Se veio da própria página de favoritos, volta pra lá (senão o
-    # item "desaparecido" ainda apareceria até o próximo refresh);
-    # senão volta pro anúncio como de costume.
+    # If it came from the favorites page itself, go back there
+    # (otherwise the "disappeared" item would still show up until the
+    # next refresh); otherwise go back to the listing as usual.
     referer = request.headers.get("referer", "")
     if "/my-favorites" in referer:
         return RedirectResponse(url="/my-favorites", status_code=303)
@@ -808,7 +816,7 @@ def my_favorites(request: Request):
         LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
         WHERE sl.user_id = :user_id
         ORDER BY sl.created_at DESC
-        """,  # nosec B608 - só LISTING_COLUMNS (constante fixa); user_id vai por parâmetro.
+        """,  # nosec B608 - only LISTING_COLUMNS (fixed constant); user_id goes by parameter.
         {"user_id": user["id"]},
     )
     context = {

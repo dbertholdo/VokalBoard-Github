@@ -1,24 +1,23 @@
 """
-Localização (país/estado/cidade) usada em vários lugares: cadastro,
-edição de perfil e formulário de anúncio. Centralizado aqui pra não
-duplicar a mesma lista de Bundesländer/Kantone em três routers
-diferentes.
+Location (country/state/city) used in several places: sign-up, profile
+editing and the listing form. Centralized here to avoid duplicating
+the same Bundesländer/Kantone list across three different routers.
 
-País > Estado é uma lista fixa (não muda). País > Estado > Cidade vem
-do banco (tabela `cities`, ver db/schema.sql e
-scripts/generate_cities_seed.py) — carregada uma vez e mantida em
-cache no processo, já que essa lista não muda em runtime; reiniciar o
-app (ou chamar reload_city_options(), útil em testes) recarrega.
+Country > State is a fixed list (doesn't change). Country > State >
+City comes from the database (`cities` table, see db/schema.sql and
+scripts/generate_cities_seed.py) — loaded once and cached in the
+process, since this list doesn't change at runtime; restarting the app
+(or calling reload_city_options(), useful in tests) reloads it.
 """
 from app.database import fetch_all
 
-# Países atendidos (DACH) + "outro" — usado no formulário de anúncio,
-# no cadastro/perfil e no filtro de busca em /board.
+# Countries served (DACH) + "other" — used in the listing form,
+# sign-up/profile, and the search filter on /board.
 COUNTRY_OPTIONS = ["DE", "AT", "CH", "OTHER"]
 
-# Estados/Bundesländer/Kantone por país — alimenta o <select> de
-# "Estado" em cascata (País > Estado) via JS. "OTHER" fica de fora de
-# propósito: nesse caso o campo Estado vira texto livre.
+# States/Bundesländer/Kantone per country — feeds the cascading
+# "State" <select> (Country > State) via JS. "OTHER" is deliberately
+# left out: in that case the State field becomes free text.
 STATE_OPTIONS = {
     "DE": [
         "Baden-Württemberg", "Bayern", "Berlin", "Brandenburg", "Bremen",
@@ -45,10 +44,10 @@ _city_options_cache: dict[str, list[str]] | None = None
 
 def get_city_options() -> dict[str, list[str]]:
     """
-    Devolve {estado: [cidades ordenadas por população desc]}, vindo da
-    tabela `cities`. Cacheado em memória no processo — a lista de
-    cidades não muda em runtime, então não vale a pena consultar o
-    banco a cada requisição.
+    Returns {state: [cities ordered by population desc]}, sourced from
+    the `cities` table. Cached in process memory — the city list
+    doesn't change at runtime, so it isn't worth querying the database
+    on every request.
     """
     global _city_options_cache
     if _city_options_cache is None:
@@ -57,7 +56,7 @@ def get_city_options() -> dict[str, list[str]]:
 
 
 def reload_city_options() -> None:
-    """Força recarregar do banco na próxima chamada (útil em testes)."""
+    """Forces a reload from the database on the next call (useful in tests)."""
     global _city_options_cache
     _city_options_cache = None
 

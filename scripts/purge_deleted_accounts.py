@@ -1,33 +1,32 @@
 """
-Apaga DEFINITIVAMENTE contas que foram excluídas (soft delete,
-`users.deleted_at` preenchido) há mais de 6 meses.
+PERMANENTLY deletes accounts that were removed (soft delete,
+`users.deleted_at` set) more than 6 months ago.
 
-Por que um script separado, e não um job dentro do app?
+Why a separate script, and not a job inside the app?
 ---------------------------------------------------------
-O resto do projeto evita propositalmente qualquer job/cron rodando
-*dentro* do próprio app (ver EVENT_STATUS_SQL e o arquivamento de
-eventos passados em app/routers/listings_routes.py, que preferem
-calcular tudo "na consulta" em vez de um worker em background). Uma
-exclusão definitiva de dados é uma operação sensível demais pra
-deixar presa a um processo de longa duração dentro do FastAPI — é
-mais simples, mais seguro e mais fácil de auditar rodar isso como um
-script avulso, disparado de fora (cron do sistema operacional, ou
-manualmente).
+The rest of the project deliberately avoids any job/cron running
+*inside* the app itself (see EVENT_STATUS_SQL and the archiving of
+past events in app/routers/listings_routes.py, which prefer to
+compute everything "at query time" instead of a background worker).
+A permanent data deletion is too sensitive an operation to leave
+tied to a long-running process inside FastAPI — it's simpler, safer
+and easier to audit to run this as a standalone script, triggered
+from outside (the OS's cron, or manually).
 
-Como agendar (exemplo com cron do Linux, 1x por dia às 4h):
-    0 4 * * * cd /caminho/do/projeto && ./venv/bin/python scripts/purge_deleted_accounts.py >> /var/log/maestro_purge.log 2>&1
+How to schedule it (example with Linux cron, once a day at 4am):
+    0 4 * * * cd /path/to/project && ./venv/bin/python scripts/purge_deleted_accounts.py >> /var/log/maestro_purge.log 2>&1
 
-Uso manual:
-    python scripts/purge_deleted_accounts.py           # apaga de verdade
-    python scripts/purge_deleted_accounts.py --dry-run # só mostra quem seria apagado
+Manual usage:
+    python scripts/purge_deleted_accounts.py           # actually deletes
+    python scripts/purge_deleted_accounts.py --dry-run # only shows who would be deleted
 """
 import argparse
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 
-# Garante que "app" (o pacote do projeto) seja encontrado mesmo rodando
-# este script de dentro de scripts/ (ex: `python scripts/purge_deleted_accounts.py`).
+# Ensures "app" (the project's package) is found even when running
+# this script from inside scripts/ (e.g. `python scripts/purge_deleted_accounts.py`).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import fetch_all, execute
@@ -39,7 +38,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dry-run", action="store_true",
-        help="Só lista quem seria apagado, sem apagar de verdade.",
+        help="Only lists who would be deleted, without actually deleting.",
     )
     args = parser.parse_args()
 
@@ -51,24 +50,24 @@ def main() -> None:
     )
 
     if not candidates:
-        print("Nenhuma conta passou dos 6 meses de exclusão. Nada a fazer.")
+        print("No accounts have passed the 6-month deletion window. Nothing to do.")
         return
 
-    print(f"{len(candidates)} conta(s) passaram do prazo de retenção (excluídas antes de {cutoff.date()}):")
+    print(f"{len(candidates)} account(s) past the retention window (deleted before {cutoff.date()}):")
     for row in candidates:
-        print(f"  - #{row['id']} {row['email']} ({row['full_name']}) — excluída em {row['deleted_at']}")
+        print(f"  - #{row['id']} {row['email']} ({row['full_name']}) — deleted on {row['deleted_at']}")
 
     if args.dry_run:
-        print("\n--dry-run: nada foi apagado.")
+        print("\n--dry-run: nothing was deleted.")
         return
 
     for row in candidates:
-        # ON DELETE CASCADE nas tabelas relacionadas (singer_profiles,
+        # ON DELETE CASCADE on related tables (singer_profiles,
         # conductor_profiles, listings, messages, user_social_links,
-        # ratings etc — ver db/schema.sql) cuida do resto.
+        # ratings etc — see db/schema.sql) takes care of the rest.
         execute("DELETE FROM users WHERE id = :id", {"id": row["id"]})
 
-    print(f"\n{len(candidates)} conta(s) apagada(s) definitivamente.")
+    print(f"\n{len(candidates)} account(s) permanently deleted.")
 
 
 if __name__ == "__main__":

@@ -1,68 +1,67 @@
-# VokalBoard — Changelog de hoje (14/09/2026)
+# VokalBoard — Today's changelog (2026-09-14)
 
-Tudo abaixo já está implementado, testado (33/33 testes passando) e
-commitado localmente (commit `09f0c31`, branch `master`) no ambiente
-de nuvem desta sessão. **Ainda não foi enviado para o seu computador**
-porque a ponte com o seu PC estava desconectada no momento — assim que
-ela reconectar (basta o app do Claude estar aberto), eu sincronizo os
-arquivos para a sua pasta do Google Drive automaticamente. Depois é só
-você revisar e rodar `git push`.
+Everything below is already implemented, tested (33/33 tests passing),
+and committed locally (commit `09f0c31`, branch `master`) in this
+session's cloud environment. **It has not been pushed to your computer
+yet** because the bridge to your PC was disconnected at the time — as
+soon as it reconnects (just have the Claude app open), I'll sync the
+files to your Google Drive folder automatically. After that, just
+review and run `git push`.
 
-## 🔴 Zona Vermelha (tudo oculto/desligado por padrão)
+## 🔴 Red Zone (everything hidden/off by default)
 
-- **Níveis de usuário** (`users.role_level`): 0 comum, 1 moderador
-  (só vê a fila de denúncias), 2 admin (tudo que já existia:
-  usuários, posts, análise de dados), 3 god mode (tudo acima + Zona
-  Vermelha). O antigo `is_admin` continua existindo e é mantido em
-  sincronia automaticamente — inclusive por um gatilho no próprio
-  banco, para não quebrar o fluxo de "virar admin" que já estava
-  documentado no README.
-- **Modo Capitalismo**: liga/desliga a cobrança para o site inteiro.
-  Enquanto desligado (padrão), nada relacionado a pagamento aparece
-  em lugar nenhum — nem banner, nem preço. Alternar o estado exige
-  **reautenticação por senha** (mesmo já logado como god mode) e fica
-  registrado no log de auditoria, mesmo quando a senha está errada.
-- **Preço da assinatura** (EUR/CHF), editável na Zona Vermelha, com a
-  mesma trava de senha.
-- **Log de auditoria** (`audit_log`): quem, quando, de qual IP, para
-  toda ação sensível.
+- **User levels** (`users.role_level`): 0 regular, 1 moderator (only
+  sees the reports queue), 2 admin (everything that already existed:
+  users, posts, data analysis), 3 god mode (everything above + the
+  Red Zone). The old `is_admin` still exists and is kept
+  automatically in sync — including via a trigger in the database
+  itself, so as not to break the "becoming admin" flow already
+  documented in the README.
+- **Capitalism Mode**: turns billing on/off for the whole site. While
+  off (default), nothing related to payment shows up anywhere — no
+  banner, no price. Toggling the state requires **password
+  re-authentication** (even while already logged in as god mode) and
+  is logged in the audit trail, even when the password is wrong.
+- **Subscription price** (EUR/CHF), editable in the Red Zone, with the
+  same password lock.
+- **Audit log** (`audit_log`): who, when, from which IP, for every
+  sensitive action.
 
-## 📖 Painel financeiro interno
+## 📖 Internal financial panel
 
-- Lançamento de despesas (descrição, valor, moeda, categoria, data)
-- Despesas recorrentes (mensal/anual)
-- Anexo de comprovante (PDF ou imagem) — guardado à parte, só
-  visível para god mode (diferente do avatar, que é público)
-- Exportação de despesas em CSV
-- Upload manual de extrato bancário: você cria um "perfil" de mapeamento
-  de colunas uma vez por banco (qual coluna é data/valor/descrição), e
-  reaproveita esse perfil em toda importação futura daquele banco —
-  suporte a OFX fica para uma próxima etapa
-- Analytics de aderência ao plano pago por país (usa o campo `country`
-  que já existia + a nova tabela `subscriptions`, pronta para quando a
-  cobrança for ligada de verdade)
-- Alternância de gráfico (barra / pizza / linha) no painel financeiro
-  e retrofitada na Análise de Dados que já existia
-- Fechamento mensal/anual: congela um resumo do período e exporta em
-  **Excel, CSV e PDF**
+- Expense entry (description, amount, currency, category, date)
+- Recurring expenses (monthly/yearly)
+- Receipt attachment (PDF or image) — stored separately, visible only
+  to god mode (unlike the avatar, which is public)
+- Expense export to CSV
+- Manual bank statement upload: you create a column-mapping "profile"
+  once per bank (which column is date/amount/description), and reuse
+  that profile on every future import from that bank — OFX support is
+  left for a later step
+- Paid-plan adoption analytics by country (uses the existing `country`
+  field + the new `subscriptions` table, ready for when billing is
+  actually turned on)
+- Chart toggle (bar / pie / line) on the financial panel, and
+  retrofitted onto the existing Data Analysis view
+- Monthly/yearly closing: freezes a summary of the period and exports
+  it as **Excel, CSV, and PDF**
 
-## Ainda pendente (decisão de negócio, não técnica)
+## Still pending (business decision, not technical)
 
-- País de tributação (Alemanha vs. Brasil) — a decisão que você disse
-  que tomaria depois
-- Conexão com processador de pagamento real (Paddle ou outro) — por
-  isso `/assinar` hoje é só uma página provisória, sem checkout de
-  verdade
-- Confirmação se você já colocou `.github/workflows/backup.yml` no
-  lugar certo e criou o secret `PRODUCTION_DATABASE_URL`
+- Country of taxation (Germany vs. Brazil) — the decision you said
+  you'd make later
+- Connection to a real payment processor (Paddle or another) — that's
+  why `/assinar` is currently just a placeholder page, with no real
+  checkout
+- Confirmation that you've already put `.github/workflows/backup.yml`
+  in the right place and created the `PRODUCTION_DATABASE_URL` secret
 
-## Como isso foi verificado
+## How this was verified
 
-- 33 testes automatizados passando (20 já existentes + 13 novos),
-  incluindo: senha errada não muda nada, cada nível de usuário só
-  acessa o que deveria, toda ação sensível cai no log de auditoria,
-  os três formatos de exportação do fechamento respondem corretamente
-- Bandit (análise de segurança estática) sem apontamentos nos arquivos
-  novos
-- Todas as páginas novas renderizadas de ponta a ponta contra um banco
-  Postgres real, sem erro
+- 33 automated tests passing (20 pre-existing + 13 new), including:
+  wrong password changes nothing, each user level only accesses what
+  it should, every sensitive action lands in the audit log, all three
+  closing-export formats respond correctly
+- Bandit (static security analysis) with no findings in the new files
+- All new pages rendered end-to-end against a real Postgres database,
+  with no errors

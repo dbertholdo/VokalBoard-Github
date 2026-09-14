@@ -1,9 +1,9 @@
 /**
- * Gráfico leve em <canvas>, sem dependência externa — alterna entre
- * barra / pizza / linha pro mesmo conjunto de dados [{label, value}].
+ * Lightweight <canvas> chart with no external dependency — switches between
+ * bar / pie / line for the same dataset [{label, value}].
  *
- * Usado no painel financeiro (Zona Vermelha) e retrofitado na
- * Análise de Dados do admin — ver os `data-chart` no HTML.
+ * Used in the financial panel (Red Zone) and retrofitted into the admin's
+ * Data Analytics view — see the `data-chart` attributes in the HTML.
  */
 (function () {
     var PALETTE = ["#3f6b62", "#4d7a8c", "#8c6a4d", "#7a5c8c", "#5c8c4d", "#8c4d5c", "#4d5c8c", "#8c7a4d"];

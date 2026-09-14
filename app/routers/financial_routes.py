@@ -1,19 +1,20 @@
 """
-Zona Vermelha (/financeiro) — configurações e dados sensíveis, visíveis
-só a quem tem role_level == 3 (god mode, ver app/permissions.py):
+Red Zone (/financeiro) — sensitive settings and data, visible only to
+those with role_level == 3 (god mode, see app/permissions.py):
 
-- Modo Capitalismo: liga/desliga a cobrança pro site inteiro (enquanto
-  desligado — o padrão — ninguém vê banner, preço nem nada relacionado
-  a pagamento em lugar nenhum do site).
-- Preço da assinatura (EUR/CHF).
-- Painel financeiro interno: despesas (com recorrência e comprovante),
-  upload manual de extrato bancário, analytics por país, fechamento
-  mensal/anual com exportação em Excel/CSV/PDF.
+- Capitalism Mode: turns billing for the entire site on/off (while
+  off — the default — no one sees a banner, a price, or anything
+  related to payment anywhere on the site).
+- Subscription price (EUR/CHF).
+- Internal financial dashboard: expenses (with recurrence and
+  receipts), manual bank statement upload, analytics by country,
+  monthly/annual closing with export to Excel/CSV/PDF.
 
-Toda ação que MUDA algo sensível (ligar/desligar Capitalismo, mudar
-preço) exige reautenticação por senha (step-up auth) além de já estar
-logado como god mode, e fica registrada em audit_log — mesmo uma
-tentativa que errou a senha. Ver app/permissions.py.
+Every action that CHANGES something sensitive (turning Capitalism
+Mode on/off, changing the price) requires password reauthentication
+(step-up auth) on top of already being logged in as god mode, and is
+recorded in audit_log — even a failed password attempt. See
+app/permissions.py.
 """
 import csv
 import io
@@ -52,7 +53,7 @@ def _amount_to_cents(amount_str: str) -> int | None:
 
 
 # ------------------------------------------------------------------
-# Zona Vermelha — página principal (Modo Capitalismo + preço)
+# Red Zone — main page (Capitalism Mode + price)
 # ------------------------------------------------------------------
 
 @router.get("/financeiro", response_class=HTMLResponse)
@@ -95,7 +96,7 @@ def toggle_capitalismo(request: Request, current_password: str = Form(...), csrf
     verify_csrf(request, csrf_token)
 
     if not reauthenticate(request, god, current_password):
-        log_audit_action(request, god, "toggle_capitalismo_failed_auth", "senha incorreta")
+        log_audit_action(request, god, "toggle_capitalismo_failed_auth", "incorrect password")
         return RedirectResponse(url="/financeiro?error=senha_incorreta", status_code=303)
 
     current = fetch_one("SELECT value FROM system_settings WHERE key = 'capitalismo_mode_enabled'")
@@ -111,7 +112,7 @@ def toggle_capitalismo(request: Request, current_password: str = Form(...), csrf
     )
     log_audit_action(
         request, god, "toggle_capitalismo_mode",
-        f"{'ligado' if new_value == 'true' else 'desligado'} por {god['full_name']}",
+        f"{'enabled' if new_value == 'true' else 'disabled'} by {god['full_name']}",
     )
     return RedirectResponse(url="/financeiro?saved=1", status_code=303)
 
@@ -130,7 +131,7 @@ def set_price(
     verify_csrf(request, csrf_token)
 
     if not reauthenticate(request, god, current_password):
-        log_audit_action(request, god, "set_price_failed_auth", "senha incorreta")
+        log_audit_action(request, god, "set_price_failed_auth", "incorrect password")
         return RedirectResponse(url="/financeiro?error=senha_incorreta", status_code=303)
 
     eur_cents = _amount_to_cents(price_eur)
@@ -148,13 +149,13 @@ def set_price(
     )
     log_audit_action(
         request, god, "set_subscription_price",
-        f"EUR {_cents_to_amount(eur_cents)} / CHF {_cents_to_amount(chf_cents)} por {god['full_name']}",
+        f"EUR {_cents_to_amount(eur_cents)} / CHF {_cents_to_amount(chf_cents)} by {god['full_name']}",
     )
     return RedirectResponse(url="/financeiro?saved=1", status_code=303)
 
 
 # ------------------------------------------------------------------
-# Painel financeiro — despesas
+# Financial dashboard — expenses
 # ------------------------------------------------------------------
 
 @router.get("/financeiro/painel", response_class=HTMLResponse)
@@ -276,18 +277,18 @@ def export_expenses_csv(request: Request):
     expenses = fetch_all("SELECT * FROM expenses ORDER BY expense_date DESC")
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["data", "descricao", "categoria", "valor", "moeda", "recorrente", "comprovante"])
+    writer.writerow(["date", "description", "category", "amount", "currency", "recurring", "receipt"])
     for e in expenses:
         writer.writerow([
             e["expense_date"], e["description"], e["category"],
             _cents_to_amount(e["amount_cents"]), e["currency"],
-            "sim" if e["is_recurring"] else "nao", e["receipt_url"] or "",
+            "yes" if e["is_recurring"] else "no", e["receipt_url"] or "",
         ])
     buffer.seek(0)
     return StreamingResponse(
         iter([buffer.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=despesas_vokalboard.csv"},
+        headers={"Content-Disposition": "attachment; filename=expenses_vokalboard.csv"},
     )
 
 
@@ -296,9 +297,9 @@ _RECEIPT_FILENAME_RE = re.compile(r"^[A-Za-z0-9_-]+\.(pdf|jpg|png|webp)$")
 
 @router.get("/financeiro/receipts/{filename}")
 def serve_receipt(request: Request, filename: str):
-    # Diferente de /avatars/{filename} (público), comprovante é
-    # documento financeiro sensível — exige god mode pra visualizar,
-    # mesma trava do resto da Zona Vermelha.
+    # Unlike /avatars/{filename} (public), a receipt is a sensitive
+    # financial document — requires god mode to view, same lock as the
+    # rest of the Red Zone.
     god = _god(request)
     if not god:
         raise StarletteHTTPException(status_code=404)
@@ -311,7 +312,7 @@ def serve_receipt(request: Request, filename: str):
 
 
 # ------------------------------------------------------------------
-# Upload manual de extrato bancário
+# Manual bank statement upload
 # ------------------------------------------------------------------
 
 @router.get("/financeiro/extrato", response_class=HTMLResponse)
@@ -338,9 +339,9 @@ def create_import_profile(
     date_format: str = Form("%d/%m/%Y"),
     csrf_token: str = Form(...),
 ):
-    """Cria (ou atualiza) o mapeamento de colunas pra um banco — feito
-    uma vez só por banco, depois é reaproveitado em toda importação
-    CSV desse mesmo banco (ver docstring do módulo e o changelog)."""
+    """Creates (or updates) the column mapping for a bank — done just
+    once per bank, then reused for every CSV import from that same
+    bank (see the module docstring and the changelog)."""
     god = _god(request)
     if not god:
         return RedirectResponse(url="/", status_code=303)
@@ -370,10 +371,10 @@ async def import_statement(
     csrf_token: str = Form(...),
     statement_file: UploadFile = File(...),
 ):
-    """Importa um CSV usando o mapeamento de colunas salvo em
-    bank_import_profiles. Suporte a OFX fica pra uma próxima
-    iteração (ver changelog) — por ora, CSV com mapeamento cobre
-    qualquer banco, é só configurar o perfil uma vez.
+    """Imports a CSV using the column mapping saved in
+    bank_import_profiles. OFX support is left for a future
+    iteration (see changelog) — for now, CSV with a mapping covers
+    any bank, you just configure the profile once.
     """
     god = _god(request)
     if not god:
@@ -427,7 +428,7 @@ async def import_statement(
 
 
 # ------------------------------------------------------------------
-# Fechamento mensal/anual + exportação
+# Monthly/annual closing + export
 # ------------------------------------------------------------------
 
 @router.post("/financeiro/fechamento")
@@ -486,7 +487,7 @@ def create_closing(
             "exp": total_expenses_cents, "snap": json.dumps(snapshot), "uid": god["id"],
         },
     )
-    log_audit_action(request, god, "create_financial_closing", f"{period_type} {start} a {end}")
+    log_audit_action(request, god, "create_financial_closing", f"{period_type} {start} to {end}")
     return RedirectResponse(url=f"/financeiro/painel?saved=1&closing_id={row['id']}", status_code=303)
 
 
@@ -504,17 +505,17 @@ def export_closing_csv(request: Request, closing_id: int):
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["Fechamento", closing["period_type"], str(closing["period_start"]), "a", str(closing["period_end"])])
-    writer.writerow(["Receita total (cents)", closing["total_revenue_cents"]])
-    writer.writerow(["Despesas total (cents)", closing["total_expenses_cents"]])
+    writer.writerow(["Closing", closing["period_type"], str(closing["period_start"]), "to", str(closing["period_end"])])
+    writer.writerow(["Total revenue (cents)", closing["total_revenue_cents"]])
+    writer.writerow(["Total expenses (cents)", closing["total_expenses_cents"]])
     writer.writerow([])
-    writer.writerow(["data", "descricao", "categoria", "valor"])
+    writer.writerow(["date", "description", "category", "amount"])
     for e in snapshot.get("expenses", []):
         writer.writerow([e["date"], e["description"], e["category"], e["amount"]])
     buffer.seek(0)
     return StreamingResponse(
         iter([buffer.getvalue()]), media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=fechamento_{closing['period_start']}.csv"},
+        headers={"Content-Disposition": f"attachment; filename=closing_{closing['period_start']}.csv"},
     )
 
 
@@ -534,12 +535,12 @@ def export_closing_xlsx(request: Request, closing_id: int):
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Fechamento"
-    ws.append(["Fechamento", closing["period_type"], str(closing["period_start"]), "a", str(closing["period_end"])])
-    ws.append(["Receita total (EUR)", _cents_to_amount(closing["total_revenue_cents"])])
-    ws.append(["Despesas total (EUR)", _cents_to_amount(closing["total_expenses_cents"])])
+    ws.title = "Closing"
+    ws.append(["Closing", closing["period_type"], str(closing["period_start"]), "to", str(closing["period_end"])])
+    ws.append(["Total revenue (EUR)", _cents_to_amount(closing["total_revenue_cents"])])
+    ws.append(["Total expenses (EUR)", _cents_to_amount(closing["total_expenses_cents"])])
     ws.append([])
-    ws.append(["Data", "Descrição", "Categoria", "Valor"])
+    ws.append(["Date", "Description", "Category", "Amount"])
     for e in snapshot.get("expenses", []):
         ws.append([e["date"], e["description"], e["category"], e["amount"]])
 
@@ -549,7 +550,7 @@ def export_closing_xlsx(request: Request, closing_id: int):
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=fechamento_{closing['period_start']}.xlsx"},
+        headers={"Content-Disposition": f"attachment; filename=closing_{closing['period_start']}.xlsx"},
     )
 
 
@@ -574,18 +575,18 @@ def export_closing_pdf(request: Request, closing_id: int):
     y = height - 50
 
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, y, "VokalBoard — Fechamento financeiro")
+    c.drawString(50, y, "VokalBoard — Financial closing")
     y -= 25
     c.setFont("Helvetica", 11)
-    c.drawString(50, y, f"Período: {closing['period_type']} — {closing['period_start']} a {closing['period_end']}")
+    c.drawString(50, y, f"Period: {closing['period_type']} — {closing['period_start']} to {closing['period_end']}")
     y -= 20
-    c.drawString(50, y, f"Receita total: EUR {_cents_to_amount(closing['total_revenue_cents'])}")
+    c.drawString(50, y, f"Total revenue: EUR {_cents_to_amount(closing['total_revenue_cents'])}")
     y -= 16
-    c.drawString(50, y, f"Despesas total: EUR {_cents_to_amount(closing['total_expenses_cents'])}")
+    c.drawString(50, y, f"Total expenses: EUR {_cents_to_amount(closing['total_expenses_cents'])}")
     y -= 30
 
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(50, y, "Despesas do período:")
+    c.drawString(50, y, "Expenses for the period:")
     y -= 18
     c.setFont("Helvetica", 9)
     for e in snapshot.get("expenses", []):
@@ -605,9 +606,9 @@ def export_closing_pdf(request: Request, closing_id: int):
 
 
 # ------------------------------------------------------------------
-# Página de assinatura (stub) — só existe pra não dar 404 se o banner
-# do Modo Capitalismo for ativado antes do processador de pagamento
-# estar conectado de verdade (país/Paddle ainda em aberto).
+# Subscription page (stub) — exists only so it doesn't 404 if the
+# Capitalism Mode banner gets turned on before the payment processor
+# is actually connected (country/Paddle still an open question).
 # ------------------------------------------------------------------
 
 @router.get("/assinar", response_class=HTMLResponse)

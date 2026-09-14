@@ -1,15 +1,15 @@
 """
-Configuração compartilhada dos testes de segurança (ver tests/test_security.py).
+Shared configuration for the security tests (see tests/test_security.py).
 
-Esses testes rodam contra um banco Postgres de verdade (localmente, o
-mesmo do seu .env de desenvolvimento; no GitHub Actions, um Postgres
-temporário criado só pra isso — ver .github/workflows/security.yml),
-não um banco "fake" — assim eles testam o comportamento real da
-aplicação (sessão, CSRF, bloqueio de login), não uma simulação.
+These tests run against a real Postgres database (locally, the same
+one from your dev .env; on GitHub Actions, a temporary Postgres
+created just for this — see .github/workflows/security.yml), not a
+"fake" database — so they test the application's real behavior
+(session handling, CSRF, login lockout), not a simulation.
 
-Todo usuário criado pelos testes usa um e-mail começando com
-"sectest_", pra dar pra identificar e apagar no final sem risco de
-mexer em dado de gente de verdade.
+Every user created by the tests uses an email starting with
+"sectest_", so it can be identified and deleted afterward without
+any risk of touching real people's data.
 """
 import pytest
 from fastapi.testclient import TestClient
@@ -27,14 +27,14 @@ def client():
 
 @pytest.fixture(autouse=True, scope="session")
 def cleanup_test_data():
-    # Limpa ANTES também (não só depois): se uma execução anterior tiver
-    # sido interrompida no meio, uma linha de registration_attempts/
-    # login_lockouts velha não deveria fazer os testes desta execução
-    # começarem já "gastos".
-    # registration_attempts é só um contador temporário (nunca guarda
-    # dado de gente de verdade) — seguro limpar por inteiro a cada
-    # execução dos testes, pra um IP "gasto" numa execução anterior
-    # nunca vazar pra próxima.
+    # Also clean up BEFORE (not just after): if a previous run was
+    # interrupted midway, a leftover registration_attempts/
+    # login_lockouts row shouldn't make this run's tests start out
+    # already "used up".
+    # registration_attempts is just a temporary counter (never holds
+    # real people's data) — safe to wipe entirely on every test run,
+    # so an IP "used up" in a previous run never leaks into the next
+    # one.
     execute("DELETE FROM login_lockouts WHERE email LIKE :p", {"p": f"{TEST_EMAIL_PREFIX}%"})
     execute("DELETE FROM registration_attempts")
     execute("DELETE FROM users WHERE email LIKE :p", {"p": f"{TEST_EMAIL_PREFIX}%"})

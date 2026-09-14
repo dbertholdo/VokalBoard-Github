@@ -1,23 +1,23 @@
 """
-Internacionalização (i18n) simples, sem dependências externas.
+Simple internationalization (i18n), with no external dependencies.
 
-Cada string da interface tem uma chave (ex: "nav_login"), e cada chave
-tem uma tradução em alemão ("de") e inglês ("en"). O idioma padrão é
-alemão, já que o público principal do site está na Alemanha.
+Each UI string has a key (e.g. "nav_login"), and each key has a
+translation in German ("de") and English ("en"). The default language
+is German, since the site's main audience is in Germany.
 
-Como funciona na prática:
-- `LanguageMiddleware` (em app/main.py) decide o idioma da requisição
-  (querystring ?lang=.. > cookie > padrão "de") e guarda em
+How it works in practice:
+- `LanguageMiddleware` (in app/main.py) decides the request's language
+  (querystring ?lang=.. > cookie > default "de") and stores it in
   `request.state.lang`.
-- `app/render.py` injeta uma função `t(key)` no contexto de cada
-  template, que apenas consulta este dicionário.
+- `app/render.py` injects a `t(key)` function into every template's
+  context, which simply looks up this dictionary.
 """
 
 SUPPORTED_LANGUAGES = ["de", "en"]
 DEFAULT_LANGUAGE = "de"
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
-    # --- navegação / layout -------------------------------------------------
+    # --- navigation / layout -------------------------------------------------
     "nav_home": {"de": "Start", "en": "Home"},
     "nav_my_listings": {"de": "Meine Anzeigen", "en": "My listings"},
     "nav_favorites": {"de": "Favoriten", "en": "Favorites"},
@@ -85,7 +85,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "listing_type_singer_available": {"de": "Sänger(in) verfügbar", "en": "Singer available"},
     "listing_type_conductor_available": {"de": "Dirigent(in) verfügbar", "en": "Conductor available"},
 
-    # --- detalhe do anúncio ---------------------------------------------------
+    # --- listing detail ---------------------------------------------------
     "listing_not_found": {"de": "Anzeige nicht gefunden.", "en": "Listing not found."},
     "back_to_board": {"de": "Zurück zum Schwarzen Brett", "en": "Back to the board"},
     "contact_title": {"de": "Kontakt", "en": "Contact"},
@@ -95,7 +95,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "edit_button": {"de": "Bearbeiten", "en": "Edit"},
     "voice_type_all": {"de": "Alle Stimmlagen", "en": "All voice types"},
 
-    # --- formulário de anúncio -------------------------------------------------
+    # --- listing form -------------------------------------------------
     "listing_form_title": {"de": "Anzeige aufgeben", "en": "Post a listing"},
     "listing_form_edit_title": {"de": "Anzeige bearbeiten", "en": "Edit listing"},
     "listing_form_type_label": {"de": "Anzeigentyp", "en": "Listing type"},
@@ -184,13 +184,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "The password must contain at least 1 special character (e.g. ! @ # $ % & *).",
     },
 
-    # --- meus anúncios -------------------------------------------------------------
+    # --- my listings -------------------------------------------------------------
     "my_listings_title": {"de": "Meine Anzeigen", "en": "My listings"},
     "my_listings_empty": {"de": "Sie haben noch keine Anzeige veröffentlicht.", "en": "You haven't posted any listings yet."},
     "my_listings_publish_first": {"de": "Erste Anzeige veröffentlichen", "en": "Publish your first listing"},
     "inactive_label": {"de": "inaktiv", "en": "inactive"},
 
-    # --- perfil (próprio / público) -------------------------------------------------
+    # --- profile (own / public) -------------------------------------------------
     "profile_title": {"de": "Mein Profil", "en": "My profile"},
     "profile_voice_type_label": {"de": "Stimmlage", "en": "Voice type"},
     "profile_bio_label": {"de": "Biografie", "en": "Biography"},
@@ -211,7 +211,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "audio_links_title": {"de": "Hörbeispiele", "en": "Listen"},
     "audio_link_play": {"de": "▶ Anhören", "en": "▶ Listen"},
 
-    # --- verificação de e-mail --------------------------------------------------
+    # --- e-mail verification --------------------------------------------------
     "verify_banner_text": {
         "de": "Bitte bestätige deine E-Mail-Adresse, um Anzeigen zu veröffentlichen und Nachrichten zu senden.",
         "en": "Please verify your email address to post listings and send messages.",
@@ -257,7 +257,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "login_forgot_password_link": {"de": "Passwort vergessen?", "en": "Forgot password?"},
     "back_to_login": {"de": "Zurück zum Login", "en": "Back to login"},
 
-    # --- páginas de erro (404 / erro genérico / 500) -------------------------
+    # --- error pages (404 / generic error / 500) -------------------------
     "error_404_title": {"de": "Seite nicht gefunden", "en": "Page not found"},
     "error_404_message": {
         "de": "Diese Seite existiert nicht (mehr), oder der Link ist falsch.",
@@ -317,7 +317,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "message_reply": {"de": "Antworten", "en": "Reply"},
     "message_send_here": {"de": "Nachricht senden", "en": "Send a message"},
 
-    # --- freemium: conteúdo bloqueado sem login ----------------------------------
+    # --- freemium: content locked without login ----------------------------------
     "locked_listing_title": {"de": "Details nur für Mitglieder", "en": "Details for members only"},
     "locked_listing_text": {
         "de": "Registriere dich kostenlos, um die vollständige Beschreibung und die Kontaktdaten zu sehen.",
@@ -334,10 +334,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "Sign up for free to see the biography, audio samples, and listings.",
     },
 
-    # --- "Postar Job" (minhas anúncias + botão de novo anúncio) ------------------
+    # --- "Post Job" (my listings + new listing button) ------------------
     "my_listings_new_button": {"de": "+ Neue Anzeige", "en": "+ New listing"},
 
-    # --- localização em cascata (País > Estado) + tipo (solo/coro) ---------
+    # --- cascading location (Country > State) + type (solo/choir) ---------
     "listing_form_state_label": {"de": "Bundesland / Kanton", "en": "State / Province"},
     "listing_form_state_other_placeholder": {"de": "Bundesland/Region eingeben", "en": "Enter state/region"},
     "listing_form_city_other_placeholder": {"de": "Stadt eingeben", "en": "Enter city"},
@@ -355,12 +355,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "filter_period_to_label": {"de": "bis", "en": "to"},
     "board_results_label": {"de": "Ergebnisse", "en": "results"},
 
-    # --- paginação -----------------------------------------------------------
+    # --- pagination -----------------------------------------------------------
     "pagination_prev": {"de": "Zurück", "en": "Previous"},
     "pagination_next": {"de": "Weiter", "en": "Next"},
     "pagination_page": {"de": "Seite", "en": "Page"},
 
-    # --- "mensagem já enviada" -------------------------------------------------
+    # --- "message already sent" -------------------------------------------------
     "already_messaged_text": {
         "de": "Du hast zu dieser Anzeige bereits eine Nachricht gesendet.",
         "en": "You've already sent a message about this listing.",
@@ -378,7 +378,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "social_platform_twitter": {"de": "Twitter", "en": "Twitter"},
     "social_platform_whatsapp": {"de": "WhatsApp", "en": "WhatsApp"},
 
-    # --- avaliação por estrelas (privada, só quem recebeu vê) ------------------
+    # --- star rating (private, only whoever received it sees it) ------------------
     "rating_widget_title": {"de": "Bewertung abgeben", "en": "Leave a rating"},
     "rating_widget_help": {
         "de": "Deine Bewertung ist nur für diese Person sichtbar — niemand sonst kann sie sehen.",
@@ -396,7 +396,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "my_ratings_count_label": {"de": "Bewertungen", "en": "ratings"},
     "my_ratings_none": {"de": "Noch keine Bewertungen erhalten.", "en": "No ratings received yet."},
 
-    # --- conta: senha, exclusão e reativação ------------------------------------
+    # --- account: password, deletion and reactivation ------------------------------------
     "account_section_title": {"de": "Konto", "en": "Account"},
     "change_password_title": {"de": "Passwort ändern", "en": "Change password"},
     "change_password_current_label": {"de": "Aktuelles Passwort", "en": "Current password"},
@@ -449,7 +449,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "The image couldn't be saved (unsupported format or too large — JPG/PNG/WebP, max 3MB). Everything else was still saved.",
     },
 
-    # --- alertas de anúncio compatível ------------------------------------
+    # --- matching listing alerts ------------------------------------
     "notify_matches_label": {"de": "Bei passenden Anzeigen per E-Mail benachrichtigen", "en": "Email me about matching listings"},
     "notify_matches_help": {
         "de": "Wenn jemand eine Anzeige postet, die zu deinem Profil passt (Stimmtyp bzw. Dirigent(in)), bekommst du sofort eine E-Mail.",
@@ -477,7 +477,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "favorites_subtitle": {"de": "Anzeigen, die du dir für später gemerkt hast.", "en": "Listings you've saved for later."},
     "favorites_empty": {"de": "Du hast noch keine Anzeigen favorisiert.", "en": "You haven't saved any listings yet."},
 
-    # --- notificação de nova mensagem ---------------------------------------
+    # --- new message notification ---------------------------------------
     "notify_messages_label": {"de": "Bei neuen Nachrichten per E-Mail benachrichtigen", "en": "Email me when I get a new message"},
     "notify_messages_help": {
         "de": "Du bekommst eine E-Mail, sobald dir jemand eine Nachricht schickt (ohne den Inhalt der Nachricht — dafür musst du dich einloggen).",
@@ -515,7 +515,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "This profile is not available.",
     },
 
-    # --- denunciar anúncio -----------------------------------------------------
+    # --- report listing -----------------------------------------------------
     "report_listing_button": {"de": "Anzeige melden", "en": "Report listing"},
     "report_listing_reason_label": {"de": "Warum meldest du diese Anzeige?", "en": "Why are you reporting this listing?"},
     "report_listing_reason_placeholder": {
@@ -530,7 +530,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "report_listing_sent": {"de": "Danke, deine Meldung wurde gesendet.", "en": "Thanks, your report has been sent."},
     "report_listing_already": {"de": "Du hast diese Anzeige bereits gemeldet.", "en": "You've already reported this listing."},
 
-    # --- rodapé: impressum / código de conduta -------------------------------
+    # --- footer: impressum / code of conduct -------------------------------
     "footer_impressum": {"de": "Impressum", "en": "Legal notice"},
     "footer_privacy": {"de": "Datenschutz", "en": "Privacy policy"},
     "footer_conduct": {"de": "Verhaltenskodex", "en": "Code of conduct"},
@@ -549,14 +549,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "This notice is a solid template but does not replace legal review — section 4 (international data transfer) in particular still needs confirmation before the site processes real users' data.",
     },
 
-    # --- código de conduta -----------------------------------------------------
+    # --- code of conduct -----------------------------------------------------
     "conduct_title": {"de": "Verhaltenskodex", "en": "Code of conduct"},
     "conduct_intro": {
         "de": "VokalBoard ist ein Ort, an dem sich Sänger(innen) und Dirigent(innen) respektvoll und professionell begegnen sollen. Diese Regeln gelten für alle.",
         "en": "VokalBoard is meant to be a place where singers and conductors meet respectfully and professionally. These rules apply to everyone.",
     },
 
-    # --- badges (gamificação leve, sem ranking) -------------------------------
+    # --- badges (light gamification, no ranking) -------------------------------
     "badges_title": {"de": "Auszeichnungen", "en": "Badges"},
     "badges_help": {
         "de": "Kleine Erinnerungen an das, was du schon erreicht hast — kein Ranking, kein Vergleich mit anderen.",
@@ -593,7 +593,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
 
 def translate(key: str, lang: str) -> str:
-    """Retorna a tradução de `key` no idioma `lang` (fallback: alemão, depois a própria key)."""
+    """Returns the translation of `key` in language `lang` (fallback: German, then the key itself)."""
     entry = TRANSLATIONS.get(key)
     if not entry:
         return key

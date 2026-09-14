@@ -1,18 +1,18 @@
 """
-Freio contra criação em massa de contas falsas por script — por IP,
-bem mais suave que o bloqueio de login (ver app/login_throttle.py) de
-propósito: aqui uma rede compartilhada (várias pessoas no mesmo Wi-Fi
-de faculdade, escritório, operadora de celular com NAT) é comum e não
-deveria travar cadastro de gente de verdade.
+Brake against mass creation of fake accounts by script — by IP,
+deliberately much gentler than the login lockout (see
+app/login_throttle.py): here a shared network (several people on the
+same college Wi-Fi, office, or mobile carrier with NAT) is common and
+shouldn't block real people from signing up.
 
-Regra: no máximo MAX_REGISTRATIONS_PER_WINDOW contas criadas pelo
-mesmo IP dentro de WINDOW_MINUTES — depois disso, pede pra esperar a
-janela passar (ela reseta sozinha, sem ficar bloqueado "pra sempre").
+Rule: at most MAX_REGISTRATIONS_PER_WINDOW accounts created from the
+same IP within WINDOW_MINUTES — after that, it asks to wait for the
+window to pass (it resets itself, no one is blocked "forever").
 
-Importante: isso só entra em ação no PASSO FINAL de /register (conta
-criada com sucesso). NUNCA afeta login, reenvio de e-mail de
-verificação ou redefinição de senha — ninguém fica impedido de entrar
-na própria conta ou recuperar o acesso por causa disso.
+Important: this only kicks in on the FINAL STEP of /register (account
+created successfully). It NEVER affects login, resending the
+verification e-mail, or password reset — no one is ever prevented
+from accessing their own account or recovering access because of this.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -27,7 +27,7 @@ def _now() -> datetime:
 
 
 def is_registration_throttled(ip_address: str) -> bool:
-    """True se esse IP já criou contas demais na janela atual."""
+    """True if this IP has already created too many accounts in the current window."""
     row = fetch_one(
         "SELECT attempt_count, window_started_at FROM registration_attempts WHERE ip_address = :ip",
         {"ip": ip_address},
@@ -43,7 +43,7 @@ def is_registration_throttled(ip_address: str) -> bool:
 
 
 def record_registration(ip_address: str) -> None:
-    """Chamado só depois que uma conta É CRIADA com sucesso — soma 1 ao contador da janela atual."""
+    """Called only after an account IS CREATED successfully — adds 1 to the current window's counter."""
     row = fetch_one(
         "SELECT attempt_count, window_started_at FROM registration_attempts WHERE ip_address = :ip",
         {"ip": ip_address},

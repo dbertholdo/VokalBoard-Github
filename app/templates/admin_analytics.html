@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Análise de Dados — Admin{% endblock %}
+{% block title %}Data Analytics — Admin{% endblock %}
 
 {% block content %}
 {% macro bar(label, value, pct) %}
@@ -10,157 +10,157 @@
 </div>
 {% endmacro %}
 
-<h1>📊 Análise de Dados</h1>
+<h1>📊 Data Analytics</h1>
 <p class="field-help">
-    Só leitura, tudo agregado (nunca mostra quem visitou o quê) — dados de
-    visita começam a se acumular a partir de quando essa página foi
-    instalada, então números de "hoje/semana" ficam mais úteis com o tempo.
-    <a href="/admin">&larr; Voltar pro Admin</a>
+    Read-only, fully aggregated (never shows who visited what) — visit
+    data starts accumulating from whenever this page was
+    installed, so "today/week" numbers get more useful over time.
+    <a href="/admin">&larr; Back to Admin</a>
 </p>
 
 <div class="analytics-section">
-    <h2>Visitas gerais</h2>
+    <h2>Overall visits</h2>
     <div class="admin-stats">
-        <div class="admin-stat"><strong>{{ visits_totals.today }}</strong><span>Hoje</span></div>
-        <div class="admin-stat"><strong>{{ visits_totals.this_week }}</strong><span>Esta semana</span></div>
-        <div class="admin-stat"><strong>{{ visits_totals.this_month }}</strong><span>Este mês</span></div>
-        <div class="admin-stat"><strong>{{ visits_totals.this_year }}</strong><span>Este ano</span></div>
-        <div class="admin-stat"><strong>{{ visits_totals.all_time }}</strong><span>Desde sempre</span></div>
+        <div class="admin-stat"><strong>{{ visits_totals.today }}</strong><span>Today</span></div>
+        <div class="admin-stat"><strong>{{ visits_totals.this_week }}</strong><span>This week</span></div>
+        <div class="admin-stat"><strong>{{ visits_totals.this_month }}</strong><span>This month</span></div>
+        <div class="admin-stat"><strong>{{ visits_totals.this_year }}</strong><span>This year</span></div>
+        <div class="admin-stat"><strong>{{ visits_totals.all_time }}</strong><span>All time</span></div>
     </div>
 </div>
 
 <div class="analytics-section">
-    <h2>Usuários ativos</h2>
+    <h2>Active users</h2>
     <div class="admin-stats">
-        <div class="admin-stat"><strong>{{ active_users.active_now }}</strong><span>Agora (últimos 5 min)</span></div>
-        <div class="admin-stat"><strong>{{ active_users.active_last_hour }}</strong><span>Última hora</span></div>
+        <div class="admin-stat"><strong>{{ active_users.active_now }}</strong><span>Right now (last 5 min)</span></div>
+        <div class="admin-stat"><strong>{{ active_users.active_last_hour }}</strong><span>Last hour</span></div>
     </div>
 </div>
 
 <div class="analytics-section">
-    <h2>Termômetro de uso — quando o pessoal mais visita</h2>
-    <p class="field-help">Cada gráfico abaixo pode alternar entre barra, pizza e linha — o formato de barrinhas de antes continua disponível como padrão.</p>
+    <h2>Usage thermometer — when people visit the most</h2>
+    <p class="field-help">Each chart below can switch between bar, pie and line — the original bar-chart format is still available as the default.</p>
     <div class="analytics-grid">
         <div class="analytics-card">
-            <h3>Por dia da semana (média por dia)</h3>
+            <h3>By day of week (average per day)</h3>
             <div class="chart-container" data-chart='{{ by_weekday_json | tojson }}' data-chart-default="bar">
                 <div class="chart-type-toggle">
-                    <button type="button" data-chart-type="bar">▊ Barras</button>
-                    <button type="button" data-chart-type="pizza">◔ Pizza</button>
-                    <button type="button" data-chart-type="linha">📈 Linha</button>
+                    <button type="button" data-chart-type="bar">▊ Bar</button>
+                    <button type="button" data-chart-type="pizza">◔ Pie</button>
+                    <button type="button" data-chart-type="linha">📈 Line</button>
                 </div>
                 <canvas width="360" height="220"></canvas>
             </div>
         </div>
         <div class="analytics-card">
-            <h3>Por hora do dia</h3>
+            <h3>By hour of day</h3>
             <div class="chart-container" data-chart='{{ by_hour_json | tojson }}' data-chart-default="linha">
                 <div class="chart-type-toggle">
-                    <button type="button" data-chart-type="bar">▊ Barras</button>
-                    <button type="button" data-chart-type="pizza">◔ Pizza</button>
-                    <button type="button" data-chart-type="linha">📈 Linha</button>
+                    <button type="button" data-chart-type="bar">▊ Bar</button>
+                    <button type="button" data-chart-type="pizza">◔ Pie</button>
+                    <button type="button" data-chart-type="linha">📈 Line</button>
                 </div>
                 <canvas width="360" height="220"></canvas>
             </div>
         </div>
         <div class="analytics-card">
-            <h3>Por dia do mês</h3>
-            {% for d in by_day_of_month_chart %}{% if d.total > 0 %}{{ bar("Dia " ~ d.day, d.total, d.pct) }}{% endif %}{% endfor %}
+            <h3>By day of month</h3>
+            {% for d in by_day_of_month_chart %}{% if d.total > 0 %}{{ bar("Day " ~ d.day, d.total, d.pct) }}{% endif %}{% endfor %}
         </div>
     </div>
     <script src="/static/js/financial-charts.js" nonce="{{ csp_nonce }}"></script>
 </div>
 
 <div class="analytics-section">
-    <h2>Quem se cadastrou</h2>
+    <h2>Who signed up</h2>
     <div class="analytics-grid">
         <div class="analytics-card">
-            <h3>Por tipo de voz</h3>
-            {% for v in by_voice_type %}{{ bar(v.name or "(sem tipo)", v.n, v.n / (by_voice_type | map(attribute='n') | max) * 100 if by_voice_type else 0) }}{% endfor %}
-            {% if not by_voice_type %}<p class="empty-state">Sem dados ainda.</p>{% endif %}
+            <h3>By voice type</h3>
+            {% for v in by_voice_type %}{{ bar(v.name or "(no type)", v.n, v.n / (by_voice_type | map(attribute='n') | max) * 100 if by_voice_type else 0) }}{% endfor %}
+            {% if not by_voice_type %}<p class="empty-state">No data yet.</p>{% endif %}
         </div>
         <div class="analytics-card">
-            <h3>Por país</h3>
+            <h3>By country</h3>
             {% for c in by_country %}{{ bar(c.country, c.n, c.n / (by_country | map(attribute='n') | max) * 100 if by_country else 0) }}{% endfor %}
         </div>
         <div class="analytics-card">
-            <h3>Por estado/cantão (top 15)</h3>
+            <h3>By state/canton (top 15)</h3>
             {% for s in by_state %}{{ bar(s.state, s.n, s.n / (by_state | map(attribute='n') | max) * 100 if by_state else 0) }}{% endfor %}
-            {% if not by_state %}<p class="empty-state">Sem dados ainda.</p>{% endif %}
+            {% if not by_state %}<p class="empty-state">No data yet.</p>{% endif %}
         </div>
         <div class="analytics-card">
-            <h3>Por cidade (top 15)</h3>
+            <h3>By city (top 15)</h3>
             {% for c in by_city %}{{ bar(c.city, c.n, c.n / (by_city | map(attribute='n') | max) * 100 if by_city else 0) }}{% endfor %}
-            {% if not by_city %}<p class="empty-state">Sem dados ainda.</p>{% endif %}
+            {% if not by_city %}<p class="empty-state">No data yet.</p>{% endif %}
         </div>
     </div>
 </div>
 
 <div class="analytics-section">
-    <h2>Funil de conversão</h2>
+    <h2>Conversion funnel</h2>
     <div class="admin-stats">
-        <div class="admin-stat"><strong>{{ funnel.registered }}</strong><span>Cadastrados</span></div>
-        <div class="admin-stat"><strong>{{ funnel.verified }}</strong><span>E-mail verificado</span></div>
-        <div class="admin-stat"><strong>{{ funnel.posted_listing }}</strong><span>Postaram 1º anúncio</span></div>
+        <div class="admin-stat"><strong>{{ funnel.registered }}</strong><span>Registered</span></div>
+        <div class="admin-stat"><strong>{{ funnel.verified }}</strong><span>Email verified</span></div>
+        <div class="admin-stat"><strong>{{ funnel.posted_listing }}</strong><span>Posted 1st listing</span></div>
     </div>
     <p class="field-help">
         {% if funnel.registered %}
-            {{ (100 * funnel.verified / funnel.registered) | round | int }}% verificam o e-mail,
-            {{ (100 * funnel.posted_listing / funnel.registered) | round | int }}% chegam a postar um anúncio.
+            {{ (100 * funnel.verified / funnel.registered) | round | int }}% verify their email,
+            {{ (100 * funnel.posted_listing / funnel.registered) | round | int }}% go on to post a listing.
         {% endif %}
     </p>
 </div>
 
 <div class="analytics-section">
-    <h2>Mensagens e retenção</h2>
+    <h2>Messages and retention</h2>
     <div class="admin-stats">
         <div class="admin-stat">
             <strong>{{ reply_rate_pct ~ "%" if reply_rate_pct is not none else "—" }}</strong>
-            <span>Conversas com resposta ({{ reply_stats.replied_conversations }}/{{ reply_stats.total_conversations }})</span>
+            <span>Conversations with a reply ({{ reply_stats.replied_conversations }}/{{ reply_stats.total_conversations }})</span>
         </div>
         <div class="admin-stat">
             <strong>{{ retention_7d_pct ~ "%" if retention_7d_pct is not none else "—" }}</strong>
-            <span>Retenção 7 dias ({{ retention.retained_7d }}/{{ retention.eligible_7d }})</span>
+            <span>7-day retention ({{ retention.retained_7d }}/{{ retention.eligible_7d }})</span>
         </div>
         <div class="admin-stat">
             <strong>{{ retention_30d_pct ~ "%" if retention_30d_pct is not none else "—" }}</strong>
-            <span>Retenção 30 dias ({{ retention.retained_30d }}/{{ retention.eligible_30d }})</span>
+            <span>30-day retention ({{ retention.retained_30d }}/{{ retention.eligible_30d }})</span>
         </div>
     </div>
     <p class="field-help">
-        "Retenção" = de quem se cadastrou há pelo menos 7 (ou 30) dias, quantos
-        deram sinal de vida no site depois desse prazo.
+        "Retention" = of those who signed up at least 7 (or 30) days ago, how many
+        showed a sign of life on the site after that period.
     </p>
 </div>
 
 <div class="analytics-section">
-    <h2>Distribuição</h2>
+    <h2>Distribution</h2>
     <div class="analytics-grid">
         <div class="analytics-card">
-            <h3>Notas recebidas (avaliações)</h3>
+            <h3>Ratings received (reviews)</h3>
             {% for r in ratings_distribution %}{{ bar((r.stars ~ " ★"), r.n, r.n / (ratings_distribution | map(attribute='n') | max) * 100 if ratings_distribution else 0) }}{% endfor %}
-            {% if not ratings_distribution %}<p class="empty-state">Sem avaliações ainda.</p>{% endif %}
+            {% if not ratings_distribution %}<p class="empty-state">No reviews yet.</p>{% endif %}
         </div>
         <div class="analytics-card">
-            <h3>Anúncios ativos por tipo</h3>
+            <h3>Active listings by type</h3>
             {% for l in listing_type_distribution %}{{ bar(l.listing_type, l.n, l.n / (listing_type_distribution | map(attribute='n') | max) * 100 if listing_type_distribution else 0) }}{% endfor %}
-            {% if not listing_type_distribution %}<p class="empty-state">Sem anúncios ativos.</p>{% endif %}
+            {% if not listing_type_distribution %}<p class="empty-state">No active listings.</p>{% endif %}
         </div>
     </div>
 </div>
 
 <div class="analytics-section">
-    <h2>Idioma e origem do tráfego</h2>
+    <h2>Language and traffic source</h2>
     <div class="analytics-grid">
         <div class="analytics-card">
-            <h3>Idioma escolhido nas visitas</h3>
+            <h3>Language chosen on visits</h3>
             {% for l in by_lang %}{{ bar(l.lang, l.n, l.n / (by_lang | map(attribute='n') | max) * 100 if by_lang else 0) }}{% endfor %}
-            {% if not by_lang %}<p class="empty-state">Sem dados ainda.</p>{% endif %}
+            {% if not by_lang %}<p class="empty-state">No data yet.</p>{% endif %}
         </div>
         <div class="analytics-card">
-            <h3>De onde as visitas vieram (top 15)</h3>
+            <h3>Where visits came from (top 15)</h3>
             {% for r in by_referrer %}{{ bar(r.origem, r.n, r.n / (by_referrer | map(attribute='n') | max) * 100 if by_referrer else 0) }}{% endfor %}
-            {% if not by_referrer %}<p class="empty-state">Sem dados ainda.</p>{% endif %}
+            {% if not by_referrer %}<p class="empty-state">No data yet.</p>{% endif %}
         </div>
     </div>
 </div>

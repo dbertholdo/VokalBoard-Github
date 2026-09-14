@@ -1,7 +1,7 @@
 """
-Páginas "estáticas" de conteúdo legal/institucional: Impressum e
-Código de Conduta. Não dependem de login nem de banco de dados —
-só texto renderizado a partir dos templates.
+"Static" pages for legal/institutional content: Impressum and
+Code of Conduct. They don't depend on login or the database —
+just text rendered from the templates.
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse

@@ -1,11 +1,11 @@
 """
-Upload de comprovante de despesa (painel financeiro / Zona Vermelha).
+Expense receipt upload (financial panel / Red Zone).
 
-Mesmo espírito de app/avatars.py (arquivo em disco, servido por rota
-própria, não pelo StaticFiles direto — ver /financeiro/receipts/{arquivo}
-em app/routers/financial_routes.py), mas sem processamento de imagem:
-um comprovante pode ser PDF ou foto, e queremos guardar o arquivo
-original, não recomprimir.
+Same spirit as app/avatars.py (a file on disk, served by its own
+route, not directly by StaticFiles — see /financeiro/receipts/{file}
+in app/routers/financial_routes.py), but without image processing:
+a receipt can be a PDF or a photo, and we want to keep the original
+file, not recompress it.
 """
 import os
 import secrets
@@ -14,7 +14,7 @@ from fastapi import UploadFile
 
 RECEIPT_DIR = os.getenv("RECEIPT_DIR", os.path.join("app", "static", "receipts"))
 
-MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB — PDFs escaneados podem ser grandes
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB — scanned PDFs can be large
 
 ALLOWED_CONTENT_TYPES = {
     "application/pdf": ".pdf",
@@ -25,11 +25,11 @@ ALLOWED_CONTENT_TYPES = {
 
 
 async def save_receipt(upload: UploadFile) -> str | None:
-    """Salva o comprovante e devolve a URL pública, ou None se inválido.
+    """Saves the receipt and returns the public URL, or None if invalid.
 
-    O nome do arquivo salvo é aleatório (não o nome original enviado) —
-    evita colisão entre despesas e não expõe nenhum dado do nome
-    original do arquivo da pessoa.
+    The saved filename is random (not the original uploaded name) —
+    this avoids collisions between expenses and doesn't expose any
+    data from the person's original filename.
     """
     if not upload or not upload.filename:
         return None

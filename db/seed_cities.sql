@@ -1,7 +1,7 @@
--- Cidades reais da Alemanha, Áustria e Suíça (fonte: GeoNames, cidades
--- com população >= ~15.000 habitantes), agrupadas por estado/cantão.
--- Gerado automaticamente via scripts/generate_cities_seed.py — não edite
--- este arquivo à mão, rode o script de novo se precisar atualizar.
+-- Real cities in Germany, Austria and Switzerland (source: GeoNames,
+-- cities with population >= ~15,000), grouped by state/canton.
+-- Auto-generated via scripts/generate_cities_seed.py — do not edit
+-- this file by hand, rerun the script if you need to update it.
 
 INSERT INTO cities (name, state, country_code, population) VALUES
     ('Stuttgart', 'Baden-Württemberg', 'DE', 612663),

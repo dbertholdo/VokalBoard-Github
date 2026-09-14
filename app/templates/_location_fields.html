@@ -1,14 +1,14 @@
 {# ------------------------------------------------------------------
-   Campos de localização em cascata: País > Estado > Cidade.
+   Cascading location fields: Country > State > City.
 
-   Reutilizado no cadastro, na edição de perfil e no formulário de
-   anúncio, pra não duplicar essa lógica (e a lista de estados/
-   cidades) em três lugares diferentes.
+   Reused in registration, profile editing, and the listing form, so
+   this logic (and the state/city lists) isn't duplicated across three
+   different places.
 
-   O template que inclui este parcial precisa definir antes:
-     - loc_country, loc_state, loc_city: valores atuais (string, pode
-       ser vazio) — usados pra pré-selecionar ao editar algo existente.
-   E o contexto do router precisa ter passado:
+   The template including this partial must define beforehand:
+     - loc_country, loc_state, loc_city: current values (string, may
+       be empty) — used to pre-select when editing an existing record.
+   And the router's context must have passed:
      - country_options, state_options, city_options
 ------------------------------------------------------------------ #}
 <label>{{ t('listing_form_country_label') }}

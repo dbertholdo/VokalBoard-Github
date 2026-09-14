@@ -1,13 +1,14 @@
 """
-Regra de senha: pelo menos 6 caracteres, com 1 letra, 1 número e 1
-caractere especial.
+Password rule: at least 6 characters, with 1 letter, 1 digit and 1
+special character.
 
-O conjunto de caracteres especiais aceitos foi escolhido pra dar o
-MENOR problema possível: nenhum deles quebra formulário HTML, URL,
-copiar/colar ou teclado (ABNT2 ou QWERTY) — evitamos coisas como aspas
-(' e ") ou barra invertida (\\), que às vezes dão dor de cabeça em
-algum sistema por aí. Isso é só validação de formato; a senha em si
-nunca é guardada em texto puro (ver app/auth.py — sempre com bcrypt).
+The set of accepted special characters was chosen to cause the
+LEAST possible trouble: none of them break an HTML form, a URL,
+copy/paste, or a keyboard layout — we avoid things like quotes
+(' and ") or a backslash (\\), which sometimes cause headaches on
+some system out there. This is just format validation; the password
+itself is never stored in plain text (see app/auth.py — always with
+bcrypt).
 """
 import re
 
@@ -21,8 +22,8 @@ _HAS_SPECIAL = re.compile(r"[" + re.escape(SPECIAL_CHARS) + r"]")
 
 def password_error(password: str) -> str | None:
     """
-    Devolve a CHAVE de tradução do erro (ver app/i18n.py) se a senha
-    não cumprir a regra, ou None se estiver tudo certo.
+    Returns the error translation KEY (see app/i18n.py) if the
+    password doesn't meet the rule, or None if everything checks out.
     """
     if len(password) < MIN_LENGTH:
         return "password_error_length"

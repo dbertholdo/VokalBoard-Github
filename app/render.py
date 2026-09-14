@@ -1,10 +1,10 @@
 """
-Wrapper fino em volta do Jinja2Templates do FastAPI para injetar, em
-todo template renderizado: as ferramentas de tradução (`t`) e o idioma
-atual (`lang`); os links para trocar de idioma mantendo a página e os
-filtros atuais; o token CSRF do formulário (`csrf_token` — veja
-app/csrf.py); e, se houver alguém logado, a contagem de mensagens não
-lidas (`unread_count`), usada no badge do menu.
+Thin wrapper around FastAPI's Jinja2Templates to inject, into every
+rendered template: the translation tools (`t`) and the current
+language (`lang`); the links to switch language while keeping the
+page and current filters; the form's CSRF token (`csrf_token` — see
+app/csrf.py); and, if someone is logged in, the unread message count
+(`unread_count`), used in the menu badge.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -19,12 +19,12 @@ from app.financial_settings import is_capitalismo_mode_enabled, get_subscription
 
 templates = Jinja2Templates(directory="app/templates")
 
-# "Usuários ativos agora" (painel de Análise de Dados do admin) usa
-# users.last_seen_at. Atualizar isso a CADA página carregada seria um
-# UPDATE a mais em toda requisição — desnecessário, já que "ativo nos
-# últimos 60 min" não precisa de precisão ao segundo. Por isso só
-# atualiza de novo depois desse intervalo (mesmo padrão de "cooldown"
-# usado em profile_views/site_visits).
+# "Active users now" (the admin's Analytics panel) uses
+# users.last_seen_at. Updating this on EVERY page load would be one
+# more UPDATE on every request — unnecessary, since "active in the
+# last 60 min" doesn't need second-level precision. So it only
+# updates again after this interval (the same "cooldown" pattern used
+# in profile_views/site_visits).
 _LAST_SEEN_UPDATE_COOLDOWN = timedelta(minutes=5)
 _LAST_SEEN_SESSION_KEY = "last_seen_updated_at"
 
@@ -40,27 +40,35 @@ def render(request: Request, template_name: str, context: dict | None = None, st
         code: str(request.url.include_query_params(lang=code)) for code in SUPPORTED_LANGUAGES
     }
     context["csrf_token"] = get_or_create_csrf_token(request)
-    # Usado nos poucos <script nonce="..."> inline do site (ver
-    # SecurityHeadersMiddleware em app/main.py, que gera um valor novo
-    # por requisição e monta o cabeçalho Content-Security-Policy) —
-    # "" como fallback pra qualquer chamada de render() que por algum
-    # motivo não passe por aquele middleware (ex: alguns testes).
+    # Used in the site's few inline <script nonce="..."> tags (see
+    # SecurityHeadersMiddleware in app/main.py, which generates a new
+    # value per request and builds the Content-Security-Policy
+    # header) — "" as a fallback for any render() call that for some
+    # reason doesn't go through that middleware (e.g. some tests).
     context["csp_nonce"] = getattr(request.state, "csp_nonce", "")
 
-    # Anti-bot: disponível em TODO template (honeypot_field é o nome
-    # do campo-armadilha; turnstile_* só tem efeito se configurado —
-    # ver app/captcha.py). Só os formulários mais visados por bots
-    # (cadastro, "esqueci minha senha") de fato usam isso.
+    # Anti-bot: available in EVERY template (honeypot_field is the
+    # name of the trap field; turnstile_* only has an effect if
+    # configured — see app/captcha.py). Only the forms most targeted
+    # by bots (sign-up, "forgot my password") actually use this.
     context["honeypot_field"] = HONEYPOT_FIELD
     context["captcha_enabled"] = captcha_enabled()
     context["turnstile_site_key"] = TURNSTILE_SITE_KEY
 
-    # Modo Capitalismo: enquanto desligado (padrão), capitalismo_mode_enabled
-    # é False e nenhum template mostra nada relacionado a cobrança — nem
-    # o banner de assinatura, nem preço. Ver app/financial_settings.py
-    # e a Zona Vermelha (app/routers/financial_routes.py).
+    # Capitalism Mode: while off (the default), capitalismo_mode_enabled
+    # is False and no template shows anything related to billing —
+    # neither the subscription banner nor a price. See
+    # app/financial_settings.py and the Red Zone
+    # (app/routers/financial_routes.py).
     context["capitalismo_mode_enabled"] = is_capitalismo_mode_enabled()
     context["subscription_prices"] = get_subscription_prices_cents()
+
+    # Used by the sidebar (base.html): inside /admin or /financeiro
+    # it switches content (admin-only links) instead of showing
+    # Start/Jobs/My profile like on any other page — computed here,
+    # once, instead of in every route.
+    path = request.url.path
+    context["is_admin_area"] = path.startswith("/admin") or path.startswith("/financeiro")
 
     user_id = request.session.get("user_id")
     context["unread_count"] = 0

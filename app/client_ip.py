@@ -1,12 +1,12 @@
 """
-Descobrir o IP de quem está fazendo a requisição.
+Determine the IP of whoever is making the request.
 
-Por trás de uma plataforma como Railway (ou qualquer proxy reverso),
-`request.client.host` é o IP do PRÓPRIO proxy, não da pessoa de
-verdade — o IP real vem no cabeçalho `X-Forwarded-For`, que o proxy
-adiciona. Usado só pelo freio de cadastro em massa (ver
-app/register_throttle.py); NUNCA é guardado permanentemente em lugar
-nenhum, só comparado num contador temporário.
+Behind a platform like Railway (or any reverse proxy),
+`request.client.host` is the IP of the proxy ITSELF, not the real
+person — the real IP comes in the `X-Forwarded-For` header, which the
+proxy adds. Used only by the mass-signup throttle (see
+app/register_throttle.py); it is NEVER stored permanently anywhere,
+only compared against a temporary counter.
 """
 from fastapi import Request
 
@@ -14,7 +14,7 @@ from fastapi import Request
 def get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
-        # O cabeçalho pode ter uma lista "cliente, proxy1, proxy2" —
-        # o primeiro da lista é sempre o mais próximo do navegador.
+        # The header may contain a list "client, proxy1, proxy2" —
+        # the first item in the list is always closest to the browser.
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"

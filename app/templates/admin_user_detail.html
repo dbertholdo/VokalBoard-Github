@@ -2,39 +2,39 @@
 {% block title %}Admin — {{ target.full_name }}{% endblock %}
 
 {% block content %}
-<a class="back-link" href="/admin/users">&larr; Usuários</a>
+<a class="back-link" href="/admin/users">&larr; Users</a>
 <h1>{{ target.full_name }}
     {% if target.role_level == 3 %} <span class="badge badge-danger">god mode</span>
     {% elif target.role_level == 2 %} <span class="badge">admin</span>
-    {% elif target.role_level == 1 %} <span class="badge">moderador</span>
+    {% elif target.role_level == 1 %} <span class="badge">moderator</span>
     {% endif %}
 </h1>
 <p class="meta">
-    ✉️ {{ target.email }} {% if target.email_verified %}✅{% else %}(não verificado){% endif %}
+    ✉️ {{ target.email }} {% if target.email_verified %}✅{% else %}(not verified){% endif %}
     {% if target.city %} · 📍 {{ target.city }}{% if target.state %}, {{ target.state }}{% endif %}{% endif %}
-    · {{ "Cantor(a)" if target.role == "singer" else "Maestro(a)" }}
-    · desde {{ target.created_at }}
-    {% if target.deleted_at %} · <span class="badge-danger">conta desativada em {{ target.deleted_at }}</span>{% endif %}
+    · {{ "Singer" if target.role == "singer" else "Conductor" }}
+    · since {{ target.created_at }}
+    {% if target.deleted_at %} · <span class="badge-danger">account deactivated on {{ target.deleted_at }}</span>{% endif %}
 </p>
 
 {% if request.query_params.get('self_demote_blocked') == '1' %}
-    <p class="error">⚠️ Você não pode remover seu próprio acesso de admin, desativar ou apagar a sua própria conta por aqui. Peça a outro admin.</p>
+    <p class="error">⚠️ You cannot remove your own admin access, deactivate, or delete your own account here. Ask another admin.</p>
 {% endif %}
 {% if request.query_params.get('reset_sent') == '1' %}
-    <p class="success">✅ E-mail de redefinição de senha enviado.</p>
+    <p class="success">✅ Password reset email sent.</p>
 {% endif %}
 
 <div class="admin-stats">
-    <div class="admin-stat"><strong>{% if stats.avg_rating %}⭐ {{ stats.avg_rating }}{% else %}—{% endif %}</strong><span>Nota média ({{ stats.rating_count }} avaliações)</span></div>
-    <div class="admin-stat"><strong>{{ stats.profile_views }}</strong><span>Visitas ao perfil</span></div>
-    <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Anúncios ativos</span></div>
-    <div class="admin-stat"><strong>{{ stats.messages_received }}</strong><span>Mensagens recebidas</span></div>
-    <div class="admin-stat"><strong>{{ stats.messages_sent }}</strong><span>Mensagens enviadas</span></div>
+    <div class="admin-stat"><strong>{% if stats.avg_rating %}⭐ {{ stats.avg_rating }}{% else %}—{% endif %}</strong><span>Average rating ({{ stats.rating_count }} reviews)</span></div>
+    <div class="admin-stat"><strong>{{ stats.profile_views }}</strong><span>Profile views</span></div>
+    <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Active listings</span></div>
+    <div class="admin-stat"><strong>{{ stats.messages_received }}</strong><span>Messages received</span></div>
+    <div class="admin-stat"><strong>{{ stats.messages_sent }}</strong><span>Messages sent</span></div>
 </div>
 
-<h2>Avaliações recebidas</h2>
+<h2>Reviews received</h2>
 {% if recent_ratings|length == 0 %}
-    <p class="empty-state">Ainda não recebeu nenhuma avaliação.</p>
+    <p class="empty-state">No reviews received yet.</p>
 {% else %}
     <ul class="admin-list">
         {% for r in recent_ratings %}
@@ -46,57 +46,57 @@
     </ul>
 {% endif %}
 
-<h2>Gerenciar conta</h2>
+<h2>Manage account</h2>
 <div class="admin-actions">
     {% if not target.email_verified %}
         <form method="post" action="/admin/users/{{ target.id }}/verify-email">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="button-link">✅ Confirmar e-mail manualmente</button>
+            <button type="submit" class="button-link">✅ Manually confirm email</button>
         </form>
     {% endif %}
 
     <form method="post" action="/admin/users/{{ target.id }}/send-reset">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="button-link">✉️ Mandar link de redefinição de senha</button>
+        <button type="submit" class="button-link">✉️ Send password reset link</button>
     </form>
 
     {% if not is_self %}
-        <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" data-confirm="{{ 'Remover acesso de admin?' if target.role_level >= 2 else 'Tornar esta pessoa admin?' }}">
+        <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" data-confirm="{{ 'Remove admin access?' if target.role_level >= 2 else 'Make this person an admin?' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="button-link">{{ '⬇️ Remover admin' if target.role_level >= 2 else '⬆️ Tornar admin' }}</button>
+            <button type="submit" class="button-link">{{ '⬇️ Remove admin' if target.role_level >= 2 else '⬆️ Make admin' }}</button>
         </form>
 
         {% if user.role_level == 3 and target.role_level >= 2 %}
-        <form method="post" action="/admin/users/{{ target.id }}/toggle-god-mode" data-confirm="{{ 'Remover god mode (acesso à Zona Vermelha)?' if target.role_level == 3 else 'Dar god mode a esta pessoa? Ela passará a ver o Modo Capitalismo, preço e o painel financeiro.' }}">
+        <form method="post" action="/admin/users/{{ target.id }}/toggle-god-mode" data-confirm="{{ 'Remove god mode (Red Zone access)?' if target.role_level == 3 else 'Grant god mode to this person? They will be able to see Capitalism Mode, pricing, and the financial dashboard.' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="button-link">{{ '⬇️ Remover god mode' if target.role_level == 3 else '👑 Dar god mode (Zona Vermelha)' }}</button>
+            <button type="submit" class="button-link">{{ '⬇️ Remove god mode' if target.role_level == 3 else '👑 Grant god mode (Red Zone)' }}</button>
         </form>
         {% endif %}
 
         {% if target.deleted_at %}
             <form method="post" action="/admin/users/{{ target.id }}/reactivate">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="button-link">♻️ Reativar conta</button>
+                <button type="submit" class="button-link">♻️ Reactivate account</button>
             </form>
         {% else %}
-            <form method="post" action="/admin/users/{{ target.id }}/deactivate" data-confirm="Desativar esta conta? A pessoa poderá reativar ao fazer login.">
+            <form method="post" action="/admin/users/{{ target.id }}/deactivate" data-confirm="Deactivate this account? The person can reactivate it by logging in.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="button-link button-danger">🚫 Desativar conta</button>
+                <button type="submit" class="button-link button-danger">🚫 Deactivate account</button>
             </form>
         {% endif %}
 
         <div class="danger-zone">
             <details class="block-user-details">
-                <summary class="block-user-summary">☠️ Apagar conta pra sempre</summary>
-                <p class="field-help">Isso apaga a conta e tudo relacionado (anúncios, mensagens, avaliações) de forma definitiva. Não tem como desfazer.</p>
-                <form method="post" action="/admin/users/{{ target.id }}/delete-forever" data-confirm="Tem certeza ABSOLUTA? Isso não pode ser desfeito.">
+                <summary class="block-user-summary">☠️ Delete account forever</summary>
+                <p class="field-help">This permanently deletes the account and everything related to it (listings, messages, reviews). It cannot be undone.</p>
+                <form method="post" action="/admin/users/{{ target.id }}/delete-forever" data-confirm="Are you ABSOLUTELY sure? This cannot be undone.">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="danger">Apagar permanentemente</button>
+                    <button type="submit" class="danger">Delete permanently</button>
                 </form>
             </details>
         </div>
     {% else %}
-        <p class="field-help">Ações de admin/desativar/apagar não ficam disponíveis para a sua própria conta aqui — peça a outro admin, se precisar.</p>
+        <p class="field-help">Admin/deactivate/delete actions are not available for your own account here — ask another admin if you need this done.</p>
     {% endif %}
 </div>
 {% endblock %}

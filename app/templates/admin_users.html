@@ -1,45 +1,45 @@
 {% extends "base.html" %}
-{% block title %}Admin — Usuários{% endblock %}
+{% block title %}Admin — Users{% endblock %}
 
 {% block content %}
 <a class="back-link" href="/admin">&larr; Admin</a>
-<h1>Usuários</h1>
+<h1>Users</h1>
 
 {% if request.query_params.get('deleted') == '1' %}
-    <p class="success">✅ Conta apagada permanentemente.</p>
+    <p class="success">✅ Account permanently deleted.</p>
 {% endif %}
 
 <form method="get" action="/admin/users" class="stacked-form narrow admin-users-filter">
-    <label>Buscar
-        <input type="text" name="q" value="{{ q }}" placeholder="Nome ou e-mail...">
+    <label>Search
+        <input type="text" name="q" value="{{ q }}" placeholder="Name or email...">
     </label>
-    <label>Ordenar por
+    <label>Sort by
         <select name="sort">
             {% for opt in sort_options %}
                 <option value="{{ opt }}" {{ 'selected' if opt == sort else '' }}>
-                    {{ {"newest": "Mais recentes", "rating": "Melhor nota", "views": "Mais visitas",
-                        "engagement": "Mais mensagens recebidas", "name": "Nome (A-Z)"}[opt] }}
+                    {{ {"newest": "Newest", "rating": "Best rating", "views": "Most views",
+                        "engagement": "Most messages received", "name": "Name (A-Z)"}[opt] }}
                 </option>
             {% endfor %}
         </select>
     </label>
-    <button type="submit" class="button-link">Filtrar</button>
+    <button type="submit" class="button-link">Filter</button>
 </form>
 
-<p class="field-help">{{ total }} usuário(s) encontrado(s).</p>
+<p class="field-help">{{ total }} user(s) found.</p>
 
 {% if users|length == 0 %}
-    <p class="empty-state">Nenhum usuário encontrado.</p>
+    <p class="empty-state">No users found.</p>
 {% else %}
     <table class="admin-users-table">
         <thead>
             <tr>
-                <th>Nome</th>
-                <th>E-mail</th>
-                <th>Local</th>
-                <th>Nota</th>
-                <th>Visitas</th>
-                <th>Msgs recebidas</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Location</th>
+                <th>Rating</th>
+                <th>Views</th>
+                <th>Msgs received</th>
                 <th>Status</th>
                 <th></th>
             </tr>
@@ -50,25 +50,25 @@
                     <td>{{ u.full_name }}
                         {% if u.role_level == 3 %} <span class="badge badge-danger">god mode</span>
                         {% elif u.role_level == 2 %} <span class="badge">admin</span>
-                        {% elif u.role_level == 1 %} <span class="badge">moderador</span>
+                        {% elif u.role_level == 1 %} <span class="badge">moderator</span>
                         {% endif %}
                     </td>
-                    <td>{{ u.email }}{% if not u.email_verified %} <span class="field-help">(não verificado)</span>{% endif %}</td>
+                    <td>{{ u.email }}{% if not u.email_verified %} <span class="field-help">(not verified)</span>{% endif %}</td>
                     <td>{{ u.city }}{% if u.state %}, {{ u.state }}{% endif %}</td>
                     <td>{% if u.avg_rating %}⭐ {{ u.avg_rating }} ({{ u.rating_count }}){% else %}—{% endif %}</td>
                     <td>{{ u.profile_views }}</td>
                     <td>{{ u.messages_received }}</td>
-                    <td>{% if u.deleted_at %}<span class="badge-danger">desativada</span>{% else %}ativa{% endif %}</td>
-                    <td><a href="/admin/users/{{ u.id }}" class="button-link">Gerenciar</a></td>
+                    <td>{% if u.deleted_at %}<span class="badge-danger">deactivated</span>{% else %}active{% endif %}</td>
+                    <td><a href="/admin/users/{{ u.id }}" class="button-link">Manage</a></td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 
     <p class="admin-pagination">
-        {% if has_prev %}<a href="/admin/users?q={{ q }}&sort={{ sort }}&page={{ page - 1 }}">&larr; Anterior</a>{% endif %}
-        <span>Página {{ page }}</span>
-        {% if has_next %}<a href="/admin/users?q={{ q }}&sort={{ sort }}&page={{ page + 1 }}">Próxima &rarr;</a>{% endif %}
+        {% if has_prev %}<a href="/admin/users?q={{ q }}&sort={{ sort }}&page={{ page - 1 }}">&larr; Previous</a>{% endif %}
+        <span>Page {{ page }}</span>
+        {% if has_next %}<a href="/admin/users?q={{ q }}&sort={{ sort }}&page={{ page + 1 }}">Next &rarr;</a>{% endif %}
     </p>
 {% endif %}
 {% endblock %}

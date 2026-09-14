@@ -4,25 +4,25 @@
 {% block content %}
 <h1>Admin</h1>
 <p class="field-help">
-    Visão geral só de leitura. Pra gerenciar contas de verdade
-    (confirmar e-mail, resetar senha, promover admin, desativar ou
-    apagar), veja <a href="/admin/users">Usuários</a>. Pra edições mais
-    profundas/pontuais no banco, use o Adminer
+    Read-only overview. To actually manage accounts
+    (confirm email, reset password, promote to admin, deactivate or
+    delete), see <a href="/admin/users">Users</a>. For deeper/one-off
+    edits to the database, use Adminer
     (<code>docker compose --profile admin up</code>,
     <a href="http://localhost:8080" target="_blank" rel="noopener noreferrer">localhost:8080</a>)
-    ou uma consulta direta no banco.
+    or a direct database query.
 </p>
 <div class="admin-stats">
-    <div class="admin-stat"><strong>{{ stats.users }}</strong><span>Usuários ativos</span></div>
-    <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Anúncios ativos</span></div>
-    <div class="admin-stat"><strong>{{ stats.messages }}</strong><span>Mensagens trocadas</span></div>
-    <div class="admin-stat"><strong>{{ stats.blocked_pairs }}</strong><span>Pares bloqueados</span></div>
-    <div class="admin-stat"><strong>{{ stats.open_reports }}</strong><span>Denúncias registradas</span></div>
+    <div class="admin-stat"><strong>{{ stats.users }}</strong><span>Active users</span></div>
+    <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Active listings</span></div>
+    <div class="admin-stat"><strong>{{ stats.messages }}</strong><span>Messages exchanged</span></div>
+    <div class="admin-stat"><strong>{{ stats.blocked_pairs }}</strong><span>Blocked pairs</span></div>
+    <div class="admin-stat"><strong>{{ stats.open_reports }}</strong><span>Reports filed</span></div>
 </div>
 
-<h2>🚩 Denúncias recentes</h2>
+<h2>🚩 Recent reports</h2>
 {% if reports|length == 0 %}
-    <p class="empty-state">Nenhuma denúncia registrada.</p>
+    <p class="empty-state">No reports filed.</p>
 {% else %}
     <ul class="admin-list">
         {% for r in reports %}
@@ -38,14 +38,14 @@
     </ul>
 {% endif %}
 
-<h2>🚫 Bloqueios recentes</h2>
+<h2>🚫 Recent blocks</h2>
 {% if blocks|length == 0 %}
-    <p class="empty-state">Nenhum bloqueio registrado.</p>
+    <p class="empty-state">No blocks recorded.</p>
 {% else %}
     <ul class="admin-list">
         {% for b in blocks %}
             <li>
-                <p>{{ b.blocker_name }} bloqueou {{ b.blocked_name }}</p>
+                <p>{{ b.blocker_name }} blocked {{ b.blocked_name }}</p>
                 {% if b.reason %}<p class="field-help">"{{ b.reason }}" — {{ b.created_at }}</p>{% else %}<p class="field-help">{{ b.created_at }}</p>{% endif %}
             </li>
         {% endfor %}

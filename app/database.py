@@ -1,11 +1,11 @@
 """
-Camada de acesso ao banco de dados.
+Database access layer.
 
-De propósito, este projeto NÃO usa um ORM completo (tipo SQLAlchemy ORM
-com classes de modelo). Em vez disso, usamos o SQLAlchemy só como motor
-de conexão e escrevemos SQL "na mão" com `text()`. A ideia é que você
-pratique SQL de verdade — SELECTs, JOINs, WHEREs dinâmicos, etc — em vez
-de deixar um ORM gerar tudo por você.
+Deliberately, this project does NOT use a full ORM (like SQLAlchemy
+ORM with model classes). Instead, we use SQLAlchemy only as a
+connection engine and write SQL "by hand" with `text()`. The idea is
+that you practice real SQL — SELECTs, JOINs, dynamic WHEREs, etc —
+instead of letting an ORM generate everything for you.
 """
 import os
 from sqlalchemy import create_engine, text
@@ -18,32 +18,32 @@ DATABASE_URL = os.getenv(
     "postgresql+psycopg2://vokalboard_user:vokalboard_pass@localhost:5432/vokalboard",
 )
 
-# pool_pre_ping evita erros de "conexão fechada" em plataformas de deploy
-# que derrubam conexões ociosas (comum em Render/Railway free tier).
+# pool_pre_ping avoids "connection closed" errors on deploy platforms
+# that drop idle connections (common on Render/Railway's free tier).
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 
 def fetch_all(query: str, params: dict | None = None) -> list[dict]:
-    """Executa um SELECT e retorna uma lista de dicts (uma por linha)."""
+    """Executes a SELECT and returns a list of dicts (one per row)."""
     with engine.connect() as conn:
         result = conn.execute(text(query), params or {})
         return [dict(row._mapping) for row in result]
 
 
 def fetch_one(query: str, params: dict | None = None) -> dict | None:
-    """Executa um SELECT e retorna a primeira linha como dict (ou None)."""
+    """Executes a SELECT and returns the first row as a dict (or None)."""
     rows = fetch_all(query, params)
     return rows[0] if rows else None
 
 
 def execute(query: str, params: dict | None = None) -> None:
-    """Executa um INSERT/UPDATE/DELETE (sem retorno de linhas)."""
+    """Executes an INSERT/UPDATE/DELETE (no rows returned)."""
     with engine.begin() as conn:
         conn.execute(text(query), params or {})
 
 
 def execute_returning(query: str, params: dict | None = None) -> dict | None:
-    """Executa um INSERT/UPDATE ... RETURNING ... e retorna a linha."""
+    """Executes an INSERT/UPDATE ... RETURNING ... and returns the row."""
     with engine.begin() as conn:
         result = conn.execute(text(query), params or {})
         row = result.fetchone()

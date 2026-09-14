@@ -1,26 +1,27 @@
 """
-Badges: "conquistas" simples.
+Badges: simple "achievements".
 
-Os badges em si são CALCULADOS na hora a partir do que já existe
-(indicações, anúncios, mensagens, perfil completo, visitas, tempo de
-conta) — nenhuma regra fica guardada em tabela. A tabela user_badges
-só registra QUANDO cada badge/nível foi desbloqueado pela primeira
-vez, pra (1) poder mandar o e-mail de "novo badge" uma única vez por
-degrau, e (2) badges com nível (visitas, aniversário) guardarem cada
-degrau já alcançado.
+The badges themselves are CALCULATED on the fly from what already
+exists (referrals, listings, messages, complete profile, views,
+account age) — no rule is stored in a table. The user_badges table
+only records WHEN each badge/tier was first unlocked, so that we can
+(1) send the "new badge" email exactly once per tier, and (2) badges
+with tiers (views, anniversary) keep track of each tier already
+reached.
 
-Gamificação LEVE, sem ranking nem comparação entre pessoas — nada de
-"fulano tem mais badges que ciclano" em lugar nenhum, é só
-reconhecimento individual. O badge de visitas mostra só "passou de X",
-nunca o número exato — de propósito, pra manter profile_views privado.
+LIGHT gamification, with no ranking or comparison between people —
+nothing like "so-and-so has more badges than someone else" anywhere,
+it's purely individual recognition. The views badge only shows "passed
+X", never the exact number — deliberately, to keep profile_views
+private.
 """
 import html as html_module
 
 from app.database import fetch_one, fetch_all, execute
 from app.email import send_email
 
-# Ordem do maior pro menor: pegamos só o degrau mais alto já alcançado
-# (em vez de mostrar 3 badges de visita ao mesmo tempo).
+# Ordered highest to lowest: we only take the highest tier already
+# reached (instead of showing 3 views badges at once).
 VIEW_MILESTONES = [
     (1000, "gold"),
     (500, "silver"),
@@ -49,9 +50,9 @@ def _view_count(user_id: int) -> int:
 
 def _has_fast_response(user_id: int) -> bool:
     """
-    Já respondeu alguma mensagem em até 24h pelo menos uma vez: existe
-    uma mensagem M1 recebida por essa pessoa e uma mensagem M2, dela
-    para quem mandou M1, criada depois de M1 e dentro de 24h.
+    Has replied to some message within 24h at least once: there exists
+    a message M1 received by this person and a message M2, from them
+    to whoever sent M1, created after M1 and within 24h.
     """
     row = fetch_one(
         """
@@ -84,9 +85,10 @@ def get_user_badges(user_id: int) -> list[dict]:
         {"key": "listing", "icon": "📋", "unlocked": _listing_count(user_id) > 0, "tier": ""},
         {"key": "contact", "icon": "✉️", "unlocked": _message_sent_count(user_id) > 0, "tier": ""},
         {"key": "fast_response", "icon": "⚡", "unlocked": _has_fast_response(user_id), "tier": ""},
-        # "profile_complete" é preenchido por with_profile_complete() —
-        # quem chama já calcula completeness pra outros fins (a barra
-        # de progresso em /profile), não faz sentido calcular de novo.
+        # "profile_complete" is filled in by with_profile_complete() —
+        # the caller already computes completeness for other purposes
+        # (the progress bar on /profile), so there's no point computing
+        # it again here.
         {"key": "profile_complete", "icon": "✨", "unlocked": False, "tier": ""},
     ]
 
@@ -106,7 +108,7 @@ def get_user_badges(user_id: int) -> list[dict]:
 
 
 def with_profile_complete(badges: list[dict], completeness_percent: int) -> list[dict]:
-    """Preenche o badge de 'perfil 100%' — completeness já é calculada em profile_routes.py."""
+    """Fills in the 'profile 100%' badge — completeness is already computed in profile_routes.py."""
     for b in badges:
         if b["key"] == "profile_complete":
             b["unlocked"] = completeness_percent >= 100
@@ -115,16 +117,17 @@ def with_profile_complete(badges: list[dict], completeness_percent: int) -> list
 
 def check_and_notify_new_badges(user_id: int, base_url: str) -> None:
     """
-    Compara os badges atuais com o que já está registrado em
-    user_badges e, para cada um novo, grava a linha e manda um e-mail
-    avisando. Chamado (via BackgroundTask, pra não atrasar a resposta)
-    depois de ações que podem desbloquear um badge — ver os pontos de
-    chamada em profile_routes.py, listings_routes.py e
+    Compares the current badges with what is already recorded in
+    user_badges and, for each new one, writes the row and sends a
+    notification email. Called (via BackgroundTask, so as not to delay
+    the response) after actions that could unlock a badge — see the
+    call sites in profile_routes.py, listings_routes.py and
     messages_routes.py.
 
-    De propósito, não recebe completeness pronto (chama de novo aqui
-    dentro) — assim essa função pode ser chamada de qualquer lugar sem
-    precisar recalcular tudo manualmente antes.
+    Deliberately does not receive a ready-made completeness value (it
+    computes it again in here) — this way the function can be called
+    from anywhere without needing everything recalculated manually
+    beforehand.
     """
     from app.routers.profile_routes import (
         get_singer_profile, get_conductor_profile, get_composer_tags,

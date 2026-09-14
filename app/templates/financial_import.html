@@ -1,60 +1,60 @@
 {% extends "base.html" %}
-{% block title %}Importar extrato — VokalBoard{% endblock %}
+{% block title %}Import statement — VokalBoard{% endblock %}
 
 {% block content %}
-<h1>🏦 Importar extrato bancário</h1>
-<p><a href="/financeiro">← Zona Vermelha</a> · <a href="/financeiro/painel">Painel financeiro →</a></p>
+<h1>🏦 Import bank statement</h1>
+<p><a href="/financeiro">← Red Zone</a> · <a href="/financeiro/painel">Financial dashboard →</a></p>
 <p class="field-help">
-    Upload manual (nada de conexão automática com o banco — ver decisão
-    no changelog). Cada banco tem colunas diferentes no CSV exportado,
-    então primeiro você cria um "perfil" dizendo qual coluna é qual —
-    uma vez só por banco — e depois reaproveita esse perfil pra
-    importar sempre que quiser.
+    Manual upload only (no automatic bank connection — see the
+    changelog for that decision). Each bank has different columns in
+    its exported CSV, so first you create a "profile" saying which
+    column is which — once per bank — and then reuse that profile
+    to import whenever you want.
 </p>
 
 {% if error %}<p class="error">❌ {{ error }}</p>{% endif %}
 {% if saved %}
-    <p class="success">✅ Salvo.
+    <p class="success">✅ Saved.
         {% if request.query_params.get('imported') %}
-            {{ request.query_params.get('imported') }} linhas importadas,
-            {{ request.query_params.get('skipped') }} ignoradas (data/valor não reconhecido).
+            {{ request.query_params.get('imported') }} rows imported,
+            {{ request.query_params.get('skipped') }} skipped (date/amount not recognized).
         {% endif %}
     </p>
 {% endif %}
 
-<h2>1. Criar/atualizar perfil de um banco</h2>
+<h2>1. Create/update a bank profile</h2>
 <form method="post" action="/financeiro/extrato/perfil" class="stacked-form narrow">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>Nome do banco/perfil <input type="text" name="name" required placeholder="ex: Nubank, C6, Sparkasse"></label>
-    <label>Nome da coluna de data no CSV <input type="text" name="column_date" required placeholder="ex: Data"></label>
-    <label>Formato da data <input type="text" name="date_format" value="%d/%m/%Y" required></label>
-    <label>Nome da coluna de valor <input type="text" name="column_amount" required placeholder="ex: Valor"></label>
-    <label>Nome da coluna de descrição <input type="text" name="column_description" required placeholder="ex: Descrição"></label>
-    <button type="submit">💾 Salvar perfil</button>
+    <label>Bank/profile name <input type="text" name="name" required placeholder="e.g. Nubank, C6, Sparkasse"></label>
+    <label>Date column name in the CSV <input type="text" name="column_date" required placeholder="e.g. Date"></label>
+    <label>Date format <input type="text" name="date_format" value="%d/%m/%Y" required></label>
+    <label>Amount column name <input type="text" name="column_amount" required placeholder="e.g. Amount"></label>
+    <label>Description column name <input type="text" name="column_description" required placeholder="e.g. Description"></label>
+    <button type="submit">💾 Save profile</button>
 </form>
 
-<h2>2. Importar um CSV usando um perfil já salvo</h2>
+<h2>2. Import a CSV using a saved profile</h2>
 {% if profiles|length == 0 %}
-    <p class="empty-state">Crie um perfil primeiro (passo 1).</p>
+    <p class="empty-state">Create a profile first (step 1).</p>
 {% else %}
     <form method="post" action="/financeiro/extrato/importar" enctype="multipart/form-data" class="stacked-form narrow">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label>Perfil
+        <label>Profile
             <select name="profile_id">
                 {% for p in profiles %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
             </select>
         </label>
-        <label>Arquivo CSV <input type="file" name="statement_file" accept=".csv,text/csv" required></label>
-        <button type="submit">⬆️ Importar</button>
+        <label>CSV file <input type="file" name="statement_file" accept=".csv,text/csv" required></label>
+        <button type="submit">⬆️ Import</button>
     </form>
 {% endif %}
 
-<h2>Últimas transações importadas</h2>
+<h2>Latest imported transactions</h2>
 {% if transactions|length == 0 %}
-    <p class="empty-state">Nenhuma transação importada ainda.</p>
+    <p class="empty-state">No transactions imported yet.</p>
 {% else %}
     <table class="admin-table">
-        <thead><tr><th>Data</th><th>Descrição</th><th>Valor</th></tr></thead>
+        <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
         <tbody>
             {% for t in transactions %}
                 <tr><td>{{ t.transaction_date }}</td><td>{{ t.description }}</td><td>{{ "%.2f"|format(t.amount_cents / 100) }} {{ t.currency }}</td></tr>

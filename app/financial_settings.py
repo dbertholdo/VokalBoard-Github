@@ -1,12 +1,12 @@
 """
-Leitura das configurações da Zona Vermelha (system_settings) — separado
-de app/routers/financial_routes.py de propósito, porque app/render.py
-também precisa ler o estado do Modo Capitalismo (pra decidir se mostra
-o banner de assinatura pra todo mundo) sem importar um router inteiro.
+Reads the Red Zone settings (system_settings) — kept separate from
+app/routers/financial_routes.py on purpose, because app/render.py also
+needs to read the Capitalism Mode state (to decide whether to show the
+subscription banner to everyone) without importing an entire router.
 
-Enquanto o Modo Capitalismo estiver desligado (o padrão), nada disso
-aparece pra ninguém que não seja god mode — nem o banner, nem menção a
-preço em lugar nenhum do site.
+While Capitalism Mode is off (the default), none of this shows up to
+anyone who isn't in god mode — no banner, no price mentioned anywhere
+on the site.
 """
 from app.database import fetch_all
 

@@ -27,69 +27,73 @@ load_dotenv()
 
 app = FastAPI(title="VokalBoard")
 
-_DEFAULT_SECRET_KEY = "dev-secret-key-troque-em-producao"
+_DEFAULT_SECRET_KEY = "dev-secret-key-change-in-production"
 if os.getenv("SECRET_KEY", _DEFAULT_SECRET_KEY) == _DEFAULT_SECRET_KEY:
-    # Aviso alto no log — fácil de esquecer de trocar isso ao configurar
-    # uma plataforma como Railway/Render pela primeira vez. Não impede
-    # o app de subir (não queremos travar deploys), só avisa bem alto.
+    # Loud log warning — easy to forget to change this when setting up
+    # a platform like Railway/Render for the first time. Doesn't stop
+    # the app from booting (we don't want to block deploys), just
+    # warns as loudly as possible.
     print(
-        "!! AVISO: SECRET_KEY não configurada (usando o valor padrão de "
-        "desenvolvimento). Gere uma chave real com "
-        "`python -c \"import secrets; print(secrets.token_hex(32))\"` e "
-        "configure a variável de ambiente SECRET_KEY antes de ir para produção.",
+        "!! WARNING: SECRET_KEY is not set (using the default development "
+        "value). Generate a real key with "
+        "`python -c \"import secrets; print(secrets.token_hex(32))\"` and "
+        "set the SECRET_KEY environment variable before going to production.",
         file=sys.stderr,
     )
 
 
-# True em produção (Railway define isso via variável de ambiente — ver
-# .env.example) faz o cookie de sessão só ser enviado em HTTPS, e ativa
-# o cabeçalho HSTS abaixo (ver SecurityHeadersMiddleware). Fica False
-# por padrão pra não quebrar quem roda o projeto localmente sem HTTPS.
+# True in production (Railway sets this via an environment variable —
+# see .env.example) makes the session cookie only be sent over HTTPS,
+# and enables the HSTS header below (see SecurityHeadersMiddleware).
+# Defaults to False so running the project locally without HTTPS
+# doesn't break.
 SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
-    Cabeçalhos de resposta que não mudam nada visualmente, mas fecham
-    algumas portas clássicas de ataque no navegador:
+    Response headers that don't change anything visually, but close
+    off a few classic browser attack vectors:
 
-    - X-Content-Type-Options: impede o navegador de "adivinhar" o tipo
-      de um arquivo (ex: tratar um upload como HTML/JS executável).
-    - X-Frame-Options: impede que o site seja colocado dentro de um
-      <iframe> de outro site (protege contra "clickjacking" — um site
-      malicioso sobrepondo botões invisíveis por cima do seu).
-    - Referrer-Policy: quando alguém clica um link que sai do
-      VokalBoard, o site de destino recebe só o domínio de origem, não
-      a URL completa (que poderia conter algo sensível, tipo um token).
-    - Permissions-Policy: desliga o acesso a câmera/microfone/
-      geolocalização pelo navegador — o site nunca usa nada disso.
-    - Strict-Transport-Security (só quando SESSION_COOKIE_SECURE=true,
-      ou seja, em produção com HTTPS de verdade): diz ao navegador pra
-      SEMPRE usar HTTPS neste domínio dali pra frente, mesmo que
-      alguém digite "http://" por engano.
-    - Content-Security-Policy: diz ao navegador exatamente de onde
-      pode vir script/estilo/imagem/etc — mesmo que um XSS consiga
-      injetar HTML na página (ex: um campo que escapou por algum
-      bug), o navegador se recusa a EXECUTAR um <script> que não
-      esteja marcado com o "nonce" certo (só o servidor conhece o
-      nonce de cada requisição, gerado aqui embaixo).
+    - X-Content-Type-Options: stops the browser from "guessing" a
+      file's type (e.g. treating an upload as executable HTML/JS).
+    - X-Frame-Options: stops the site from being embedded inside
+      another site's <iframe> (protects against "clickjacking" — a
+      malicious site overlaying invisible buttons on top of yours).
+    - Referrer-Policy: when someone clicks a link that leaves
+      VokalBoard, the destination site only gets the origin domain,
+      not the full URL (which could contain something sensitive,
+      like a token).
+    - Permissions-Policy: turns off browser access to camera/
+      microphone/geolocation — the site never uses any of that.
+    - Strict-Transport-Security (only when SESSION_COOKIE_SECURE=true,
+      i.e. in production with real HTTPS): tells the browser to
+      ALWAYS use HTTPS for this domain from now on, even if someone
+      types "http://" by mistake.
+    - Content-Security-Policy: tells the browser exactly where
+      scripts/styles/images/etc are allowed to come from — even if an
+      XSS manages to inject HTML into the page (e.g. a field that
+      escaped due to some bug), the browser refuses to EXECUTE a
+      <script> that isn't tagged with the right "nonce" (only the
+      server knows each request's nonce, generated below).
 
-    O site tem alguns <script> inline nos templates (passarinho
-    voador, fundo animado, widget de captcha — ver base.html /
-    _captcha_fields.html), então script-src usa 'nonce-<valor>' (não
-    'unsafe-inline') — cada <script> precisa do atributo
-    nonce="{{ csp_nonce }}" (ver app/render.py, que injeta csp_nonce
-    em todo template a partir de request.state.csp_nonce, gerado
-    abaixo). style-src continua com 'unsafe-inline' de propósito: o
-    site usa bastante style="..." inline pra coisas dinâmicas (ex: a
-    largura das barrinhas em /admin/analytics), e nonce não cobre
-    atributos style — só <script>/<style> como elemento.
+    The site has a few inline <script> tags in templates (the flying
+    bird, the animated background, the captcha widget — see
+    base.html / _captcha_fields.html), so script-src uses
+    'nonce-<value>' (not 'unsafe-inline') — every <script> needs the
+    nonce="{{ csp_nonce }}" attribute (see app/render.py, which
+    injects csp_nonce into every template from
+    request.state.csp_nonce, generated below). style-src still keeps
+    'unsafe-inline' on purpose: the site uses plenty of inline
+    style="..." for dynamic bits (e.g. the bar widths on
+    /admin/analytics), and nonce doesn't cover style attributes —
+    only <script>/<style> as elements.
     """
 
     async def dispatch(self, request: Request, call_next):
-        # Um valor novo por REQUISIÇÃO (não por processo) — assim
-        # alguém não consegue "reaproveitar" um nonce visto numa
-        # resposta anterior pra colar um script malicioso numa outra.
+        # A new value per REQUEST (not per process) — so nobody can
+        # "reuse" a nonce seen in a previous response to slip a
+        # malicious script into a different one.
         request.state.csp_nonce = secrets.token_urlsafe(16)
 
         response = await call_next(request)
@@ -115,10 +119,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Caminhos que não contam como "visita" de verdade pro contador do
-# painel de Análise de Dados (arquivo estático, checagem de saúde,
-# robots/sitemap, e as próprias rotas do admin — pra não inflar o
-# número com o próprio administrador navegando).
+# Paths that don't count as a real "visit" for the Analytics dashboard
+# counter (static files, health check, robots/sitemap, and the admin
+# routes themselves — so the number isn't inflated by the admin's own
+# browsing).
 _VISIT_TRACKING_SKIP_PREFIXES = ("/static", "/avatars", "/health", "/robots.txt", "/sitemap.xml", "/admin", "/financeiro")
 _VISIT_SESSION_KEY = "last_site_visit_logged_at"
 _VISIT_COOLDOWN = timedelta(hours=12)
@@ -126,16 +130,17 @@ _VISIT_COOLDOWN = timedelta(hours=12)
 
 class VisitTrackingMiddleware(BaseHTTPMiddleware):
     """
-    Conta visitas gerais ao site (ver tabela site_visits em
-    db/schema.sql) — usado no painel "Análise de Dados" do admin pra
-    entender horário do dia / dia da semana / dia do mês de maior uso.
+    Counts overall site visits (see the site_visits table in
+    db/schema.sql) — used in the admin "Analytics" dashboard to
+    understand peak time-of-day / day-of-week / day-of-month usage.
 
-    De propósito NÃO guarda IP nem nada que identifique a pessoa — só
-    conta 1 visita por sessão de navegador a cada 12h (mesmo padrão de
-    "cooldown" já usado em profile_views), junto com o idioma e o
-    domínio de onde a pessoa veio (ex: "google.com"), nunca a URL
-    completa. Não precisa de banner de cookie: não é rastreamento
-    entre sites nem perfil de pessoa, é só uma contagem agregada.
+    Deliberately does NOT store an IP or anything that identifies the
+    person — it only counts 1 visit per browser session every 12h
+    (same "cooldown" pattern already used in profile_views), along
+    with the language and the domain the person came from (e.g.
+    "google.com"), never the full URL. No cookie banner needed: this
+    isn't cross-site tracking or a personal profile, just an
+    aggregate count.
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -180,11 +185,13 @@ class VisitTrackingMiddleware(BaseHTTPMiddleware):
 
 class LanguageMiddleware(BaseHTTPMiddleware):
     """
-    Decide o idioma da requisição atual e o guarda em `request.state.lang`.
+    Decides the current request's language and stores it in
+    `request.state.lang`.
 
-    Prioridade: ?lang=de|en na URL (e nesse caso grava um cookie para as
-    próximas visitas) > cookie "lang" já salvo > alemão como padrão,
-    já que o público principal do site está na Alemanha.
+    Priority: ?lang=de|en in the URL (in which case it also sets a
+    cookie for future visits) > an already-saved "lang" cookie >
+    German as the default, since the site's main audience is in
+    Germany.
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -207,31 +214,31 @@ class LanguageMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Ordem importa aqui: o último "add_middleware" chamado é o mais
-# EXTERNO (roda primeiro pra requisição, por último pra resposta) —
-# ver https://www.starlette.io/middleware/#multiple-middleware.
-# SessionMiddleware precisa ser o mais externo de todos os nossos,
-# porque tanto VisitTrackingMiddleware quanto as rotas (login, CSRF
-# etc.) leem/escrevem em request.session — se SessionMiddleware não
-# "envolvesse" os outros por fora, essas escritas se perderiam e
-# nunca virariam cookie de verdade na resposta.
+# Order matters here: the LAST "add_middleware" call is the OUTERMOST
+# one (runs first for the request, last for the response) — see
+# https://www.starlette.io/middleware/#multiple-middleware.
+# SessionMiddleware needs to be the outermost of all of ours, because
+# both VisitTrackingMiddleware and the routes (login, CSRF, etc.)
+# read/write request.session — if SessionMiddleware didn't "wrap" the
+# others from the outside, those writes would be lost and would never
+# turn into a real cookie on the response.
 app.add_middleware(LanguageMiddleware)
 app.add_middleware(VisitTrackingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SECRET_KEY", "dev-secret-key-troque-em-producao"),
+    secret_key=os.getenv("SECRET_KEY", "dev-secret-key-change-in-production"),
     same_site="lax",
     https_only=SESSION_COOKIE_SECURE,
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Fotos de perfil NÃO ficam dentro de /static — de propósito, pra
-# AVATAR_DIR (app/avatars.py) poder apontar pra fora de app/static
-# (ex: um Volume persistente montado em /data/avatars no Railway),
-# sem precisar reconfigurar o StaticFiles pra isso. Essa rota serve
-# os arquivos de onde quer que AVATAR_DIR esteja apontando.
+# Profile pictures do NOT live inside /static — on purpose, so
+# AVATAR_DIR (app/avatars.py) can point outside app/static (e.g. a
+# persistent Volume mounted at /data/avatars on Railway) without
+# having to reconfigure StaticFiles for it. This route serves the
+# files from wherever AVATAR_DIR points to.
 _AVATAR_FILENAME_RE = re.compile(r"^\d+" + re.escape(STORAGE_EXTENSION) + r"$")
 
 
@@ -245,12 +252,12 @@ def serve_avatar(filename: str):
     return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=86400"})
 
 
-# Imagens inseridas dentro de posts (editor estilo WordPress — ver
-# app/post_images.py e POST /admin/posts/upload-image em
-# app/routers/admin_routes.py). Mesmo esquema de /avatars: rota
-# própria (não StaticFiles) pra POST_IMAGE_DIR poder apontar pra fora
-# de app/static/, e o nome do arquivo é validado antes de virar
-# caminho de disco.
+# Images embedded inside posts (WordPress-style editor — see
+# app/post_images.py and POST /admin/posts/upload-image in
+# app/routers/admin_routes.py). Same scheme as /avatars: its own
+# route (not StaticFiles) so POST_IMAGE_DIR can point outside
+# app/static/, and the filename is validated before it becomes a disk
+# path.
 _POST_IMAGE_FILENAME_RE = re.compile(r"^[A-Za-z0-9]+" + re.escape(POST_IMAGE_STORAGE_EXTENSION) + r"$")
 
 
@@ -267,11 +274,11 @@ def serve_post_image(filename: str):
 @app.get("/robots.txt")
 def robots_txt(request: Request):
     """
-    SEO: diz aos crawlers (Google etc.) o que pode/não pode indexar e
-    onde está o sitemap. Bloqueamos áreas privadas/sem valor de busca
-    (login, cadastro, mensagens, perfil próprio, admin) — não porque
-    sejam secretas (robots.txt é público), mas pra não desperdiçar o
-    "crawl budget" do Google em páginas que exigem login mesmo.
+    SEO: tells crawlers (Google etc.) what they can/can't index and
+    where the sitemap is. We block private/no-search-value areas
+    (login, registration, messages, own profile, admin) — not because
+    they're secret (robots.txt is public), but to avoid wasting
+    Google's "crawl budget" on pages that require login anyway.
     """
     base = str(request.base_url).rstrip("/")
     lines = [
@@ -286,11 +293,11 @@ def robots_txt(request: Request):
         "Disallow: /my-favorites",
         "Disallow: /forgot-password",
         "Disallow: /reset-password",
-        # Perfis públicos: de propósito FORA do sitemap e daqui pra baixo
-        # (ver também o <meta name="robots" content="noindex"> em
-        # public_profile.html) — nome + cidade de uma pessoa real não
-        # deveria ficar pesquisável no Google pra sempre. Continuam
-        # acessíveis normalmente por link direto dentro do site.
+        # Public profiles: deliberately OUTSIDE the sitemap and blocked
+        # here too (see also the <meta name="robots" content="noindex">
+        # in public_profile.html) — a real person's name + city
+        # shouldn't be permanently searchable on Google. They stay
+        # reachable normally via a direct link inside the site.
         "Disallow: /users",
         "",
         f"Sitemap: {base}/sitemap.xml",
@@ -302,11 +309,12 @@ def robots_txt(request: Request):
 @app.get("/sitemap.xml")
 def sitemap_xml(request: Request):
     """
-    SEO: lista de URLs pro Google indexar, com a data da última
-    alteração de cada uma — ajuda o crawler a saber o que é novo/mudou
-    sem precisar visitar o site inteiro toda vez. Inclui as páginas
-    estáticas (fixas) + cada anúncio ativo + cada perfil público
-    (só de quem verificou o e-mail e não excluiu a conta).
+    SEO: list of URLs for Google to index, with each one's last
+    modified date — helps the crawler know what's new/changed without
+    having to revisit the whole site every time. Includes the static
+    (fixed) pages + every active listing + every public profile (only
+    for people who verified their email and haven't deleted their
+    account).
     """
     base = str(request.base_url).rstrip("/")
     urls: list[dict] = []
@@ -337,8 +345,8 @@ def sitemap_xml(request: Request):
             "priority": "0.7",
         })
 
-    # Perfis públicos (/users/{id}) ficam DE FORA do sitemap de propósito
-    # — ver o comentário equivalente em robots_txt() acima.
+    # Public profiles (/users/{id}) are deliberately left OUT of the
+    # sitemap — see the matching comment in robots_txt() above.
 
     xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for u in urls:
@@ -364,20 +372,20 @@ app.include_router(financial_routes.router)
 
 
 # ------------------------------------------------------------
-# Páginas de erro com a cara do site, em vez do JSON cru padrão do
-# FastAPI ({"detail": "Not Found"}) — reaproveita o mesmo template
-# genérico "título + mensagem + link" já usado em auth_message.html
-# (ver app/routers/auth_routes.py, ex: link de reset inválido).
+# Error pages that look like the site, instead of FastAPI's raw
+# default JSON ({"detail": "Not Found"}) — reuses the same generic
+# "title + message + link" template already used in
+# auth_message.html (see app/routers/auth_routes.py, e.g. an invalid
+# reset link).
 # ------------------------------------------------------------
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """
-    Roda DENTRO do nosso SessionMiddleware (ver comentário sobre ordem
-    dos middlewares mais acima) — ou seja, request.session já está
-    disponível normalmente aqui, então dá pra usar app.render.render()
-    sem problema (ele injeta t()/csrf_token/etc como em qualquer
-    página normal).
+    Runs INSIDE our SessionMiddleware (see the middleware-order
+    comment further up) — meaning request.session is normally
+    available here, so it's safe to use app.render.render() (it
+    injects t()/csrf_token/etc just like any regular page).
     """
     user = get_current_user(request)
     if exc.status_code == 404:
@@ -404,26 +412,28 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     """
-    Rede de segurança pra erro de verdade (bug não previsto), não só
-    "página não encontrada". Duas coisas importantes:
+    Safety net for a real error (an unexpected bug), not just "page
+    not found". Two important things:
 
-    1. Loga o traceback completo no stderr (aparece nos logs do
-       Railway) — sem isso, um erro em produção passaria em silêncio
-       pro admin, só a pessoa navegando veria algo quebrado.
-    2. NUNCA mostra o stack trace/mensagem crua da exceção pra quem
-       está navegando (poderia vazar detalhe interno do sistema) — só
-       uma mensagem genérica.
+    1. Logs the full traceback to stderr (shows up in Railway's
+       logs) — without this, a production error would fail silently
+       for the admin, and only the person browsing would see
+       something broken.
+    2. NEVER shows the raw exception's stack trace/message to the
+       person browsing (could leak internal system details) — just a
+       generic message.
 
-    Roda no middleware mais EXTERNO de todos (ServerErrorMiddleware,
-    por fora até do nosso SessionMiddleware — ver
-    https://www.starlette.io/exceptions/) — quando chega aqui, a
-    exceção já "desenrolou" SessionMiddleware/LanguageMiddleware sem
-    passar por eles normalmente, então (ao contrário do handler de
-    HTTPException acima) NÃO dá pra contar com request.session ou
-    request.state.lang. Por isso monta a página na mão, lendo o
-    idioma direto do cookie (isso não depende de middleware nenhum).
+    Runs in the OUTERMOST middleware of all (ServerErrorMiddleware,
+    outside even our own SessionMiddleware — see
+    https://www.starlette.io/exceptions/) — by the time it gets here,
+    the exception has already "unwound" past SessionMiddleware/
+    LanguageMiddleware without going through them normally, so
+    (unlike the HTTPException handler above) we CANNOT rely on
+    request.session or request.state.lang. That's why the page is
+    built by hand here, reading the language straight from the
+    cookie (which doesn't depend on any middleware).
     """
-    print(f"!! ERRO NÃO TRATADO em {request.method} {request.url.path}:", file=sys.stderr)
+    print(f"!! UNHANDLED ERROR in {request.method} {request.url.path}:", file=sys.stderr)
     traceback.print_exc()
 
     lang = request.cookies.get("lang")
@@ -446,12 +456,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         },
         status_code=500,
     )
-    # Esse handler roda no middleware mais EXTERNO de todos (ver
-    # docstring do SecurityHeadersMiddleware acima) — a resposta dele
-    # NÃO passa pelo SecurityHeadersMiddleware normal, então os
-    # cabeçalhos básicos de segurança são repetidos aqui na mão (CSP
-    # fica de fora de propósito: sem isso o navegador aplicaria o
-    # nonce certo mesmo sem o cabeçalho, então não há risco).
+    # This handler runs in the OUTERMOST middleware of all (see the
+    # SecurityHeadersMiddleware docstring above) — its response does
+    # NOT go through the regular SecurityHeadersMiddleware, so the
+    # basic security headers are repeated here by hand (CSP is left
+    # out on purpose: without the header the browser still applies
+    # the right nonce anyway, so there's no risk).
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -461,9 +471,9 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 @app.get("/health")
 def health_check():
     """
-    Checagem de saúde pra plataforma de deploy (Railway/Render). Também
-    testa a conexão com o banco — sem isso, o healthcheck diria "ok"
-    mesmo com o Postgres fora do ar, o que não ajuda muito.
+    Health check for the deploy platform (Railway/Render). Also tests
+    the database connection — without that, the health check would
+    say "ok" even with Postgres down, which isn't very useful.
     """
     try:
         with engine.connect() as conn:

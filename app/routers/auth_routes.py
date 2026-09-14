@@ -22,10 +22,10 @@ from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 
 router = APIRouter()
 
-# Mapeia a opção escolhida no formulário de registro ("categoria") para
-# um par (role, nome do tipo de voz). O(a) usuário(a) escolhe direto
-# "Soprano", "Alto", "Tenor", "Baixo" ou "Dirigent(in)" — não precisamos
-# de dois campos separados (role + voz) na tela de cadastro.
+# Maps the option chosen in the registration form ("category") to
+# a (role, voice type name) pair. The user picks directly from
+# "Soprano", "Alto", "Tenor", "Bass" or "Dirigent(in)" — we don't need
+# two separate fields (role + voice) on the signup screen.
 CATEGORY_TO_ROLE = {
     "soprano": "singer",
     "alto": "singer",
@@ -37,7 +37,7 @@ CATEGORY_TO_VOICE_NAME = {
     "soprano": "Soprano",
     "alto": "Alto",
     "tenor": "Tenor",
-    "baixo": "Baixo",
+    "baixo": "Bass",
 }
 
 VERIFICATION_TOKEN_HOURS = 48
@@ -121,22 +121,22 @@ async def register_submit(
     ensemble_name: str = Form(""),
     ref: str = Form(""),
     avatar: UploadFile | None = File(None),
-    website: str = Form(""),  # honeypot — ver app/captcha.py, nunca preenchido por gente de verdade
+    website: str = Form(""),  # honeypot — see app/captcha.py, never filled in by real people
     cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
 ):
     verify_csrf(request, csrf_token)
 
-    # Anti-bot: campo-armadilha preenchido, ou token do Turnstile
-    # inválido (quando configurado) — trata como se fosse um envio
-    # normal (mesmo redirecionamento de sucesso), só que SEM criar a
-    # conta. Não dá nenhuma pista pro bot sobre o motivo da rejeição.
+    # Anti-bot: trap field filled in, or an invalid Turnstile token
+    # (when configured) — treat it as if it were a normal submission
+    # (same success redirect), just WITHOUT creating the account. Gives
+    # the bot no hint about the reason for rejection.
     if is_bot(website) or not verify_turnstile(cf_turnstile_response):
         return RedirectResponse(url="/", status_code=303)
 
-    # Freio contra criação em massa de contas por script (ver
-    # app/register_throttle.py) — checado ANTES de mexer no banco de
-    # usuários. Não afeta login, reenvio de verificação nem redefinição
-    # de senha, só a criação de contas NOVAS vindas da mesma rede.
+    # Throttle against mass account creation by scripts (see
+    # app/register_throttle.py) — checked BEFORE touching the users
+    # table. Doesn't affect login, resending verification, or password
+    # reset, only creation of NEW accounts coming from the same network.
     client_ip = get_client_ip(request)
     if is_registration_throttled(client_ip):
         return render(request, "register.html", _register_context(request, error="register_error_rate_limited", ref=ref), status_code=429)
@@ -147,9 +147,9 @@ async def register_submit(
     if country not in COUNTRY_OPTIONS:
         return render(request, "register.html", _register_context(request, error="register_error_invalid_country", ref=ref), status_code=400)
 
-    # Cidade e estado/cantão são obrigatórios pra ajudar nos matches —
-    # verificado aqui no servidor também (não só no HTML/JS), pra não
-    # dar pra burlar desligando o JavaScript ou enviando o form direto.
+    # City and state/canton are required to help with matches — also
+    # verified here on the server (not just in HTML/JS), so it can't be
+    # bypassed by disabling JavaScript or submitting the form directly.
     if not city.strip() or not state.strip():
         return render(request, "register.html", _register_context(request, error="register_error_missing_location", ref=ref), status_code=400)
 
@@ -192,10 +192,10 @@ async def register_submit(
     user_id = new_user["id"]
     record_registration(client_ip)
 
-    # Foto de perfil é opcional no cadastro — se vier um arquivo
-    # inválido (tipo/tamanho), simplesmente ignora em vez de travar o
-    # cadastro inteiro por causa da foto; a pessoa pode tentar de novo
-    # depois em /profile.
+    # Profile photo is optional at signup — if an invalid file comes in
+    # (type/size), simply ignore it instead of blocking the entire
+    # signup because of the photo; the person can try again later
+    # on /profile.
     if avatar is not None and avatar.filename:
         avatar_url = await save_avatar(user_id, avatar)
         if avatar_url:
@@ -248,12 +248,12 @@ def login_form(request: Request):
 def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form(...), password: str = Form(...)):
     verify_csrf(request, csrf_token)
 
-    # Bloqueio progressivo contra força bruta (ver app/login_throttle.py):
-    # checado ANTES de tocar no banco de usuários, pra nem gastar tempo
-    # verificando senha se esse e-mail já estiver bloqueado.
+    # Progressive lockout against brute force (see app/login_throttle.py):
+    # checked BEFORE touching the users table, so we don't even spend
+    # time verifying the password if this email is already locked out.
     retry_after = check_lockout(email)
     if retry_after is not None:
-        retry_minutes = max(1, -(-retry_after // 60))  # arredonda pra cima
+        retry_minutes = max(1, -(-retry_after // 60))  # round up
         return render(
             request,
             "login.html",
@@ -261,9 +261,9 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
             status_code=429,
         )
 
-    # Nota: aqui buscamos mesmo contas com deleted_at preenchido — de
-    # propósito, pra poder diferenciar "senha errada" de "essa conta
-    # foi excluída, você quer reativar?" no passo seguinte.
+    # Note: we intentionally look up accounts with deleted_at set too,
+    # so the next step can distinguish "wrong password" from "this
+    # account was deleted, do you want to reactivate it?".
     user = fetch_one(
         "SELECT id, password_hash, deleted_at FROM users WHERE email = :email", {"email": email}
     )
@@ -274,8 +274,8 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
     reset_login_lockout(email)
 
     if user["deleted_at"]:
-        # Conta "excluída" (soft delete, mantida 6 meses) — não loga
-        # direto, oferece reativação em vez disso.
+        # "Deleted" account (soft delete, kept for 6 months) — don't log
+        # in directly, offer reactivation instead.
         request.session["pending_reactivation_user_id"] = user["id"]
         return RedirectResponse(url="/reactivate-account", status_code=303)
 
@@ -354,14 +354,14 @@ def forgot_password_submit(
     request: Request,
     csrf_token: str = Form(""),
     email: str = Form(...),
-    website: str = Form(""),  # honeypot — ver app/captcha.py
+    website: str = Form(""),  # honeypot — see app/captcha.py
     cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
 ):
     verify_csrf(request, csrf_token)
 
     if is_bot(website) or not verify_turnstile(cf_turnstile_response):
-        # Mesma resposta de sempre (não revela que foi barrado por
-        # anti-bot) — só que sem mandar nenhum e-mail de verdade.
+        # Same response as always (doesn't reveal it was blocked by
+        # anti-bot) — just without actually sending any email.
         context = {
             "user": None,
             "title_key": "forgot_password_sent_title",
@@ -375,8 +375,8 @@ def forgot_password_submit(
     if user:
         send_password_reset_email(request, user["id"], email, user["full_name"])
 
-    # Mesma mensagem sempre, exista ou não a conta — evita que alguém
-    # use este formulário pra descobrir quais e-mails estão cadastrados.
+    # Same message always, whether or not the account exists — prevents
+    # someone from using this form to find out which emails are registered.
     context = {
         "user": None,
         "title_key": "forgot_password_sent_title",

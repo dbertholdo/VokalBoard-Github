@@ -1,17 +1,17 @@
 """
-Upload de imagem dentro de um post (editor estilo WordPress — ver
-app/static/js/post-editor.js e a rota POST /admin/posts/upload-image
-em app/routers/admin_routes.py).
+Image upload inside a post (WordPress-style editor — see
+app/static/js/post-editor.js and the POST /admin/posts/upload-image
+route in app/routers/admin_routes.py).
 
-Mesmo padrão de app/avatars.py (reorienta via EXIF, redimensiona,
-converte pra WEBP), com duas diferenças: aqui podem existir VÁRIAS
-imagens por post (não uma por user_id), então o nome do arquivo é um
-token aleatório em vez do id; e o limite de lado maior é bem maior
-(uma imagem dentro de um texto longo pode ser bem mais que um avatar
-redondinho de 512px).
+Same pattern as app/avatars.py (re-orients via EXIF, resizes,
+converts to WEBP), with two differences: here there can be SEVERAL
+images per post (not one per user_id), so the filename is a random
+token instead of the id; and the max-side limit is much bigger (an
+image inside a long text can be much larger than a neat little
+512px avatar).
 
-Aviso de disco efêmero (Railway/Render) é o mesmo de app/avatars.py —
-ver README, seção "Fotos de perfil".
+The ephemeral-disk warning (Railway/Render) is the same as in
+app/avatars.py — see the README, "Profile photos" section.
 """
 import io
 import os
@@ -22,8 +22,8 @@ from PIL import Image, ImageOps
 
 POST_IMAGE_DIR = os.getenv("POST_IMAGE_DIR", os.path.join("app", "static", "post_images"))
 
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB, igual ao avatar — foto de celular sem editar
-MAX_IMAGE_DIMENSION = 1600  # lado maior — bem mais que um avatar, é imagem "de leitura"
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB, same as the avatar — an unedited phone photo
+MAX_IMAGE_DIMENSION = 1600  # max side — much bigger than an avatar, this is a "reading" image
 IMAGE_QUALITY = 85
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -32,9 +32,9 @@ STORAGE_EXTENSION = ".webp"
 
 async def save_post_image(upload: UploadFile) -> str | None:
     """
-    Processa e salva o upload, devolvendo a URL pública (ex:
-    "/post-images/AbC123xyz.webp"), ou None se inválido — nesse caso
-    nada é gravado.
+    Processes and saves the upload, returning the public URL (e.g.
+    "/post-images/AbC123xyz.webp"), or None if invalid — in that
+    case nothing is written.
     """
     if not upload or not upload.filename:
         return None

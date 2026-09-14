@@ -1,17 +1,16 @@
 """
-"Rede de segurança" automatizada — testa, contra a aplicação real (não
-uma simulação), quatro comportamentos de segurança específicos deste
-projeto:
+Automated "security net" — tests, against the real application (not a
+simulation), four security behaviors specific to this project:
 
-1. CSRF: um POST sem o token certo é sempre rejeitado.
-2. Bloqueio de login: 5 senhas erradas seguidas bloqueiam o e-mail.
-3. Admin: quem não é admin nunca consegue ver /admin.
-4. XSS: texto digitado pela pessoa (ex: nome) nunca vira HTML de
-   verdade na página — aparece escapado, como texto puro.
+1. CSRF: a POST without the correct token is always rejected.
+2. Login lockout: 5 wrong passwords in a row lock the email out.
+3. Admin: anyone who isn't an admin can never see /admin.
+4. XSS: text typed by a person (e.g. a name) never becomes real HTML
+   on the page — it appears escaped, as plain text.
 
-Isso não substitui uma auditoria de segurança de verdade, mas garante
-que uma mudança futura no código não quebre essas quatro proteções sem
-ninguém perceber (o GitHub Actions roda isso a cada push — ver
+This doesn't replace a real security audit, but it guarantees that a
+future code change won't break these four protections without anyone
+noticing (GitHub Actions runs this on every push — see
 .github/workflows/security.yml).
 """
 import re
@@ -21,12 +20,12 @@ from app.database import fetch_one, execute
 
 CSRF_RE = re.compile(r'name="csrf_token"\s+value="([^"]+)"')
 
-DEFAULT_PASSWORD = "S3nhaDeTeste!Segura"
+DEFAULT_PASSWORD = "T3stPassword!Secure"
 
 
 def extract_csrf(html: str) -> str:
     match = CSRF_RE.search(html)
-    assert match, "não achei o campo escondido csrf_token no HTML — a página mudou?"
+    assert match, "couldn't find the hidden csrf_token field in the HTML — did the page change?"
     return match.group(1)
 
 
@@ -35,14 +34,15 @@ def unique_email() -> str:
 
 
 def _fake_ip() -> str:
-    """Um IPv4 fake diferente a cada chamada — simula gente se cadastrando de redes
-    diferentes, pra esses testes não esbarrarem no freio de cadastro em massa
-    (app/register_throttle.py), que é testado à parte em TestRegistrationThrottle."""
+    """A different fake IPv4 on every call — simulates people signing up from
+    different networks, so these tests don't trip the mass-registration
+    throttle (app/register_throttle.py), which is tested separately in
+    TestRegistrationThrottle."""
     return f"203.0.113.{uuid.uuid4().int % 254 + 1}"
 
 
 def register_test_user(client, full_name="Security Test User", password=DEFAULT_PASSWORD, email=None, ip=None):
-    """Cria uma conta de verdade via /register (o mesmo caminho que um usuário real usa)."""
+    """Creates a real account via /register (the same path a real user uses)."""
     email = email or unique_email()
     ip = ip or _fake_ip()
     headers = {"X-Forwarded-For": ip}
@@ -64,14 +64,14 @@ def register_test_user(client, full_name="Security Test User", password=DEFAULT_
         "audio_links": "",
         "ensemble_name": "",
         "ref": "",
-        "website": "",  # honeypot — precisa continuar vazio
+        "website": "",  # honeypot — must stay empty
         "cf-turnstile-response": "",
     }
     r2 = client.post("/register", data=data, headers=headers, follow_redirects=False)
-    assert r2.status_code == 303, f"cadastro falhou: {r2.status_code} — {r2.text[:300]}"
+    assert r2.status_code == 303, f"registration failed: {r2.status_code} — {r2.text[:300]}"
 
     user = fetch_one("SELECT id FROM users WHERE email = :email", {"email": email})
-    assert user, "usuário não apareceu no banco depois do cadastro"
+    assert user, "user did not show up in the database after registration"
     return user["id"], email, password
 
 
@@ -92,22 +92,22 @@ def login(client, email, password, csrf_token=None):
 
 class TestCSRFProtection:
     def test_login_without_csrf_token_is_rejected(self, client):
-        r = client.post("/login", data={"email": "alguem@example.com", "password": "qualquer-coisa", "csrf_token": ""})
+        r = client.post("/login", data={"email": "someone@example.com", "password": "whatever", "csrf_token": ""})
         assert r.status_code == 400
 
     def test_login_with_wrong_csrf_token_is_rejected(self, client):
-        # Visita a página de login pra ganhar uma sessão com um token
-        # VÁLIDO — e mesmo assim manda um token diferente no POST.
+        # Visit the login page to get a session with a VALID token —
+        # and still send a different token in the POST.
         client.get("/login")
         r = client.post(
             "/login",
-            data={"email": "alguem@example.com", "password": "qualquer-coisa", "csrf_token": "token-forjado-por-um-atacante"},
+            data={"email": "someone@example.com", "password": "whatever", "csrf_token": "token-forged-by-an-attacker"},
         )
         assert r.status_code == 400
 
 
 # ---------------------------------------------------------------------------
-# 2. Bloqueio progressivo de login
+# 2. Progressive login lockout
 # ---------------------------------------------------------------------------
 
 class TestLoginLockout:
@@ -118,10 +118,10 @@ class TestLoginLockout:
         token = extract_csrf(r.text)
 
         for attempt in range(1, 6):
-            resp = login(client, email, "senha-errada-de-propósito", csrf_token=token)
-            assert resp.status_code == 400, f"tentativa {attempt}: esperava erro comum de senha, não bloqueio ainda"
+            resp = login(client, email, "wrong-password-on-purpose", csrf_token=token)
+            assert resp.status_code == 400, f"attempt {attempt}: expected a regular password error, not a lockout yet"
 
-        # a 6ª tentativa (mesmo com a senha CERTA) já deve estar bloqueada
+        # the 6th attempt (even with the CORRECT password) should already be locked out
         blocked_resp = login(client, email, real_password, csrf_token=token)
         assert blocked_resp.status_code == 429
 
@@ -132,17 +132,17 @@ class TestLoginLockout:
         token = extract_csrf(r.text)
 
         for _ in range(3):
-            login(client, email, "senha-errada", csrf_token=token)
+            login(client, email, "wrong-password", csrf_token=token)
 
         ok_resp = login(client, email, real_password, csrf_token=token)
-        assert ok_resp.status_code == 303  # logou normalmente — 3 erros não chegam a bloquear
+        assert ok_resp.status_code == 303  # logged in normally — 3 errors aren't enough to lock out
 
         row = fetch_one("SELECT failed_count FROM login_lockouts WHERE email = :email", {"email": email})
-        assert row is None, "a linha de bloqueio deveria ter sido apagada depois do login certo"
+        assert row is None, "the lockout row should have been deleted after a correct login"
 
 
 # ---------------------------------------------------------------------------
-# 3. Área de administração
+# 3. Admin area
 # ---------------------------------------------------------------------------
 
 class TestAdminGating:
@@ -161,7 +161,7 @@ class TestAdminGating:
 
 
 # ---------------------------------------------------------------------------
-# 4. Escapamento de HTML (XSS)
+# 4. HTML escaping (XSS)
 # ---------------------------------------------------------------------------
 
 class TestXSSEscaping:
@@ -171,14 +171,14 @@ class TestXSSEscaping:
 
         r = client.get(f"/users/{user_id}")
         assert r.status_code == 200
-        # a tag JAMAIS pode aparecer "viva" no HTML da resposta
+        # the tag must NEVER show up "live" in the response HTML
         assert "<script>alert" not in r.text
-        # e o Jinja2 precisa ter escapado ela pra texto puro
+        # and Jinja2 must have escaped it to plain text
         assert "&lt;script&gt;" in r.text
 
 
 # ---------------------------------------------------------------------------
-# 5. Regra de senha
+# 5. Password rule
 # ---------------------------------------------------------------------------
 
 class TestPasswordPolicy:
@@ -190,7 +190,7 @@ class TestPasswordPolicy:
             "category": "soprano",
             "full_name": "Weak Password User",
             "email": unique_email(),
-            "password": "ab1!",  # só 4 caracteres
+            "password": "ab1!",  # only 4 characters
             "city": "München",
             "state": "Bayern",
             "country": "DE",
@@ -208,7 +208,7 @@ class TestPasswordPolicy:
             "category": "soprano",
             "full_name": "No Special Char User",
             "email": unique_email(),
-            "password": "senha123",  # letra + número, sem caractere especial
+            "password": "senha123",  # letter + number, no special character
             "city": "München",
             "state": "Bayern",
             "country": "DE",
@@ -219,13 +219,13 @@ class TestPasswordPolicy:
         assert r2.status_code == 400
 
     def test_password_meeting_all_rules_is_accepted(self, client):
-        # DEFAULT_PASSWORD já cumpre a regra — só confirma que a
-        # validação não está rejeitando senha válida por engano.
+        # DEFAULT_PASSWORD already meets the rule — this just confirms
+        # validation isn't rejecting a valid password by mistake.
         register_test_user(client)
 
 
 # ---------------------------------------------------------------------------
-# 6. Freio de cadastro em massa (por IP)
+# 6. Mass-registration throttle (by IP)
 # ---------------------------------------------------------------------------
 
 class TestRegistrationThrottle:
@@ -236,7 +236,7 @@ class TestRegistrationThrottle:
         for i in range(MAX_REGISTRATIONS_PER_WINDOW):
             register_test_user(client, email=f"sectest_throttle_{i}_{uuid.uuid4().hex[:8]}@example.com", ip=ip)
 
-        # a próxima conta, vinda do MESMO ip, deve ser recusada
+        # the next account, from the SAME ip, must be refused
         r = client.get("/register", headers={"X-Forwarded-For": ip})
         token = extract_csrf(r.text)
         data = {
@@ -255,8 +255,8 @@ class TestRegistrationThrottle:
         assert r2.status_code == 429
 
     def test_login_and_password_reset_are_never_throttled_by_registration_limit(self, client):
-        # Mesmo IP "gasto" pelo teste anterior — login não pode ser
-        # afetado por isso, só a CRIAÇÃO de contas novas.
+        # Same IP "used up" by the previous test — login must not be
+        # affected by that, only the CREATION of new accounts.
         ip = "198.51.100.77"
         r = client.get("/login", headers={"X-Forwarded-For": ip})
         assert r.status_code == 200
@@ -265,7 +265,7 @@ class TestRegistrationThrottle:
 
 
 # ---------------------------------------------------------------------------
-# 7. Cabeçalhos de segurança
+# 7. Security headers
 # ---------------------------------------------------------------------------
 
 class TestSecurityHeaders:
@@ -283,14 +283,14 @@ class TestSecurityHeaders:
         assert f'nonce="{nonce}"' in r.text
 
     def test_404_page_uses_the_site_layout_not_raw_json(self, client):
-        r = client.get("/esta-pagina-nao-existe-de-verdade")
+        r = client.get("/this-page-really-does-not-exist")
         assert r.status_code == 404
         assert "<html" in r.text.lower()
         assert "VokalBoard" in r.text
 
 
 # ---------------------------------------------------------------------------
-# 8. Freio de mensagens (spam/assédio entre usuários)
+# 8. Message throttle (spam/harassment between users)
 # ---------------------------------------------------------------------------
 
 class TestMessageRateLimit:
@@ -299,9 +299,9 @@ class TestMessageRateLimit:
 
         sender_id, sender_email, sender_password = register_test_user(client, full_name="Message Sender")
         recipient_id, _, _ = register_test_user(client, full_name="Message Recipient")
-        # /messages/send exige e-mail verificado — sem o fluxo de e-mail de
-        # verdade nos testes, confirma direto no banco (o mesmo que o link
-        # do e-mail faria).
+        # /messages/send requires a verified email — without a real email
+        # flow in the tests, confirm it directly in the database (the same
+        # thing the email link would do).
         execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": sender_id})
 
         login(client, sender_email, sender_password)
@@ -311,21 +311,21 @@ class TestMessageRateLimit:
         for i in range(MAX_MESSAGES_PER_RECIPIENT_PER_HOUR):
             resp = client.post(
                 "/messages/send",
-                data={"csrf_token": token, "recipient_id": recipient_id, "listing_id": "", "body": f"Olá! Mensagem {i}"},
+                data={"csrf_token": token, "recipient_id": recipient_id, "listing_id": "", "body": f"Hi! Message {i}"},
                 follow_redirects=False,
             )
-            assert resp.status_code == 303, f"mensagem {i} deveria ter passado"
+            assert resp.status_code == 303, f"message {i} should have gone through"
 
         blocked_resp = client.post(
             "/messages/send",
-            data={"csrf_token": token, "recipient_id": recipient_id, "listing_id": "", "body": "Mais uma..."},
+            data={"csrf_token": token, "recipient_id": recipient_id, "listing_id": "", "body": "One more..."},
             follow_redirects=False,
         )
         assert blocked_resp.status_code == 429
 
 
 # ---------------------------------------------------------------------------
-# 9. Posts de admin (feed na home)
+# 9. Admin posts (home feed)
 # ---------------------------------------------------------------------------
 
 class TestAdminPosts:
@@ -350,18 +350,18 @@ class TestAdminPosts:
         token = extract_csrf(r.text)
         create = client.post(
             "/admin/posts",
-            data={"csrf_token": token, "title": "Novidade de teste", "body": "Corpo do post de teste."},
+            data={"csrf_token": token, "title": "Test Announcement", "body": "Body of the test post."},
             follow_redirects=False,
         )
         assert create.status_code == 303
 
-        # aparece no feed pra um visitante deslogado (cliente novo, sem
-        # a sessão do admin)
+        # shows up in the feed for a logged-out visitor (a fresh client,
+        # without the admin's session)
         from fastapi.testclient import TestClient
         from app.main import app as fastapi_app
 
         anon_home = TestClient(fastapi_app).get("/")
-        assert "Novidade de teste" in anon_home.text
+        assert "Test Announcement" in anon_home.text
 
     def test_listing_creation_is_throttled_after_five_in_five_minutes(self, client):
         from app.routers.listings_routes import MAX_LISTINGS_PER_WINDOW
@@ -375,8 +375,8 @@ class TestAdminPosts:
         data = {
             "csrf_token": token,
             "listing_type": "singer_available",
-            "title": "Anúncio de teste",
-            "description": "Descrição de teste.",
+            "title": "Test Listing",
+            "description": "Test description.",
             "state": "Bayern",
             "city": "München",
             "country": "DE",
@@ -390,7 +390,7 @@ class TestAdminPosts:
 
         for i in range(MAX_LISTINGS_PER_WINDOW):
             resp = client.post("/listings/new", data=data, follow_redirects=False)
-            assert resp.status_code == 303, f"anúncio {i} deveria ter passado"
+            assert resp.status_code == 303, f"listing {i} should have gone through"
 
         blocked = client.post("/listings/new", data=data, follow_redirects=False)
         assert blocked.status_code == 429
@@ -404,19 +404,19 @@ class TestAdminPosts:
         token = extract_csrf(r.text)
         client.post(
             "/admin/posts",
-            data={"csrf_token": token, "title": "Post pra despublicar", "body": "Vai sumir."},
+            data={"csrf_token": token, "title": "Post to Unpublish", "body": "This will disappear."},
             follow_redirects=False,
         )
-        post_id = fetch_one("SELECT id FROM posts WHERE title = :t", {"t": "Post pra despublicar"})["id"]
+        post_id = fetch_one("SELECT id FROM posts WHERE title = :t", {"t": "Post to Unpublish"})["id"]
 
         client.post(f"/admin/posts/{post_id}/toggle-publish", data={"csrf_token": token}, follow_redirects=False)
 
         home = client.get("/")
-        assert "Post pra despublicar" not in home.text
+        assert "Post to Unpublish" not in home.text
 
     def test_post_body_html_is_sanitized_and_full_page_works(self, client):
-        """O editor manda HTML — só a lista permitida (ver app/richtext.py)
-        sobrevive; <script>/onclick nunca chegam a ser salvos."""
+        """The editor sends HTML — only the allowed tag list (see app/richtext.py)
+        survives; <script>/onclick never make it into what's saved."""
         admin_id, admin_email, admin_password = register_test_user(client, full_name="Post Admin Rich")
         execute("UPDATE users SET is_admin = TRUE, email_verified = TRUE WHERE id = :id", {"id": admin_id})
         login(client, admin_email, admin_password)
@@ -424,33 +424,33 @@ class TestAdminPosts:
         r = client.get("/admin/posts")
         token = extract_csrf(r.text)
         dirty_body = (
-            '<p>Texto <strong>em negrito</strong> e <script>alert(1)</script></p>'
+            '<p>Text <strong>in bold</strong> and <script>alert(1)</script></p>'
             '<img src="/post-images/x.webp" onerror="alert(2)">'
-            '<a href="javascript:alert(3)">link malicioso</a>'
+            '<a href="javascript:alert(3)">malicious link</a>'
         )
         client.post(
             "/admin/posts",
-            data={"csrf_token": token, "title": "Post com HTML", "body": dirty_body},
+            data={"csrf_token": token, "title": "Post with HTML", "body": dirty_body},
             follow_redirects=False,
         )
-        post = fetch_one("SELECT id, body FROM posts WHERE title = 'Post com HTML'")
+        post = fetch_one("SELECT id, body FROM posts WHERE title = 'Post with HTML'")
         assert post is not None
         assert "<script>" not in post["body"]
         assert "onerror" not in post["body"]
         assert "javascript:" not in post["body"]
-        assert "<strong>em negrito</strong>" in post["body"]
+        assert "<strong>in bold</strong>" in post["body"]
 
-        # a página do post inteiro renderiza o HTML sanitizado sem escapar
-        # (usa {{ post.body | safe }}) e o card da home mostra só o resumo
-        # em texto puro, sem tags.
+        # the full post page renders the sanitized HTML without escaping it
+        # (uses {{ post.body | safe }}) and the home card shows only the
+        # plain-text summary, with no tags.
         detail = client.get(f"/posts/{post['id']}")
         assert detail.status_code == 200
-        assert "<strong>em negrito</strong>" in detail.text
+        assert "<strong>in bold</strong>" in detail.text
         assert "<script>" not in detail.text
 
         home = client.get("/")
-        assert "Post com HTML" in home.text
-        assert "<strong>" not in home.text  # resumo é texto puro, sem marcação
+        assert "Post with HTML" in home.text
+        assert "<strong>" not in home.text  # the summary is plain text, no markup
 
     def test_post_detail_404_for_missing_or_unpublished_to_non_admin(self, client):
         admin_id, admin_email, admin_password = register_test_user(client, full_name="Post Admin Unpub")
@@ -463,16 +463,16 @@ class TestAdminPosts:
         token = extract_csrf(r.text)
         client.post(
             "/admin/posts",
-            data={"csrf_token": token, "title": "Post despublicado detalhe", "body": "Texto."},
+            data={"csrf_token": token, "title": "Unpublished Post Detail", "body": "Text."},
             follow_redirects=False,
         )
-        post_id = fetch_one("SELECT id FROM posts WHERE title = 'Post despublicado detalhe'")["id"]
+        post_id = fetch_one("SELECT id FROM posts WHERE title = 'Unpublished Post Detail'")["id"]
         client.post(f"/admin/posts/{post_id}/toggle-publish", data={"csrf_token": token}, follow_redirects=False)
 
-        # admin ainda consegue ver (conferir antes de republicar)
+        # admin can still see it (to check before republishing)
         assert client.get(f"/posts/{post_id}").status_code == 200
 
-        # visitante sem login recebe 404 (não "sabe" que o post existe)
+        # a logged-out visitor gets a 404 (doesn't "know" the post exists)
         from fastapi.testclient import TestClient
         from app.main import app as fastapi_app
 

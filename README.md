@@ -1,363 +1,367 @@
 # VokalBoard
 
-Quadro de avisos (bulletin board) para conectar cantores e maestros na
-Alemanha — inspirado em ideias como Audition Oracle/Theapolis, mas no
-formato simples de um Craigslist: as pessoas publicam o que procuram
-(ou o que oferecem) e navegam/filtram os anúncios de outras pessoas.
+Bulletin board for connecting singers and conductors in Germany —
+inspired by ideas like Audition Oracle/Theapolis, but in the simple
+format of a Craigslist: people post what they're looking for (or what
+they're offering) and browse/filter other people's listings.
 
-Este projeto foi montado como um exercício prático de **SQL** e
-**desenvolvimento web**. As decisões técnicas abaixo foram feitas de
-propósito para maximizar aprendizado, não "produtividade máxima".
+This project was built as a hands-on exercise in **SQL** and **web
+development**. The technical decisions below were made on purpose to
+maximize learning, not "maximum productivity."
 
 ## Stack
 
 - **Backend:** Python + [FastAPI](https://fastapi.tiangolo.com/)
-- **Banco de dados:** PostgreSQL, acessado com **SQL puro** via
-  SQLAlchemy `text()` (sem ORM) — veja `app/database.py` e os
-  arquivos em `app/routers/`. A ideia é você ler/escrever SQL de
-  verdade: `SELECT`, `JOIN`, `WHERE` dinâmico, `INSERT ... RETURNING`.
-- **Frontend:** HTML server-side renderizado com Jinja2 (sem
-  framework JS) + CSS simples. Suficiente para o MVP, fácil de trocar
-  depois por React/Vue se você quiser evoluir.
-- **Autenticação:** sessão via cookie assinado (`SessionMiddleware`
-  do Starlette) + senha com hash bcrypt.
-- **Idiomas:** alemão e inglês, com um seletor no cabeçalho. Veja
-  `app/i18n.py` (dicionário de traduções) e `app/render.py` (injeta a
-  função `t()` e o idioma atual em todo template). O idioma escolhido
-  fica salvo num cookie.
-- **Deploy:** Docker + docker-compose para rodar localmente; instruções
-  para Railway/Render abaixo.
-- **CSRF:** proteção manual via "synchronizer token" — veja a seção
-  dedicada mais abaixo.
-- **E-mail:** confirmação de cadastro por e-mail e recuperação de senha,
-  com um backend de e-mail plugável (`console` para desenvolvimento,
-  `resend` para produção) — veja `app/email.py`.
+- **Database:** PostgreSQL, accessed with **raw SQL** via SQLAlchemy
+  `text()` (no ORM) — see `app/database.py` and the files in
+  `app/routers/`. The idea is that you read/write real SQL: `SELECT`,
+  `JOIN`, dynamic `WHERE`, `INSERT ... RETURNING`.
+- **Frontend:** server-side rendered HTML with Jinja2 (no JS
+  framework) + plain CSS. Enough for the MVP, easy to swap later for
+  React/Vue if you want to evolve it.
+- **Authentication:** cookie-based session (Starlette's
+  `SessionMiddleware`) + bcrypt password hashing.
+- **Languages:** German and English, with a selector in the header.
+  See `app/i18n.py` (translation dictionary) and `app/render.py`
+  (injects the `t()` function and the current language into every
+  template). The chosen language is saved in a cookie.
+- **Deploy:** Docker + docker-compose to run locally; instructions for
+  Railway/Render below.
+- **CSRF:** manual protection via a "synchronizer token" — see the
+  dedicated section further below.
+- **Email:** signup confirmation and password recovery via email, with
+  a pluggable email backend (`console` for development, `resend` for
+  production) — see `app/email.py`.
 
-## Estrutura do projeto
+## Project structure
 
 ```
 vokalboard/
 ├── app/
-│   ├── main.py                 # cria o app FastAPI, monta rotas
-│   ├── database.py             # conexão + helpers de SQL puro
-│   ├── auth.py                 # hash de senha, sessão do usuário
-│   ├── i18n.py                  # dicionário de traduções DE/EN
-│   ├── render.py                # wrapper do Jinja2Templates com t()/lang
+│   ├── main.py                 # creates the FastAPI app, mounts routes
+│   ├── database.py             # connection + raw SQL helpers
+│   ├── auth.py                 # password hashing, user session
+│   ├── i18n.py                  # DE/EN translation dictionary
+│   ├── render.py                # Jinja2Templates wrapper with t()/lang
 │   ├── routers/
-│   │   ├── auth_routes.py      # /register, /login, /logout, verificação de
-│   │   │                       #   e-mail, esqueci/redefinir senha
-│   │   ├── listings_routes.py  # /, /listings/..., busca/filtro
-│   │   ├── profile_routes.py   # /profile (editar), /users/{id} (público)
-│   │   └── messages_routes.py  # /messages, caixa de entrada/enviados/lixeira
-│   ├── csrf.py                  # proteção CSRF (synchronizer token)
-│   ├── email.py                  # envio de e-mail (console/Resend)
+│   │   ├── auth_routes.py      # /register, /login, /logout, email
+│   │   │                       #   verification, forgot/reset password
+│   │   ├── listings_routes.py  # /, /listings/..., search/filter
+│   │   ├── profile_routes.py   # /profile (edit), /users/{id} (public)
+│   │   └── messages_routes.py  # /messages, inbox/sent/trash
+│   ├── csrf.py                  # CSRF protection (synchronizer token)
+│   ├── email.py                  # email sending (console/Resend)
 │   ├── templates/              # HTML (Jinja2)
 │   └── static/css/style.css
 ├── db/
-│   ├── schema.sql               # DDL: CREATE TABLE, índices (já inclui as cidades)
-│   ├── seed_cities.sql          # cidades DE/AT/CH (gerado, ver scripts/)
-│   └── seed_sample_data.sql     # dados de exemplo (opcional)
+│   ├── schema.sql               # DDL: CREATE TABLE, indexes (already includes cities)
+│   ├── seed_cities.sql          # DE/AT/CH cities (generated, see scripts/)
+│   └── seed_sample_data.sql     # sample data (optional)
 ├── scripts/
-│   └── generate_cities_seed.py  # regenera db/seed_cities.sql a partir do GeoNames
+│   └── generate_cities_seed.py  # regenerates db/seed_cities.sql from GeoNames
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
 └── .env.example
 ```
 
-## Modelo de dados (schema)
+## Data model (schema)
 
-- `voice_types` — tabela de apoio, simplificada para as 4 categorias
-  pedidas: Soprano, Alto, Tenor, Baixo. No cadastro, a pessoa escolhe
-  diretamente uma dessas 4 opções OU "Dirigent(in)" (maestro/maestrina) —
-  essa escolha única já define tanto o `role` quanto o `voice_type_id`.
-- `users` — cantores e maestros na mesma tabela, diferenciados por `role`
-- `singer_profiles` / `conductor_profiles` — dados extras 1:1 com `users`,
-  incluindo `bio` (biografia, limitada a 1000 caracteres por um `CHECK`
-  no banco — veja `db/schema.sql`)
-- `singer_composer_tags` — hashtags de compositores que o(a) cantor(a)
-  já cantou (até 10 por pessoa, limite aplicado na aplicação). É uma
-  tabela separada — não uma coluna de array — de propósito, para você
-  praticar JOIN/GROUP BY (ex: "quais compositores aparecem mais na
-  plataforma?")
-- `listings` — os anúncios do quadro de avisos, com `listing_type`:
-  - `seeking_singer` — maestro procurando cantor(a)
-  - `seeking_conductor` — cantor(a) procurando regência/oportunidade
-  - `singer_available` — cantor(a) anunciando disponibilidade
-  - `conductor_available` — maestro anunciando disponibilidade
+- `voice_types` — support table, simplified to the 4 requested
+  categories: Soprano, Alto, Tenor, Bass. At signup, the person picks
+  directly one of these 4 options OR "Dirigent(in)" (conductor) — that
+  single choice already sets both `role` and `voice_type_id`.
+- `users` — singers and conductors in the same table, distinguished by
+  `role`
+- `singer_profiles` / `conductor_profiles` — extra 1:1 data tied to
+  `users`, including `bio` (biography, capped at 1000 characters by a
+  `CHECK` in the database — see `db/schema.sql`)
+- `singer_composer_tags` — composer hashtags the singer has already
+  sung (up to 10 per person, limit enforced at the application level).
+  It's a separate table — not an array column — on purpose, so you can
+  practice JOIN/GROUP BY (e.g. "which composers show up most on the
+  platform?")
+- `listings` — the bulletin board postings, with `listing_type`:
+  - `seeking_singer` — conductor looking for a singer
+  - `seeking_conductor` — singer looking for a conducting
+    opportunity
+  - `singer_available` — singer announcing availability
+  - `conductor_available` — conductor announcing availability
 
-- `singer_audio_links` — links externos (YouTube, SoundCloud, etc.) para
-  "Audiobeispiele" do(a) cantor(a), até 3 por pessoa. **Não armazenamos
-  arquivo de áudio nenhum** — de propósito: guardar arquivos de mídia
-  exigiria object storage (S3/R2/Hetzner Object Storage) e mais
-  infraestrutura, então a solução mais simples (e mais que suficiente
-  para o caso de uso) é a pessoa colar o link de um áudio já hospedado
-  em outro lugar.
-- `email_verification_tokens` / `password_reset_tokens` — tokens de uso
-  único e com prazo de validade para confirmar e-mail (48h) e redefinir
-  senha (2h). Veja a seção "Verificação de e-mail e recuperação de senha".
-- `messages` — sistema de mensagens interno entre usuários (veja a seção
-  dedicada abaixo).
-- `profile_views` — log write-only de visitas a perfis (veja a seção
-  "Contagem de visitas a perfis").
-- `cities` — cidades reais da Alemanha, Áustria e Suíça (~1.270, fonte
-  GeoNames, população aproximada ≥ 15.000), cada uma já amarrada ao
-  seu estado/cantão. Alimenta o select em cascata **País > Estado >
-  Cidade** usado no cadastro, no perfil e no formulário de anúncio —
-  em vez de cidade como texto livre, o que evitava que "München",
-  "Munich" e "Muenchen" contassem como lugares diferentes na hora de
-  cruzar cantores e maestros da mesma região. Nem toda cidade pequena
-  está na lista; por isso sempre existe um "Minha cidade não está na
-  lista" que libera texto livre. Os dados vêm de
-  `db/seed_cities.sql`, gerado por `scripts/generate_cities_seed.py`
-  (rode `pip install geonamescache --break-system-packages` e o
-  script de novo só se quiser mudar o corte de população ou os dados
-  ficarem desatualizados — não é uma dependência do app em produção).
+- `singer_audio_links` — external links (YouTube, SoundCloud, etc.)
+  for the singer's audio samples, up to 3 per person. **We don't store
+  any audio files** — on purpose: storing media files would require
+  object storage (S3/R2/Hetzner Object Storage) and more
+  infrastructure, so the simpler solution (and more than enough for
+  the use case) is for the person to paste a link to audio already
+  hosted somewhere else.
+- `email_verification_tokens` / `password_reset_tokens` — single-use,
+  time-limited tokens for confirming email (48h) and resetting
+  password (2h). See the "Email verification and password recovery"
+  section.
+- `messages` — internal messaging system between users (see the
+  dedicated section below).
+- `profile_views` — write-only log of profile visits (see the "Profile
+  view counting" section).
+- `cities` — real cities in Germany, Austria, and Switzerland (~1,270,
+  sourced from GeoNames, population roughly ≥ 15,000), each already
+  tied to its state/canton. Powers the cascading **Country > State >
+  City** select used at signup, on the profile, and on the listing
+  form — instead of city as free text, which used to let "München",
+  "Munich", and "Muenchen" count as different places when matching
+  singers and conductors in the same region. Not every small town is
+  on the list; that's why there's always a "My city isn't listed"
+  option that unlocks free text. The data comes from
+  `db/seed_cities.sql`, generated by `scripts/generate_cities_seed.py`
+  (run `pip install geonamescache --break-system-packages` and the
+  script again only if you want to change the population cutoff or if
+  the data goes stale — it's not a dependency of the app in
+  production).
 
-Cada cantor(a) e maestro(a) tem uma página de perfil pública em
-`/users/{id}` (nome, cidade, tipo de voz ou coro/orquestra, biografia,
-hashtags de compositores, links de áudio e anúncios ativos) e pode editar
-seus próprios dados em `/profile`.
+Each singer and conductor has a public profile page at `/users/{id}`
+(name, city, voice type or choir/orchestra, biography, composer
+hashtags, audio links, and active listings) and can edit their own
+data at `/profile`.
 
-## Home personalizada por papel (cantor x maestro)
+## Role-based homepage (singer vs. conductor)
 
-A página inicial (`/`) muda de comportamento conforme quem está logado,
-para que cantores não fiquem vendo o que interessa a maestros e
-vice-versa:
+The homepage (`/`) changes behavior depending on who's logged in, so
+singers don't see what's relevant to conductors and vice versa:
 
-- **Cantor(a) logado(a):** vê por padrão só vagas (`seeking_singer`)
-  da própria categoria de voz — um tenor não vê vagas de contralto,
-  por exemplo — mas pode ajustar os filtros (tipo de voz, cidade,
-  busca) a qualquer momento.
-- **Maestro(a) logado(a):** vê por padrão cantores disponíveis
-  (`singer_available`), com filtros por tipo de voz, cidade **e
-  hashtag de compositor** (ex: buscar só cantores que já cantaram
-  Bach).
-- **Visitante não logado** (ou qualquer usuário com `?board=all`): vê
-  o quadro de avisos completo, sem filtro de papel — útil antes de
-  criar conta, ou pra qualquer um querer ver tudo.
+- **Logged-in singer:** sees by default only vacancies
+  (`seeking_singer`) matching their own voice category — a tenor
+  doesn't see alto vacancies, for example — but can adjust the filters
+  (voice type, city, search) at any time.
+- **Logged-in conductor:** sees by default available singers
+  (`singer_available`), with filters by voice type, city, **and
+  composer hashtag** (e.g. searching only for singers who have already
+  sung Bach).
+- **Anonymous visitor** (or any user with `?board=all`): sees the full
+  bulletin board, with no role-based filter — useful before creating
+  an account, or for anyone who wants to see everything.
 
-Anúncios do tipo "procura-se cantor(a)" (`seeking_singer`) — que tanto
-maestros quanto outros cantores podem publicar, já que às vezes um(a)
-cantor(a) também procura colegas para um gig — têm campos extras
-obrigatórios: **Obra**, **Cidade**, **Cachê**, e **Tipo de voz** (com
-opção explícita de "todas as vozes"); o campo **Onde/Ort** (igreja,
-sala) é opcional. Quem publicou um anúncio pode editá-lo depois em
+Listings of type "seeking singer" (`seeking_singer`) — which both
+conductors and other singers can post, since sometimes a singer is
+also looking for colleagues for a gig — have extra required fields:
+**Work**, **City**, **Fee**, and **Voice type** (with an explicit
+"all voices" option); the **Venue/Ort** field (church, hall) is
+optional. Whoever posted a listing can edit it later at
 `/listings/{id}/edit`.
 
-O schema completo com comentários está em `db/schema.sql` — vale a
-pena ler linha por linha, é a melhor forma de entender o "porquê" de
-cada `FOREIGN KEY` e índice.
+The full schema with comments is in `db/schema.sql` — it's worth
+reading line by line, it's the best way to understand the "why" behind
+each `FOREIGN KEY` and index.
 
-## Rodando localmente com Docker (recomendado)
+## Running locally with Docker (recommended)
 
-Pré-requisito: [Docker](https://www.docker.com/) instalado.
+Prerequisite: [Docker](https://www.docker.com/) installed.
 
 ```bash
 cd vokalboard
 docker compose up --build
 ```
 
-Isso sobe dois containers:
-1. `db` — PostgreSQL, já inicializado com `schema.sql` + dados de exemplo
-2. `web` — a aplicação FastAPI, em http://localhost:8000
+This spins up two containers:
+1. `db` — PostgreSQL, already initialized with `schema.sql` + sample data
+2. `web` — the FastAPI application, at http://localhost:8000
 
-Usuários de exemplo (senha para todos: `senha123`):
-- `sofia.soprano@example.com` (cantora, soprano)
-- `tobias.tenor@example.com` (cantor, tenor)
-- `anna.dirigentin@example.com` (maestrina)
-- `markus.dirigent@example.com` (maestro)
+Sample users (password for all: `senha123`):
+- `sofia.soprano@example.com` (singer, soprano)
+- `tobias.tenor@example.com` (singer, tenor)
+- `anna.dirigentin@example.com` (conductor, female)
+- `markus.dirigent@example.com` (conductor, male)
 
-Para parar: `Ctrl+C` e depois `docker compose down` (adicione `-v` para
-também apagar os dados do banco e começar do zero).
+To stop: `Ctrl+C` and then `docker compose down` (add `-v` to also
+wipe the database data and start from scratch).
 
-## Rodando sem Docker (Python local + Postgres local)
+## Running without Docker (local Python + local Postgres)
 
 ```bash
-# 1. Crie um banco PostgreSQL local chamado vokalboard
+# 1. Create a local PostgreSQL database called vokalboard
 createdb vokalboard
 
-# 2. Rode o schema
+# 2. Run the schema
 psql vokalboard < db/schema.sql
-psql vokalboard < db/seed_sample_data.sql   # opcional
+psql vokalboard < db/seed_sample_data.sql   # optional
 
-# 3. Configure o .env
+# 3. Configure the .env
 cp .env.example .env
-# edite o .env com a DATABASE_URL do seu Postgres local
+# edit .env with your local Postgres DATABASE_URL
 
-# 4. Instale as dependências
+# 4. Install dependencies
 python -m venv venv
-source venv/bin/activate  # no Windows: venv\Scripts\activate
+source venv/bin/activate  # on Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 5. Rode o servidor
+# 5. Run the server
 uvicorn app.main:app --reload
 ```
 
-Acesse http://localhost:8000
+Go to http://localhost:8000
 
-## Estrutura de páginas (freemium)
+## Page structure (freemium)
 
-- **`/`** — tela de boas-vindas. Logado, mostra "Bem-vindo(a), {nome}" e até
-  5 anúncios que combinam com o perfil (cantor: vagas `seeking_singer` da
-  própria categoria de voz; maestro(a): vagas `seeking_conductor`),
-  priorizando a própria cidade. Sem login, mostra um teaser com as 5
-  vagas mais recentes (só título/cidade/tipo, sem descrição) e botões de
-  cadastro/login.
-- **`/board`** — o quadro de avisos completo, com todos os filtros
-  (busca livre, cidade, país, tipo de voz, tipo de anúncio, hashtag de
-  compositor). Aberto para qualquer visitante, logado ou não.
-- **`/listings/{id}`** e **`/users/{id}`** — **modelo freemium**: sem
-  login dá pra ver que o anúncio/perfil existe (título, cidade, badge,
-  bolinha de status), mas a descrição completa, os dados de contato, a
-  biografia, os hashtags e os links de áudio só aparecem para quem tem
-  conta. Isso é decidido no backend (`locked = user is None` em
-  `listings_routes.py`/`profile_routes.py`), não só escondido via CSS —
-  então não dá pra "ver escondendo o JS".
-- **`/profile`** — editar o próprio perfil.
-- **`/my-listings`** — publicar e editar os próprios anúncios.
-- **`/messages`** — mensageiro interno.
+- **`/`** — welcome screen. When logged in, shows "Welcome, {name}"
+  and up to 5 listings matching the profile (singer: `seeking_singer`
+  vacancies in their own voice category; conductor: `seeking_conductor`
+  vacancies), prioritizing their own city. Without login, shows a
+  teaser with the 5 most recent vacancies (title/city/type only, no
+  description) and signup/login buttons.
+- **`/board`** — the full bulletin board, with all filters (free-text
+  search, city, country, voice type, listing type, composer hashtag).
+  Open to any visitor, logged in or not.
+- **`/listings/{id}`** and **`/users/{id}`** — **freemium model**:
+  without login you can see that the listing/profile exists (title,
+  city, badge, status dot), but the full description, contact details,
+  biography, hashtags, and audio links only show up for people with an
+  account. This is decided on the backend (`locked = user is None` in
+  `listings_routes.py`/`profile_routes.py`), not just hidden via CSS —
+  so there's no way to "view by hiding the JS."
+- **`/profile`** — edit your own profile.
+- **`/my-listings`** — post and edit your own listings.
+- **`/messages`** — internal messenger.
 
-## Filtro por país
+## Country filter
 
-Anúncios agora têm um campo `country` (`DE`/`AT`/`CH`/`OTHER`), com
-`DE` como padrão. O filtro por país em `/board` existe porque cantores e
-maestros no Deutschsprachraum circulam entre os três países o tempo
-todo — ver a seção de análise de mercado que conversamos no chat.
+Listings now have a `country` field (`DE`/`AT`/`CH`/`OTHER`), with
+`DE` as the default. The country filter on `/board` exists because
+singers and conductors in the German-speaking region circulate
+between the three countries all the time — see the market analysis
+section we discussed in chat.
 
-## Filtro por período (Zeitraum)
+## Date range filter (Zeitraum)
 
-Em `/board` dá pra filtrar por intervalo de data (`date_from`/`date_to`,
-comparados com `event_date`) — o caso de uso é literalmente "não tenho
-nada marcado em agosto, me mostra o que existe entre 1º e 31/08".
-Diferença importante de comportamento: escolher um período explícito
-**substitui** o filtro padrão de "esconder eventos passados" — se você
-escolher um intervalo que já passou, os anúncios daquele intervalo
-aparecem mesmo assim (a pessoa está pedindo por aquele período
-especificamente, então faz sentido mostrar mesmo que seja passado).
-Anúncios sem `event_date` (ex: "cantor disponível", sem data marcada)
-não têm como combinar com um período e ficam de fora quando esse
-filtro está ativo.
+On `/board` you can filter by date range (`date_from`/`date_to`,
+compared against `event_date`) — the use case is literally "I have
+nothing booked in August, show me what exists between Aug 1 and Aug
+31." Important behavior difference: choosing an explicit range
+**replaces** the default "hide past events" filter — if you pick a
+range that has already passed, listings from that range show up
+anyway (the person is specifically asking for that period, so it makes
+sense to show them even if it's in the past). Listings without an
+`event_date` (e.g. "singer available," with no set date) can't match a
+date range and are excluded while that filter is active.
 
-## Indicador de status do evento (bolinha colorida)
+## Event status indicator (colored dot)
 
-Ao lado do título de qualquer anúncio com uma data de evento
-(`event_date`), aparece uma bolinha colorida:
+Next to the title of any listing with an event date (`event_date`), a
+colored dot appears:
 
-- 🟢 **verde** — evento ainda vai acontecer (mais de 7 dias)
-- 🟡 **amarela** — evento acontece nos próximos 7 dias
-- 🔴 **vermelha** — evento já passou
+- 🟢 **green** — event is still upcoming (more than 7 days away)
+- 🟡 **yellow** — event happens within the next 7 days
+- 🔴 **red** — event has already passed
 
-Isso é calculado **na hora da consulta**, com um `CASE` em SQL comparando
-`event_date` com `CURRENT_DATE` (veja `EVENT_STATUS_SQL` em
-`app/routers/listings_routes.py`) — não é uma coluna gravada no banco.
-Essa é uma escolha deliberada: como o status depende só da data de hoje,
-calcular na consulta evita a necessidade de um job noturno (cron) para
-manter uma coluna "status" sempre atualizada. Anúncios sem `event_date`
-não mostram bolinha nenhuma.
+This is calculated **at query time**, with a `CASE` in SQL comparing
+`event_date` to `CURRENT_DATE` (see `EVENT_STATUS_SQL` in
+`app/routers/listings_routes.py`) — it's not a column stored in the
+database. This is a deliberate choice: since the status depends only
+on today's date, calculating it at query time avoids needing a
+nightly (cron) job to keep a "status" column always up to date.
+Listings without an `event_date` show no dot at all.
 
-## Verificação de e-mail e recuperação de senha
+## Email verification and password recovery
 
-Ao se cadastrar, a pessoa recebe um e-mail com um link de confirmação
-(`/verify-email?token=...`), válido por 48 horas. Enquanto o e-mail não
-é confirmado:
+When signing up, the person receives an email with a confirmation link
+(`/verify-email?token=...`), valid for 48 hours. While the email
+hasn't been confirmed:
 
-- Aparece um aviso no topo do site com um botão para reenviar o e-mail
-  de confirmação.
-- A pessoa **não consegue publicar anúncios nem enviar mensagens** (mas
-  pode navegar, filtrar e editar o próprio perfil normalmente).
+- A banner appears at the top of the site with a button to resend the
+  confirmation email.
+- The person **cannot post listings or send messages** (but can
+  browse, filter, and edit their own profile normally).
 
-A recuperação de senha (`/forgot-password` → `/reset-password`) segue o
-mesmo padrão de token de uso único, válido por 2 horas. Por segurança
-contra enumeração de e-mails cadastrados, `/forgot-password` sempre
-mostra a mesma mensagem de confirmação, exista ou não uma conta com
-aquele e-mail.
+Password recovery (`/forgot-password` → `/reset-password`) follows the
+same single-use token pattern, valid for 2 hours. As a safeguard
+against email enumeration, `/forgot-password` always shows the same
+confirmation message, whether or not an account exists with that
+email.
 
-Em desenvolvimento, os e-mails não são enviados de verdade — eles são
-só impressos no log do servidor (backend `console`, o padrão). Para
-enviar e-mails de verdade em produção, configure no `.env`:
+In development, emails aren't actually sent — they're just printed to
+the server log (the `console` backend, the default). To send real
+emails in production, configure this in `.env`:
 
 ```
 EMAIL_BACKEND=resend
-RESEND_API_KEY=sua-chave-aqui
+RESEND_API_KEY=your-key-here
 EMAIL_FROM="VokalBoard <onboarding@resend.dev>"
 ```
 
-O projeto usa a API do [Resend](https://resend.com/) como exemplo (tem
-plano gratuito generoso e API simples via HTTP), mas `app/email.py` foi
-escrito como uma função só (`send_email`), então trocar por outro
-provedor (SendGrid, Mailgun, Amazon SES) é questão de reescrever essa
-função.
+The project uses the [Resend](https://resend.com/) API as an example
+(generous free tier, simple HTTP-based API), but `app/email.py` was
+written as a single function (`send_email`), so switching to another
+provider (SendGrid, Mailgun, Amazon SES) is a matter of rewriting that
+one function.
 
-## O que é CSRF e como este projeto se protege
+## What CSRF is and how this project protects against it
 
-**CSRF (Cross-Site Request Forgery)** é um ataque em que um site
-malicioso faz o navegador da vítima enviar, sem ela perceber, uma
-requisição para *outro* site (aqui, o VokalBoard) aproveitando que
-o navegador já manda automaticamente os cookies de sessão daquele site
-em toda requisição — inclusive as disparadas por uma página diferente.
+**CSRF (Cross-Site Request Forgery)** is an attack where a malicious
+site makes the victim's browser send, without them noticing, a request
+to *another* site (here, VokalBoard) by taking advantage of the fact
+that the browser automatically sends that site's session cookies on
+every request — including ones triggered from a different page.
 
-Exemplo concreto: você está logado no VokalBoard. Sem perceber,
-visita `site-malicioso.com`, que tem um formulário invisível apontando
-para `POST vokalboard.de/listings/42/delete`. Se o servidor só
-checasse "existe uma sessão válida?", o navegador enviaria seu cookie de
-sessão automaticamente, e o ataque funcionaria — seu anúncio seria
-apagado sem você ter clicado em nada no site de verdade.
+Concrete example: you're logged in to VokalBoard. Without noticing,
+you visit `malicious-site.com`, which has an invisible form pointing
+to `POST vokalboard.de/listings/42/delete`. If the server only checked
+"is there a valid session?", the browser would automatically send your
+session cookie, and the attack would work — your listing would get
+deleted without you having clicked anything on the real site.
 
-A defesa usada aqui é o padrão **"synchronizer token"** (veja
+The defense used here is the **"synchronizer token"** pattern (see
 `app/csrf.py`):
 
-1. Ao carregar qualquer página com formulário, o servidor gera (ou
-   reaproveita) um token aleatório e o guarda na sessão do usuário.
-2. Esse mesmo token é colocado como campo escondido (`<input type="hidden"
-   name="csrf_token">`) em todo formulário.
-3. Em todo `POST`, o servidor compara o token que veio no formulário com
-   o que está guardado na sessão. Se não bater (ou não existir), a
-   requisição é rejeitada com erro 400.
+1. When loading any page with a form, the server generates (or
+   reuses) a random token and stores it in the user's session.
+2. That same token is placed as a hidden field (`<input type="hidden"
+   name="csrf_token">`) in every form.
+3. On every `POST`, the server compares the token that came from the
+   form with the one stored in the session. If they don't match (or
+   it doesn't exist), the request is rejected with a 400 error.
 
-Um site malicioso não tem como ler o token da sua sessão (ele não roda
-no seu domínio, e o token não é um cookie — é um valor dentro do HTML da
-página), então não consegue montar um formulário forjado que passe nessa
-checagem. Testamos isso na prática: um `POST` com `csrf_token` errado ou
-ausente é rejeitado com HTTP 400, mesmo com uma sessão válida.
+A malicious site has no way to read the token from your session (it
+doesn't run on your domain, and the token isn't a cookie — it's a
+value inside the page's HTML), so it can't build a forged form that
+passes this check. We tested this in practice: a `POST` with a wrong
+or missing `csrf_token` is rejected with HTTP 400, even with a valid
+session.
 
-## Sistema de mensagens interno
+## Internal messaging system
 
-Em vez de expor o e-mail de todo mundo publicamente (o que já existia
-antes), agora dá pra mandar mensagem direto pela plataforma, pelo botão
-"Enviar mensagem" no perfil público ou no anúncio de alguém. O sistema
-tem:
+Instead of exposing everyone's email publicly (which was already the
+case before), you can now message someone directly through the
+platform, via the "Send message" button on their public profile or
+listing. The system has:
 
-- **Caixa de entrada** (`/messages`) e **Enviados** (`/messages/sent`).
-- **Contador de não lidas** no menu, ao lado de "Nachrichten/Messages".
-- **Lixeira** (`/messages/trash`) e **"Esvaziar lixeira"**.
+- **Inbox** (`/messages`) and **Sent** (`/messages/sent`).
+- **Unread counter** in the menu, next to "Nachrichten/Messages".
+- **Trash** (`/messages/trash`) and **"Empty trash"**.
 
-Cada mensagem tem **duas colunas de status** (`sender_status` e
-`recipient_status`, cada uma `active` ou `trashed`) — uma para o remetente,
-outra para o destinatário — porque jogar uma mensagem no lixo é uma ação
-pessoal: se você apaga uma conversa da sua lixeira, isso não deveria
-afetar o que a outra pessoa vê do lado dela.
+Each message has **two status columns** (`sender_status` and
+`recipient_status`, each `active` or `trashed`) — one for the sender,
+one for the recipient — because trashing a message is a personal
+action: if you delete a conversation from your trash, that shouldn't
+affect what the other person sees on their end.
 
-**Simplificação didática, de propósito:** o botão "esvaziar lixeira" faz
-um `DELETE` de verdade na linha da mensagem — o que remove a mensagem
-também do lado da outra pessoa, mesmo que ela não tenha jogado a dela
-fora. Um sistema "de verdade" só apagaria a linha quando **ambos os
-lados** estivessem com status `trashed` (ou usaria uma coluna
-`deleted_at` por lado, sem nunca fazer `DELETE` de fato). Deixei essa
-simplificação de propósito como um próximo exercício de SQL: dá pra
-mudar a query de `empty_trash` em `app/routers/messages_routes.py` para
-só apagar quando `sender_status = 'trashed' AND recipient_status =
-'trashed'`, e criar uma keyword tipo "ocultar da minha lista" separada
-de "apagar de verdade".
+**Deliberate teaching simplification:** the "empty trash" button does
+a real `DELETE` on the message row — which also removes the message
+from the other person's side, even if they haven't trashed their own
+copy. A "real" system would only delete the row once **both sides**
+had status `trashed` (or would use a `deleted_at` column per side,
+never doing an actual `DELETE`). I left this simplification in on
+purpose as a next SQL exercise: you can change the `empty_trash` query
+in `app/routers/messages_routes.py` to only delete when
+`sender_status = 'trashed' AND recipient_status = 'trashed'`, and
+create a separate keyword like "hide from my list" apart from "delete
+for real."
 
-## Contagem de visitas a perfis (métrica privada)
+## Profile view counting (private metric)
 
-Toda visita a um perfil público (`/users/{id}`) grava uma linha em
-`profile_views` (`profile_user_id`, `viewer_user_id` — nulo se
-anônimo, `viewed_at`). **De propósito, isso não aparece em lugar nenhum
-da interface** — nem para o dono do perfil — porque foi pedido como uma
-métrica só para consulta direta no banco, tipo um Google Analytics
-bem simples e caseiro. Exemplo de consulta:
+Every visit to a public profile (`/users/{id}`) writes a row to
+`profile_views` (`profile_user_id`, `viewer_user_id` — null if
+anonymous, `viewed_at`). **On purpose, this doesn't show up anywhere
+in the UI** — not even for the profile owner — because it was
+requested as a metric meant only for direct database queries, like a
+simple, homegrown Google Analytics. Example query:
 
 ```sql
 SELECT profile_user_id, COUNT(*) AS views
@@ -366,582 +370,590 @@ GROUP BY profile_user_id
 ORDER BY views DESC;
 ```
 
-## Praticando SQL com este projeto
+## Practicing SQL with this project
 
-Algumas sugestões de exercícios usando o `psql` direto no banco
+Some suggested exercises using `psql` directly against the database
 (`docker compose exec db psql -U vokalboard_user -d vokalboard`):
 
-1. Liste todos os anúncios ativos com o nome de quem postou (JOIN simples).
-2. Conte quantos anúncios existem por `listing_type` (GROUP BY + COUNT).
-3. Liste cantores por tipo de voz, incluindo os que ainda não têm
-   nenhum anúncio publicado (LEFT JOIN).
-4. Ache a cidade com mais anúncios ativos nos últimos 30 dias.
-5. Usando `singer_composer_tags`, ache os 5 compositores mais citados
-   entre todos os cantores (JOIN + GROUP BY + COUNT + ORDER BY + LIMIT).
-6. Em `profile_views`, ache quem são os 5 perfis mais visitados nos
-   últimos 30 dias (GROUP BY + `WHERE viewed_at > now() - interval '30
-   days'`).
-7. Corrija a simplificação da lixeira de mensagens: reescreva a query de
-   `empty_trash` (`app/routers/messages_routes.py`) para só apagar a
-   linha quando **os dois lados** (`sender_status` e `recipient_status`)
-   estiverem `'trashed'`.
-8. Ache pares de usuários que trocaram mensagens mas nunca tiveram
-   contato via `listings` (JOIN entre `messages` e `listings`,
-   comparando `sender_id`/`recipient_id` com `author_id`).
+1. List all active listings with the name of who posted them (simple JOIN).
+2. Count how many listings exist per `listing_type` (GROUP BY + COUNT).
+3. List singers by voice type, including those who don't have any
+   listing posted yet (LEFT JOIN).
+4. Find the city with the most active listings in the last 30 days.
+5. Using `singer_composer_tags`, find the 5 most-cited composers
+   across all singers (JOIN + GROUP BY + COUNT + ORDER BY + LIMIT).
+6. In `profile_views`, find the 5 most-visited profiles in the last 30
+   days (GROUP BY + `WHERE viewed_at > now() - interval '30 days'`).
+7. Fix the message trash simplification: rewrite the `empty_trash`
+   query (`app/routers/messages_routes.py`) to only delete the row
+   when **both sides** (`sender_status` and `recipient_status`) are
+   `'trashed'`.
+8. Find pairs of users who exchanged messages but never had contact
+   through `listings` (JOIN between `messages` and `listings`,
+   comparing `sender_id`/`recipient_id` with `author_id`).
 
-## Deploy (Railway ou Render)
+## Deploy (Railway or Render)
 
-Ambos suportam "deploy a partir de um Dockerfile" de forma bem parecida.
+Both support "deploy from a Dockerfile" in a fairly similar way.
 
 ### Railway
 
-1. Crie um projeto novo → "Deploy from GitHub repo" (suba este projeto
-   para um repositório seu no GitHub primeiro).
-2. Adicione um serviço PostgreSQL pelo botão "New" → "Database" →
-   "PostgreSQL". O Railway gera uma `DATABASE_URL` automaticamente.
-3. No serviço da aplicação (o que usa o Dockerfile), configure as
-   variáveis de ambiente:
-   - `DATABASE_URL`: copie da aba "Variables" do serviço Postgres,
-     mas troque o prefixo `postgresql://` por `postgresql+psycopg2://`
-   - `SECRET_KEY`: gere uma com `python -c "import secrets; print(secrets.token_hex(32))"`
-4. Depois do primeiro deploy, rode o schema no banco do Railway. Você
-   pode usar o botão "Connect" do Postgres no painel do Railway para
-   pegar a string de conexão e rodar:
+1. Create a new project → "Deploy from GitHub repo" (push this
+   project to your own GitHub repository first).
+2. Add a PostgreSQL service via the "New" → "Database" →
+   "PostgreSQL" button. Railway generates a `DATABASE_URL`
+   automatically.
+3. In the application service (the one using the Dockerfile),
+   configure the environment variables:
+   - `DATABASE_URL`: copy from the "Variables" tab of the Postgres
+     service, but swap the `postgresql://` prefix for
+     `postgresql+psycopg2://`
+   - `SECRET_KEY`: generate one with `python -c "import secrets; print(secrets.token_hex(32))"`
+4. After the first deploy, run the schema against the Railway
+   database. You can use the Postgres "Connect" button in the Railway
+   dashboard to grab the connection string and run:
    ```bash
-   psql "<connection-string-do-railway>" < db/schema.sql
+   psql "<railway-connection-string>" < db/schema.sql
    ```
 
 ### Render
 
-1. "New +" → "Web Service" → conecte seu repositório GitHub.
-2. Render detecta o `Dockerfile` automaticamente.
-3. "New +" → "PostgreSQL" para criar o banco gerenciado.
-4. No Web Service, em "Environment", adicione `DATABASE_URL` (com
-   `postgresql+psycopg2://`) e `SECRET_KEY`.
-5. Rode o schema apontando para a "External Database URL" que o Render
-   mostra na página do banco:
+1. "New +" → "Web Service" → connect your GitHub repository.
+2. Render auto-detects the `Dockerfile`.
+3. "New +" → "PostgreSQL" to create the managed database.
+4. In the Web Service, under "Environment," add `DATABASE_URL` (with
+   `postgresql+psycopg2://`) and `SECRET_KEY`.
+5. Run the schema against the "External Database URL" shown on
+   Render's database page:
    ```bash
    psql "<external-database-url>" < db/schema.sql
    ```
 
-Em ambos os casos, o healthcheck em `/health` pode ser usado pela
-plataforma para saber se a aplicação está de pé.
+In both cases, the healthcheck at `/health` can be used by the
+platform to check if the application is up.
 
-## Domínio e hospedagem (indo além do subdomínio grátis)
+## Domain and hosting (going beyond the free subdomain)
 
-Railway/Render te dão um subdomínio tipo `seu-app.up.railway.app` de
-graça — ótimo para testar. Para um domínio próprio (`vokalboard.de`,
-por exemplo):
+Railway/Render give you a subdomain like `your-app.up.railway.app` for
+free — great for testing. For your own domain (`vokalboard.de`, for
+example):
 
-- **Registrar o domínio:** recomendo separar "onde registro o domínio"
-  de "onde hospedo o app" — dá mais liberdade para trocar de hospedagem
-  sem perder o domínio.
-  - [INWX](https://www.inwx.com/) — registradora alemã, boa opção para
-    domínios `.de` (inclusive exige alguns dados de contato na Alemanha
-    para `.de`, o que pode pesar na decisão do próximo tópico), preços
-    justos, painel em alemão/inglês.
-  - [Porkbun](https://porkbun.com/) ou [Namecheap](https://www.namecheap.com/) —
-    boas opções para domínios genéricos (`.com`, `.io`, `.app`), preço
-    transparente, sem "upsell" agressivo.
-- **Hospedagem:** você já tem Railway/Render funcionando com pouquíssima
-  configuração (bom para focar em aprender SQL/web, não DevOps). Se mais
-  pra frente você quiser aprender mais infraestrutura (o que conversa
-  bem com a sua trilha de Cloud/AWS no curso de tech consultant), vale
-  considerar a [Hetzner Cloud](https://www.hetzner.com/cloud/) — provedor
-  alemão, VPS bem barato, boa latência para usuários na Alemanha, mas
-  exige que você mesmo configure o servidor (Docker, HTTPS com Let's
-  Encrypt/Caddy, backups).
-  - Domínio + Render/Railway = menor esforço.
-  - Domínio + Hetzner = mais controle e mais aprendizado de ops, custo
-    mensal menor a médio/longo prazo.
+- **Registering the domain:** I recommend keeping "where I register
+  the domain" separate from "where I host the app" — it gives you more
+  freedom to switch hosting providers without losing the domain.
+  - [INWX](https://www.inwx.com/) — a German registrar, a good option
+    for `.de` domains (it does require some German contact details
+    for `.de`, which can factor into the decision in the next point),
+    fair pricing, panel in German/English.
+  - [Porkbun](https://porkbun.com/) or [Namecheap](https://www.namecheap.com/) —
+    good options for generic domains (`.com`, `.io`, `.app`),
+    transparent pricing, no aggressive upselling.
+- **Hosting:** you already have Railway/Render working with very
+  little configuration (good for focusing on learning SQL/web, not
+  DevOps). If down the line you want to learn more infrastructure
+  (which pairs well with the Cloud/AWS track in your tech consultant
+  course), it's worth considering [Hetzner Cloud](https://www.hetzner.com/cloud/) —
+  a German provider, very cheap VPS, good latency for users in
+  Germany, but requires you to configure the server yourself (Docker,
+  HTTPS with Let's Encrypt/Caddy, backups).
+  - Domain + Render/Railway = least effort.
+  - Domain + Hetzner = more control and more ops learning, lower
+    medium/long-term monthly cost.
 
-## Site voltado à Alemanha, mas operado (mais tarde) por alguém no Brasil
+## Site aimed at Germany, but eventually operated by someone in Brazil
 
-Você perguntou se dá pra manter o site operando para o público alemão
-mas registrado/administrado no Brasil, pensando em passar a operação
-para o seu irmão, que não mora na Alemanha. Não sou advogado, então
-isto é só um mapa do terreno — não substitui uma consulta jurídica real
-antes de lançar algo com dados de usuários de verdade:
+You asked whether the site could keep serving a German audience while
+being registered/administered in Brazil, with the idea of eventually
+handing operations to your brother, who doesn't live in Germany. I'm
+not a lawyer, so this is just a map of the terrain — it doesn't
+replace real legal advice before launching something with real user
+data:
 
-- **Tecnicamente**, sim: nada impede que um site hospedado ou de
-  titularidade no Brasil sirva usuários na Alemanha — isso é comum.
-- **Impressumspflicht (aviso legal obrigatório):** sites acessíveis na
-  Alemanha com qualquer caráter comercial/profissional precisam de um
-  "Impressum" (identificação do responsável, endereço de contato, etc).
-  Essa obrigação está hoje no *Digitale-Dienste-Gesetz* (DDG, que
-  substituiu a antiga TMG). Não exige necessariamente que o responsável
-  more na Alemanha, mas precisa ser uma forma de contato válida e
-  alcançável — vale confirmar com um advogado especializado em direito
-  digital alemão (*IT-Recht*) o que conta como suficiente no seu caso.
-- **GDPR/DSGVO:** como a plataforma coleta dados pessoais (nome, e-mail,
-  telefone, biografia) de pessoas na Alemanha/UE, o GDPR se aplica
-  independentemente de onde a empresa/pessoa responsável está baseada
-  (efeito extraterritorial, Art. 3). Se quem administra o site não
-  estiver estabelecido na UE, o Art. 27 do GDPR geralmente exige nomear
-  um **representante na UE** — a menos que o tratamento de dados seja
-  ocasional e de baixo risco, o que dificilmente se aplica a uma
-  plataforma de cadastro contínuo como essa.
-- **Na prática**, os caminhos mais comuns para esse tipo de situação
-  costumam ser: (a) manter você (residente na Alemanha) como responsável
-  legal/Impressum enquanto seu irmão cuida da operação do dia a dia, ou
-  (b) contratar um serviço de representante GDPR na UE quando/se a
-  responsabilidade formal passar de fato para o Brasil. Vale muito a
-  pena validar isso com um advogado antes de sair do modo "projeto de
-  estudo" para "site com usuários reais" — ferramentas como
-  [eRecht24](https://www.e-recht24.de/) ou uma *IT-Recht Kanzlei* geram
-  Impressum/Datenschutzerklärung e também orientam sobre isso.
+- **Technically**, yes: nothing stops a site hosted or owned in Brazil
+  from serving users in Germany — that's common.
+- **Impressumspflicht (mandatory legal notice):** sites accessible in
+  Germany with any commercial/professional character need an
+  "Impressum" (identification of the person responsible, contact
+  address, etc). This requirement currently lives in the
+  *Digitale-Dienste-Gesetz* (DDG, which replaced the old TMG). It
+  doesn't necessarily require the responsible person to live in
+  Germany, but it needs to be a valid, reachable form of contact —
+  worth confirming with a lawyer specialized in German digital law
+  (*IT-Recht*) what counts as sufficient in your case.
+- **GDPR/DSGVO:** since the platform collects personal data (name,
+  email, phone, biography) from people in Germany/the EU, GDPR applies
+  regardless of where the responsible company/person is based
+  (extraterritorial effect, Art. 3). If whoever administers the site
+  isn't established in the EU, GDPR Art. 27 generally requires
+  appointing an **EU representative** — unless the data processing is
+  occasional and low-risk, which hardly applies to an ongoing
+  registration platform like this one.
+- **In practice**, the most common paths for this kind of situation
+  tend to be: (a) keeping you (a German resident) as the legal/
+  Impressum responsible party while your brother handles day-to-day
+  operations, or (b) hiring an EU GDPR representative service if/when
+  formal responsibility actually shifts to Brazil. It's well worth
+  validating this with a lawyer before moving from "study project" to
+  "site with real users" — tools like [eRecht24](https://www.e-recht24.de/)
+  or an *IT-Recht Kanzlei* generate Impressum/Datenschutzerklärung
+  documents and also advise on this.
 
-## Localização em cascata (País > Estado), tipo de vaga e filtros
+## Cascading location (Country > State), listing type, and filters
 
-O formulário de anúncio agora pede **Estado/Bundesland/Kanton**, além de
-País e Cidade — obrigatório, junto com o resto do endereço (segue o
-mesmo padrão de "obrigatório na aplicação, opcional no schema" que a
-Cidade já usava). A lista de estados (`STATE_OPTIONS`, em
-`app/routers/listings_routes.py`) é uma cascata simples em JavaScript:
-ao trocar o País, o `<select>` de Estado é repopulado (para "Outro
-país" vira texto livre). Não existe uma terceira cascata para Cidade —
-isso exigiria uma base geográfica completa (tipo GeoNames), o que
-ficou fora do escopo por enquanto; Cidade continua sendo texto livre.
+The listing form now asks for **State/Bundesland/Kanton**, in addition
+to Country and City — required, along with the rest of the address
+(follows the same "required in the app, optional in the schema"
+pattern that City already used). The list of states (`STATE_OPTIONS`,
+in `app/routers/listings_routes.py`) is a simple JavaScript cascade:
+when the Country changes, the State `<select>` is repopulated (for
+"Other country" it becomes free text). There's no third cascade level
+for City — that would require a full geographic database (like
+GeoNames), which was left out of scope for now; City remains free
+text.
 
-O anúncio também ganhou um campo **Solo / Coro / Ambos**
-(`ensemble_type`), pensado pra quem procura reforço de naipe vs. quem
-procura um cantor(a) solista vs. os dois. Ambos os campos entraram
-como filtros em `/board`.
+The listing also gained a **Solo / Choir / Both** field
+(`ensemble_type`), meant for people looking for section reinforcement
+vs. those looking for a solo singer vs. both. Both fields were added
+as filters on `/board`.
 
-## Redes sociais no perfil
+## Social links on the profile
 
-Em `/profile`, cada pessoa pode adicionar (opcional) até um link por
-plataforma: Website, Facebook, Instagram, Twitter, WhatsApp — tabela
-`user_social_links`, uma linha por plataforma (`UNIQUE(user_id,
-platform)`). No perfil público (`/users/{id}`), em vez do link cru,
-aparece um botão com só o nome da plataforma ("Instagram",
-"Facebook"...) pra não poluir a tela — a URL completa fica por trás do
-`href`. Só links `http(s)://` são aceitos; qualquer outra coisa colada
-ali é simplesmente ignorada ao salvar.
+On `/profile`, each person can optionally add up to one link per
+platform: Website, Facebook, Instagram, Twitter, WhatsApp — table
+`user_social_links`, one row per platform (`UNIQUE(user_id,
+platform)`). On the public profile (`/users/{id}`), instead of the raw
+link, a button shows only the platform name ("Instagram", "Facebook"…)
+to keep the page uncluttered — the full URL sits behind the `href`.
+Only `http(s)://` links are accepted; anything else pasted there is
+simply ignored on save.
 
-## Avaliação por estrelas (privada)
+## Star rating (private)
 
-Em `/users/{id}`, qualquer pessoa logada (exceto a própria dona do
-perfil) pode dar uma nota de 0 a 5 estrelas + comentário opcional.
-**A regra pedida foi: só quem recebeu a avaliação pode vê-la — mais
-ninguém.** Isso é garantido por *onde* a query roda, não por uma
-checagem de permissão: `get_my_ratings()`/`get_rating_summary()` (as
-únicas funções que buscam avaliações *recebidas*) só são chamadas a
-partir de `/profile` — a própria pessoa vendo o que recebeu. A rota
-pública `/users/{id}` nunca chama essas funções; ela só usa
-`get_rating_given()`, que é "a nota que EU already dei pra essa
-pessoa" (pra pré-preencher o formulário caso eu queira atualizar).
-Reavaliar a mesma pessoa faz um UPSERT (`ON CONFLICT (rater_id,
-rated_id) DO UPDATE`) em vez de acumular notas repetidas.
+On `/users/{id}`, any logged-in person (except the profile owner
+themselves) can give a rating from 0 to 5 stars + an optional comment.
+**The requested rule was: only the person who received the rating can
+see it — no one else.** This is guaranteed by *where* the query runs,
+not by a permission check: `get_my_ratings()`/`get_rating_summary()`
+(the only functions that fetch *received* ratings) are only called
+from `/profile` — the person viewing what they themselves received.
+The public route `/users/{id}` never calls those functions; it only
+uses `get_rating_given()`, which is "the rating I have already given
+this person" (to pre-fill the form in case I want to update it).
+Re-rating the same person does an UPSERT (`ON CONFLICT (rater_id,
+rated_id) DO UPDATE`) instead of piling up repeated ratings.
 
-## Arquivamento de eventos passados
+## Archiving past events
 
-Anúncios com `event_date` no passado somem por padrão de `/board` e
-das sugestões da Home (mas continuam no banco, acessíveis por link
-direto e visíveis em "Meus anúncios"). Assim como a bolinha de status,
-isso é calculado **na consulta** (`WHERE event_date IS NULL OR
-event_date >= CURRENT_DATE`), sem nenhum job/cron — o filtro
-"some/aparece" sozinho conforme os dias passam. `/board?show_past=1`
-reexibe tudo, inclusive o que já passou.
+Listings with an `event_date` in the past disappear by default from
+`/board` and from the Home suggestions (but stay in the database,
+reachable by direct link and visible under "My listings"). Just like
+the status dot, this is calculated **at query time**
+(`WHERE event_date IS NULL OR event_date >= CURRENT_DATE`), with no
+job/cron at all — the filter "hides/shows" listings on its own as days
+go by. `/board?show_past=1` shows everything again, including past
+events.
 
-## Paginação
+## Pagination
 
-`/board` agora pagina de 20 em 20 (`LIMIT`/`OFFSET` + uma query
-`COUNT(*)` separada pra saber o total de páginas) — antes a página
-inteira vinha numa lista só, o que ia ficar impraticável conforme o
-volume de anúncios crescesse.
+`/board` now paginates 20 at a time (`LIMIT`/`OFFSET` + a separate
+`COUNT(*)` query to know the total number of pages) — before, the
+whole page came as a single list, which would have become impractical
+as the volume of listings grew.
 
-## "Mensagem já enviada"
+## "Message already sent"
 
-Em `/listings/{id}`, se você já mandou pelo menos uma mensagem sobre
-aquele anúncio específico, aparece um aviso "Mensagem já enviada para
-este anúncio". Isso **não bloqueia** reenviar — é só um lembrete pra
-evitar lotar a caixa de entrada de quem postou com a mesma pergunta
-várias vezes.
+On `/listings/{id}`, if you've already sent at least one message about
+that specific listing, a "Message already sent for this listing"
+notice appears. This **doesn't block** you from sending another one —
+it's just a reminder to avoid flooding the poster's inbox with the
+same question multiple times.
 
-## Trocar senha e excluir conta (com período de recuperação)
+## Change password and delete account (with recovery period)
 
-- **`/profile/change-password`** — pede a senha atual + a nova (mínimo
-  6 caracteres), reusa `verify_password`/`hash_password` de
-  `app/auth.py`.
-- **Excluir conta** (seção "Gefahrenzone" em `/profile`) — pede a
-  senha de novo por segurança. É um **soft delete**: grava
-  `deleted_at = now()` na linha do usuário em vez de apagar de
-  verdade. A partir daí, `get_current_user()` e todo JOIN com autor
-  (`u.deleted_at IS NULL`) passam a ignorar essa conta — ela some do
-  site como se tivesse sido excluída, mas os dados continuam no banco.
-  Se a pessoa tentar logar de novo dentro de 6 meses, o login detecta
-  a conta desativada e manda pra `/reactivate-account`, que só exige
-  confirmar a senha (sem precisar de um novo fluxo de e-mail/token).
-  Passados 6 meses, um script separado
-  (`scripts/purge_deleted_accounts.py`, rodado via cron do sistema ou
-  manualmente — **não** um job dentro do app, seguindo o mesmo
-  princípio de "sem cron embutido" do resto do projeto) apaga essas
-  contas definitivamente.
+- **`/profile/change-password`** — asks for the current password + a
+  new one (minimum 6 characters), reuses `verify_password`/
+  `hash_password` from `app/auth.py`.
+- **Delete account** (the "Gefahrenzone" section on `/profile`) — asks
+  for the password again for security. It's a **soft delete**: writes
+  `deleted_at = now()` on the user's row instead of actually deleting
+  it. From then on, `get_current_user()` and every author JOIN
+  (`u.deleted_at IS NULL`) start ignoring that account — it disappears
+  from the site as if it had been deleted, but the data stays in the
+  database. If the person tries to log in again within 6 months, the
+  login detects the deactivated account and sends them to
+  `/reactivate-account`, which only requires confirming the password
+  (no need for a new email/token flow). After 6 months, a separate
+  script (`scripts/purge_deleted_accounts.py`, run via system cron or
+  manually — **not** a job inside the app, following the same "no
+  built-in cron" principle as the rest of the project) permanently
+  deletes those accounts.
 
-## Foto de perfil
+## Profile photo
 
-Upload direto (sem serviço externo) em `/register` e `/profile` —
-JPG/PNG/WebP, até 3 MB, validado por Content-Type e tamanho (ver
-`app/avatars.py`). O arquivo é salvo em `app/static/avatars/{user_id}.
-{ext}`, que já é servido publicamente pelo mesmo `StaticFiles` do
-resto do CSS/JS (`/static/...`), sem precisar de nenhum mount novo.
-**Ponto de atenção:** em plataformas como Railway/Render (free tier)
-o disco do container é efêmero — um novo deploy apaga essas fotos.
-Aceitável para um beta pequeno; se o projeto crescer, o próximo passo
-é migrar para um object storage (S3, Cloudflare R2, etc.).
+Direct upload (no external service) on `/register` and `/profile` —
+JPG/PNG/WebP, up to 3 MB, validated by Content-Type and size (see
+`app/avatars.py`). The file is saved at
+`app/static/avatars/{user_id}.{ext}`, which is already served publicly
+by the same `StaticFiles` mount as the rest of the CSS/JS
+(`/static/...`), with no need for a new mount. **Heads up:** on
+platforms like Railway/Render (free tier), the container's disk is
+ephemeral — a new deploy wipes these photos. Acceptable for a small
+beta; if the project grows, the next step is migrating to object
+storage (S3, Cloudflare R2, etc.).
 
-## Alerta de anúncio compatível
+## Matching listing alert
 
-Quando alguém publica um anúncio `seeking_singer` ou `seeking_conductor`,
-todo mundo com o perfil compatível (voz certa, ou papel de maestro(a))
-e que não desligou os alertas recebe um e-mail na hora — não um resumo
-diário, é imediato mesmo (`app/notifications.py`). Roda como uma
-`BackgroundTask` do FastAPI: o anúncio é publicado e a pessoa é
-redirecionada na hora, os e-mails saem depois, em segundo plano, sem
-atrasar a resposta. Cada pessoa liga/desliga isso em `/profile`
-(`users.notify_matches`, ligado por padrão).
+When someone posts a `seeking_singer` or `seeking_conductor` listing,
+everyone with a matching profile (right voice, or conductor role) who
+hasn't turned off alerts gets an email right away — not a daily
+digest, it's actually immediate (`app/notifications.py`). It runs as a
+FastAPI `BackgroundTask`: the listing gets posted and the person is
+redirected right away, the emails go out afterward, in the background,
+without delaying the response. Each person can toggle this on/off in
+`/profile` (`users.notify_matches`, on by default).
 
-## Favoritar anúncio
+## Favorite a listing
 
-Botão "☆ Favoritar" em `/listings/{id}` (pra quem não é o autor),
-listados em `/my-favorites`. Tabela simples `saved_listings` com
-`UNIQUE(user_id, listing_id)` — favoritar de novo o que já está
-favoritado não faz nada (`ON CONFLICT DO NOTHING`), e o `/board` marca
-com uma ⭐ os anúncios já favoritados (calculado com um `EXISTS`
-correlacionado direto na query da lista, sem N+1).
+"☆ Favorite" button on `/listings/{id}` (for non-authors), listed at
+`/my-favorites`. Simple `saved_listings` table with `UNIQUE(user_id,
+listing_id)` — favoriting an already-favorited listing again does
+nothing (`ON CONFLICT DO NOTHING`), and `/board` marks already
+favorited listings with a ⭐ (computed with a correlated `EXISTS`
+directly in the list query, no N+1).
 
-## Exportar meus dados
+## Export my data
 
-`/profile/export` — baixa um `.json` com tudo que a pessoa tem
-cadastrado (perfil, anúncios, mensagens enviadas/recebidas, avaliações
-dadas/recebidas, favoritos). Isso é o direito de portabilidade de
-dados do GDPR (Art. 20) — deliberadamente NÃO inclui `password_hash`
-(não é "seu dado" no sentido de portabilidade, é um segredo de
-autenticação).
+`/profile/export` — downloads a `.json` with everything the person has
+on record (profile, listings, messages sent/received, ratings
+given/received, favorites). This is the GDPR data portability right
+(Art. 20) — deliberately does NOT include `password_hash` (that's not
+"your data" in the portability sense, it's an authentication secret).
 
-## Indicador de perfil completo
+## Profile completeness indicator
 
-Em `/profile`, uma barra mostra quanto do perfil está preenchido
-(`compute_profile_completeness()` em `app/routers/profile_routes.py`)
-— foto, cidade, telefone, bio, rede social, e (pra cantores) tipo de
-voz/hashtags/áudio, ou (pra maestros) nome do conjunto. Cada item vale
-o mesmo peso; a mensagem reforça que um perfil mais completo passa
-mais confiança pra quem visita e melhora os matches automáticos da
-Home (voz/cidade/hashtags entram nesse cálculo).
+On `/profile`, a bar shows how much of the profile is filled in
+(`compute_profile_completeness()` in
+`app/routers/profile_routes.py`) — photo, city, phone, bio, social
+link, and (for singers) voice type/hashtags/audio, or (for conductors)
+ensemble name. Each item counts equally; the message reinforces that a
+more complete profile builds more trust with visitors and improves the
+automatic matches on the Home page (voice/city/hashtags feed into that
+calculation).
 
-## Novo visual ("quiet luxury")
+## New look ("quiet luxury")
 
-O CSS foi reformulado (`app/static/css/style.css`) inspirado no estilo
-(não no design literal — nada foi copiado) de sites de "premium beauty
-studio": marfim/creme como fundo, bordô como cor de destaque, dourado
-apagado como cor secundária, serifada (Playfair Display, via Google
-Fonts) para títulos e sem serifa (Inter) para o corpo do texto. Como o
-resto do site já usava variáveis CSS (`:root { --accent: ...; }`) em
-vez de cores "cravadas" em cada regra, trocar a paleta inteira foi só
-trocar essas variáveis — botões, badges, cartões e formulários se
-adaptaram sozinhos.
+The CSS was redesigned (`app/static/css/style.css`) inspired by the
+style (not the literal design — nothing was copied) of "premium beauty
+studio" sites: ivory/cream as the background, burgundy as the accent
+color, muted gold as a secondary color, a serif face (Playfair
+Display, via Google Fonts) for headings and a sans-serif (Inter) for
+body text. Since the rest of the site already used CSS variables
+(`:root { --accent: ...; }`) instead of colors hardcoded into each
+rule, swapping the entire palette was just a matter of changing those
+variables — buttons, badges, cards, and forms adapted on their own.
 
-## "Convide um amigo" (indicações)
+## "Invite a friend" (referrals)
 
-Cada pessoa tem um código curto único (`users.referral_code`, gerado na
-primeira vez que ela visita `/profile` — `app/referrals.py`), usado num
-link tipo `/register?ref=CODE`. Quem se cadastra chegando por esse link
-tem isso guardado em `users.referred_by_user_id`. Em `/profile` aparece
-o link pronto pra copiar e quantas pessoas cada um já indicou.
+Each person has a short, unique code (`users.referral_code`, generated
+the first time they visit `/profile` — `app/referrals.py`), used in a
+link like `/register?ref=CODE`. Whoever signs up arriving through that
+link has it saved in `users.referred_by_user_id`. On `/profile`, a
+ready-to-copy link and how many people each user has referred both
+appear.
 
-Não existe nenhum prêmio/desconto automático por indicação (o site não
-cobra nada) — é só uma forma de a própria comunidade trazer mais gente,
-com o número de indicações servindo como um reconhecimento simples pra
-quem indica.
+There's no automatic reward/discount for referrals (the site doesn't
+charge anything) — it's just a way for the community itself to bring
+in more people, with the referral count serving as simple recognition
+for whoever refers.
 
-## Bloquear pessoas
+## Blocking people
 
-Em qualquer perfil público (`/users/{id}`) dá pra bloquear a pessoa
-(motivo opcional), o que faz duas coisas: (1) nenhum dos dois lados
-consegue mais mandar mensagem pro outro (checado nos dois sentidos em
-`POST /messages/send`), e (2) os anúncios da pessoa bloqueada somem do
-`/board` e dos matches da Home de quem bloqueou (filtro `NOT EXISTS`
-contra `blocked_users`). A lista de quem você bloqueou, com botão pra
-desbloquear, fica em `/profile`. Bloquear é uma decisão de uma via só
-— bloquear alguém não impede que a outra pessoa ainda veja seus
-anúncios, a não ser que ela também bloqueie você.
+On any public profile (`/users/{id}`) you can block the person
+(optional reason), which does two things: (1) neither side can send
+the other a message anymore (checked in both directions in
+`POST /messages/send`), and (2) the blocked person's listings
+disappear from `/board` and from the Home matches of whoever blocked
+them (`NOT EXISTS` filter against `blocked_users`). The list of people
+you've blocked, with an unblock button, lives on `/profile`. Blocking
+is a one-way decision — blocking someone doesn't stop the other person
+from still seeing your listings, unless they also block you.
 
-## Denunciar anúncio
+## Report a listing
 
-Em cada anúncio (menos os seus próprios), um botão "Denunciar anúncio"
-abre um formulário que exige um motivo com pelo menos 10 caracteres
-(reforçado também no banco via `CHECK` em `listing_reports.reason` —
-não é só validação de formulário). Não existe nenhuma tela de
-moderação no site: as denúncias ficam guardadas em `listing_reports`
-pra serem consultadas direto no banco por quem administra o site
-(mesmo padrão já usado em `profile_views`, a contagem de visitas a
-perfil).
+On every listing (except your own), a "Report listing" button opens a
+form that requires a reason of at least 10 characters (also enforced
+at the database level via a `CHECK` on `listing_reports.reason` — not
+just form validation). There's no moderation screen on the site: the
+reports are stored in `listing_reports` to be queried directly from
+the database by whoever administers the site (same pattern already
+used for `profile_views`, the profile view counter).
 
-## E-mail a cada nova mensagem
+## Email on every new message
 
-Além do alerta de "anúncio compatível" que já existia, agora cada
-pessoa pode ligar/desligar (`/profile`, `users.notify_messages`) um
-aviso por e-mail toda vez que recebe uma mensagem nova (`POST
-/messages/send` em `messages_routes.py`, via `BackgroundTask` — não
-atrasa o envio). De propósito o e-mail não mostra o conteúdo da
-mensagem, só avisa que uma chegou — isso ajuda a trazer a pessoa de
-volta ao site pra ler.
+Besides the "matching listing" alert that already existed, each person
+can now toggle on/off (`/profile`, `users.notify_messages`) an email
+notification every time they receive a new message
+(`POST /messages/send` in `messages_routes.py`, via `BackgroundTask` —
+doesn't delay the send). On purpose, the email doesn't show the
+message content, it just notifies that one arrived — this helps bring
+the person back to the site to read it.
 
 ## Impressum
 
-`/impressum` — obrigatório para qualquer site operando na
-Alemanha/Áustria/Suíça (Impressumspflicht, Art. 5 TMG), mesmo sendo
-administrado de fora. A página já deixa claro que o site é operado a
-partir do Brasil, mas os dados reais (nome/razão social, endereço,
-contato) ainda precisam ser preenchidos — ver `app/templates/impressum.html`,
-marcados como `[PREENCHER: ...]`. **Não publique o site com esses
-campos ainda vazios.**
+`/impressum` — required for any site operating in
+Germany/Austria/Switzerland (Impressumspflicht, Art. 5 TMG), even when
+administered from abroad. The page already makes clear that the site
+is operated from Brazil, but the real details (legal name, address,
+contact) still need to be filled in — see
+`app/templates/impressum.html`, marked as `[PREENCHER: ...]` ("FILL
+IN: ..."). **Do not publish the site with these fields still empty.**
 
-## Código de conduta
+## Code of conduct
 
-`/code-of-conduct` — regras simples e diretas de comportamento no
-site (respeito, honestidade nos anúncios, sem spam, privacidade,
-manter o tom profissional, denunciar em vez de confrontar). Não
-depende de nenhum dado pessoal, então já está pronto para uso.
+`/code-of-conduct` — simple, straightforward rules of behavior on the
+site (respect, honesty in listings, no spam, privacy, keeping a
+professional tone, reporting instead of confronting). Doesn't depend
+on any personal data, so it's already ready to use.
 
-## Badges (gamificação leve)
+## Badges (light gamification)
 
-Em `/profile`, uma seção mostra "conquistas" calculadas na hora a
-partir do que já existe no banco (`app/badges.py`): indicou um amigo
-(que verificou o e-mail — veja "Indicações e abuso" abaixo), publicou
-um anúncio, entrou em contato com alguém, respondeu uma mensagem em
-até 24h pelo menos uma vez, perfil 100% completo, "gefragt/in demand"
-por volume de visitas (100/500/1000), e "aniversário" por tempo de
-conta (1 ano, 2 anos...). Só os badges DESBLOQUEADOS aparecem no
-perfil público (`/users/{id}`); na sua própria página (`/profile`)
-você vê todos, inclusive os que ainda faltam.
+On `/profile`, a section shows "achievements" computed on the fly from
+what's already in the database (`app/badges.py`): referred a friend
+(who verified their email — see "Referrals and abuse" below), posted a
+listing, contacted someone, replied to a message within 24h at least
+once, 100% complete profile, "gefragt/in demand" by visit volume
+(100/500/1000), and "anniversary" by account age (1 year, 2 years…).
+Only UNLOCKED badges show up on the public profile (`/users/{id}`); on
+your own page (`/profile`) you see all of them, including the ones you
+haven't unlocked yet.
 
-De propósito, isso **não é um ranking**: não existe nenhuma tela que
-compare uma pessoa com a outra, e o badge de visitas mostra só "acima
-de X visitas", nunca o número exato — preserva a decisão de manter
-`profile_views` privado.
+On purpose, this is **not a ranking**: there's no screen that compares
+one person against another, and the visit badge only shows "above X
+visits," never the exact number — preserving the decision to keep
+`profile_views` private.
 
-**E-mail a cada badge novo**: uma tabela `user_badges` (ver
-`db/schema.sql`) registra quando cada badge/nível foi desbloqueado
-pela primeira vez — ela não guarda a REGRA de nenhum badge (isso
-continua calculado na hora), só o registro de "já avisei sobre esse".
-Isso evita mandar o e-mail de novo toda vez que a página recalcula os
-badges, e permite badges com vários níveis (visitas, aniversário)
-mandarem um e-mail por degrau alcançado.
+**Email on every new badge**: a `user_badges` table (see
+`db/schema.sql`) records when each badge/tier was first unlocked — it
+doesn't store the RULE for any badge (that's still computed on the
+fly), only the record of "already notified about this one." This
+avoids sending the email again every time the page recomputes badges,
+and lets multi-tier badges (visits, anniversary) send one email per
+tier reached.
 
-**Quando a checagem roda**: depois de ações que plausivelmente
-desbloqueiam algum badge (publicar anúncio, mandar mensagem, salvar o
-perfil) — e também, de forma "preguiçosa", toda vez que você abre o
-próprio `/profile`. Isso cobre os badges de aniversário e visitas, que
-não dependem de uma ação sua específica: como o projeto não usa nenhum
-cron interno, a visita mais natural e frequente (você mesmo abrindo o
-perfil) já é suficiente pra manter isso em dia sem precisar de nenhum
-job agendado.
+**When the check runs**: after actions that could plausibly unlock a
+badge (posting a listing, sending a message, saving the profile) — and
+also, "lazily," every time you open your own `/profile`. This covers
+the anniversary and visit badges, which don't depend on a specific
+action of yours: since the project doesn't use any internal cron, the
+most natural and frequent visit (you opening your own profile) is
+already enough to keep this up to date without needing any scheduled
+job.
 
-**Outras ideias de gamificação leve** (não implementadas, mas fáceis
-de encaixar no mesmo padrão de `app/badges.py` se quiser):
-- Badge por diversidade de indicações — indicou tanto cantores quanto
-  maestros.
-- Selo de "perfil verificado recentemente" (atualizou algo nos
-  últimos 30 dias) — sinaliza atividade sem expor tempo online.
-- Um e-mail de "resumo mensal" agregando tudo que aconteceu na semana
-  (badges novos, mensagens, visitas ao anúncio) em vez de um e-mail
-  por evento — reduz a quantidade de e-mails conforme a base cresce.
-- Badge de "primeira resposta em menos de 1h" (um degrau acima da
-  resposta em 24h) — mesmo padrão de `_has_fast_response`, só com
-  janela menor.
+**Other light gamification ideas** (not implemented, but easy to slot
+into the same `app/badges.py` pattern if you want):
+- Badge for referral diversity — referred both singers and
+  conductors.
+- "Recently verified/active profile" badge (updated something in the
+  last 30 days) — signals activity without exposing time online.
+- A "monthly digest" email aggregating everything that happened in the
+  week (new badges, messages, listing views) instead of one email per
+  event — reduces email volume as the user base grows.
+- "First reply in under 1h" badge (a tier above the 24h reply) — same
+  pattern as `_has_fast_response`, just with a smaller window.
 
-### Indicações e abuso (referral gaming)
+### Referrals and abuse (referral gaming)
 
-Uma coisa que vale flagar: como não existe CAPTCHA nem limite de
-cadastros no `/register`, nada impedia (antes desta rodada) alguém
-inflar o próprio contador de indicações — e agora o badge de
-"Botschafter(in)" — criando várias contas falsas pelo próprio link.
-Reduzi (não eliminei) isso: `get_referral_stats()` e o badge de
-indicação só contam pessoas indicadas que **verificaram o e-mail**
-(`app/referrals.py`). Não impede 100% (dá pra verificar e-mails
-descartáveis), mas já é uma barreira de verdade contra o caso mais
-simples. Se algum dia isso virar problema de verdade, as próximas
-barreiras seriam: CAPTCHA no cadastro, ou um limite de X cadastros por
-IP/dia.
+One thing worth flagging: since there's no CAPTCHA or signup limit on
+`/register`, nothing stopped (before this round) someone from
+inflating their own referral count — and now the "Botschafter(in)"
+badge — by creating several fake accounts through their own link. I
+reduced (didn't eliminate) this: `get_referral_stats()` and the
+referral badge only count referred people who **verified their
+email** (`app/referrals.py`). This doesn't stop it 100% (you can still
+verify disposable emails), but it's already a real barrier against the
+simplest case. If this ever becomes a real problem, the next barriers
+would be: CAPTCHA at signup, or a limit of X signups per IP/day.
 
-## Bloqueio é invisível dos dois lados
+## Blocking is invisible on both sides
 
-Bloquear alguém (em `/users/{id}` ou pela lista em `/profile`) agora
-faz o perfil de cada um desaparecer para o outro nos dois sentidos —
-não importa quem bloqueou quem, nenhum dos dois consegue ver o perfil
-do outro (`/users/{id}` mostra só um aviso genérico, sem revelar o
-motivo nem quem bloqueou), mandar mensagem, ou ver os anúncios do
-outro no `/board`/Home. Só quem bloqueou vê a pessoa na própria lista
-de bloqueados (com botão de desbloquear) em `/profile` — a pessoa
-bloqueada nunca fica sabendo que foi bloqueada por ali.
+Blocking someone (from `/users/{id}` or the list on `/profile`) now
+makes each person's profile disappear from the other in both
+directions — no matter who blocked whom, neither can see the other's
+profile (`/users/{id}` just shows a generic notice, without revealing
+the reason or who did the blocking), send messages, or see the other's
+listings on `/board`/Home. Only the person who did the blocking sees
+the other person in their own blocked list (with an unblock button) on
+`/profile` — the blocked person never finds out they were blocked from
+there.
 
-## Aviso de caixa de spam na Home
+## Spam folder notice on the Home page
 
-Quem está logado vê, na Home, um aviso lembrando de checar a caixa de
-spam e marcar e-mails do site como "não é spam" (pra não perder
-alertas de mensagem/anúncio compatível) — com um "✕" pra fechar. A
-escolha fica salva no navegador da pessoa (`localStorage`) **com
-data**, não como "nunca mais mostrar": o aviso reaparece
-automaticamente uma semana depois de fechado (`app/templates/home.html`,
-`ONE_WEEK_MS`). Isso equilibra não ser chato toda visita com não deixar
-o aviso sumir de vez pra sempre.
+Logged-in users see, on the Home page, a notice reminding them to
+check their spam folder and mark the site's emails as "not spam" (so
+they don't miss message/matching-listing alerts) — with a "✕" to
+dismiss it. The choice is saved in the person's browser
+(`localStorage`) **with a date**, not as "never show again": the
+notice reappears automatically a week after being dismissed
+(`app/templates/home.html`, `ONE_WEEK_MS`). This balances not being
+annoying on every visit with not letting the notice disappear forever.
 
-## Níveis de acesso administrativo (`users.role_level`)
+## Administrative access levels (`users.role_level`)
 
-`users.role_level` (inteiro, 0 a 3 — ver `db/schema.sql` e
-`app/permissions.py`) é uma escala, não um booleano:
+`users.role_level` (integer, 0 to 3 — see `db/schema.sql` and
+`app/permissions.py`) is a scale, not a boolean:
 
-- `0` — comum, sem acesso a `/admin`
-- `1` — moderador: só o painel `/admin` (leitura + denúncias/bloqueios)
-- `2` — admin: tudo que `/admin` já fazia (usuários, posts, análise de
-  dados)
-- `3` — god mode: tudo acima + a **Zona Vermelha** (`/financeiro`) —
-  Modo Capitalismo, preço de assinatura, painel financeiro interno
+- `0` — regular, no access to `/admin`
+- `1` — moderator: only the `/admin` panel (read + reports/blocks)
+- `2` — admin: everything `/admin` already did (users, posts, data
+  analysis)
+- `3` — god mode: everything above + the **Red Zone**
+  (`/financeiro`) — Capitalism Mode, subscription pricing, internal
+  financial panel
 
-A antiga coluna `is_admin BOOLEAN` continua existindo, só por
-compatibilidade com telas/consultas antigas, e é mantida em sincronia
-automaticamente com `role_level >= 2` (tanto pela aplicação —
-`app/permissions.py:sync_is_admin_flag` — quanto por um trigger no
-próprio banco, `trg_sync_role_level`, pro caso de alguém editar
-`is_admin` direto no Adminer/SQL sem passar pela aplicação).
+The old `is_admin BOOLEAN` column still exists, just for compatibility
+with older screens/queries, and is kept automatically in sync with
+`role_level >= 2` (both by the application —
+`app/permissions.py:sync_is_admin_flag` — and by a trigger in the
+database itself, `trg_sync_role_level`, in case someone edits
+`is_admin` directly in Adminer/SQL without going through the
+application).
 
-**Como virar god mode a primeira vez**: não existe cadastro pela
-interface (de propósito — é um nível sensível). Direto no banco:
+**How to become god mode the first time**: there's no signup flow for
+it through the UI (on purpose — it's a sensitive level). Directly in
+the database:
 ```sql
-UPDATE users SET role_level = 3 WHERE email = 'seu-email@exemplo.com';
+UPDATE users SET role_level = 3 WHERE email = 'your-email@example.com';
 ```
-(O trigger cuida de deixar `is_admin = TRUE` também, automaticamente.)
-Depois do primeiro god mode, promover outras pessoas já pode ser feito
-pela interface (`/admin/users/{id}`, botões "Tornar admin" e "Dar god
-mode") — dar god mode a alguém só pode ser feito por quem **já** é god
-mode, nunca por um admin comum.
+(The trigger takes care of setting `is_admin = TRUE` too,
+automatically.) After the first god mode account exists, promoting
+other people can be done through the UI (`/admin/users/{id}`, "Make
+admin" and "Grant god mode" buttons) — granting god mode to someone
+can only be done by someone who is **already** god mode, never by a
+regular admin.
 
-Quem tenta acessar `/admin` ou `/financeiro` sem o nível necessário só
-é redirecionado pra home, sem nenhuma mensagem revelando que a página
-existe. `require_level()` em `app/permissions.py` é o ponto único que
-checa isso — qualquer rota administrativa futura deveria chamar essa
-mesma função no início, em vez de reimplementar a checagem.
+Anyone trying to access `/admin` or `/financeiro` without the
+required level is just redirected to the home page, with no message
+revealing that the page exists. `require_level()` in
+`app/permissions.py` is the single point that checks this — any future
+admin route should call this same function at the start, instead of
+reimplementing the check.
 
-## Administrar o site e ver o banco em tempo real
+## Administering the site and viewing the database live
 
-Minha recomendação segue a mesma: **não vale a pena construir uma API
-administrativa separada** — o `/admin` acima já cobre o "dar uma
-olhada rápida sem SQL", e o Adminer cobre "editar/consultar de
-verdade". Pra "ver e editar em tempo real" sem escrever nenhum código,
-duas opções prontas:
+My recommendation stays the same: **it's not worth building a separate
+admin API** — the `/admin` panel above already covers "take a quick
+look without SQL," and Adminer covers "actually edit/query." For "view
+and edit live" without writing any code, two ready-made options:
 
-- **Adminer** — uma interface web de um arquivo só, já incluída neste
-  projeto como um serviço opcional no `docker-compose.yml` (perfil
-  `admin`, não sobe sozinho). Pra usar localmente:
+- **Adminer** — a single-file web interface, already included in this
+  project as an optional service in `docker-compose.yml` (profile
+  `admin`, doesn't start on its own). To use it locally:
   ```
   docker compose --profile admin up
   ```
-  e abra `http://localhost:8080` (servidor: `db`, usuário/senha/banco
-  como no seu `.env`). Dá pra navegar tabelas, rodar SQL, editar
-  linhas na hora — exatamente o que você pediu.
-- **pgAdmin** — mais pesado que o Adminer, mas com mais recursos
-  (gráficos de query, editor mais completo) se um dia sentir falta
-  de algo que o Adminer não tem.
+  and open `http://localhost:8080` (server: `db`, user/password/
+  database as in your `.env`). Lets you browse tables, run SQL, edit
+  rows live — exactly what you asked for.
+- **pgAdmin** — heavier than Adminer, but with more features (query
+  charts, a more complete editor) if you ever miss something Adminer
+  doesn't have.
 
-**Importante se for além do seu computador**: nunca exponha a porta
-do Adminer (8080), nem `/admin`, publicamente sem proteção extra na
-frente — um túnel SSH (`ssh -L 8080:localhost:8080 seu-servidor`) ou
-um proxy reverso com login (ex: Caddy/nginx com autenticação básica)
-na frente. O Adminer sozinho só tem a senha do Postgres te protegendo,
-e `/admin` só tem a sessão de login normal do site (sem 2FA) — o
-que não é suficiente exposto direto na internet.
+**Important if you go beyond your own computer**: never expose
+Adminer's port (8080), or `/admin`, publicly without extra protection
+in front — an SSH tunnel (`ssh -L 8080:localhost:8080 your-server`) or
+a reverse proxy with login (e.g. Caddy/nginx with basic auth) in
+front. Adminer alone only has the Postgres password protecting it, and
+`/admin` only has the site's normal login session (no 2FA) — which
+isn't enough exposed directly on the internet.
 
-## CAPTCHA (proteção anti-bot)
+## CAPTCHA (anti-bot protection)
 
-Duas camadas, seguindo o mesmo padrão de "backend plugável" já usado
-pra e-mail (`app/email.py`):
+Two layers, following the same "pluggable backend" pattern already
+used for email (`app/email.py`):
 
-1. **Honeypot** (`app/captcha.py`) — sempre ativo, zero configuração.
-   Um campo a mais (`website`) escondido via CSS fora da tela em
-   `/register` e `/forgot-password`: humanos nunca veem nem preenchem,
-   bots genéricos preenchem tudo automaticamente. Se vier preenchido,
-   a gente trata como se o envio tivesse dado certo (mesmo
-   redirecionamento/mensagem de sempre) só que **sem** criar a conta
-   ou mandar o e-mail — não dá nenhuma pista pro bot sobre o motivo.
-   Testado: um "bot" que preenche o campo não cria conta nem recebe
-   e-mail de reset; um envio normal (campo vazio) continua funcionando
-   igual.
-2. **Cloudflare Turnstile** (opcional) — um desafio "quase invisível"
-   de verdade, sem os problemas de privacidade do reCAPTCHA do Google.
-   Só liga se você configurar duas chaves no `.env`:
+1. **Honeypot** (`app/captcha.py`) — always on, zero configuration. An
+   extra field (`website`) hidden off-screen via CSS on `/register`
+   and `/forgot-password`: humans never see or fill it, generic bots
+   fill everything in automatically. If it comes back filled in, we
+   treat it as if the submission had succeeded (same redirect/message
+   as always) except **without** creating the account or sending the
+   email — no hint is given to the bot about why. Tested: a "bot" that
+   fills the field doesn't create an account or receive a reset email;
+   a normal submission (empty field) keeps working the same as always.
+2. **Cloudflare Turnstile** (optional) — a genuinely "nearly
+   invisible" challenge, without Google reCAPTCHA's privacy issues.
+   Only turns on if you configure two keys in `.env`:
    ```
    TURNSTILE_SITE_KEY=...
    TURNSTILE_SECRET_KEY=...
    ```
-   Pra conseguir essas chaves (grátis): crie uma conta em
-   https://dash.cloudflare.com/ (não precisa migrar seu domínio pra
-   lá) → **Turnstile** → **Add site** → copie as duas chaves. Sem
-   elas configuradas, o site segue protegido só pelo honeypot — o
-   que já é uma barreira real contra bots genéricos, só não contra
-   alguém tentando abusar do seu site especificamente.
+   To get these keys (free): create an account at
+   https://dash.cloudflare.com/ (no need to migrate your domain there)
+   → **Turnstile** → **Add site** → copy the two keys. Without them
+   configured, the site stays protected by the honeypot alone — which
+   is already a real barrier against generic bots, just not against
+   someone specifically trying to abuse your site.
 
-O honeypot cobre o cadastro (que já ficou mais visado depois do
-sistema de indicações) e o "esqueci minha senha" (evita spam de
-e-mails de reset). Login não tem CAPTCHA — ali o risco é
-força-bruta de senha, não bot de cadastro, e a defesa certa pra isso
-é limitar tentativas por conta/IP (rate limiting), não CAPTCHA;
-listado abaixo como próximo passo, não implementado ainda.
+The honeypot covers signup (which became more of a target after the
+referral system) and "forgot password" (avoids reset-email spam).
+Login has no CAPTCHA — there, the risk is password brute-forcing, not
+signup bots, and the right defense for that is rate-limiting attempts
+per account/IP, not a CAPTCHA; listed below as a next step, not
+implemented yet.
 
 ## Datenschutzerklärung
 
-`/datenschutz` — a política de privacidade "de verdade" (o Impressum
-identifica QUEM opera o site; isso aqui explica O QUE fazemos com os
-dados). Cobre: quais dados coletamos e por quê (conta, anúncios,
-mensagens, indicações, e-mails opcionais, visitas a perfil, denúncias/
-bloqueios), cookies (só os técnicos — sessão e idioma, sem
-rastreamento, por isso não precisa de banner de cookies), com quem
-compartilhamos (hospedagem, Resend para e-mail, outros usuários só o
-que você torna público), quanto tempo guardamos (ligado à exclusão de
-conta com 6 meses de recuperação), seus direitos (acesso, correção,
-exclusão, portabilidade — Art. 15–21 GDPR) e segurança (bcrypt, CSRF).
+`/datenschutz` — the "real" privacy policy (the Impressum identifies
+WHO operates the site; this explains WHAT we do with the data).
+Covers: what data we collect and why (account, listings, messages,
+referrals, optional emails, profile visits, reports/blocks), cookies
+(technical only — session and language, no tracking, so no cookie
+banner is needed), who we share data with (hosting, Resend for email,
+other users see only what you make public), how long we keep data
+(tied to account deletion with a 6-month recovery window), your rights
+(access, correction, deletion, portability — GDPR Art. 15–21), and
+security (bcrypt, CSRF).
 
-**Um ponto ficou marcado como `[NOCH MIT ANWALT/ANWÄLTIN ZU PRÜFEN]`
-("ainda precisa ser revisado com advogado")**: a seção 4, sobre
-transferência internacional de dados — como o site é operado do
-Brasil mas atende principalmente Alemanha/Áustria/Suíça, existe uma
-transferência de dados entre países que tecnicamente exige um
-mecanismo de proteção específico (cláusulas contratuais padrão da UE,
-por exemplo). Isso depende de detalhes do seu provedor de hospedagem
-final e é o tipo de coisa que vale a pena confirmar com um(a)
-advogado(a) antes de aceitar dados de usuários reais — não é algo que
-dá pra resolver só escrevendo o texto certo.
+**One point is marked as `[NOCH MIT ANWALT/ANWÄLTIN ZU PRÜFEN]`
+("still needs to be reviewed with a lawyer")**: section 4, on
+international data transfer — since the site is operated from Brazil
+but mainly serves Germany/Austria/Switzerland, there's a data transfer
+between countries that technically requires a specific protection
+mechanism (EU standard contractual clauses, for example). This depends
+on details of your final hosting provider and is the kind of thing
+worth confirming with a lawyer before accepting real user data — it's
+not something that can be resolved just by writing the right text.
 
-## Próximos passos sugeridos
+## Suggested next steps
 
-- Adicionar testes automatizados (pytest + banco de teste).
-- Trocar autenticação por JWT se algum dia precisar de uma API separada
-  para um app mobile.
-- Preencher os dados reais no Impressum (nome, endereço, contato) — ver
-  seção "Impressum" acima. As páginas de Impressum e Datenschutz já
-  existem e renderizam normalmente com os campos marcados como
-  `[PREENCHER: ...]`; nada impede publicar o site com elas assim,
-  desde que o texto real entre o quanto antes puder depois.
-- Revisar a Datenschutzerklärung com um(a) advogado(a) quando der — em
-  especial a seção 4 (transferência internacional de dados), marcada
-  como pendente. Recomendável fazer isso logo após o lançamento, mas
-  não é um bloqueio técnico.
-- Rate limiting em `/login` (tentativas de senha por conta/IP) — o
-  CAPTCHA acima cobre bots de cadastro e spam de reset de senha, mas
-  não força-bruta de login, que pede uma defesa diferente (contagem de
-  tentativas, não desafio humano/bot).
-- Um limite de mensagens por dia por conta, se o spam de mensagens
-  virar um problema real conforme a base cresce (mencionado, ainda não
-  implementado — fica pra quando/se fizer sentido).
-- Ver a seção "Sistema de mensagens interno" acima para a simplificação
-  pendente da lixeira.
-- Elegibilidade pra avaliar ("só quem contratou/trabalhou com a pessoa
-  pode avaliar"), fluxo de "match encontrado" (encerra o anúncio,
-  libera avaliação mútua) e sistema de candidaturas ("eu quero" por
-  anúncio) — três ideias discutidas na conversa, ainda não
-  implementadas. Ver resposta detalhada no chat sobre como cada uma
-  poderia funcionar.
-- Repensar a ideia de "ranking de membros mais ativos" — ver resposta
-  detalhada no chat sobre por que isso entra em tensão com a decisão de
-  manter `profile_views` privado, e alternativas de retenção sugeridas.
+- Add automated tests (pytest + test database).
+- Switch authentication to JWT if a separate API is ever needed for a
+  mobile app.
+- Fill in the real Impressum details (name, address, contact) — see
+  the "Impressum" section above. The Impressum and Datenschutz pages
+  already exist and render normally with fields marked as
+  `[PREENCHER: ...]`; nothing stops publishing the site with them like
+  that, as long as the real text goes in as soon as possible
+  afterward.
+- Review the Datenschutzerklärung with a lawyer when you can —
+  especially section 4 (international data transfer), marked as
+  pending. Recommended to do this soon after launch, but not a
+  technical blocker.
+- Rate limiting on `/login` (password attempts per account/IP) — the
+  CAPTCHA above covers signup bots and password-reset spam, but not
+  login brute-forcing, which calls for a different defense (attempt
+  counting, not a human/bot challenge).
+- A daily message limit per account, if message spam becomes a real
+  problem as the user base grows (mentioned, not implemented yet —
+  left for if/when it makes sense).
+- See the "Internal messaging system" section above for the pending
+  trash simplification.
+- Rating eligibility ("only someone who hired/worked with the person
+  can rate them"), a "match found" flow (closes the listing, unlocks
+  mutual rating), and an application system ("I'm interested" per
+  listing) — three ideas discussed in chat, not implemented yet. See
+  the detailed answer in chat about how each one could work.
+- Rethink the "most active members ranking" idea — see the detailed
+  answer in chat about why this is in tension with the decision to
+  keep `profile_views` private, and the suggested retention
+  alternatives.

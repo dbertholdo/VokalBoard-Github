@@ -16,9 +16,9 @@
     </div>
     <script nonce="{{ csp_nonce }}">
         (function () {
-            // Reaparece uma vez por semana (não fica escondido pra sempre
-            // depois do primeiro "x") — guarda só a DATA do último fechar,
-            // não um "nunca mais mostrar".
+            // Reappears once a week (doesn't stay hidden forever after
+            // the first "x") — stores only the DATE it was last closed,
+            // not a "never show again".
             var ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
             try {
                 var dismissedAt = localStorage.getItem('spamNoticeDismissedAt');
@@ -27,8 +27,8 @@
                     document.getElementById('spam-notice').hidden = false;
                 }
             } catch (e) {
-                // localStorage indisponível (ex: modo privado) — mostra o
-                // aviso mesmo assim, só sem lembrar a escolha entre visitas.
+                // localStorage unavailable (e.g. private mode) — show the
+                // notice anyway, just without remembering the choice between visits.
                 document.getElementById('spam-notice').hidden = false;
             }
         })();

@@ -1,32 +1,31 @@
 """
-Gera db/seed_cities.sql a partir do pacote `geonamescache` (dados do
-GeoNames, https://www.geonames.org/, licença Creative Commons
-Attribution 4.0).
+Generates db/seed_cities.sql from the `geonamescache` package (GeoNames
+data, https://www.geonames.org/, Creative Commons Attribution 4.0
+license).
 
-Por que assim: montar essa lista à mão (todo Bundesland/Kanton com
-suas cidades) seria impraticável e propenso a erro. O GeoNames já tem
-esses dados prontos, com nome oficial, população e o código do
-estado/cantão (admin1code) de cada cidade — só precisamos mapear esse
-código pro nome do estado/cantão (a Alemanha e a Áustria usam códigos
-numéricos "01".."16"/"01".."09"; a Suíça já usa a sigla do cantão
-diretamente, ex: "ZH", "BE").
+Why do it this way: building this list by hand (every Bundesland/Kanton
+with its cities) would be impractical and error-prone. GeoNames already
+has this data ready, with the official name, population and the
+state/canton code (admin1code) of each city — we just need to map that
+code to the state/canton name (Germany and Austria use numeric codes
+"01".."16"/"01".."09"; Switzerland already uses the canton abbreviation
+directly, e.g. "ZH", "BE").
 
-Uso:
+Usage:
     pip install geonamescache --break-system-packages
     python3 scripts/generate_cities_seed.py
 
-Isso sobrescreve db/seed_cities.sql. Rode de novo só se quiser trocar
-o corte de população ou adicionar outro país.
+This overwrites db/seed_cities.sql. Rerun it only if you want to change
+the population cutoff or add another country.
 """
 import geonamescache
 
-# Corte de população: o dataset "cities" do geonamescache já vem
-# filtrado (cidades "grandes o suficiente para importar"), mas
-# deixamos explícito aqui pra documentar a intenção — cidades muito
-# pequenas (vilarejos) não entram, porque o objetivo é cobrir onde as
-# pessoas realmente moram/trabalham, não uma lista exaustiva de cada
-# povoado.
-MIN_POPULATION = 0  # o pacote já filtra por ~15.000 antes de chegar aqui
+# Population cutoff: the geonamescache "cities" dataset already comes
+# filtered (cities "large enough to be worth importing"), but we make
+# it explicit here to document the intent — very small places
+# (villages) are excluded, because the goal is to cover where people
+# actually live/work, not an exhaustive list of every settlement.
+MIN_POPULATION = 0  # the package already filters to ~15,000 before this
 
 DE_STATES = {
     "01": "Baden-Württemberg", "02": "Bayern", "03": "Bremen", "04": "Hamburg",
@@ -48,9 +47,9 @@ CH_CANTONS = {
     "TG": "Thurgau", "UR": "Uri", "VD": "Waadt", "VS": "Wallis", "ZG": "Zug", "ZH": "Zürich",
 }
 
-# Exônimos/grafias em inglês que o geonamescache usa como "name"
-# principal — corrigidos pra grafia local, já que o site é DE/EN mas
-# o público-alvo é da própria região.
+# Exonyms/English spellings that geonamescache uses as the main
+# "name" — corrected to the local spelling, since the site is DE/EN
+# but the target audience is from the region itself.
 NAME_OVERRIDES = {
     "Munich": "München", "Cologne": "Köln", "Nuremberg": "Nürnberg",
     "Hanover": "Hannover", "Brunswick": "Braunschweig", "Vienna": "Wien",
@@ -63,8 +62,8 @@ def build(cities, country_code, state_map):
     rows, seen = [], set()
     for c in subset:
         name = c["name"]
-        # "Zürich (Kreis 11)" e afins são distritos urbanos, não
-        # municípios separados — excluídos.
+        # "Zürich (Kreis 11)" and similar are urban districts, not
+        # separate municipalities — excluded.
         if "Kreis" in name or "/" in name:
             continue
         name = NAME_OVERRIDES.get(name, name)
@@ -95,10 +94,10 @@ def main():
     )
 
     lines = [
-        "-- Cidades reais da Alemanha, Áustria e Suíça (fonte: GeoNames, cidades",
-        "-- com população >= ~15.000 habitantes), agrupadas por estado/cantão.",
-        "-- Gerado automaticamente via scripts/generate_cities_seed.py — não edite",
-        "-- este arquivo à mão, rode o script de novo se precisar atualizar.",
+        "-- Real cities in Germany, Austria and Switzerland (source: GeoNames,",
+        "-- cities with population >= ~15,000), grouped by state/canton.",
+        "-- Auto-generated via scripts/generate_cities_seed.py — do not edit",
+        "-- this file by hand, rerun the script if you need to update it.",
         "",
         "INSERT INTO cities (name, state, country_code, population) VALUES",
     ]
@@ -109,7 +108,7 @@ def main():
     with open("db/seed_cities.sql", "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    print(f"Gerado db/seed_cities.sql com {len(rows)} cidades.")
+    print(f"Generated db/seed_cities.sql with {len(rows)} cities.")
 
 
 if __name__ == "__main__":

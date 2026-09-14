@@ -19,10 +19,10 @@
         <option value="">{{ t('filter_all_states') }}</option>
     </select>
 
-    {# Cidade: em cascata com o Estado quando dá (lista curada, ver
-       app/locations.py); sem estado escolhido, ou pra achar uma
-       cidade fora da lista, sempre dá pra digitar livre — a busca
-       por cidade sempre foi um ILIKE parcial no backend. #}
+    {# City: cascades with State when possible (curated list, see
+       app/locations.py); with no state chosen, or to find a city
+       outside the list, free typing is always available — city
+       search has always been a partial ILIKE on the backend. #}
     <select name="city" id="filter-city-select" hidden disabled>
         <option value="">{{ t('filter_all_cities') }}</option>
     </select>

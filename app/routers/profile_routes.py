@@ -21,24 +21,24 @@ MAX_BIO_LENGTH = 1000
 MAX_AUDIO_LINKS = 3
 MAX_RATING_COMMENT = 500
 
-# Janela de "cooldown" pra contagem de visitas de perfil: a mesma sessão
-# (mesmo navegador) só gera uma nova linha em profile_views por perfil
-# a cada 12h, mesmo que a pessoa dê F5 várias vezes.
+# "Cooldown" window for profile view counting: the same session
+# (same browser) only generates a new row in profile_views per
+# profile every 12h, even if the person hits F5 several times.
 VIEW_COOLDOWN_SECONDS = 12 * 60 * 60
 
-# Plataformas de rede social aceitas — conjunto fixo (não é um campo de
-# texto livre) pra poder mostrar sempre só o nome da rede ("Instagram",
-# "Facebook"...) em vez do link completo, e manter a visão do perfil
-# despoluída, como pedido.
+# Accepted social network platforms — a fixed set (not a free-text
+# field) so we can always show just the network's name ("Instagram",
+# "Facebook"...) instead of the full link, and keep the profile view
+# uncluttered, as requested.
 SOCIAL_PLATFORMS = ["website", "facebook", "instagram", "twitter", "whatsapp"]
 
 
 def parse_hashtags(raw: str) -> list[str]:
     """
-    Recebe algo como "#Mozart, Verdi #Puccini" e devolve uma lista
-    limpa e sem duplicatas, com no máximo MAX_COMPOSER_TAGS itens.
+    Takes something like "#Mozart, Verdi #Puccini" and returns a
+    clean list with no duplicates, with at most MAX_COMPOSER_TAGS items.
 
-    Aceita vírgula ou espaço como separador, e o "#" é opcional.
+    Accepts comma or space as separator, and the "#" is optional.
     """
     if not raw:
         return []
@@ -56,10 +56,10 @@ def parse_hashtags(raw: str) -> list[str]:
 
 def parse_audio_links(raw: str) -> list[str]:
     """
-    Recebe links de "Audiobeispiel" separados por vírgula e/ou quebra
-    de linha (ex: link do YouTube, SoundCloud etc.) e devolve até
-    MAX_AUDIO_LINKS URLs válidas (começando com http:// ou https://).
-    Links inválidos são simplesmente ignorados, sem travar o cadastro.
+    Takes "Audiobeispiel" links separated by comma and/or line break
+    (e.g. a YouTube link, SoundCloud etc.) and returns up to
+    MAX_AUDIO_LINKS valid URLs (starting with http:// or https://).
+    Invalid links are simply ignored, without blocking the signup.
     """
     if not raw:
         return []
@@ -128,9 +128,10 @@ def get_social_links(user_id: int) -> dict[str, str]:
 
 def set_social_links(user_id: int, links: dict[str, str]) -> None:
     """
-    `links` é {plataforma: url}; plataformas ausentes ou com URL vazia
-    são removidas. Só aceita http(s) — evita gente colando "@usuario"
-    sem link de verdade, que quebraria o botão na hora de exibir.
+    `links` is {platform: url}; missing platforms or ones with an
+    empty URL are removed. Only accepts http(s) — this avoids people
+    pasting "@username" without a real link, which would break the
+    button when displaying it.
     """
     execute("DELETE FROM user_social_links WHERE user_id = :user_id", {"user_id": user_id})
     for platform, url in links.items():
@@ -147,10 +148,10 @@ def set_social_links(user_id: int, links: dict[str, str]) -> None:
 
 def get_my_ratings(user_id: int) -> list[dict]:
     """
-    Avaliações RECEBIDAS por essa pessoa — só chamado a partir de
-    /profile (a própria pessoa vendo o que ela mesma recebeu). Nunca
-    chamado a partir de /users/{id} (perfil público) nem de nenhum
-    outro lugar visível a terceiros.
+    Ratings RECEIVED by this person — only called from /profile (the
+    person themselves seeing what they received). Never called from
+    /users/{id} (public profile) or anywhere else visible to third
+    parties.
     """
     return fetch_all(
         """
@@ -179,11 +180,12 @@ def get_rating_given(rater_id: int, rated_id: int) -> dict | None:
     )
 
 
-# Itens que contam pro indicador de "perfil completo" em /profile — cada
-# um vale o mesmo peso (simples de explicar: "8 de 10 itens = 80%").
-# A ideia (pedida) é reforçar que um perfil mais completo passa mais
-# confiança pra quem visita e melhora o que a Home consegue "casar"
-# automaticamente (voz, cidade, composer tags entram no matching).
+# Items that count toward the "complete profile" indicator in
+# /profile — each one carries the same weight (simple to explain: "8
+# of 10 items = 80%"). The idea (as requested) is to reinforce that a
+# more complete profile inspires more trust in visitors and improves
+# what the Home page can "match" automatically (voice, city, composer
+# tags factor into the matching).
 def compute_profile_completeness(user: dict, role_profile: dict | None, composer_tags: list,
                                   audio_links: list, social_links: dict) -> dict:
     items = [
@@ -248,8 +250,8 @@ def _my_profile_context(request: Request, user: dict, error: str | None = None, 
         "audio_links": audio_links,
         "social_links": social_links,
         "social_platforms": SOCIAL_PLATFORMS,
-        # Avaliações recebidas — SÓ aparecem aqui, na própria página
-        # de perfil da pessoa (privado, nunca em /users/{id}).
+        # Ratings received — ONLY show up here, on the person's own
+        # profile page (private, never on /users/{id}).
         "my_ratings": get_my_ratings(user["id"]),
         "rating_summary": get_rating_summary(user["id"]),
         "completeness": completeness,
@@ -270,12 +272,12 @@ def my_profile(request: Request, background_tasks: BackgroundTasks):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Checagem "preguiçosa" de badges com nível que dependem só do
-    # tempo passando (aniversário) ou de dados que mudam fora de uma
-    # ação direta (visitas) — como o projeto não usa nenhum cron
-    # interno, a gente aproveita a visita mais natural e frequente
-    # (a própria pessoa abrindo o perfil) pra recalcular e, se for o
-    # caso, mandar o e-mail de "novo badge".
+    # "Lazy" check of tiered badges that depend only on time passing
+    # (anniversary) or on data that changes outside a direct action
+    # (views) — since the project doesn't use any internal cron, we
+    # take advantage of the most natural and frequent visit (the
+    # person opening their own profile) to recalculate and, if that's
+    # the case, send the "new badge" e-mail.
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
 
     context = _my_profile_context(request, user, saved=request.query_params.get("saved") == "1")
@@ -343,8 +345,8 @@ async def update_profile(
         if new_avatar_url:
             execute("UPDATE users SET avatar_url = :avatar_url WHERE id = :id", {"avatar_url": new_avatar_url, "id": user["id"]})
         else:
-            # Arquivo inválido (tipo não suportado ou grande demais) —
-            # não trava o resto do salvamento, só ignora a foto e avisa.
+            # Invalid file (unsupported type or too large) — doesn't
+            # block the rest of the save, just skips the photo and warns.
             context = _my_profile_context(request, get_current_user(request), error="profile_avatar_invalid")
             return render(request, "profile.html", context, status_code=400)
 
@@ -440,14 +442,14 @@ def change_password_submit(
 @router.post("/profile/delete-account")
 def delete_account_submit(request: Request, csrf_token: str = Form(""), current_password: str = Form(...)):
     """
-    Soft delete: marca deleted_at = now() e derruba a sessão. A conta
-    fica "invisível" (get_current_user, joins de autor etc. filtram
-    deleted_at IS NULL) mas os dados continuam no banco por 6 meses —
-    se a pessoa tentar logar de novo nesse período, cai no fluxo de
-    reativação (ver /reactivate-account em auth_routes.py). Depois de
-    6 meses, um script externo (scripts/purge_deleted_accounts.py)
-    apaga definitivamente — sem cron dentro do app, como o resto do
-    projeto.
+    Soft delete: sets deleted_at = now() and drops the session. The
+    account becomes "invisible" (get_current_user, author joins etc.
+    filter on deleted_at IS NULL) but the data stays in the database
+    for 6 months — if the person tries to log in again during that
+    period, they fall into the reactivation flow (see
+    /reactivate-account in auth_routes.py). After 6 months, an
+    external script (scripts/purge_deleted_accounts.py) deletes it
+    for good — no cron inside the app, like the rest of the project.
     """
     verify_csrf(request, csrf_token)
     user = get_current_user(request)
@@ -467,12 +469,12 @@ def delete_account_submit(request: Request, csrf_token: str = Form(""), current_
 @router.get("/profile/export")
 def export_my_data(request: Request):
     """
-    Exportação de dados (GDPR Art. 20 — direito à portabilidade): um
-    JSON com tudo que a pessoa tem cadastrado no sistema, pra baixar.
-    Deliberadamente NÃO inclui password_hash (não é "seu dado" no
-    sentido de portabilidade, é um segredo de autenticação) nem dados
-    de outras pessoas além do que já é necessário pra dar contexto às
-    próprias mensagens/avaliações dela.
+    Data export (GDPR Art. 20 — right to portability): a JSON with
+    everything the person has registered in the system, to download.
+    Deliberately does NOT include password_hash (it isn't "your data"
+    in the portability sense, it's an authentication secret) nor
+    other people's data beyond what's already necessary to give
+    context to the person's own messages/ratings.
     """
     user = get_current_user(request)
     if not user:
@@ -525,19 +527,20 @@ def export_my_data(request: Request):
     return Response(
         content=body,
         media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="vokalboard-dados-{user_id}.json"'},
+        headers={"Content-Disposition": f'attachment; filename="vokalboard-data-{user_id}.json"'},
     )
 
 
 @router.post("/users/{user_id}/block")
 def block_user(request: Request, user_id: int, csrf_token: str = Form(""), reason: str = Form("")):
     """
-    Bloquear alguém: a partir de agora nenhum dos dois lados consegue
-    mandar mensagem pro outro (checado em messages_routes.py), e os
-    anúncios da pessoa bloqueada somem do /board e dos matches da Home
-    pra quem bloqueou (ver os filtros NOT EXISTS em listings_routes.py).
-    Motivo é opcional aqui (diferente da denúncia de anúncio, que exige
-    motivo) — bloquear é uma decisão pessoal, não precisa justificar.
+    Blocking someone: from now on neither side can send the other a
+    message (checked in messages_routes.py), and the blocked
+    person's listings disappear from /board and from the Home
+    matches for whoever blocked them (see the NOT EXISTS filters in
+    listings_routes.py). A reason is optional here (unlike reporting
+    a listing, which requires one) — blocking is a personal decision,
+    no justification needed.
     """
     verify_csrf(request, csrf_token)
     viewer = get_current_user(request)
@@ -636,18 +639,19 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
         else:
             conductor_profile = get_conductor_profile(user_id)
 
-        # Log de visita — não aparece em nenhuma tela, é só pra você
-        # (admin) consultar direto no banco. Não conta a própria pessoa
-        # visitando o próprio perfil.
+        # Visit log — doesn't show up on any screen, it's just for
+        # you (the admin) to query directly in the database. Doesn't
+        # count the person themselves visiting their own profile.
         #
-        # Pra evitar que dar F5 na página infle a contagem, cada sessão
-        # (cookie de navegador, já usado pra login/CSRF) só conta como
-        # uma nova visita a este perfil uma vez a cada VIEW_COOLDOWN.
-        # Não é à prova de tudo (limpar cookies ou usar aba anônima
-        # contorna), mas isso é aceitável pra uma métrica leve — não
-        # vale a pena rastrear IP pra fechar essa brecha por completo,
-        # o que iria contra a linha "profile_views é privado e mínimo"
-        # do projeto.
+        # To prevent hitting F5 on the page from inflating the count,
+        # each session (browser cookie, already used for login/CSRF)
+        # only counts as a new visit to this profile once every
+        # VIEW_COOLDOWN. It's not foolproof (clearing cookies or
+        # using an incognito tab gets around it), but that's
+        # acceptable for a lightweight metric — it's not worth
+        # tracking IP to close this gap completely, which would go
+        # against the project's "profile_views is private and
+        # minimal" principle.
         viewer = get_current_user(request)
         if not viewer or viewer["id"] != user_id:
             session_key = f"viewed_profile_{user_id}"
@@ -659,9 +663,9 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
                     "INSERT INTO profile_views (profile_user_id, viewer_user_id) VALUES (:profile_id, :viewer_id)",
                     {"profile_id": user_id, "viewer_id": viewer["id"] if viewer else None},
                 )
-                # A visita pode ter feito o DONO do perfil cruzar um
-                # patamar de "views" (100/500/1000) — checa e avisa ELE,
-                # não quem está visitando.
+                # The visit may have made the profile OWNER cross a
+                # "views" threshold (100/500/1000) — check and notify
+                # THEM, not whoever is visiting.
                 background_tasks.add_task(check_and_notify_new_badges, user_id, str(request.base_url))
 
     listings = fetch_all(
@@ -682,23 +686,25 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
 
     viewer = get_current_user(request)
 
-    # Redes sociais: só fazem sentido mostrar quando o perfil não está
-    # "locked" (visitante logado), senão ficaria mais um dado exposto
-    # de graça pra quem não se cadastrou.
+    # Social networks: only make sense to show when the profile isn't
+    # "locked" (visitor logged in), otherwise it would be one more
+    # piece of data exposed for free to whoever hasn't signed up.
     social_links = get_social_links(user_id) if profile_user and viewer is not None else {}
 
-    # Avaliação que EU (viewer) já dei pra essa pessoa, pra pré-preencher
-    # o formulário de avaliação. Isso é diferente de "avaliações que essa
-    # pessoa recebeu" (my_ratings/rating_summary) — aquilo é privado e
-    # NUNCA aparece aqui, só em /profile (a própria pessoa vendo o que
-    # recebeu). Aqui só existe o widget pra dar/atualizar uma nota.
+    # The rating I (the viewer) already gave this person, to
+    # pre-fill the rating form. This is different from "ratings this
+    # person received" (my_ratings/rating_summary) — that's private
+    # and NEVER shows up here, only on /profile (the person
+    # themselves seeing what they received). Here there's only the
+    # widget to give/update a rating.
     rating_given = None
     can_rate = False
     is_blocked = False
-    # Bloqueio precisa ser invisível dos DOIS lados, senão não adianta
-    # muito — se eu bloqueei alguém (ou fui bloqueado por ela), nenhum
-    # dos dois deveria conseguir ver o perfil do outro, não só trocar
-    # mensagem. "blocked_either_way" cobre os dois sentidos.
+    # A block needs to be invisible from BOTH sides, otherwise it
+    # doesn't help much — if I blocked someone (or was blocked by
+    # them), neither of us should be able to see the other's profile,
+    # not just exchange messages. "blocked_either_way" covers both
+    # directions.
     blocked_either_way = False
     if profile_user and viewer is not None and viewer["id"] != user_id:
         can_rate = True
@@ -715,9 +721,10 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
         )
         blocked_either_way = is_blocked or (blocked_other_way is not None)
 
-    # Badges: só os desbloqueados aparecem no perfil público (o perfil
-    # não fica cheio de "conquistas travadas" pra quem visita) — a
-    # própria pessoa vê todos, travados e não, em /profile.
+    # Badges: only the unlocked ones show up on the public profile
+    # (the profile doesn't get cluttered with "locked achievements"
+    # for visitors) — the person themselves sees all of them, locked
+    # or not, in /profile.
     badges = []
     if profile_user and not blocked_either_way:
         role_profile_for_badges = singer_profile if profile_user["role"] == "singer" else conductor_profile
@@ -742,8 +749,8 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
         "blocked_either_way": blocked_either_way,
         "badges": badges,
         "listings": listings,
-        # Freemium: sem login só dá pra ver nome/papel/cidade — bio,
-        # hashtags, links de áudio e anúncios ficam atrás do cadastro.
+        # Freemium: without login you can only see name/role/city —
+        # bio, hashtags, audio links and listings stay behind signup.
         "locked": viewer is None,
     }
     return render(request, "public_profile.html", context)

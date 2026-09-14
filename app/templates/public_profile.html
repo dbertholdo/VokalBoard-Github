@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ profile_user.full_name if profile_user else t('listing_not_found') }}{% endblock %}
 
-{# Privacidade: perfis públicos não devem aparecer no Google (nome +
-   cidade de uma pessoa real, pesquisável pra sempre) — "noindex" pede
-   pros buscadores não guardarem esta página, mesmo que alguém link pra
-   ela. Não afeta em nada quem já usa o VokalBoard: continua acessível
-   normalmente por link direto, pelo quadro de anúncios etc. #}
+{# Privacy: public profiles must not show up on Google (a real
+   person's name + city, searchable forever) — "noindex" asks search
+   engines not to keep this page indexed, even if someone links to it.
+   This doesn't affect anyone already using VokalBoard: it stays
+   accessible as normal via direct link, the board, etc. #}
 {% block extra_head %}
     <meta name="robots" content="noindex, nofollow">
 {% endblock %}
@@ -23,8 +23,8 @@
     <h1>{{ profile_user.full_name }}</h1>
 
     {% if user and user.id != profile_user.id and blocked_either_way %}
-        {# Bloqueio precisa ser invisível dos dois lados — quem bloqueou
-           ou foi bloqueado não vê nada além disso, nem o motivo. #}
+        {# Blocking needs to be invisible on both sides — whoever blocked
+           or was blocked sees nothing beyond this, not even the reason. #}
         <div class="locked-box">
             <p>{{ t('profile_unavailable_blocked') }}</p>
             {% if is_blocked %}

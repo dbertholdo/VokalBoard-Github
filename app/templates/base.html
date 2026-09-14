@@ -7,11 +7,11 @@
     <meta name="description" content="{{ t('og_site_description') }}">
 
     {# ------------------------------------------------------------
-       Open Graph / Twitter Card — o preview que aparece quando o
-       link do site é compartilhado no WhatsApp, Telegram, LinkedIn
-       etc. Sem isso, o link aparecia "pelado" (só a URL, sem
-       imagem/descrição) — a imagem (og-preview.png) tem o passarinho
-       e o nome do site, gerada a partir do bird-logo.svg.
+       Open Graph / Twitter Card — the preview that shows up when the
+       site's link is shared on WhatsApp, Telegram, LinkedIn, etc.
+       Without this, the link would show up "bare" (just the URL, no
+       image/description) — the image (og-preview.png) has the bird
+       and the site name, generated from bird-logo.svg.
     ------------------------------------------------------------ #}
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="VokalBoard">
@@ -26,9 +26,9 @@
     <meta name="twitter:description" content="{{ t('og_site_description') }}">
     <meta name="twitter:image" content="{{ request.base_url }}static/img/og-preview.png">
 
-    {# Ponto de extensão: páginas que NÃO devem ser indexadas pelo
-       Google (ex: perfil público — ver public_profile.html) sobrescrevem
-       este bloco pra adicionar <meta name="robots" content="noindex">. #}
+    {# Extension point: pages that must NOT be indexed by Google
+       (e.g. public profile — see public_profile.html) override this
+       block to add <meta name="robots" content="noindex">. #}
     {% block extra_head %}{% endblock %}
 
     <link rel="icon" type="image/svg+xml" href="/static/img/bird-logo.svg">
@@ -36,25 +36,30 @@
 </head>
 <body>
     {# ------------------------------------------------------------
-       Fundo decorativo: folhas ou nuvens (escolhido aleatoriamente
-       a cada carregamento), bem clarinho, balançando/derivando
-       devagar (a animação vive dentro do próprio SVG — ver
-       bg-leaves.svg/bg-clouds.svg). Só para dar um ar "vivo" ao
-       site; nunca atrapalha a leitura ou cliques (pointer-events:
-       none), e cada folha/nuvem respeita prefers-reduced-motion.
+       Decorative background: leaves or clouds (chosen randomly on
+       each load), very faint, gently swaying/drifting (the animation
+       lives inside the SVG itself — see bg-leaves.svg/bg-clouds.svg).
+       Just to give the site a bit of "life"; never interferes with
+       reading or clicks (pointer-events: none), and each leaf/cloud
+       respects prefers-reduced-motion.
     ------------------------------------------------------------ #}
     <div class="site-bg" id="site-bg" aria-hidden="true"></div>
+    {# Our own line-icon set (app/static/img/icons.svg) — used instead
+       of emoji everywhere in the nav/sidebar/banners, so the icons
+       match the site's own green palette instead of the OS's emoji
+       font. Referenced below as <svg class="icon"><use
+       href="/static/img/icons.svg#icon-NAME"></use></svg>. #}
     <script nonce="{{ csp_nonce }}">
         (function () {
             var bg = document.getElementById('site-bg');
             if (bg) bg.classList.add(Math.random() < 0.5 ? 'bg-leaves' : 'bg-clouds');
         })();
 
-        // Confirmação antes de enviar um form "perigoso" (apagar,
-        // desativar, esvaziar lixeira, etc) — em vez de onsubmit="return
-        // confirm(...)" espalhado pelos templates (o CSP com nonce
-        // bloqueia handler inline tipo onsubmit), qualquer <form
-        // data-confirm="mensagem"> passa por aqui.
+        // Confirmation before submitting a "dangerous" form (delete,
+        // deactivate, empty trash, etc) — instead of onsubmit="return
+        // confirm(...)" scattered across templates (the nonce-based CSP
+        // blocks inline handlers like onsubmit), any <form
+        // data-confirm="message"> goes through here.
         document.addEventListener('submit', function (event) {
             var form = event.target;
             if (form && form.hasAttribute && form.hasAttribute('data-confirm')) {
@@ -64,10 +69,10 @@
             }
         });
 
-        // Barra lateral no celular: some por padrão (ver .side-nav no
-        // CSS) e vira um menu que desliza por cima do conteúdo,
-        // acionado pelo botão ☰ do cabeçalho. No desktop essa classe
-        // nunca chega a importar (o CSS já mostra a lateral fixa lá).
+        // Sidebar on mobile: hidden by default (see .side-nav in the
+        // CSS) and becomes a menu that slides over the content,
+        // triggered by the header's ☰ button. On desktop this class
+        // never matters (the CSS already shows the sidebar fixed there).
         (function () {
             var toggle = document.getElementById('sidebar-toggle');
             var sidebar = document.getElementById('side-nav');
@@ -131,35 +136,35 @@
         </nav>
     </header>
 
-    {# Sub-menu fixo da área admin — aparece em TODA página /admin/*,
-       não só na tela inicial do admin, pra não precisar voltar pro
-       painel toda vez pra trocar de seção (Usuários / Análise de
-       Dados / Posts). Calculado aqui (não em cada template) pra
-       cobrir automaticamente qualquer rota nova dentro de /admin. #}
+    {# Fixed admin sub-menu — appears on EVERY /admin/* page, not just
+       the admin dashboard, so switching sections (Users / Analytics /
+       Posts) never means going back to the dashboard first. Computed
+       here (not per-template) so any new route under /admin is
+       covered automatically. #}
     {% if user and user.role_level and user.role_level >= 1 and (request.url.path.startswith('/admin') or request.url.path.startswith('/financeiro')) %}
         <nav class="admin-subnav">
-            <a href="/admin" class="{{ 'active' if request.url.path == '/admin' else '' }}">🏠 Painel</a>
+            <a href="/admin" class="{{ 'active' if request.url.path == '/admin' else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-home"></use></svg> Dashboard</a>
             {% if user.role_level >= 2 %}
-            <a href="/admin/users" class="{{ 'active' if request.url.path.startswith('/admin/users') else '' }}">👥 Usuários</a>
-            <a href="/admin/analytics" class="{{ 'active' if request.url.path == '/admin/analytics' else '' }}">📊 Análise de Dados</a>
-            <a href="/admin/posts" class="{{ 'active' if request.url.path.startswith('/admin/posts') else '' }}">📝 Posts</a>
+            <a href="/admin/users" class="{{ 'active' if request.url.path.startswith('/admin/users') else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-users"></use></svg> Users</a>
+            <a href="/admin/analytics" class="{{ 'active' if request.url.path == '/admin/analytics' else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Analytics</a>
+            <a href="/admin/posts" class="{{ 'active' if request.url.path.startswith('/admin/posts') else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-posts"></use></svg> Posts</a>
             {% endif %}
             {% if user.role_level >= 3 %}
-            <a href="/financeiro" class="admin-subnav-red {{ 'active' if request.url.path.startswith('/financeiro') else '' }}">🔴 Zona Vermelha</a>
+            <a href="/financeiro" class="admin-subnav-red {{ 'active' if request.url.path.startswith('/financeiro') else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-redzone"></use></svg> Red Zone</a>
             {% endif %}
         </nav>
     {% endif %}
 
     {% if user and capitalismo_mode_enabled and not has_active_subscription %}
         <div class="capitalismo-banner">
-            <span>💳 Assine já por {{ "%.2f"|format(subscription_prices.EUR / 100) }}€/{{ "%.2f"|format(subscription_prices.CHF / 100) }} CHF por ano!</span>
-            <a class="button-link button-primary" href="/assinar">Assinar</a>
+            <span><svg class="icon"><use href="/static/img/icons.svg#icon-card"></use></svg> Subscribe now for {{ "%.2f"|format(subscription_prices.EUR / 100) }}€/{{ "%.2f"|format(subscription_prices.CHF / 100) }} CHF per year!</span>
+            <a class="button-link button-primary" href="/assinar">Subscribe</a>
         </div>
     {% endif %}
 
     {% if user and not user.email_verified %}
         <div class="verify-banner">
-            <span>✉️ {{ t('verify_banner_text') }}</span>
+            <span><svg class="icon"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('verify_banner_text') }}</span>
             <form method="post" action="/resend-verification">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="link-button">{{ t('verify_banner_resend') }}</button>
@@ -171,21 +176,50 @@
         {% if user %}
         <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
         <aside class="side-nav" id="side-nav">
-            <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path == '/' else '' }}" href="/">
-                <span class="side-nav-icon">🏠</span>{{ t('nav_home') }}
-            </a>
-            <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/board') or request.url.path.startswith('/listings') else '' }}" href="/board">
-                <span class="side-nav-icon">🎼</span>{{ t('nav_board') }}
-            </a>
-            <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/profile') else '' }}" href="/profile">
-                <span class="side-nav-icon">👤</span>{{ t('nav_profile') }}
-            </a>
-            <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/my-listings') else '' }}" href="/my-listings">
-                <span class="side-nav-icon">📋</span>{{ t('nav_my_listings') }}
-            </a>
-            <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/my-favorites') else '' }}" href="/my-favorites">
-                <span class="side-nav-icon">⭐</span>{{ t('nav_favorites') }}
-            </a>
+            {% if is_admin_area %}
+                {# Inside /admin or /financeiro the sidebar shows only
+                   admin functions — mixing it with Home/Board/My
+                   profile here wouldn't make sense. Same sections as
+                   the horizontal .admin-subnav right below the header. #}
+                <a class="side-nav-row side-nav-tone-1" href="/">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-back"></use></svg>Back to site
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path == '/admin' else '' }}" href="/admin">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-home"></use></svg>Dashboard
+                </a>
+                {% if user.role_level >= 2 %}
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/admin/users') else '' }}" href="/admin/users">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-users"></use></svg>Users
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path == '/admin/analytics' else '' }}" href="/admin/analytics">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-analytics"></use></svg>Analytics
+                </a>
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/admin/posts') else '' }}" href="/admin/posts">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-posts"></use></svg>Posts
+                </a>
+                {% endif %}
+                {% if user.role_level >= 3 %}
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/financeiro') else '' }}" href="/financeiro">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-redzone"></use></svg>Red Zone
+                </a>
+                {% endif %}
+            {% else %}
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path == '/' else '' }}" href="/">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-home"></use></svg>{{ t('nav_home') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/board') or request.url.path.startswith('/listings') else '' }}" href="/board">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-board"></use></svg>{{ t('nav_board') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/profile') else '' }}" href="/profile">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/my-listings') else '' }}" href="/my-listings">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-listings"></use></svg>{{ t('nav_my_listings') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/my-favorites') else '' }}" href="/my-favorites">
+                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-star"></use></svg>{{ t('nav_favorites') }}
+                </a>
+            {% endif %}
         </aside>
         {% endif %}
         <main class="container">
@@ -205,21 +239,21 @@
     </footer>
 
     {# ------------------------------------------------------------
-       Passarinho voando: de vez em quando (a cada 1–2 min), o
-       mascote atravessa a tela da esquerda pra direita, batendo as
-       asas de verdade (a animação da asa vive dentro do próprio
-       bird-flying.svg, então ele sempre bate asa na direção certa,
-       de frente pro voo). 1 em cada 10 voos ele solta um "oi" num
-       balãozinho (ver GREETINGS abaixo). Só decoração de marca, não
-       atrapalha nada (pointer-events: none) e respeita quem prefere
-       menos animação (prefers-reduced-motion). Ver .vb-flying-wrap
-       no style.css.
+       Flying bird: every once in a while (every 1–2 min), the
+       mascot crosses the screen from left to right, actually
+       flapping its wings (the wing animation lives inside
+       bird-flying.svg itself, so it always flaps in the right
+       direction, facing the flight). 1 in every 10 flights it drops
+       a little "hi" in a speech bubble (see GREETINGS below). Just
+       brand decoration, doesn't get in the way of anything
+       (pointer-events: none) and respects prefers-reduced-motion.
+       See .vb-flying-wrap in style.css.
     ------------------------------------------------------------ #}
     <script nonce="{{ csp_nonce }}">
         (function () {
             if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-            var GREETINGS = ["Hey, there!", "Servus!", "Grias di", "yooo!!!", "Na?", "Hab' die Ehre!", "E aí!", "Grüezi!", "Hoi!", "Moin!"];
+            var GREETINGS = ["Hey, there!", "Servus!", "Grias di", "yooo!!!", "Na?", "Hab' die Ehre!", "Howdy!", "Grüezi!", "Hoi!", "Moin!"];
 
             function spawnBird() {
                 var wrap = document.createElement('div');
@@ -251,7 +285,7 @@
                 setTimeout(function () { spawnBird(); scheduleNext(); }, delay);
             }
 
-            setTimeout(spawnBird, 5000); // o primeiro aparece cedo, de boas-vindas
+            setTimeout(spawnBird, 5000); // the first one shows up early, as a welcome
             scheduleNext();
         })();
     </script>

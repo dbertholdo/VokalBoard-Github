@@ -1,59 +1,60 @@
-name: Backup automático do banco
+name: Automatic database backup
 
-# Roda todo dia de madrugada (03:00 UTC) e faz um "pg_dump" completo
-# do banco de PRODUÇÃO, guardando o resultado como artifact do GitHub
-# Actions (isso NÃO precisa de nenhum serviço pago novo — já usamos o
-# GitHub, e o Actions guarda arquivos de graça, com um prazo de
-# retenção configurável — ver "retention-days" abaixo).
+# Runs every day at night (03:00 UTC) and does a full "pg_dump" of
+# the PRODUCTION database, storing the result as a GitHub Actions
+# artifact (this does NOT need any new paid service — we already use
+# GitHub, and Actions stores files for free, with a configurable
+# retention period — see "retention-days" below).
 #
-# Configuração necessária (uma vez só): em Settings -> Secrets and
-# variables -> Actions -> "New repository secret", crie um secret
-# chamado PRODUCTION_DATABASE_URL com a mesma DATABASE_URL que está
-# configurada no Railway (Railway -> seu projeto -> Postgres -> aba
-# "Connect" -> "Postgres Connection URL", começa com
-# "postgresql://..."). Sem isso, este workflow falha (de propósito —
-# melhor falhar visivelmente do que "funcionar" sem backup nenhum).
+# Required setup (one time only): in Settings -> Secrets and
+# variables -> Actions -> "New repository secret", create a secret
+# called PRODUCTION_DATABASE_URL with the same DATABASE_URL that's
+# configured on Railway (Railway -> your project -> Postgres -> the
+# "Connect" tab -> "Postgres Connection URL", starts with
+# "postgresql://..."). Without this, this workflow fails (on
+# purpose — better to fail visibly than to "work" with no backup at
+# all).
 #
-# Pra restaurar um backup: baixe o artifact (aba Actions -> a execução
-# desejada -> Artifacts), descompacte, e rode
-# `psql "SUA_DATABASE_URL" < backup.sql` (ou peça ajuda — restaurar
-# por cima de um banco com dados novos DESDE o backup precisa de
-# cuidado, não é um comando pra rodar sem pensar).
+# To restore a backup: download the artifact (Actions tab -> the
+# run you want -> Artifacts), unzip it, and run
+# `psql "YOUR_DATABASE_URL" < backup.sql` (or ask for help —
+# restoring over a database with new data SINCE the backup needs
+# care, it's not a command to run without thinking).
 on:
   schedule:
     - cron: "0 3 * * *"
-  workflow_dispatch:  # também dá pra disparar na mão, pela aba "Actions"
+  workflow_dispatch:  # can also be triggered manually, from the "Actions" tab
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Instalar cliente do Postgres
+      - name: Install Postgres client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: Checar se o secret está configurado
+      - name: Check whether the secret is configured
         run: |
           if [ -z "${{ secrets.PRODUCTION_DATABASE_URL }}" ]; then
-            echo "::error::Secret PRODUCTION_DATABASE_URL não configurado — veja o comentário no topo deste arquivo (.github/workflows/backup.yml) pra saber como criar."
+            echo "::error::Secret PRODUCTION_DATABASE_URL not configured — see the comment at the top of this file (.github/workflows/backup.yml) for how to create it."
             exit 1
           fi
 
-      - name: Rodar pg_dump
+      - name: Run pg_dump
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: |
-          # A URL do Railway costuma vir no formato "postgresql+psycopg2://..."
-          # (formato do SQLAlchemy) — pg_dump quer só "postgresql://...".
+          # Railway's URL usually comes in "postgresql+psycopg2://..."
+          # format (SQLAlchemy's format) — pg_dump wants just "postgresql://...".
           CLEAN_URL=$(echo "$DATABASE_URL" | sed 's/postgresql+psycopg2/postgresql/')
           pg_dump "$CLEAN_URL" --no-owner --no-privileges -F p -f backup.sql
           gzip backup.sql
 
-      - name: Guardar o backup como artifact
+      - name: Store the backup as an artifact
         uses: actions/upload-artifact@v4
         with:
           name: vokalboard-backup-${{ github.run_id }}
           path: backup.sql.gz
-          # Guarda por 30 dias — ajuste conforme quiser (o GitHub tem
-          # um limite de espaço total em artifacts pra contas grátis,
-          # então não vale a pena deixar "para sempre").
+          # Keeps it for 30 days — adjust as you like (GitHub has a
+          # total storage limit for artifacts on free accounts, so
+          # it's not worth keeping them "forever").
           retention-days: 30

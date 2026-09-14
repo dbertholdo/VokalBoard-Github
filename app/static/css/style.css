@@ -1,13 +1,13 @@
 /* ============================================================
-   Paleta e tipografia — esquema verde, inspirado nas cores do
-   passarinho-mascote (ver app/static/img/bird-logo.svg): o verde
-   mais escuro da asa como cor principal (botões/links), o
-   verde-menta do corpo como tom secundário nos gradientes/títulos.
+   Palette and typography — green scheme, inspired by the colors of
+   the mascot bird (see app/static/img/bird-logo.svg): the wing's
+   darker green as the primary color (buttons/links), the body's
+   mint green as the secondary tone in gradients/headings.
    ============================================================ */
 :root {
     --bg: #f5faf8;
     --ink: #1c1f2e;
-    --muted: #667b74;
+    --muted: #4c5f57;
     --accent: #12a488;
     --accent-dark: #0c7d68;
     --accent-light: #dff6ee;
@@ -31,8 +31,8 @@ h1, h2, h3 {
     letter-spacing: -0.01em;
 }
 
-/* "Kicker" — pequeno rótulo em versalete acima de um título, pra
-   dar aquele toque editorial/restrito em vez de tudo gritar igual. */
+/* "Kicker" — small small-caps label above a heading, to give an
+   editorial/restrained touch instead of everything shouting the same. */
 .kicker {
     display: block;
     text-transform: uppercase;
@@ -107,17 +107,17 @@ h1, h2, h3 {
 
 .site-header nav a:hover { color: var(--accent); }
 
-/* Separador "|" entre os links do menu de cima — pedido pra não ficar
-   tudo "colado" quando tem bastante item (Start, Jobs, Mein Profil,
+/* "|" separator between the top menu links — requested so things don't
+   run together when there are lots of items (Start, Jobs, Mein Profil,
    Nachrichten, Admin, Abmelden...). */
 .nav-sep {
     color: var(--border);
     font-size: 0.9rem;
 }
 
-/* Botão ☰ que abre a barra lateral no celular — só aparece abaixo do
-   breakpoint (ver @media perto do fim deste arquivo); no desktop a
-   lateral já fica sempre visível, então o botão nem entra no layout. */
+/* ☰ button that opens the sidebar on mobile — only shows up below the
+   breakpoint (see the @media near the end of this file); on desktop the
+   sidebar is always visible, so the button never enters the layout. */
 .sidebar-toggle {
     display: none;
     flex-direction: column;
@@ -166,17 +166,26 @@ h1, h2, h3 {
 }
 
 /* ------------------------------------------------------------
-   Layout com barra lateral (logado): .layout-shell é a linha
-   [lateral | conteúdo]. No desktop a lateral fica fixa (sticky) do
-   lado esquerdo; no celular ela vira um painel que desliza por cima
-   (ver .side-nav-open e o @media lá embaixo) — a estrutura HTML é a
-   mesma nos dois casos, só o CSS muda.
+   Layout with sidebar (logged in): .layout-shell is the
+   [sidebar | content] row. On desktop the sidebar stays fixed (sticky)
+   on the left; on mobile it becomes a panel that slides over the top
+   (see .side-nav-open and the @media further down) — the HTML
+   structure is the same in both cases, only the CSS changes.
    ------------------------------------------------------------ */
+/* Requested: the sidebar always hugs the true left edge of the
+   screen, instead of floating wherever a centered content column
+   happens to land on a wide viewport. The old layout capped
+   .layout-shell itself at max-width:1180px and centered THAT
+   (sidebar included), so on any screen wider than 1180px the sidebar
+   sat in the middle of a strip of empty space instead of at the
+   window's edge. Fix: .layout-shell spans the FULL window width with
+   no cap of its own, so its first flex item (.side-nav, sticky) is
+   flush against x=0 at every width; only .container (the content)
+   keeps a max-width and centers itself within whatever space is left
+   to the sidebar's right. */
 .layout-shell {
     display: flex;
     align-items: flex-start;
-    max-width: 1180px;
-    margin: 0 auto;
 }
 
 .side-nav {
@@ -202,11 +211,21 @@ h1, h2, h3 {
     font-size: 0.95rem;
 }
 
-.side-nav-icon { font-size: 1.05rem; }
+/* Our own icon set (app/static/img/icons.svg) instead of emoji —
+   currentColor means every icon just inherits whatever text color
+   it's placed in (sidebar row, banner, toolbar button...), so it
+   never needs its own color rule at each call site. */
+.icon {
+    width: 1.05em;
+    height: 1.05em;
+    vertical-align: -0.18em;
+    flex-shrink: 0;
+}
+.side-nav-icon { width: 1.15em; height: 1.15em; }
 
-/* Tons de verde intercalados, um clarinho e um mais forte, como pedido
-   — reaproveita as variáveis que já existem no :root em vez de cores
-   novas soltas. */
+/* Alternating shades of green, one light and one stronger, as requested
+   — reuses the variables already defined in :root instead of new
+   standalone colors. */
 .side-nav-tone-1 { background: var(--accent2-light); }
 .side-nav-tone-2 { background: var(--accent-light); }
 
@@ -396,6 +415,21 @@ h1, h2, h3 {
     border-radius: 6px;
 }
 
+/* Standalone "tip" callout — e.g. the explainer at the top of
+   Admin > Posts. Deliberately more visible than .field-help below:
+   a filled, bordered card instead of small muted text, so it reads
+   as a note worth pausing on rather than fine print. */
+.admin-tip-banner {
+    margin: 4px 0 20px;
+    padding: 12px 16px;
+    background: var(--accent2-light);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: var(--ink);
+    line-height: 1.5;
+}
+
 .field-help {
     margin-top: -8px;
     font-size: 0.82rem;
@@ -451,7 +485,7 @@ h1, h2, h3 {
     opacity: 0.95;
 }
 
-/* Home: hero (visitante não logado) e seção de matches (logado) */
+/* Home: hero (not-logged-in visitor) and matches section (logged in) */
 .hero {
     background: linear-gradient(135deg, var(--accent-light), var(--accent2-light));
     border-radius: 16px;
@@ -521,12 +555,12 @@ h1, h2, h3 {
 }
 .link-button:hover { color: var(--accent-dark); }
 
-/* Precisa vencer regras tipo ".stacked-form button"/".filters button"
-   (mais específicas: classe do form + tipo do elemento) — senão um
-   <button class="link-button"> dentro de QUALQUER form ganha o visual
-   de botão grande cheio, em vez do link discreto. "form button.link-button"
-   (2 classes/tipos) bate as duas de propósito, então essa regra não
-   precisa ser reescrita cada vez que aparece em um form novo. */
+/* Needs to beat rules like ".stacked-form button"/".filters button"
+   (more specific: form class + element type) — otherwise a
+   <button class="link-button"> inside ANY form gets the big filled
+   button look instead of the discreet link. "form button.link-button"
+   (2 classes/types) beats both on purpose, so this rule doesn't need
+   to be rewritten every time it shows up in a new form. */
 form button.link-button {
     padding: 0;
     background: none;
@@ -652,7 +686,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin: 16px 0;
 }
 
-/* --- redes sociais no perfil ------------------------------------------- */
+/* --- social links on profile ------------------------------------------- */
 .social-links {
     display: flex;
     flex-wrap: wrap;
@@ -672,7 +706,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 
 .social-badge:hover { background: var(--accent); color: #fff; }
 
-/* --- avaliação por estrelas ---------------------------------------------- */
+/* --- star rating ---------------------------------------------- */
 .rating-form { margin-top: 8px; }
 
 .rating-summary {
@@ -697,7 +731,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-style: italic;
 }
 
-/* --- conta: gefahrenzone / danger zone ------------------------------------ */
+/* --- account: gefahrenzone / danger zone ------------------------------------ */
 .danger-zone {
     margin-top: 24px;
     padding: 16px;
@@ -714,13 +748,13 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-weight: 600;
 }
 
-/* --- "mensagem já enviada" ------------------------------------------------ */
+/* --- "message already sent" ------------------------------------------------ */
 .already-messaged-note {
     color: var(--muted);
     font-size: 0.9rem;
 }
 
-/* --- paginação -------------------------------------------------------- */
+/* --- pagination -------------------------------------------------------- */
 .pagination {
     display: flex;
     justify-content: center;
@@ -740,7 +774,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-size: 0.9rem;
 }
 
-/* --- filtros: toggle "mostrar passados" ----------------------------------- */
+/* --- filters: "show past" toggle ----------------------------------- */
 .show-past-toggle {
     display: inline-flex;
     align-items: center;
@@ -755,7 +789,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin: 8px 0;
 }
 
-/* --- filtro de período (Zeitraum) ------------------------------------- */
+/* --- date range filter (Zeitraum) ------------------------------------- */
 .filter-date-label {
     display: inline-flex;
     align-items: center;
@@ -768,7 +802,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     padding: 6px 8px;
 }
 
-/* --- foto de perfil (avatar) --------------------------------------------- */
+/* --- profile photo (avatar) --------------------------------------------- */
 .avatar-preview {
     width: 96px;
     height: 96px;
@@ -813,7 +847,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-weight: normal;
 }
 
-/* --- indicador de perfil completo --------------------------------------- */
+/* --- profile completeness indicator --------------------------------------- */
 .completeness-box {
     margin: 12px 0 20px;
 }
@@ -840,7 +874,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin: 6px 0 0;
 }
 
-/* --- favoritos -------------------------------------------------------- */
+/* --- favorites -------------------------------------------------------- */
 .favorite-star {
     float: right;
 }
@@ -857,7 +891,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin-top: 8px;
 }
 
-/* --- rodapé: links de impressum / código de conduta -------------------- */
+/* --- footer: impressum / code of conduct links -------------------- */
 .footer-links {
     margin-top: 4px;
     font-size: 0.8rem;
@@ -873,7 +907,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     color: var(--border);
 }
 
-/* --- botões de bloquear/denunciar --------------------------------------- */
+/* --- block/report buttons --------------------------------------- */
 .button-secondary {
     border-color: var(--muted);
     color: var(--muted);
@@ -908,7 +942,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin-top: 10px;
 }
 
-/* --- convide um amigo / referral ---------------------------------------- */
+/* --- invite a friend / referral ---------------------------------------- */
 .referral-box {
     margin: 16px 0;
     padding: 16px;
@@ -942,7 +976,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     color: var(--muted);
 }
 
-/* --- pessoas bloqueadas (na página de perfil) --------------------------- */
+/* --- blocked users (on the profile page) --------------------------- */
 .blocked-users-list {
     list-style: none;
     padding: 0;
@@ -958,7 +992,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     border-bottom: 1px solid var(--border);
 }
 
-/* --- impressum / código de conduta -------------------------------------- */
+/* --- impressum / code of conduct -------------------------------------- */
 .legal-block {
     margin: 16px 0;
     padding: 16px;
@@ -978,7 +1012,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 
 .conduct-list li { line-height: 1.5; }
 
-/* --- badges (gamificação leve) ------------------------------------------ */
+/* --- badges (light gamification) ------------------------------------------ */
 .badge-row {
     display: flex;
     flex-wrap: wrap;
@@ -1032,7 +1066,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 .badge-tile-label { font-weight: 600; font-size: 0.85rem; }
 .badge-tile-desc { font-size: 0.75rem; color: var(--muted); }
 
-/* --- aviso dispensável (ex: caixa de spam) na home ----------------------- */
+/* --- dismissible notice (e.g. spam box) on the home page ----------------------- */
 .dismissible-notice {
     display: flex;
     align-items: center;
@@ -1070,7 +1104,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     border: 0;
 }
 
-/* --- admin (painel só de leitura) ---------------------------------------- */
+/* --- admin (read-only panel) ---------------------------------------- */
 .admin-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1107,7 +1141,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     border-bottom: 1px solid var(--border);
 }
 
-/* --- admin: gestão de usuários (/admin/users) ---------------------------- */
+/* --- admin: user management (/admin/users) ---------------------------- */
 .admin-users-filter {
     display: flex;
     flex-wrap: wrap;
@@ -1146,7 +1180,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     letter-spacing: 0.02em;
 }
 
-/* --- admin: Análise de Dados (/admin/analytics) -------------------------- */
+/* --- admin: Data Analytics (/admin/analytics) -------------------------- */
 .analytics-section {
     margin: 28px 0;
 }
@@ -1199,10 +1233,10 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 
 .analytics-bar-fill {
-    display: block; /* sem isso, "width"/"height" não fazem efeito num
-                        <span> (inline por padrão) — era por isso que a
-                        barra sempre aparecia "cheia" (cor de fundo do
-                        trilho), sem escalar conforme o valor. */
+    display: block; /* without this, "width"/"height" have no effect on
+                        a <span> (inline by default) — that's why the
+                        bar always appeared "full" (the track's
+                        background color), without scaling with the value. */
     background: var(--accent);
     height: 100%;
     border-radius: 4px;
@@ -1245,7 +1279,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-weight: 600;
 }
 
-/* --- honeypot anti-bot (ver app/captcha.py) ------------------------------ */
+/* --- anti-bot honeypot (see app/captcha.py) ------------------------------ */
 .honeypot-field {
     position: absolute;
     left: -9999px;
@@ -1255,11 +1289,11 @@ form button.link-button:hover { color: var(--accent-dark); }
     overflow: hidden;
 }
 
-/* --- passarinho voando (marca do VokalBoard, ver base.html) -------------
-   O bater de asas de verdade vive dentro do próprio bird-flying.svg
-   (ele já nasce virado pra direita = direção do voo); aqui cuidamos do
-   trajeto pela tela (.vb-flying-wrap) e do balãozinho de fala que
-   aparece de vez em quando (.vb-bubble), grudado nele durante o voo. */
+/* --- flying bird (VokalBoard's brand mark, see base.html) -------------
+   The actual wing-flapping lives inside bird-flying.svg itself
+   (it's already drawn facing right = flight direction); here we handle
+   the path across the screen (.vb-flying-wrap) and the little speech
+   bubble that shows up now and then (.vb-bubble), stuck to it during flight. */
 .vb-flying-wrap {
     position: fixed;
     left: -8vw;
@@ -1316,12 +1350,12 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 
 /* ------------------------------------------------------------
-   Telas estreitas (celular) — breakpoint único em 860px, cobre tudo
-   que depende de largura de verdade: a barra lateral vira um painel
-   deslizante (☰ no cabeçalho abre/fecha), o resto (grids de anúncios,
-   estatísticas, formulários) já se ajusta sozinho porque usa
+   Narrow screens (mobile) — single breakpoint at 860px, covers
+   everything that genuinely depends on width: the sidebar becomes a
+   sliding panel (☰ in the header opens/closes it), the rest (listing
+   grids, stats, forms) already adjusts on its own because it uses
    grid-template-columns: repeat(auto-fit/auto-fill, minmax(...)) —
-   ver .listing-grid/.admin-stats/.analytics-grid acima.
+   see .listing-grid/.admin-stats/.analytics-grid above.
    ------------------------------------------------------------ */
 @media (max-width: 860px) {
     .site-header { padding: 12px 16px; gap: 10px; }
@@ -1333,7 +1367,6 @@ form button.link-button:hover { color: var(--accent-dark); }
         left: 0;
         z-index: 40;
         width: min(78vw, 280px);
-        min-height: 100vh;
         height: 100vh;
         overflow-y: auto;
         transform: translateX(-100%);
@@ -1355,13 +1388,13 @@ form button.link-button:hover { color: var(--accent-dark); }
 
     .container { padding: 16px; }
 
-    /* Nome/avatar de quem está logado é a última coisa que precisa
-       caber — em telas bem estreitas ele quebra pra própria linha em
-       vez de espremer os links de navegação. */
+    /* The logged-in user's name/avatar is the last thing that needs to
+       fit — on very narrow screens it wraps to its own line instead of
+       squeezing the navigation links. */
     .whoami { flex-basis: 100%; order: 99; }
 }
 
-/* --- fundo decorativo (folhas ou nuvens, ver base.html) ------------------ */
+/* --- decorative background (leaves or clouds, see base.html) ------------------ */
 .site-bg {
     position: fixed;
     inset: 0;
@@ -1381,7 +1414,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     background-size: 600px 360px;
 }
 
-/* --- ícones do passarinho-marca no cabeçalho/rodapé ---------------------- */
+/* --- brand-bird icons in header/footer ---------------------- */
 .brand-icon {
     vertical-align: -6px;
     margin-right: 2px;
@@ -1398,7 +1431,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin-right: 4px;
 }
 
-/* --- feed de posts (home) + admin/posts ----------------------------------- */
+/* --- posts feed (home) + admin/posts ----------------------------------- */
 .posts-feed {
     margin-bottom: 28px;
 }
@@ -1457,7 +1490,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-size: 0.9rem;
 }
 
-/* --- post inteiro (/posts/{id}) + preview no admin/posts ------------------ */
+/* --- full post (/posts/{id}) + preview in admin/posts ------------------ */
 .post-full { max-width: 720px; }
 
 .post-body-full,
@@ -1486,17 +1519,34 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-size: 0.9em;
 }
 
-/* --- editor de posts (estilo WordPress) — ver app/static/js/post-editor.js */
+/* --- post editor (WordPress-style) — see app/static/js/post-editor.js */
+
+/* The editing frame matches the width of a real published post
+   (.post-full, 720px) instead of the generic 400px form width — it
+   still shrinks on narrower screens (the form has no min-width), so
+   the editor is already as "schlank" on mobile as the post itself
+   will be. */
+.post-form { max-width: 720px; }
+
 .post-editor {
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 14px;
     overflow: hidden;
     background: var(--card-bg);
+    /* A soft ambient shadow instead of a hard outline reads lighter —
+       the box still has a clear edge, just not a stark one. */
+    box-shadow: 0 1px 3px rgba(28, 31, 46, 0.04), 0 8px 24px rgba(28, 31, 46, 0.03);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.post-editor:focus-within {
+    border-color: var(--accent2);
+    box-shadow: 0 1px 3px rgba(28, 31, 46, 0.04), 0 8px 24px rgba(18, 164, 136, 0.10);
 }
 
 .post-editor > .field-label {
     display: block;
-    padding: 10px 12px 0;
+    padding: 12px 16px 0;
     font-weight: 600;
     font-size: 0.9rem;
 }
@@ -1512,18 +1562,28 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 
 .post-editor-toolbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     border: 1px solid transparent;
     background: transparent;
-    padding: 5px 9px;
-    border-radius: 6px;
+    padding: 6px 10px;
+    border-radius: 7px;
     font-size: 0.85rem;
     cursor: pointer;
     color: var(--ink);
+    transition: background 0.1s ease;
 }
 
 .post-editor-toolbar button:hover {
     background: #fff;
     border-color: var(--border);
+}
+
+.post-editor-toolbar button.is-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
 }
 
 .post-editor-sep {
@@ -1533,6 +1593,47 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin: 0 4px;
 }
 
+/* Color swatch + font family, on their own row so the main command
+   row doesn't get crowded — "opções de cores e fontes" as requested. */
+.post-editor-toolbar-row2 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+    font-size: 0.83rem;
+    color: var(--muted);
+}
+
+.post-editor-color-field,
+.post-editor-font-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.post-editor-toolbar-row2 input[type="color"] {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+
+.post-editor-toolbar-row2 select {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.83rem;
+    color: var(--ink);
+    background: #fff;
+}
+
 .post-editor-status {
     color: var(--muted);
     font-size: 0.8rem;
@@ -1540,26 +1641,83 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 
 .post-editor-area {
-    min-height: 200px;
-    padding: 14px 16px;
+    min-height: 260px;
+    padding: 18px 20px;
     outline: none;
-    line-height: 1.6;
+    line-height: 1.65;
+    font-size: 1.02rem;
+    transition: background 0.12s ease;
 }
 
 .post-editor-area:empty::before {
-    content: "Escreva o post aqui…";
+    content: "Write the post here…";
     color: var(--muted);
 }
 
-.post-editor-area img { max-width: 100%; border-radius: 8px; }
+/* Drag-and-drop upload: dropping a file anywhere onto the editor
+   uploads and inserts it, same as the toolbar's Image button — the
+   highlighted dashed frame previews where it will land. */
+.post-editor-area.is-drag-over {
+    background: var(--accent2-light);
+    outline: 2px dashed var(--accent2);
+    outline-offset: -8px;
+}
+
+.post-editor-area img {
+    max-width: 100%;
+    border-radius: 8px;
+    cursor: grab;
+    transition: box-shadow 0.12s ease;
+}
+
+.post-editor-area img:hover { box-shadow: 0 0 0 2px var(--accent2-light); }
+
+/* An image picked up to be moved (see post-editor.js) — moving it
+   around the post is done by dragging it to a new spot in the text,
+   not by pixel-positioning, which would fight the flow of the
+   surrounding paragraphs. */
+.post-editor-area img.is-dragging { opacity: 0.4; }
+
+.post-editor-area img.align-left { float: left; margin: 4px 16px 8px 0; max-width: 45%; }
+.post-editor-area img.align-right { float: right; margin: 4px 0 8px 16px; max-width: 45%; }
+.post-editor-area img.align-center { display: block; margin: 10px auto; }
+
+/* Small floating toolbar that appears above a selected image, to
+   align/resize it — click elsewhere to dismiss (see post-editor.js). */
+.post-editor-image-toolbar {
+    position: fixed;
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    background: var(--ink);
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(28, 31, 46, 0.25);
+    z-index: 5;
+}
+
+.post-editor-image-toolbar button {
+    border: none;
+    background: transparent;
+    color: #fff;
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.post-editor-image-toolbar button:hover,
+.post-editor-image-toolbar button.is-active {
+    background: var(--accent2);
+}
+
 .post-editor-area blockquote {
-    margin: 8px 0;
-    padding: 2px 14px;
+    margin: 10px 0;
+    padding: 3px 16px;
     border-left: 3px solid var(--accent2);
     color: var(--muted);
 }
 
-/* Zona Vermelha / painel financeiro (ver app/routers/financial_routes.py) */
+/* Red Zone / financial panel (see app/routers/financial_routes.py) */
 
 .admin-subnav-red {
     color: #d9534f !important;

@@ -1,23 +1,24 @@
 """
-Alertas por e-mail de anúncio compatível.
+Matching-listing e-mail alerts.
 
-Quando alguém publica um anúncio do tipo "procuro cantor(a)" ou
-"procuro maestro(a)", mandamos um e-mail IMEDIATO (não um resumo
-diário — isso foi cogitado antes, mas a pessoa preferiu o alerta na
-hora) para quem tem o perfil compatível: cantores(as) do tipo de voz
-certo pra 'seeking_singer', ou maestros(as) pra 'seeking_conductor'.
+When someone posts a "looking for a singer" or "looking for a
+conductor" listing, we send an IMMEDIATE e-mail (not a daily digest —
+that was considered before, but the person preferred the alert right
+away) to whoever has a matching profile: singers with the right voice
+type for 'seeking_singer', or conductors for 'seeking_conductor'.
 
-Só faz sentido alertar para esses dois tipos — 'singer_available' e
-'conductor_available' são a PESSOA se anunciando, não uma vaga, então
-não têm "alguém compatível" para avisar.
+It only makes sense to alert for these two types — 'singer_available'
+and 'conductor_available' are the PERSON advertising themselves, not
+an opening, so there's no "matching someone" to notify.
 
-Cada pessoa pode desligar isso a qualquer momento em /profile
+Each person can turn this off at any time in /profile
 (users.notify_matches).
 
-Rodamos isso como uma BackgroundTask do FastAPI (ver create_listing em
-listings_routes.py): o anúncio é publicado na hora, sem esperar todos
-os e-mails saírem primeiro — os envios acontecem depois, em segundo
-plano, sem atrasar a resposta pra quem postou.
+We run this as a FastAPI BackgroundTask (see create_listing in
+listings_routes.py): the listing is published right away, without
+waiting for all the e-mails to go out first — the sending happens
+afterward, in the background, without delaying the response for
+whoever posted.
 """
 import html as html_module
 
@@ -41,9 +42,9 @@ def notify_matching_users(base_url: str, listing_id: int, listing_type: str, tit
                 "id IN (SELECT user_id FROM singer_profiles WHERE voice_type_id = :voice_type_id OR voice_type_id IS NULL)"
             )
             params["voice_type_id"] = voice_type_id
-        # nosec B608 abaixo: só junta fragmentos FIXOS de WHERE (definidos aqui em
-        # cima, nunca vindos de input da pessoa) — os valores de verdade vão todos
-        # por parâmetro (:voice_type_id etc.) em `params`, nunca colados na string.
+        # nosec B608 below: only joins FIXED WHERE fragments (defined above,
+        # never coming from person input) — the actual values all go through
+        # a parameter (:voice_type_id etc.) in `params`, never pasted into the string.
         recipients = fetch_all(
             f"SELECT email, full_name FROM users WHERE {' AND '.join(conditions)}", params  # nosec B608
         )
@@ -84,15 +85,16 @@ def notify_matching_users(base_url: str, listing_id: int, listing_type: str, tit
 
 def notify_new_message(base_url: str, recipient_email: str, recipient_name: str, sender_name: str) -> None:
     """
-    E-mail avisando "você recebeu uma mensagem" — diferente do alerta
-    de anúncio compatível acima. Cada pessoa pode desligar isso a
-    qualquer momento em /profile (users.notify_messages); a rota que
-    chama essa função (send_message em messages_routes.py) já confere
-    notify_messages e email_verified antes de chamar.
+    E-mail letting someone know "you received a message" — different
+    from the matching-listing alert above. Each person can turn this
+    off at any time in /profile (users.notify_messages); the route
+    that calls this function (send_message in messages_routes.py)
+    already checks notify_messages and email_verified before calling.
 
-    De propósito, o e-mail NÃO mostra o conteúdo da mensagem (só avisa
-    que uma chegou) — assim a pessoa precisa entrar no site pra ler,
-    o que ajuda com o objetivo de trazer gente de volta ao site.
+    On purpose, the e-mail does NOT show the message content (it only
+    tells you one arrived) — this way the person needs to log in to
+    the site to read it, which helps the goal of bringing people back
+    to the site.
     """
     inbox_url = f"{base_url.rstrip('/')}/messages"
     safe_recipient_name = html_module.escape(recipient_name)
@@ -108,4 +110,4 @@ def notify_new_message(base_url: str, recipient_email: str, recipient_name: str,
         <a href="{inbox_url}">{inbox_url}</a><br>
         You're getting this because message e-mails are on for your account — you can turn them off anytime in your profile.</p>
     """
-    send_email(recipient_email, f"Nova mensagem de {sender_name} — VokalBoard", html)
+    send_email(recipient_email, f"Neue Nachricht von {sender_name} — VokalBoard", html)

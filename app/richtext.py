@@ -1,69 +1,84 @@
 """
-Suporte ao editor de posts estilo WordPress (ver
-app/templates/admin_posts.html e app/static/js/post-editor.js).
+Support for the WordPress-style post editor (see
+app/templates/admin_posts.html and app/static/js/post-editor.js).
 
-O editor roda no navegador como uma <div contenteditable> — o HTML que
-ele produz (negrito, listas, links, imagens já enviadas) chega pronto
-no campo "body" do formulário. Antes de gravar no banco, esse HTML
-passa por sanitize_post_body(): só uma lista curta de tags/atributos é
-permitida, o resto é removido — mesmo sendo só admin (nível 2+) quem
-publica posts, isso evita que um <script>/onclick/etc (colado sem
-querer do Word, por exemplo, ou por um admin comprometido) vá parar
-numa página que todo mundo visita.
+The editor runs in the browser as a <div contenteditable> — the HTML
+it produces (bold, lists, links, already-uploaded images) arrives
+ready in the form's "body" field. Before writing to the database,
+this HTML goes through sanitize_post_body(): only a short list of
+tags/attributes is allowed, everything else is removed — even though
+only an admin (level 2+) publishes posts, this prevents a
+<script>/onclick/etc (pasted in by accident from Word, for example,
+or by a compromised admin) from ending up on a page everyone visits.
 
-A leitura de volta usa {{ p.body | safe }} nos templates — só é seguro
-justamente porque tudo que chega até lá já passou por essa sanitização
-no momento de salvar.
+Reading it back uses {{ p.body | safe }} in the templates — it's only
+safe precisely because everything that gets there already went
+through this sanitization when it was saved.
 """
 import re
 
 import nh3
 
-# Tags/atributos que o editor (app/static/js/post-editor.js) realmente
-# produz. Qualquer coisa fora disso é removida (não escapada — os
-# atributos "src"/"href" continuam passando pela checagem de esquema
-# do nh3, que já bloqueia "javascript:" por padrão).
+# Tags/attributes that the editor (app/static/js/post-editor.js)
+# actually produces. Anything outside this is removed (not escaped —
+# the "src"/"href" attributes still go through nh3's scheme check,
+# which already blocks "javascript:" by default).
 _ALLOWED_TAGS = {
     "p", "br", "strong", "b", "em", "i", "u", "s",
     "h2", "h3",
     "ul", "ol", "li",
-    "a", "img",
+    "a", "img", "span",
     "blockquote", "code", "pre",
 }
 _ALLOWED_ATTRIBUTES = {
-    # "rel" NÃO entra aqui de propósito: link_rel="noopener noreferrer"
-    # (abaixo) já deixa o próprio nh3 gerenciar esse atributo em todo
-    # <a> — listar "rel" também na allowlist conflita com isso (o nh3
-    # recusa com ValueError, "rel attribute is not allowed... when
-    # link_rel is set").
+    # "rel" is deliberately NOT in here: link_rel="noopener noreferrer"
+    # (below) already lets nh3 itself manage that attribute on every
+    # <a> — also listing "rel" in the allowlist conflicts with this
+    # (nh3 refuses with ValueError, "rel attribute is not allowed...
+    # when link_rel is set").
     "a": {"href", "target"},
+    # "class" is deliberately NOT listed here: allowed_classes below
+    # already manages it for "img" (alignment only — align-left/
+    # right/center, added by the image toolbar in post-editor.js) —
+    # same conflict as "rel" above, nh3 refuses if both are set.
     "img": {"src", "alt"},
+    # "span style" is how the color/font picker (execCommand with
+    # styleWithCSS on) marks up text — filter_style_properties below
+    # keeps only the two properties the toolbar actually sets, so this
+    # can't become a vector for arbitrary CSS.
+    "span": {"style"},
 }
+_ALLOWED_CLASSES = {
+    "img": {"align-left", "align-right", "align-center"},
+}
+_ALLOWED_STYLE_PROPERTIES = {"color", "font-family"}
 
 _TAG_RE = re.compile(r"<[^>]+>")
 
 
 def sanitize_post_body(raw_html: str) -> str:
-    """Remove qualquer tag/atributo fora da lista permitida acima."""
+    """Removes any tag/attribute outside the allowed list above."""
     return nh3.clean(
         raw_html or "",
         tags=_ALLOWED_TAGS,
         attributes=_ALLOWED_ATTRIBUTES,
+        allowed_classes=_ALLOWED_CLASSES,
+        filter_style_properties=_ALLOWED_STYLE_PROPERTIES,
         link_rel="noopener noreferrer",
     )
 
 
 def html_to_excerpt(html: str, max_chars: int = 220) -> tuple[str, bool]:
     """
-    Versão em texto puro (sem tags) do início de um post, pro card de
-    preview na home — devolve (texto, foi_cortado). Usado só pra
-    exibição curta; o post inteiro (com formatação) mora em
-    /posts/{id} — ver app/routers/listings_routes.py.
+    Plain-text version (no tags) of the start of a post, for the
+    preview card on the home page — returns (text, was_truncated).
+    Used only for short display; the full post (with formatting)
+    lives at /posts/{id} — see app/routers/listings_routes.py.
     """
     text = _TAG_RE.sub(" ", html or "")
     text = re.sub(r"\s+", " ", text).strip()
     if len(text) <= max_chars:
         return text, False
-    # corta num espaço pra não partir uma palavra no meio
+    # cut at a space so we don't split a word in the middle
     cut = text[:max_chars].rsplit(" ", 1)[0] or text[:max_chars]
     return cut, True

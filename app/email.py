@@ -1,17 +1,19 @@
 """
-Envio de e-mail, com dois "backends" trocáveis por variável de ambiente:
+Email sending, with two "backends" swappable via environment variable:
 
-- EMAIL_BACKEND=console (padrão): não envia nada de verdade, só imprime
-  o conteúdo do e-mail no terminal/log. Perfeito pra desenvolver e
-  testar localmente sem precisar de credenciais de verdade — o link de
-  verificação/recuperação de senha aparece direto no log do servidor.
-- EMAIL_BACKEND=resend: envia de verdade via API da Resend
-  (https://resend.com), que tem camada gratuita para baixo volume.
-  Defina RESEND_API_KEY e EMAIL_FROM no .env quando for usar.
+- EMAIL_BACKEND=console (default): doesn't actually send anything,
+  just prints the email content to the terminal/log. Perfect for
+  developing and testing locally without needing real credentials —
+  the verification/password-reset link shows up right in the server
+  log.
+- EMAIL_BACKEND=resend: actually sends via the Resend API
+  (https://resend.com), which has a free tier for low volume. Set
+  RESEND_API_KEY and EMAIL_FROM in .env when using it.
 
-Trocar de provedor de e-mail no futuro (Postmark, SendGrid, etc.) é só
-adicionar mais um `elif` aqui — o resto da aplicação chama sempre a
-mesma função `send_email()` e nem sabe qual backend está ativo.
+Switching email provider in the future (Postmark, SendGrid, etc.) is
+just a matter of adding another `elif` here — the rest of the
+application always calls the same `send_email()` function and doesn't
+even know which backend is active.
 """
 import os
 
@@ -31,21 +33,21 @@ def send_email(to: str, subject: str, html: str) -> None:
                 json={"from": EMAIL_FROM, "to": [to], "subject": subject, "html": html},
                 timeout=10,
             )
-            # httpx só levanta HTTPError em problema de rede/conexão — uma
-            # recusa da API (chave inválida, domínio de teste que só manda
-            # pro dono da conta, etc.) volta como uma resposta HTTP normal
-            # (4xx/5xx) que passava batido aqui antes, sem deixar rastro
-            # nenhum no log. Agora isso fica visível.
+            # httpx only raises HTTPError on a network/connection problem —
+            # an API rejection (invalid key, a test domain that only sends
+            # to the account owner, etc.) comes back as a normal HTTP
+            # response (4xx/5xx) that used to slip through here unnoticed,
+            # leaving no trace in the log. Now this is visible.
             if response.status_code >= 400:
-                print(f"[email] Resend recusou o envio para {to} (HTTP {response.status_code}): {response.text}")
+                print(f"[email] Resend rejected the send to {to} (HTTP {response.status_code}): {response.text}")
             else:
-                print(f"[email] enviado via Resend para {to} (HTTP {response.status_code})")
+                print(f"[email] sent via Resend to {to} (HTTP {response.status_code})")
         except httpx.HTTPError as exc:
-            # Não derruba a requisição do usuário por causa de um problema no envio de e-mail.
-            print(f"[email] falha ao enviar via Resend: {exc}")
+            # Don't fail the user's request because of an email-sending problem.
+            print(f"[email] failed to send via Resend: {exc}")
     else:
         print(
-            "\n---- EMAIL (console backend — configure EMAIL_BACKEND=resend para enviar de verdade) ----\n"
-            f"Para: {to}\nAssunto: {subject}\n\n{html}\n"
+            "\n---- EMAIL (console backend — set EMAIL_BACKEND=resend to actually send) ----\n"
+            f"To: {to}\nSubject: {subject}\n\n{html}\n"
             "-------------------------------------------------------------------------------------\n"
         )

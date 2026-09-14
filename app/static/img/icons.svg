@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <!-- ============================================================
+       VokalBoard's own icon set — plain line icons (stroke, 1.7px,
+       round joins) instead of emoji. They all use currentColor, so
+       each one automatically matches whatever text color it sits on
+       (sidebar rows, banners, buttons) rather than carrying its own
+       fixed hue. Kept deliberately simple/geometric so they read as
+       part of the site's own visual language, not a borrowed emoji set.
+       ============================================================ -->
+
+  <!-- Start / Dashboard: a simple house -->
+  <symbol id="icon-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 11.5 12 4l8 7.5"/>
+    <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9"/>
+    <path d="M10 20v-5h4v5"/>
+  </symbol>
+
+  <!-- Jobs / Board: a music clef-ish note, standing in for "listings" -->
+  <symbol id="icon-board" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5l10-2v13"/>
+    <circle cx="6.5" cy="18" r="2.5"/>
+    <circle cx="16.5" cy="16" r="2.5"/>
+  </symbol>
+
+  <!-- My profile: a person -->
+  <symbol id="icon-profile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="8" r="3.5"/>
+    <path d="M4.5 20c1.4-4 4-6 7.5-6s6.1 2 7.5 6"/>
+  </symbol>
+
+  <!-- My listings: a short document with lines -->
+  <symbol id="icon-listings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="5" y="3.5" width="14" height="17" rx="1.5"/>
+    <path d="M8.5 8h7M8.5 12h7M8.5 16h4"/>
+  </symbol>
+
+  <!-- Favorites: a star -->
+  <symbol id="icon-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.2 1 5.9L12 17l-5.2 2.8 1-5.9-4.3-4.2 5.9-.8z"/>
+  </symbol>
+
+  <!-- Back arrow -->
+  <symbol id="icon-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 12H5M11 6l-6 6 6 6"/>
+  </symbol>
+
+  <!-- Users (admin) -->
+  <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="8" r="3"/>
+    <path d="M3 19c.9-3.4 3-5 6-5s5.1 1.6 6 5"/>
+    <circle cx="17.5" cy="9" r="2.2"/>
+    <path d="M15.7 14.3c2.3.3 3.7 1.7 4.3 4.2"/>
+  </symbol>
+
+  <!-- Analytics: a bar chart -->
+  <symbol id="icon-analytics" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+  </symbol>
+
+  <!-- Posts: a pencil over a page -->
+  <symbol id="icon-posts" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/>
+    <path d="M9 13.5l6-6 2 2-6 6H9z"/>
+  </symbol>
+
+  <!-- Red Zone: a filled warning dot -->
+  <symbol id="icon-redzone" viewBox="0 0 24 24" fill="currentColor">
+    <circle cx="12" cy="12" r="7"/>
+  </symbol>
+
+  <!-- Verify e-mail banner: an envelope -->
+  <symbol id="icon-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="5.5" width="18" height="13" rx="1.5"/>
+    <path d="M3.5 6.5l8.5 6.5 8.5-6.5"/>
+  </symbol>
+
+  <!-- Subscription banner: a credit card -->
+  <symbol id="icon-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.5" y="5.5" width="19" height="13" rx="1.8"/>
+    <path d="M2.5 9.5h19"/>
+    <path d="M6 14.5h4"/>
+  </symbol>
+
+  <!-- Insert link -->
+  <symbol id="icon-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.5 14.5 14.5 9.5"/>
+    <path d="M11 7l1.5-1.5a3.5 3.5 0 0 1 5 5L16 12"/>
+    <path d="M13 17l-1.5 1.5a3.5 3.5 0 0 1-5-5L8 12"/>
+  </symbol>
+
+  <!-- Insert image -->
+  <symbol id="icon-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4.5" width="18" height="15" rx="1.5"/>
+    <circle cx="8.5" cy="9.5" r="1.6"/>
+    <path d="M4 17.5l5.5-5.5 3.5 3.5 3-3 4 5"/>
+  </symbol>
+
+  <!-- Publish (eye open) -->
+  <symbol id="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>
+    <circle cx="12" cy="12" r="2.8"/>
+  </symbol>
+
+  <!-- Unpublish (eye with slash) -->
+  <symbol id="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 4l16 16"/>
+    <path d="M9.9 6.1A9.8 9.8 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a15 15 0 0 1-3.3 3.9M6.5 7.9C4 9.6 2.5 12 2.5 12s3.5 6.5 9.5 6.5a9.6 9.6 0 0 0 3.1-.5"/>
+    <path d="M9.9 10a2.8 2.8 0 0 0 4 4"/>
+  </symbol>
+
+  <!-- Delete: a trash can -->
+  <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 7h15"/>
+    <path d="M9 7V4.8a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/>
+    <path d="M6.5 7 7.3 19a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/>
+    <path d="M10.3 11v6M13.7 11v6"/>
+  </symbol>
+
+  <!-- Success check -->
+  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M8 12.3l2.6 2.6L16.3 9"/>
+  </symbol>
+</svg>

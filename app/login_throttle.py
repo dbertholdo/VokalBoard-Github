@@ -1,17 +1,18 @@
 """
-Bloqueio progressivo de tentativas de login (proteção contra ataque de
-força bruta), guardado na tabela login_lockouts (ver db/schema.sql).
+Progressive login-attempt lockout (protection against brute-force
+attacks), stored in the login_lockouts table (see db/schema.sql).
 
-Regra: 5 tentativas de senha erradas seguidas -> bloqueia o login
-daquele e-mail por 5 minutos. Se a pessoa errar de novo depois que o
-bloqueio acabar, o próximo é de 10 minutos; depois 1 hora; depois 24
-horas — e fica em 24h se continuar errando além disso. Acertar a senha
-zera tudo (a linha é apagada, volta pro estágio inicial).
+Rule: 5 consecutive wrong-password attempts -> locks out login for
+that email for 5 minutes. If the person gets it wrong again after the
+lockout ends, the next one is 10 minutes; then 1 hour; then 24 hours —
+and it stays at 24h if they keep getting it wrong beyond that. Getting
+the password right resets everything (the row is deleted, back to the
+initial stage).
 
-Guardado por e-mail (não por user_id) de propósito: assim o bloqueio
-também vale pra tentativas contra um e-mail que nem tem conta aqui,
-sem dar nenhuma pista a mais pra quem está tentando adivinhar se
-aquele e-mail está cadastrado ou não.
+Stored by email (not by user_id) deliberately: this way the lockout
+also applies to attempts against an email that doesn't even have an
+account here, without giving any extra hint to someone trying to guess
+whether that email is registered or not.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -19,9 +20,9 @@ from app.database import fetch_one, execute
 
 MAX_ATTEMPTS_PER_STAGE = 5
 
-# Duração de cada bloqueio, em minutos, por estágio (0 = primeiro
-# bloqueio que a pessoa leva, 1 = segundo, ...). Fica travado no
-# último valor da lista se continuar errando além disso.
+# Duration of each lockout, in minutes, per stage (0 = first lockout
+# the person hits, 1 = second, ...). Stays locked at the list's last
+# value if they keep getting it wrong beyond that.
 LOCKOUT_MINUTES_BY_STAGE = [5, 10, 60, 60 * 24]
 
 
@@ -31,9 +32,9 @@ def _now() -> datetime:
 
 def check_lockout(email: str) -> int | None:
     """
-    Devolve quantos segundos ainda faltam pro bloqueio acabar, ou None
-    se esse e-mail não estiver bloqueado no momento (nunca visto antes,
-    ou o bloqueio anterior já expirou).
+    Returns how many seconds remain until the lockout ends, or None if
+    this email isn't currently locked out (never seen before, or the
+    previous lockout has already expired).
     """
     row = fetch_one("SELECT locked_until FROM login_lockouts WHERE email = :email", {"email": email})
     if not row or not row["locked_until"]:
@@ -45,10 +46,10 @@ def check_lockout(email: str) -> int | None:
 
 def record_failure(email: str) -> None:
     """
-    Registra uma tentativa de senha errada. Se essa tentativa completar
-    o limite do estágio atual (MAX_ATTEMPTS_PER_STAGE), ativa o
-    bloqueio com a duração daquele estágio e avança pro próximo (mais
-    longo, até o teto de LOCKOUT_MINUTES_BY_STAGE).
+    Records a wrong-password attempt. If this attempt reaches the
+    current stage's limit (MAX_ATTEMPTS_PER_STAGE), activates the
+    lockout with that stage's duration and advances to the next one
+    (longer, up to the LOCKOUT_MINUTES_BY_STAGE ceiling).
     """
     row = fetch_one(
         "SELECT failed_count, stage FROM login_lockouts WHERE email = :email", {"email": email}
@@ -78,5 +79,5 @@ def record_failure(email: str) -> None:
 
 
 def reset(email: str) -> None:
-    """Zera o histórico de tentativas — chamado quando o login dá certo."""
+    """Resets the attempt history — called when login succeeds."""
     execute("DELETE FROM login_lockouts WHERE email = :email", {"email": email})

@@ -1,23 +1,23 @@
-name: Segurança e testes
+name: Security and tests
 
-# Roda a cada push e a cada Pull Request pro main — assim, se uma
-# mudança acidentalmente quebrar CSRF, o bloqueio de login, a proteção
-# do /admin ou o escapamento de HTML, aparece aqui ANTES de ir pro ar,
-# não depois. Gratuito no GitHub Actions para repositórios como este.
+# Runs on every push and every Pull Request to main — this way, if a
+# change accidentally breaks CSRF, the login lockout, /admin
+# protection, or HTML escaping, it shows up here BEFORE going live,
+# not after. Free on GitHub Actions for repositories like this one.
 on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-  workflow_dispatch:  # também dá pra rodar manualmente, pela aba "Actions" do GitHub
+  workflow_dispatch:  # can also be run manually, from GitHub's "Actions" tab
 
 jobs:
   security-and-tests:
     runs-on: ubuntu-latest
 
-    # Um Postgres de verdade, criado do zero só pra essa execução —
-    # os testes (tests/test_security.py) rodam contra o app real, com
-    # banco real, não uma simulação.
+    # A real Postgres, created from scratch just for this run — the
+    # tests (tests/test_security.py) run against the real app, with a
+    # real database, not a simulation.
     services:
       postgres:
         image: postgres:16
@@ -35,42 +35,42 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+psycopg2://vokalboard_ci:vokalboard_ci@localhost:5432/vokalboard_ci
-      # Chave só pra essa execução isolada do CI — nunca é usada em produção.
-      SECRET_KEY: chave-de-ci-nao-usada-em-producao-${{ github.run_id }}
+      # Key only for this isolated CI run — never used in production.
+      SECRET_KEY: ci-key-not-used-in-production-${{ github.run_id }}
       EMAIL_BACKEND: console
 
     steps:
-      - name: Baixar o código
+      - name: Check out the code
         uses: actions/checkout@v4
 
-      - name: Configurar Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Instalar dependências
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Carregar o schema do banco (db/schema.sql)
+      - name: Load the database schema (db/schema.sql)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           PGPASSWORD=vokalboard_ci psql -h localhost -U vokalboard_ci -d vokalboard_ci -f db/schema.sql
 
-      - name: Análise estática de segurança (bandit)
+      - name: Static security analysis (bandit)
         run: bandit -r app -ll
 
-      - name: Vulnerabilidades conhecidas nas dependências (pip-audit)
-        # continue-on-error: por enquanto isso só AVISA (não trava o
-        # deploy) — Pillow e starlette têm CVEs conhecidas pendentes de
-        # uma atualização com testes próprios (ver comentário no
-        # requirements.txt). Quando essas forem resolvidas, dá pra
-        # tirar essa linha e deixar pip-audit travar o build de verdade.
+      - name: Known vulnerabilities in dependencies (pip-audit)
+        # continue-on-error: for now this only WARNS (doesn't block
+        # the deploy) — Pillow and starlette have known CVEs pending
+        # an update with their own tests (see the comment in
+        # requirements.txt). Once those are resolved, this line can
+        # be removed so pip-audit actually blocks the build.
         run: pip-audit -r requirements.txt
         continue-on-error: true
 
-      - name: Testes de segurança (pytest)
+      - name: Security tests (pytest)
         run: pytest tests/ -v
