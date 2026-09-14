@@ -788,41 +788,41 @@ automaticamente uma semana depois de fechado (`app/templates/home.html`,
 `ONE_WEEK_MS`). Isso equilibra não ser chato toda visita com não deixar
 o aviso sumir de vez pra sempre.
 
-## Nível de admin (`users.is_admin`)
+## Níveis de acesso administrativo (`users.role_level`)
 
-Adicionei uma coluna `is_admin BOOLEAN` em `users` — um nível de
-usuário especial, separado de `role` (singer/conductor), pensado só
-pra tarefas administrativas leves DENTRO do próprio app (não é a mesma
-coisa que o Adminer, que dá acesso total ao banco — ver seção
-seguinte). Hoje ele libera uma única tela: `/admin`, um painel
-**só de leitura** (`app/routers/admin_routes.py` +
-`app/templates/admin.html`) com números gerais (usuários, anúncios,
-mensagens, pares bloqueados, denúncias) e as denúncias/bloqueios mais
-recentes — o suficiente pra uma triagem rápida sem abrir o Adminer só
-pra "dar uma olhada".
+`users.role_level` (inteiro, 0 a 3 — ver `db/schema.sql` e
+`app/permissions.py`) é uma escala, não um booleano:
 
-**Como virar admin**: não existe cadastro de admin pela interface (de
-propósito — é um nível sensível). Você vira admin direto no banco:
+- `0` — comum, sem acesso a `/admin`
+- `1` — moderador: só o painel `/admin` (leitura + denúncias/bloqueios)
+- `2` — admin: tudo que `/admin` já fazia (usuários, posts, análise de
+  dados)
+- `3` — god mode: tudo acima + a **Zona Vermelha** (`/financeiro`) —
+  Modo Capitalismo, preço de assinatura, painel financeiro interno
+
+A antiga coluna `is_admin BOOLEAN` continua existindo, só por
+compatibilidade com telas/consultas antigas, e é mantida em sincronia
+automaticamente com `role_level >= 2` (tanto pela aplicação —
+`app/permissions.py:sync_is_admin_flag` — quanto por um trigger no
+próprio banco, `trg_sync_role_level`, pro caso de alguém editar
+`is_admin` direto no Adminer/SQL sem passar pela aplicação).
+
+**Como virar god mode a primeira vez**: não existe cadastro pela
+interface (de propósito — é um nível sensível). Direto no banco:
 ```sql
-UPDATE users SET is_admin = TRUE WHERE email = 'seu-email@exemplo.com';
+UPDATE users SET role_level = 3 WHERE email = 'seu-email@exemplo.com';
 ```
-Quem é admin ganha um link "Admin" no menu; quem tenta acessar
-`/admin` sem ser admin só é redirecionado pra home, sem nenhuma
-mensagem revelando que a página existe. `require_admin()` em
-`app/routers/admin_routes.py` é o ponto único que checa isso — qualquer
-rota administrativa futura deveria chamar essa mesma função no início,
-em vez de reimplementar a checagem.
+(O trigger cuida de deixar `is_admin = TRUE` também, automaticamente.)
+Depois do primeiro god mode, promover outras pessoas já pode ser feito
+pela interface (`/admin/users/{id}`, botões "Tornar admin" e "Dar god
+mode") — dar god mode a alguém só pode ser feito por quem **já** é god
+mode, nunca por um admin comum.
 
-Isso é deliberadamente pouco: um "nível de usuário especial" no
-sentido que você perguntou é basicamente essa única coluna booleana +
-uma função que checa ela antes de qualquer rota sensível — não precisa
-de um sistema de permissões (roles/scopes) mais sofisticado a não ser
-que um dia existam VÁRIOS tipos de tarefa administrativa com acessos
-diferentes entre si (ex: alguém que só modera denúncias vs. alguém que
-mexe em pagamento). Se chegar nesse ponto, a evolução natural seria
-trocar o booleano por uma coluna `admin_role` (ex: 'moderator',
-'superadmin') com um `CHECK` limitando os valores válidos, do mesmo
-jeito que `users.role` já funciona pra singer/conductor.
+Quem tenta acessar `/admin` ou `/financeiro` sem o nível necessário só
+é redirecionado pra home, sem nenhuma mensagem revelando que a página
+existe. `require_level()` em `app/permissions.py` é o ponto único que
+checa isso — qualquer rota administrativa futura deveria chamar essa
+mesma função no início, em vez de reimplementar a checagem.
 
 ## Administrar o site e ver o banco em tempo real
 

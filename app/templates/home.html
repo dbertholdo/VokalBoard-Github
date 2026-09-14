@@ -9,12 +9,27 @@
     <p class="success">{{ t('account_deleted_banner') }}</p>
 {% endif %}
 
+{% if posts %}
+    <div class="posts-feed">
+        <h2>{{ t('posts_feed_title') }}</h2>
+        <ul class="posts-list">
+            {% for p in posts %}
+            <li class="post-card">
+                <h3>{{ p.title }}</h3>
+                <p class="post-body">{{ p.body }}</p>
+                <p class="post-meta">{{ t('by_author') }} {{ p.author_name }} — {{ p.created_at }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
+
 {% if user %}
     <div id="spam-notice" class="dismissible-notice" hidden>
         <span>📩 {{ t('spam_notice_text') }}</span>
-        <button type="button" onclick="dismissSpamNotice();">✕ <span class="sr-only">{{ t('spam_notice_dismiss') }}</span></button>
+        <button type="button" id="spam-notice-dismiss">✕ <span class="sr-only">{{ t('spam_notice_dismiss') }}</span></button>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce }}">
         (function () {
             // Reaparece uma vez por semana (não fica escondido pra sempre
             // depois do primeiro "x") — guarda só a DATA do último fechar,
@@ -36,6 +51,8 @@
             document.getElementById('spam-notice').hidden = true;
             try { localStorage.setItem('spamNoticeDismissedAt', String(Date.now())); } catch (e) {}
         }
+        var dismissBtn = document.getElementById('spam-notice-dismiss');
+        if (dismissBtn) dismissBtn.addEventListener('click', dismissSpamNotice);
     </script>
 
     <h1>{{ t('home_welcome').replace('{name}', user.full_name) }}</h1>

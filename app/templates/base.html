@@ -4,6 +4,33 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}VokalBoard{% endblock %}</title>
+    <meta name="description" content="{{ t('og_site_description') }}">
+
+    {# ------------------------------------------------------------
+       Open Graph / Twitter Card — o preview que aparece quando o
+       link do site é compartilhado no WhatsApp, Telegram, LinkedIn
+       etc. Sem isso, o link aparecia "pelado" (só a URL, sem
+       imagem/descrição) — a imagem (og-preview.png) tem o passarinho
+       e o nome do site, gerada a partir do bird-logo.svg.
+    ------------------------------------------------------------ #}
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="VokalBoard">
+    <meta property="og:title" content="VokalBoard">
+    <meta property="og:description" content="{{ t('og_site_description') }}">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ request.base_url }}static/img/og-preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="VokalBoard">
+    <meta name="twitter:description" content="{{ t('og_site_description') }}">
+    <meta name="twitter:image" content="{{ request.base_url }}static/img/og-preview.png">
+
+    {# Ponto de extensão: páginas que NÃO devem ser indexadas pelo
+       Google (ex: perfil público — ver public_profile.html) sobrescrevem
+       este bloco pra adicionar <meta name="robots" content="noindex">. #}
+    {% block extra_head %}{% endblock %}
+
     <link rel="icon" type="image/svg+xml" href="/static/img/bird-logo.svg">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -17,11 +44,25 @@
        none), e cada folha/nuvem respeita prefers-reduced-motion.
     ------------------------------------------------------------ #}
     <div class="site-bg" id="site-bg" aria-hidden="true"></div>
-    <script>
+    <script nonce="{{ csp_nonce }}">
         (function () {
             var bg = document.getElementById('site-bg');
             if (bg) bg.classList.add(Math.random() < 0.5 ? 'bg-leaves' : 'bg-clouds');
         })();
+
+        // Confirmação antes de enviar um form "perigoso" (apagar,
+        // desativar, esvaziar lixeira, etc) — em vez de onsubmit="return
+        // confirm(...)" espalhado pelos templates (o CSP com nonce
+        // bloqueia handler inline tipo onsubmit), qualquer <form
+        // data-confirm="mensagem"> passa por aqui.
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+            if (form && form.hasAttribute && form.hasAttribute('data-confirm')) {
+                if (!window.confirm(form.getAttribute('data-confirm'))) {
+                    event.preventDefault();
+                }
+            }
+        });
     </script>
 
     <header class="site-header">
@@ -34,7 +75,7 @@
                 <a href="/my-listings">{{ t('nav_my_listings') }}</a>
                 <a href="/my-favorites">{{ t('nav_favorites') }}</a>
                 <a href="/messages">{{ t('nav_messages') }}{% if unread_count and unread_count > 0 %} <span class="badge-count">{{ unread_count }}</span>{% endif %}</a>
-                {% if user.is_admin %}<a href="/admin">Admin</a>{% endif %}
+                {% if user.role_level and user.role_level >= 1 %}<a href="/admin">Admin</a>{% endif %}
                 <span class="whoami">
                     {% if user.avatar_url %}<img class="nav-avatar" src="{{ user.avatar_url }}" alt="">{% endif %}
                     {{ user.full_name }} ({{ t('role_singer') if user.role == "singer" else t('role_conductor') }})
@@ -52,6 +93,32 @@
             </span>
         </nav>
     </header>
+
+    {# Sub-menu fixo da área admin — aparece em TODA página /admin/*,
+       não só na tela inicial do admin, pra não precisar voltar pro
+       painel toda vez pra trocar de seção (Usuários / Análise de
+       Dados / Posts). Calculado aqui (não em cada template) pra
+       cobrir automaticamente qualquer rota nova dentro de /admin. #}
+    {% if user and user.role_level and user.role_level >= 1 and (request.url.path.startswith('/admin') or request.url.path.startswith('/financeiro')) %}
+        <nav class="admin-subnav">
+            <a href="/admin" class="{{ 'active' if request.url.path == '/admin' else '' }}">🏠 Painel</a>
+            {% if user.role_level >= 2 %}
+            <a href="/admin/users" class="{{ 'active' if request.url.path.startswith('/admin/users') else '' }}">👥 Usuários</a>
+            <a href="/admin/analytics" class="{{ 'active' if request.url.path == '/admin/analytics' else '' }}">📊 Análise de Dados</a>
+            <a href="/admin/posts" class="{{ 'active' if request.url.path.startswith('/admin/posts') else '' }}">📝 Posts</a>
+            {% endif %}
+            {% if user.role_level >= 3 %}
+            <a href="/financeiro" class="admin-subnav-red {{ 'active' if request.url.path.startswith('/financeiro') else '' }}">🔴 Zona Vermelha</a>
+            {% endif %}
+        </nav>
+    {% endif %}
+
+    {% if user and capitalismo_mode_enabled and not has_active_subscription %}
+        <div class="capitalismo-banner">
+            <span>💳 Assine já por {{ "%.2f"|format(subscription_prices.EUR / 100) }}€/{{ "%.2f"|format(subscription_prices.CHF / 100) }} CHF por ano!</span>
+            <a class="button-link button-primary" href="/assinar">Assinar</a>
+        </div>
+    {% endif %}
 
     {% if user and not user.email_verified %}
         <div class="verify-banner">
@@ -89,7 +156,7 @@
        menos animação (prefers-reduced-motion). Ver .vb-flying-wrap
        no style.css.
     ------------------------------------------------------------ #}
-    <script>
+    <script nonce="{{ csp_nonce }}">
         (function () {
             if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 

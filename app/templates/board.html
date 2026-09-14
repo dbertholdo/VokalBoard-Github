@@ -113,7 +113,7 @@
 </nav>
 {% endif %}
 
-<script>
+<script nonce="{{ csp_nonce }}">
     const STATE_OPTIONS = {{ state_options | tojson }};
     const CITY_OPTIONS = {{ city_options | tojson }};
     const filterCountry = document.getElementById('filter-country-select');

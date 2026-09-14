@@ -12,6 +12,7 @@ from app.avatars import save_avatar, remove_existing_avatar
 from app.referrals import ensure_referral_code, get_referral_stats
 from app.badges import get_user_badges, with_profile_complete, check_and_notify_new_badges
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
+from app.password_policy import password_error
 
 router = APIRouter()
 
@@ -421,10 +422,11 @@ def change_password_submit(
             status_code=400,
         )
 
-    if len(new_password) < 6:
+    pw_error = password_error(new_password)
+    if pw_error:
         return render(
             request, "change_password.html",
-            {"user": user, "error": "change_password_too_short"},
+            {"user": user, "error": pw_error},
             status_code=400,
         )
 

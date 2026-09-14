@@ -1,0 +1,12 @@
+# Dependências usadas só em desenvolvimento/CI (não em produção) —
+# instale com: pip install -r requirements.txt -r requirements-dev.txt
+#
+# pytest: roda os testes automatizados (ver tests/).
+# bandit: analisa o código Python procurando padrões perigosos
+#   conhecidos (SQL injection, uso de eval, segredo hardcoded, etc.)
+#   sem precisar executar o app.
+# pip-audit: verifica as bibliotecas do requirements.txt contra um
+#   banco de vulnerabilidades conhecidas (CVEs).
+pytest==8.3.3
+bandit==1.7.10
+pip-audit==2.7.3

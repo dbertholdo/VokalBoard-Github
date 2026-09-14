@@ -1,74 +1,108 @@
 """
 Upload de foto de perfil.
 
-De propósito, isso NÃO usa um serviço externo de armazenamento (tipo S3)
-— o arquivo é salvo direto no disco, dentro de app/static/avatars/, que
-já é servido publicamente pelo StaticFiles em app/main.py (/static/...).
-É a opção mais simples pra um projeto de aprendizado.
+O arquivo é salvo em disco, em AVATAR_DIR (por padrão app/static/avatars/,
+mas configurável pela variável de ambiente AVATAR_DIR — ver nota abaixo).
+As fotos são servidas por uma rota própria (GET /avatars/{arquivo} em
+app/main.py), não pelo StaticFiles — assim AVATAR_DIR pode apontar pra
+qualquer pasta, inclusive uma fora de app/static.
 
-Ponto de atenção pra quando for pra produção de verdade: em plataformas
-como Railway/Render (free tier), o disco do container é *efêmero* — um
-novo deploy apaga os arquivos gravados aqui. Pra um beta pequeno isso é
-aceitável (o pior caso é a pessoa precisar reenviar a foto depois de um
-deploy), mas se o projeto crescer, o próximo passo seria migrar isso
-para um serviço de armazenamento de objetos (S3, Cloudflare R2, etc.) —
-listado no README como próximo passo sugerido.
+Ponto de atenção sobre onde isso é gravado: em plataformas como
+Railway/Render, o disco do container é *efêmero* por padrão — um novo
+deploy apaga tudo que foi gravado aqui, e a pessoa precisaria reenviar
+a foto. A correção é configurar um "Volume" (disco persistente) na
+plataforma de deploy e apontar AVATAR_DIR pra ele — ver README, seção
+"Fotos de perfil".
+
+Toda imagem enviada passa por processamento antes de ser salva:
+- reorientação automática (corrige fotos de celular que vêm "deitadas",
+  usando o metadado EXIF, e depois o removemos — então nenhum dado de
+  localização/aparelho da foto original fica salvo);
+- redimensionamento (nenhuma foto de perfil salva passa de
+  MAX_AVATAR_DIMENSION pixels no lado maior — um avatar não precisa de
+  mais resolução que isso, e economiza espaço/banda sem perda visível);
+- conversão pra WEBP (formato bem mais leve que JPEG/PNG pra essa
+  qualidade, com suporte a transparência).
 """
+import io
 import os
 
 from fastapi import UploadFile
+from PIL import Image, ImageOps
 
-AVATAR_DIR = os.path.join("app", "static", "avatars")
-MAX_AVATAR_BYTES = 3 * 1024 * 1024  # 3 MB
+AVATAR_DIR = os.getenv("AVATAR_DIR", os.path.join("app", "static", "avatars"))
 
-# Content-Type -> extensão de arquivo aceita. Checar o Content-Type
-# enviado pelo navegador é uma validação simples (não é infalível —
-# alguém poderia mentir o header — mas para um projeto de aprendizado,
-# combinado com o limite de tamanho, já evita os casos comuns de abuso
-# sem precisar de uma biblioteca de processamento de imagem).
-ALLOWED_CONTENT_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-}
+# Limite do arquivo ORIGINAL enviado, antes de qualquer compressão —
+# generoso o bastante pra aceitar uma foto de celular sem editar (essas
+# facilmente passam de 5-10 MB), mas evita que alguém suba um arquivo
+# absurdamente grande só pra sobrecarregar o servidor.
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+MAX_AVATAR_DIMENSION = 512  # lado maior da imagem já processada, em pixels
+AVATAR_QUALITY = 82  # qualidade WEBP (0-100) — acima disso o ganho visual é imperceptível
+
+# Content-Type aceito no upload. A extensão final salva em disco é
+# sempre .webp (ver STORAGE_EXTENSION) — convertemos tudo, independente
+# do formato original enviado.
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+STORAGE_EXTENSION = ".webp"
+
+# Extensões que este projeto já salvou em versões anteriores (antes da
+# conversão automática pra webp) — mantidas aqui só pra remove_existing_avatar
+# conseguir limpar uma foto antiga com extensão diferente, se existir.
+_LEGACY_EXTENSIONS = {".jpg", ".png", ".webp"}
 
 
-def avatar_path_for(user_id: int, extension: str) -> str:
-    return os.path.join(AVATAR_DIR, f"{user_id}{extension}")
+def avatar_path_for(user_id: int) -> str:
+    return os.path.join(AVATAR_DIR, f"{user_id}{STORAGE_EXTENSION}")
 
 
 def remove_existing_avatar(user_id: int) -> None:
     """Remove qualquer avatar anterior desse usuário, seja qual for a extensão."""
-    for ext in ALLOWED_CONTENT_TYPES.values():
-        path = avatar_path_for(user_id, ext)
+    for ext in _LEGACY_EXTENSIONS:
+        path = os.path.join(AVATAR_DIR, f"{user_id}{ext}")
         if os.path.exists(path):
             os.remove(path)
 
 
 async def save_avatar(user_id: int, upload: UploadFile) -> str | None:
     """
-    Salva o upload em disco e devolve a URL pública (ex:
-    "/static/avatars/42.jpg"), ou None se o arquivo for inválido
-    (tipo não suportado ou maior que MAX_AVATAR_BYTES) — nesse caso,
-    nada é gravado e o chamador decide o que fazer (ex: ignorar e
-    manter a foto antiga).
+    Processa e salva o upload, devolvendo a URL pública (ex:
+    "/avatars/42.webp"), ou None se o arquivo for inválido (tipo não
+    suportado, maior que MAX_UPLOAD_BYTES, ou não for uma imagem de
+    verdade) — nesse caso, nada é gravado e o chamador decide o que
+    fazer (ex: ignorar e manter a foto antiga).
     """
     if not upload or not upload.filename:
         return None
 
-    extension = ALLOWED_CONTENT_TYPES.get(upload.content_type)
-    if not extension:
+    if upload.content_type not in ALLOWED_CONTENT_TYPES:
         return None
 
-    contents = await upload.read()
-    if not contents or len(contents) > MAX_AVATAR_BYTES:
+    content = await upload.read()
+    if not content or len(content) > MAX_UPLOAD_BYTES:
         return None
+
+    try:
+        # .verify() detecta arquivo corrompido ou que não é realmente uma
+        # imagem (mesmo tendo vindo com um Content-Type de imagem — o
+        # navegador pode mentir esse header). Ele "consome" o objeto, por
+        # isso reabrimos em seguida pra processar de verdade.
+        Image.open(io.BytesIO(content)).verify()
+        image = Image.open(io.BytesIO(content))
+    except Exception:
+        return None
+
+    image = ImageOps.exif_transpose(image)  # corrige orientação e descarta o EXIF original
+
+    if image.mode not in ("RGB", "RGBA"):
+        image = image.convert("RGBA" if "transparency" in image.info or image.mode == "P" else "RGB")
+
+    image.thumbnail((MAX_AVATAR_DIMENSION, MAX_AVATAR_DIMENSION), Image.LANCZOS)
 
     os.makedirs(AVATAR_DIR, exist_ok=True)
     remove_existing_avatar(user_id)
 
-    path = avatar_path_for(user_id, extension)
-    with open(path, "wb") as f:
-        f.write(contents)
+    image.save(avatar_path_for(user_id), format="WEBP", quality=AVATAR_QUALITY, method=6)
 
-    return f"/static/avatars/{user_id}{extension}"
+    return f"/avatars/{user_id}{STORAGE_EXTENSION}"

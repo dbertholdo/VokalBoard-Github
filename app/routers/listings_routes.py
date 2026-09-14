@@ -44,6 +44,23 @@ LISTING_COLUMNS = f"""
 
 BOARD_PAGE_SIZE = 20
 
+# Freio contra "spam de anúncio" (alguém postando dezenas de anúncios
+# em sequência, ex: via automação) — não é sobre login/cadastro, é
+# sobre quantos ANÚNCIOS a mesma conta consegue criar num intervalo
+# curto. Mesmo padrão de "janela móvel" usado em
+# app/routers/messages_routes.py (COUNT direto na tabela, sem
+# precisar de uma tabela de contador à parte).
+MAX_LISTINGS_PER_WINDOW = 5
+LISTING_WINDOW_MINUTES = 5
+
+
+def _listing_creation_throttled(author_id: int) -> bool:
+    row = fetch_one(
+        "SELECT COUNT(*) AS n FROM listings WHERE author_id = :id AND created_at > now() - interval '1 minute' * :window",
+        {"id": author_id, "window": LISTING_WINDOW_MINUTES},
+    )
+    return bool(row and row["n"] >= MAX_LISTINGS_PER_WINDOW)
+
 
 def _job_fields_valid(listing_type: str, city: str, repertoire: str, fee: str) -> bool:
     """
@@ -102,7 +119,8 @@ def home(request: Request):
                 WHERE {" AND ".join(conditions)}
                 ORDER BY {order_by_city}
                 LIMIT 5
-                """,
+                """,  # nosec B608 - só fragmentos fixos (conditions/order_by_city, sem input
+                      # direto da pessoa); valores de verdade vão em match_params, por parâmetro.
                 match_params,
             )
         elif user["role"] == "conductor":
@@ -118,7 +136,8 @@ def home(request: Request):
                     AND NOT EXISTS (SELECT 1 FROM blocked_users bu WHERE (bu.blocker_id = :viewer_block_id AND bu.blocked_id = l.author_id) OR (bu.blocker_id = l.author_id AND bu.blocked_id = :viewer_block_id))
                 ORDER BY {order_by_city}
                 LIMIT 5
-                """,
+                """,  # nosec B608 - só fragmentos fixos (order_by_city, sem input direto
+                      # da pessoa); valores de verdade vão em match_params, por parâmetro.
                 match_params,
             )
 
@@ -132,13 +151,25 @@ def home(request: Request):
             WHERE l.is_active = TRUE AND (l.event_date IS NULL OR l.event_date >= CURRENT_DATE)
             ORDER BY l.created_at DESC
             LIMIT 5
-            """
+            """  # nosec B608 - só LISTING_COLUMNS (constante fixa, sem input da pessoa) e SQL literal.
         )
+
+    posts = fetch_all(
+        """
+        SELECT p.id, p.title, p.body, p.created_at, u.full_name AS author_name
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        WHERE p.is_published = TRUE
+        ORDER BY p.created_at DESC
+        LIMIT 5
+        """
+    )
 
     context = {
         "user": user,
         "matches": matches,
         "teaser_listings": teaser_listings,
+        "posts": posts,
         "verify_required": request.query_params.get("verify_required") == "1",
     }
     return render(request, "home.html", context)
@@ -255,7 +286,8 @@ def board(
         SELECT count(*) AS n
         FROM listings l
         WHERE {where_clause}
-        """,
+        """,  # nosec B608 - where_clause é só a junção de fragmentos fixos (`conditions`,
+              # montados ali em cima); os valores de verdade da busca vão em `params`.
         params,
     )
     total = total_row["n"] if total_row else 0
@@ -282,7 +314,7 @@ def board(
         WHERE {where_clause}
         ORDER BY l.created_at DESC
         LIMIT :limit OFFSET :offset
-        """,
+        """,  # nosec B608 - mesmo where_clause de fragmentos fixos explicado acima.
         {**params, "limit": BOARD_PAGE_SIZE, "offset": offset, "viewer_id": user["id"] if user else None},
     )
 
@@ -404,6 +436,14 @@ def create_listing(
     if ensemble_type not in ENSEMBLE_TYPE_KEYS:
         ensemble_type = None
 
+    if _listing_creation_throttled(user["id"]):
+        context = _listing_form_error_context(
+            user, listing_type, title, description, city, state, country,
+            voice_type_id, repertoire, venue, fee, ensemble_type, event_date, False, None,
+        )
+        context["error"] = "error_listing_rate_limited"
+        return render(request, "listing_form.html", context, status_code=429)
+
     # "Estado" é obrigatório para qualquer anúncio (não só vagas) —
     # junto com Obra/Cidade/Cachê no caso específico de seeking_singer.
     if not state.strip() or not _job_fields_valid(listing_type, city, repertoire, fee):
@@ -467,7 +507,7 @@ def listing_detail(request: Request, listing_id: int):
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
         LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
         WHERE l.id = :id
-        """,
+        """,  # nosec B608 - só LISTING_COLUMNS (constante fixa); o id vai por parâmetro.
         {"id": listing_id},
     )
     user = get_current_user(request)
@@ -662,7 +702,7 @@ def my_listings(request: Request):
         FROM listings l
         WHERE l.author_id = :author_id
         ORDER BY l.created_at DESC
-        """,
+        """,  # nosec B608 - só EVENT_STATUS_SQL (constante fixa); author_id vai por parâmetro.
         {"author_id": user["id"]},
     )
     context = {
@@ -730,7 +770,7 @@ def my_favorites(request: Request):
         LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
         WHERE sl.user_id = :user_id
         ORDER BY sl.created_at DESC
-        """,
+        """,  # nosec B608 - só LISTING_COLUMNS (constante fixa); user_id vai por parâmetro.
         {"user_id": user["id"]},
     )
     context = {

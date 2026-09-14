@@ -34,7 +34,7 @@
     <button type="button" id="loc-city-toggle-other" class="link-button" hidden></button>
 </label>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function() {
     const COUNTRY_STATE_OPTIONS = {{ state_options | tojson }};
     const CITY_OPTIONS = {{ city_options | tojson }};

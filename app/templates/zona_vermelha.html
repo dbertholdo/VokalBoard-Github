@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Zona Vermelha — VokalBoard{% endblock %}
+
+{% block content %}
+<h1>🔴 Zona Vermelha</h1>
+<p class="field-help">
+    Configurações sensíveis, visíveis só a god mode (nível 3). Toda
+    mudança aqui exige sua senha de novo, mesmo já logado, e fica
+    registrada no log de auditoria abaixo — mesma trava que a exclusão
+    de conta usa.
+</p>
+
+{% if error == "senha_incorreta" %}<p class="error">❌ Senha incorreta — nada foi alterado.</p>{% endif %}
+{% if error == "preco_invalido" %}<p class="error">❌ Preço inválido.</p>{% endif %}
+{% if saved %}<p class="success">✅ Salvo.</p>{% endif %}
+
+<div class="red-zone-box">
+    <h2>💳 Modo Capitalismo</h2>
+    <p>
+        Estado atual:
+        {% if capitalismo_enabled %}
+            <strong class="badge-danger">LIGADO</strong> — o banner de assinatura já aparece pra quem não assina.
+        {% else %}
+            <strong>Desligado</strong> — ninguém vê nada relacionado a cobrança no site.
+        {% endif %}
+    </p>
+    <form method="post" action="/financeiro/toggle-capitalismo" class="stacked-form narrow"
+          data-confirm="{{ 'Tem certeza que quer DESLIGAR o Modo Capitalismo?' if capitalismo_enabled else 'Tem certeza que quer LIGAR o Modo Capitalismo? O banner de assinatura vai aparecer pra todo mundo, em todo lugar.' }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Confirme sua senha atual
+            <input type="password" name="current_password" required autocomplete="current-password">
+        </label>
+        <button type="submit" class="danger">{{ '🔴 Desligar Modo Capitalismo' if capitalismo_enabled else '🟢 Ligar Modo Capitalismo' }}</button>
+    </form>
+</div>
+
+<div class="red-zone-box">
+    <h2>💶 Preço da assinatura</h2>
+    <p class="field-help">Preço atual: {{ price_eur }} € / {{ price_chf }} CHF por ano.</p>
+    <form method="post" action="/financeiro/set-price" class="stacked-form narrow">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Preço em euros (€)
+            <input type="number" step="0.01" min="0.01" name="price_eur" value="{{ price_eur }}" required>
+        </label>
+        <label>Preço em francos suíços (CHF)
+            <input type="number" step="0.01" min="0.01" name="price_chf" value="{{ price_chf }}" required>
+        </label>
+        <label>Confirme sua senha atual
+            <input type="password" name="current_password" required autocomplete="current-password">
+        </label>
+        <button type="submit">💾 Salvar novo preço</button>
+    </form>
+</div>
+
+<div class="red-zone-box">
+    <h2>📖 Painel financeiro</h2>
+    <p><a class="button-link" href="/financeiro/painel">Abrir painel financeiro →</a></p>
+    <p><a class="button-link" href="/financeiro/extrato">Importar extrato bancário →</a></p>
+</div>
+
+<h2>📜 Log de auditoria recente</h2>
+{% if recent_audit|length == 0 %}
+    <p class="empty-state">Nenhuma ação registrada ainda.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for a in recent_audit %}
+            <li>
+                <p><strong>{{ a.action }}</strong> — {{ a.actor_name or "?" }} ({{ a.ip_address }})</p>
+                <p class="field-help">{{ a.details }} — {{ a.created_at }}</p>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}

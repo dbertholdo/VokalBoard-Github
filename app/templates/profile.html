@@ -145,14 +145,26 @@
     <h3>🎁 {{ t('referral_section_title') }}</h3>
     <p class="field-help">{{ t('referral_section_text') }}</p>
     <div class="referral-link-row">
-        <input type="text" id="referral-url-field" value="{{ referral_url }}" readonly onclick="this.select();">
-        <button type="button" class="button-link" onclick="
-            navigator.clipboard.writeText(document.getElementById('referral-url-field').value);
-            this.textContent = '{{ t('referral_copied') }}';
-        ">{{ t('referral_copy_button') }}</button>
+        <input type="text" id="referral-url-field" value="{{ referral_url }}" readonly>
+        <button type="button" id="referral-copy-button" class="button-link" data-copied-label="{{ t('referral_copied') }}">{{ t('referral_copy_button') }}</button>
     </div>
     <p class="referral-count">{{ t('referral_count_label') }}: <strong>{{ referral_count }}</strong></p>
 </div>
+<script nonce="{{ csp_nonce }}">
+    (function () {
+        var field = document.getElementById('referral-url-field');
+        var button = document.getElementById('referral-copy-button');
+        if (field) {
+            field.addEventListener('click', function () { field.select(); });
+        }
+        if (button && field) {
+            button.addEventListener('click', function () {
+                navigator.clipboard.writeText(field.value);
+                button.textContent = button.getAttribute('data-copied-label');
+            });
+        }
+    })();
+</script>
 
 <h2>{{ t('account_section_title') }}</h2>
 <p><a href="/profile/change-password">🔑 {{ t('change_password_title') }}</a></p>
@@ -184,7 +196,7 @@
     <details>
         <summary>{{ t('delete_account_toggle') }}</summary>
         <form method="post" action="/profile/delete-account" class="stacked-form narrow"
-              onsubmit="return confirm('{{ t('delete_account_confirm') }}');">
+              data-confirm="{{ t('delete_account_confirm') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label>{{ t('delete_account_password_label') }}
                 <input type="password" name="current_password" required>

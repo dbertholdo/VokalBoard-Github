@@ -11,6 +11,10 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.email import send_email
 from app.avatars import save_avatar
+from app.login_throttle import check_lockout, record_failure, reset as reset_login_lockout
+from app.register_throttle import is_registration_throttled, record_registration
+from app.client_ip import get_client_ip
+from app.password_policy import password_error
 from app.referrals import generate_referral_code, resolve_referrer
 from app.routers.profile_routes import parse_hashtags, parse_audio_links, set_audio_links, MAX_BIO_LENGTH
 from app.captcha import is_bot, verify_turnstile
@@ -129,6 +133,14 @@ async def register_submit(
     if is_bot(website) or not verify_turnstile(cf_turnstile_response):
         return RedirectResponse(url="/", status_code=303)
 
+    # Freio contra criação em massa de contas por script (ver
+    # app/register_throttle.py) — checado ANTES de mexer no banco de
+    # usuários. Não afeta login, reenvio de verificação nem redefinição
+    # de senha, só a criação de contas NOVAS vindas da mesma rede.
+    client_ip = get_client_ip(request)
+    if is_registration_throttled(client_ip):
+        return render(request, "register.html", _register_context(request, error="register_error_rate_limited", ref=ref), status_code=429)
+
     if category not in CATEGORY_TO_ROLE:
         return render(request, "register.html", _register_context(request, error="register_error_invalid_category", ref=ref), status_code=400)
 
@@ -140,6 +152,10 @@ async def register_submit(
     # dar pra burlar desligando o JavaScript ou enviando o form direto.
     if not city.strip() or not state.strip():
         return render(request, "register.html", _register_context(request, error="register_error_missing_location", ref=ref), status_code=400)
+
+    pw_error = password_error(password)
+    if pw_error:
+        return render(request, "register.html", _register_context(request, error=pw_error, ref=ref), status_code=400)
 
     existing = fetch_one("SELECT id FROM users WHERE email = :email", {"email": email})
     if existing:
@@ -174,6 +190,7 @@ async def register_submit(
         },
     )
     user_id = new_user["id"]
+    record_registration(client_ip)
 
     # Foto de perfil é opcional no cadastro — se vier um arquivo
     # inválido (tipo/tamanho), simplesmente ignora em vez de travar o
@@ -231,6 +248,19 @@ def login_form(request: Request):
 def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form(...), password: str = Form(...)):
     verify_csrf(request, csrf_token)
 
+    # Bloqueio progressivo contra força bruta (ver app/login_throttle.py):
+    # checado ANTES de tocar no banco de usuários, pra nem gastar tempo
+    # verificando senha se esse e-mail já estiver bloqueado.
+    retry_after = check_lockout(email)
+    if retry_after is not None:
+        retry_minutes = max(1, -(-retry_after // 60))  # arredonda pra cima
+        return render(
+            request,
+            "login.html",
+            {"user": None, "error": "login_error_locked", "retry_minutes": retry_minutes},
+            status_code=429,
+        )
+
     # Nota: aqui buscamos mesmo contas com deleted_at preenchido — de
     # propósito, pra poder diferenciar "senha errada" de "essa conta
     # foi excluída, você quer reativar?" no passo seguinte.
@@ -238,7 +268,10 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
         "SELECT id, password_hash, deleted_at FROM users WHERE email = :email", {"email": email}
     )
     if not user or not verify_password(password, user["password_hash"]):
+        record_failure(email)
         return render(request, "login.html", {"user": None, "error": "login_error"}, status_code=400)
+
+    reset_login_lockout(email)
 
     if user["deleted_at"]:
         # Conta "excluída" (soft delete, mantida 6 meses) — não loga
@@ -396,6 +429,10 @@ def reset_password_submit(request: Request, csrf_token: str = Form(""), token: s
             "link_label_key": "forgot_password_title",
         }
         return render(request, "auth_message.html", context)
+
+    pw_error = password_error(password)
+    if pw_error:
+        return render(request, "reset_password.html", {"user": None, "token": token, "error": pw_error}, status_code=400)
 
     execute(
         "UPDATE users SET password_hash = :password_hash WHERE id = :id",

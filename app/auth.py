@@ -29,7 +29,7 @@ def get_current_user(request: Request) -> dict | None:
     return fetch_one(
         """
         SELECT id, email, full_name, role, city, state, country, email_verified, avatar_url,
-               notify_matches, notify_messages, referral_code, is_admin
+               notify_matches, notify_messages, referral_code, is_admin, role_level
         FROM users WHERE id = :id AND deleted_at IS NULL
         """,
         {"id": user_id},

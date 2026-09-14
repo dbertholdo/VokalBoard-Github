@@ -3,7 +3,12 @@
 
 {% block content %}
 <a class="back-link" href="/admin/users">&larr; Usuários</a>
-<h1>{{ target.full_name }}{% if target.is_admin %} <span class="badge">admin</span>{% endif %}</h1>
+<h1>{{ target.full_name }}
+    {% if target.role_level == 3 %} <span class="badge badge-danger">god mode</span>
+    {% elif target.role_level == 2 %} <span class="badge">admin</span>
+    {% elif target.role_level == 1 %} <span class="badge">moderador</span>
+    {% endif %}
+</h1>
 <p class="meta">
     ✉️ {{ target.email }} {% if target.email_verified %}✅{% else %}(não verificado){% endif %}
     {% if target.city %} · 📍 {{ target.city }}{% if target.state %}, {{ target.state }}{% endif %}{% endif %}
@@ -56,10 +61,17 @@
     </form>
 
     {% if not is_self %}
-        <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" onsubmit="return confirm('{{ 'Remover acesso de admin?' if target.is_admin else 'Tornar esta pessoa admin?' }}');">
+        <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" data-confirm="{{ 'Remover acesso de admin?' if target.role_level >= 2 else 'Tornar esta pessoa admin?' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="button-link">{{ '⬇️ Remover admin' if target.is_admin else '⬆️ Tornar admin' }}</button>
+            <button type="submit" class="button-link">{{ '⬇️ Remover admin' if target.role_level >= 2 else '⬆️ Tornar admin' }}</button>
         </form>
+
+        {% if user.role_level == 3 and target.role_level >= 2 %}
+        <form method="post" action="/admin/users/{{ target.id }}/toggle-god-mode" data-confirm="{{ 'Remover god mode (acesso à Zona Vermelha)?' if target.role_level == 3 else 'Dar god mode a esta pessoa? Ela passará a ver o Modo Capitalismo, preço e o painel financeiro.' }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="button-link">{{ '⬇️ Remover god mode' if target.role_level == 3 else '👑 Dar god mode (Zona Vermelha)' }}</button>
+        </form>
+        {% endif %}
 
         {% if target.deleted_at %}
             <form method="post" action="/admin/users/{{ target.id }}/reactivate">
@@ -67,7 +79,7 @@
                 <button type="submit" class="button-link">♻️ Reativar conta</button>
             </form>
         {% else %}
-            <form method="post" action="/admin/users/{{ target.id }}/deactivate" onsubmit="return confirm('Desativar esta conta? A pessoa poderá reativar ao fazer login.');">
+            <form method="post" action="/admin/users/{{ target.id }}/deactivate" data-confirm="Desativar esta conta? A pessoa poderá reativar ao fazer login.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="button-link button-danger">🚫 Desativar conta</button>
             </form>
@@ -77,7 +89,7 @@
             <details class="block-user-details">
                 <summary class="block-user-summary">☠️ Apagar conta pra sempre</summary>
                 <p class="field-help">Isso apaga a conta e tudo relacionado (anúncios, mensagens, avaliações) de forma definitiva. Não tem como desfazer.</p>
-                <form method="post" action="/admin/users/{{ target.id }}/delete-forever" onsubmit="return confirm('Tem certeza ABSOLUTA? Isso não pode ser desfeito.');">
+                <form method="post" action="/admin/users/{{ target.id }}/delete-forever" data-confirm="Tem certeza ABSOLUTA? Isso não pode ser desfeito.">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="danger">Apagar permanentemente</button>
                 </form>

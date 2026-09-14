@@ -12,6 +12,17 @@ router = APIRouter()
 
 MAX_MESSAGE_LENGTH = 2000
 
+# Freio contra spam/assédio por mensagem — pensado pra NUNCA atrapalhar
+# uma conversa normal (mesmo animada) nem impedir contato entre duas
+# pessoas, só evitar rajada. Dois limites, os dois por hora corrida:
+# um geral (quantas mensagens a pessoa manda no total) e um por
+# destinatário (quantas manda pra UMA MESMA pessoa) — o segundo é o
+# que realmente importa contra assédio (alguém insistindo com a mesma
+# pessoa), o primeiro é só uma rede de segurança extra contra spam em
+# massa pra gente diferente.
+MAX_MESSAGES_PER_HOUR = 20
+MAX_MESSAGES_PER_RECIPIENT_PER_HOUR = 5
+
 
 @router.get("/messages", response_class=HTMLResponse)
 def inbox(request: Request):
@@ -121,6 +132,45 @@ def send_message(
     body = body.strip()[:MAX_MESSAGE_LENGTH]
     if not body or recipient_id == user["id"]:
         return RedirectResponse(url="/messages", status_code=303)
+
+    # Freio contra rajada de mensagens (ver constantes ali em cima) —
+    # checado ANTES do bloqueio de conteúdo pra dar o aviso certo. Não
+    # é permanente: passada 1 hora da mensagem mais antiga contada, o
+    # limite libera sozinho.
+    sent_last_hour = fetch_one(
+        "SELECT count(*) AS n FROM messages WHERE sender_id = :id AND created_at > now() - interval '1 hour'",
+        {"id": user["id"]},
+    )["n"]
+    if sent_last_hour >= MAX_MESSAGES_PER_HOUR:
+        listing = fetch_one("SELECT id, title FROM listings WHERE id = :id", {"id": int(listing_id)}) if listing_id else None
+        recipient_for_error = fetch_one("SELECT id, full_name FROM users WHERE id = :id", {"id": recipient_id})
+        context = {
+            "user": user,
+            "recipient": recipient_for_error,
+            "listing": listing,
+            "max_message_length": MAX_MESSAGE_LENGTH,
+            "error": "message_error_rate_limited",
+        }
+        return render(request, "message_compose.html", context, status_code=429)
+
+    sent_to_recipient_last_hour = fetch_one(
+        """
+        SELECT count(*) AS n FROM messages
+        WHERE sender_id = :sender_id AND recipient_id = :recipient_id AND created_at > now() - interval '1 hour'
+        """,
+        {"sender_id": user["id"], "recipient_id": recipient_id},
+    )["n"]
+    if sent_to_recipient_last_hour >= MAX_MESSAGES_PER_RECIPIENT_PER_HOUR:
+        listing = fetch_one("SELECT id, title FROM listings WHERE id = :id", {"id": int(listing_id)}) if listing_id else None
+        recipient_for_error = fetch_one("SELECT id, full_name FROM users WHERE id = :id", {"id": recipient_id})
+        context = {
+            "user": user,
+            "recipient": recipient_for_error,
+            "listing": listing,
+            "max_message_length": MAX_MESSAGE_LENGTH,
+            "error": "message_error_rate_limited_recipient",
+        }
+        return render(request, "message_compose.html", context, status_code=429)
 
     # Bloqueio impede mensagem nos dois sentidos: nem quem bloqueou nem
     # quem foi bloqueado consegue mandar mensagem pro outro lado.

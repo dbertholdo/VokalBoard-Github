@@ -121,14 +121,191 @@ CREATE TABLE users (
     -- Não existe cadastro de admin pela interface — vira admin só via
     -- UPDATE direto no banco (ver README, seção "Nível de admin").
     is_admin        BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Nível de acesso administrativo, em camadas (substitui o antigo
+    -- "é admin ou não é" por uma escala real — ver app/permissions.py):
+    --   0 = usuário comum
+    --   1 = moderador (só a fila de denúncias/bloqueios, sem mexer em
+    --       usuários nem em nada financeiro)
+    --   2 = admin (tudo que /admin já fazia antes: usuários, posts,
+    --       análise de dados)
+    --   3 = "god mode" — único nível que enxerga a Zona Vermelha
+    --       (Modo Capitalismo, preço de assinatura, painel financeiro)
+    -- is_admin continua existindo por compatibilidade (telas antigas,
+    -- README) e é mantido em sincronia com role_level >= 2 sempre que
+    -- alguém é promovido/rebaixado por /admin/users — ver
+    -- app/permissions.py:sync_is_admin_flag.
+    role_level      SMALLINT NOT NULL DEFAULT 0 CHECK (role_level BETWEEN 0 AND 3),
+    -- Atualizado (no máximo a cada poucos minutos, não a cada request —
+    -- ver app/render.py) toda vez que a pessoa logada carrega uma
+    -- página. Usado só pra "usuários ativos agora/últimos 60 min" no
+    -- painel de Análise de Dados — não é rastreamento, é só a MESMA
+    -- informação que "visto por último" em qualquer app de mensagem.
+    last_seen_at    TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_last_seen_at ON users(last_seen_at);
 CREATE INDEX idx_users_city ON users(city);
 CREATE INDEX idx_users_state ON users(state);
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX idx_users_referred_by ON users(referred_by_user_id);
+CREATE INDEX idx_users_role_level ON users(role_level);
+
+-- Migração de quem já era is_admin=TRUE antes de role_level existir:
+-- vira nível 3 (god mode) automaticamente, pra não perder acesso a
+-- nada que já tinha. Rodar isso é seguro mesmo em bancos que já têm
+-- a coluna (não sobrescreve quem já foi ajustado manualmente para um
+-- nível específico, só cobre quem ainda está em 0 apesar de admin).
+UPDATE users SET role_level = 3 WHERE is_admin = TRUE AND role_level = 0;
+
+-- Trigger de segurança: mantém role_level em sincronia mesmo quando
+-- is_admin é alterado por FORA da aplicação (ex: o UPDATE manual do
+-- README pra criar o primeiro admin, ou uma edição direta no Adminer).
+-- Sem isso, seguir o README antigo ("UPDATE users SET is_admin = TRUE
+-- ...") deixaria a pessoa marcada como admin mas SEM acesso a nada,
+-- porque toda checagem de permissão agora olha role_level, não
+-- is_admin — ver app/permissions.py.
+CREATE OR REPLACE FUNCTION sync_role_level_from_is_admin() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.is_admin AND NEW.role_level < 2 THEN
+        NEW.role_level := 2;
+    ELSIF NOT NEW.is_admin AND NEW.role_level >= 2 THEN
+        NEW.role_level := 0;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_role_level ON users;
+CREATE TRIGGER trg_sync_role_level
+    BEFORE UPDATE OF is_admin ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_role_level_from_is_admin();
+
+-- ------------------------------------------------------------
+-- Zona Vermelha: configurações sensíveis (Modo Capitalismo, preço de
+-- assinatura, etc). Guardadas como chave/valor em vez de colunas
+-- fixas pra não precisar de migração toda vez que um novo "toggle"
+-- sensível é adicionado. Só é lido/escrito por app/routers/financial_routes.py,
+-- sempre atrás de reautenticação por senha — ver audit_log abaixo.
+CREATE TABLE system_settings (
+    key                 VARCHAR(100) PRIMARY KEY,
+    value                TEXT,
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by_user_id   BIGINT REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Valores padrão: Modo Capitalismo começa DESLIGADO (ninguém vê nada
+-- de cobrança) e os preços ficam definidos mas inertes até ser ligado.
+INSERT INTO system_settings (key, value) VALUES
+    ('capitalismo_mode_enabled', 'false'),
+    ('subscription_price_eur_cents', '590'),
+    ('subscription_price_chf_cents', '690')
+ON CONFLICT (key) DO NOTHING;
+
+-- Log de auditoria das ações sensíveis da Zona Vermelha (ligar/desligar
+-- o Modo Capitalismo, mudar preço) — quem, quando, de qual IP. Não é
+-- apagável pela interface de propósito (é o registro justamente pra
+-- quando algo der errado).
+CREATE TABLE audit_log (
+    id              BIGSERIAL PRIMARY KEY,
+    actor_user_id   BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    action          VARCHAR(100) NOT NULL,
+    details         TEXT,
+    ip_address      VARCHAR(64),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_audit_log_created_at ON audit_log(created_at DESC);
+
+-- ------------------------------------------------------------
+-- Painel financeiro interno (Zona Vermelha, nível 3 apenas)
+-- ------------------------------------------------------------
+CREATE TABLE expenses (
+    id                      BIGSERIAL PRIMARY KEY,
+    description             VARCHAR(200) NOT NULL,
+    amount_cents            BIGINT NOT NULL,
+    currency                VARCHAR(3) NOT NULL DEFAULT 'EUR',
+    category                VARCHAR(50) NOT NULL DEFAULT 'other',
+    expense_date            DATE NOT NULL,
+    -- Despesa recorrente: quando marcada, recurrence_interval diz de
+    -- quanto em quanto tempo ela "recarrega" — a tela do painel usa
+    -- isso só pra sugerir o lançamento do mês seguinte automaticamente
+    -- (não lança sozinho sem confirmação, de propósito).
+    is_recurring            BOOLEAN NOT NULL DEFAULT FALSE,
+    recurrence_interval     VARCHAR(20) CHECK (recurrence_interval IN ('monthly', 'yearly') OR recurrence_interval IS NULL),
+    -- Anexo de comprovante: mesmo esquema de app/avatars.py (caminho
+    -- relativo dentro de /static, arquivo em disco).
+    receipt_url             VARCHAR(300),
+    created_by_user_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_expenses_date ON expenses(expense_date DESC);
+CREATE INDEX idx_expenses_recurring ON expenses(is_recurring);
+
+-- Perfis de importação de extrato: guarda o mapeamento de colunas que
+-- você define uma vez por banco (CSV) pra não precisar redigitar toda
+-- vez — ver "Como funciona o upload de extrato" no changelog.
+CREATE TABLE bank_import_profiles (
+    id              BIGSERIAL PRIMARY KEY,
+    name            VARCHAR(100) NOT NULL UNIQUE,
+    column_mapping  JSONB NOT NULL,   -- ex: {"date": "Data", "amount": "Valor", "description": "Descrição"}
+    date_format     VARCHAR(20) NOT NULL DEFAULT '%d/%m/%Y',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE bank_transactions (
+    id                    BIGSERIAL PRIMARY KEY,
+    import_profile_id     BIGINT REFERENCES bank_import_profiles(id) ON DELETE SET NULL,
+    transaction_date      DATE NOT NULL,
+    amount_cents          BIGINT NOT NULL,
+    currency              VARCHAR(3) NOT NULL DEFAULT 'EUR',
+    description           VARCHAR(300),
+    -- Conciliação manual simples: liga a linha do extrato a uma
+    -- despesa já lançada, se você marcar que "é a mesma coisa".
+    matched_expense_id    BIGINT REFERENCES expenses(id) ON DELETE SET NULL,
+    imported_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_bank_transactions_date ON bank_transactions(transaction_date DESC);
+
+-- Assinaturas pagas — existe desde já (mesmo com o Modo Capitalismo
+-- desligado) pra o painel de analytics por país e o fechamento
+-- mensal/anual já funcionarem no dia em que a cobrança for ligada,
+-- sem precisar de mais uma migração na hora.
+CREATE TABLE subscriptions (
+    id                  BIGSERIAL PRIMARY KEY,
+    user_id             BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    price_paid_cents    BIGINT NOT NULL,
+    currency            VARCHAR(3) NOT NULL,
+    -- País do usuário no momento da compra (cópia, não referência —
+    -- pra analytics histórico não mudar se a pessoa depois trocar de
+    -- país no perfil).
+    country             VARCHAR(10),
+    started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at          TIMESTAMPTZ,
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE
+);
+CREATE INDEX idx_subscriptions_user ON subscriptions(user_id);
+CREATE INDEX idx_subscriptions_active_country ON subscriptions(is_active, country);
+
+-- "Fechamento" mensal/anual: uma foto congelada do resumo financeiro
+-- até uma data, guardada pra sempre poder comparar/reexportar depois
+-- mesmo que despesas novas sejam lançadas retroativamente.
+CREATE TABLE financial_closings (
+    id                      BIGSERIAL PRIMARY KEY,
+    period_type             VARCHAR(10) NOT NULL CHECK (period_type IN ('monthly', 'annual')),
+    period_start             DATE NOT NULL,
+    period_end               DATE NOT NULL,
+    total_revenue_cents      BIGINT NOT NULL,
+    total_expenses_cents     BIGINT NOT NULL,
+    -- Detalhamento completo (por categoria, por moeda, etc) guardado
+    -- como JSON pra poder reexportar em Excel/CSV/PDF depois sem
+    -- precisar reconsultar o banco do zero.
+    snapshot                 JSONB,
+    closed_by_user_id        BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_financial_closings_period ON financial_closings(period_type, period_start DESC);
 
 -- ------------------------------------------------------------
 -- Redes sociais / site pessoal (opcional). Cada linha é uma
@@ -173,6 +350,82 @@ CREATE TABLE password_reset_tokens (
     used_at     TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ------------------------------------------------------------
+-- Bloqueio progressivo de login (proteção contra força bruta).
+--
+-- Guarda, por e-mail (não por user_id — assim protege até e-mails que
+-- não têm conta aqui, dificultando descobrir por tentativa se um
+-- e-mail está cadastrado ou não), quantas tentativas erradas seguidas
+-- aconteceram e até quando o login fica bloqueado. A progressão dos
+-- tempos de bloqueio (5 min -> 10 min -> 1h -> 24h) mora no código
+-- (ver app/login_throttle.py), não aqui — esta tabela só guarda o
+-- estado atual de cada e-mail. Acertar a senha zera a linha.
+-- ------------------------------------------------------------
+CREATE TABLE login_lockouts (
+    email         VARCHAR(255) PRIMARY KEY,
+    failed_count  INTEGER NOT NULL DEFAULT 0,
+    stage         INTEGER NOT NULL DEFAULT 0,
+    locked_until  TIMESTAMPTZ,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ------------------------------------------------------------
+-- Freio contra criação em massa de contas falsas por script (ver
+-- app/register_throttle.py) — parecido com login_lockouts, mas mais
+-- suave e por IP (não por e-mail): NUNCA impede uma pessoa de
+-- terminar o próprio cadastro, reenviar e-mail de verificação ou
+-- redefinir senha — só limita quantas contas NOVAS a mesma rede
+-- consegue criar numa janela de tempo curta.
+-- ------------------------------------------------------------
+CREATE TABLE registration_attempts (
+    ip_address    VARCHAR(64) PRIMARY KEY,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    window_started_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ------------------------------------------------------------
+-- Contador de visitas gerais ao site (não confundir com
+-- profile_views, que só conta visita a UM perfil). Usado no painel
+-- "Análise de Dados" do admin (ver app/routers/admin_routes.py) pra
+-- entender horário/dia da semana/dia do mês de maior uso.
+--
+-- De propósito NÃO guarda IP nem nenhum identificador da pessoa —
+-- "visitor_key" é só pra saber que já contamos ESSA sessão de
+-- navegador nas últimas 12h (mesmo padrão de "cooldown" usado em
+-- profile_views), não pra identificar quem é. is_authenticated marca
+-- só se a pessoa estava logada ou não no momento, sem guardar QUEM.
+-- ------------------------------------------------------------
+CREATE TABLE site_visits (
+    id                BIGSERIAL PRIMARY KEY,
+    visited_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    lang              VARCHAR(5),
+    referrer_domain   VARCHAR(255),
+    is_authenticated  BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX idx_site_visits_visited_at ON site_visits(visited_at);
+
+-- ------------------------------------------------------------
+-- Posts de admin/moderador (avisos, parcerias, dicas) que aparecem
+-- num feed na página inicial — pensado pra comunicação do tipo
+-- "quadro de avisos oficial", separado dos anúncios (listings) que
+-- os próprios usuários postam. author_id é sempre um admin (a rota
+-- que insere aqui já exige is_admin), mas a FK não restringe isso
+-- por SQL — quem perde o admin depois não some do rodapé "por
+-- fulano(a)" do post antigo, só não consegue mais criar novos.
+--
+-- is_published: soft-hide (mantém histórico) em vez de DELETE — dá
+-- pra "despublicar" um post sem perder o texto, e reativar depois.
+-- ------------------------------------------------------------
+CREATE TABLE posts (
+    id            BIGSERIAL PRIMARY KEY,
+    author_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title         VARCHAR(150) NOT NULL,
+    body          TEXT NOT NULL,
+    is_published  BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_posts_published_created ON posts(is_published, created_at DESC);
 
 -- ------------------------------------------------------------
 -- Perfil específico de cantor (1:1 com users quando role='singer')

@@ -77,7 +77,7 @@
     {% if user and user.id == listing.author_id %}
         <div class="listing-owner-actions">
             <a href="/listings/{{ listing.id }}/edit" class="button-link">{{ t('edit_button') }}</a>
-            <form method="post" action="/listings/{{ listing.id }}/delete" onsubmit="return confirm('{{ t('delete_confirm') }}');">
+            <form method="post" action="/listings/{{ listing.id }}/delete" data-confirm="{{ t('delete_confirm') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="danger">{{ t('delete_button') }}</button>
             </form>

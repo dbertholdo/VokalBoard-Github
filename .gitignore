@@ -10,3 +10,8 @@ venv/
 # runtime, não faz parte do código-fonte (ver app/avatars.py).
 app/static/avatars/*
 !app/static/avatars/.gitkeep
+
+# Comprovantes de despesa (painel financeiro / Zona Vermelha) — mesmo
+# motivo dos avatares, ver app/receipts.py.
+app/static/receipts/*
+!app/static/receipts/.gitkeep

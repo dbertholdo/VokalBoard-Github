@@ -47,7 +47,12 @@
         <tbody>
             {% for u in users %}
                 <tr>
-                    <td>{{ u.full_name }}{% if u.is_admin %} <span class="badge">admin</span>{% endif %}</td>
+                    <td>{{ u.full_name }}
+                        {% if u.role_level == 3 %} <span class="badge badge-danger">god mode</span>
+                        {% elif u.role_level == 2 %} <span class="badge">admin</span>
+                        {% elif u.role_level == 1 %} <span class="badge">moderador</span>
+                        {% endif %}
+                    </td>
                     <td>{{ u.email }}{% if not u.email_verified %} <span class="field-help">(não verificado)</span>{% endif %}</td>
                     <td>{{ u.city }}{% if u.state %}, {{ u.state }}{% endif %}</td>
                     <td>{% if u.avg_rating %}⭐ {{ u.avg_rating }} ({{ u.rating_count }}){% else %}—{% endif %}</td>

@@ -36,6 +36,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # --- home (boas-vindas + matches) ----------------------------------------
     "home_title": {"de": "Schwarzes Brett", "en": "Bulletin board"},
     "home_welcome": {"de": "Willkommen, {name}", "en": "Welcome, {name}"},
+    "posts_feed_title": {"de": "Neuigkeiten", "en": "Announcements"},
     "home_matches_title": {"de": "Das könnte zu dir passen", "en": "Matches for your profile"},
     "home_matches_subtitle": {
         "de": "Bis zu 5 Anzeigen, ausgewählt nach deiner Stimmlage/Rolle und Stadt.",
@@ -114,6 +115,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "de": "Bitte füllen Sie Werk, Stadt, Cachê und Stimmlage aus.",
         "en": "Please fill in work, city, fee, and voice type.",
     },
+    "error_listing_rate_limited": {
+        "de": "Zu viele Anzeigen in kurzer Zeit — bitte warten Sie ein paar Minuten und versuchen Sie es erneut.",
+        "en": "Too many listings in a short time — please wait a few minutes and try again.",
+    },
 
     # --- login -----------------------------------------------------------------
     "login_title": {"de": "Anmelden", "en": "Log in"},
@@ -121,7 +126,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "login_password_label": {"de": "Passwort", "en": "Password"},
     "login_submit": {"de": "Anmelden", "en": "Log in"},
     "login_no_account": {"de": "Noch kein Konto?", "en": "Don't have an account yet?"},
+    "og_site_description": {
+        "de": "Das Schwarze Brett für Sänger(innen) und Dirigent(innen) in Deutschland, Österreich und der Schweiz.",
+        "en": "The bulletin board connecting singers and conductors in Germany, Austria and Switzerland.",
+    },
     "login_error": {"de": "E-Mail oder Passwort falsch.", "en": "Incorrect email or password."},
+    "login_error_locked": {
+        "de": "Zu viele fehlgeschlagene Versuche. Bitte versuche es in {minutes} Minute(n) erneut.",
+        "en": "Too many failed attempts. Please try again in {minutes} minute(s).",
+    },
 
     # --- registro ----------------------------------------------------------------
     "register_title": {"de": "Konto erstellen", "en": "Create an account"},
@@ -151,6 +164,21 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "register_error_too_many_tags": {
         "de": "Maximal 10 Komponisten-Hashtags erlaubt.",
         "en": "A maximum of 10 composer hashtags is allowed.",
+    },
+    "register_error_rate_limited": {
+        "de": "Zu viele neue Konten von dieser Internetverbindung in kurzer Zeit. Bitte versuchen Sie es in etwas später erneut.",
+        "en": "Too many new accounts from this network in a short time. Please try again a bit later.",
+    },
+    "password_rules_hint": {
+        "de": "Mindestens 6 Zeichen, mit 1 Buchstaben, 1 Zahl und 1 Sonderzeichen (z. B. ! @ # $ % & *).",
+        "en": "At least 6 characters, with 1 letter, 1 number and 1 special character (e.g. ! @ # $ % & *).",
+    },
+    "password_error_length": {"de": "Das Passwort braucht mindestens 6 Zeichen.", "en": "The password must be at least 6 characters long."},
+    "password_error_letter": {"de": "Das Passwort braucht mindestens 1 Buchstaben.", "en": "The password must contain at least 1 letter."},
+    "password_error_digit": {"de": "Das Passwort braucht mindestens 1 Zahl.", "en": "The password must contain at least 1 number."},
+    "password_error_special": {
+        "de": "Das Passwort braucht mindestens 1 Sonderzeichen (z. B. ! @ # $ % & *).",
+        "en": "The password must contain at least 1 special character (e.g. ! @ # $ % & *).",
     },
 
     # --- meus anúncios -------------------------------------------------------------
@@ -226,6 +254,24 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "login_forgot_password_link": {"de": "Passwort vergessen?", "en": "Forgot password?"},
     "back_to_login": {"de": "Zurück zum Login", "en": "Back to login"},
 
+    # --- páginas de erro (404 / erro genérico / 500) -------------------------
+    "error_404_title": {"de": "Seite nicht gefunden", "en": "Page not found"},
+    "error_404_message": {
+        "de": "Diese Seite existiert nicht (mehr), oder der Link ist falsch.",
+        "en": "This page doesn't exist (anymore), or the link is wrong.",
+    },
+    "error_generic_title": {"de": "Etwas ist schiefgelaufen", "en": "Something went wrong"},
+    "error_generic_message": {
+        "de": "Die Anfrage konnte nicht bearbeitet werden (Fehler {status}).",
+        "en": "The request couldn't be processed (error {status}).",
+    },
+    "error_500_title": {"de": "Etwas ist schiefgelaufen", "en": "Something went wrong"},
+    "error_500_message": {
+        "de": "Ein unerwarteter Fehler ist aufgetreten. Wir wurden benachrichtigt — bitte versuchen Sie es später erneut.",
+        "en": "An unexpected error occurred. We've been notified — please try again later.",
+    },
+    "error_back_home": {"de": "Zurück zur Startseite", "en": "Back to the homepage"},
+
     # --- indicador de data (bolinha colorida) --------------------------------------
     "event_status_upcoming": {"de": "Termin in der Zukunft", "en": "Upcoming event"},
     "event_status_soon": {"de": "Termin diese Woche", "en": "Happening this week"},
@@ -254,6 +300,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "Really empty the trash? This permanently deletes the messages (for the other person too).",
     },
     "message_compose_title": {"de": "Neue Nachricht", "en": "New message"},
+    "message_error_rate_limited": {
+        "de": "Sie haben in der letzten Stunde schon viele Nachrichten verschickt. Bitte versuchen Sie es später erneut.",
+        "en": "You've sent a lot of messages in the last hour. Please try again a bit later.",
+    },
+    "message_error_rate_limited_recipient": {
+        "de": "Sie haben dieser Person in der letzten Stunde schon mehrmals geschrieben. Warten Sie kurz auf eine Antwort, bevor Sie erneut schreiben.",
+        "en": "You've already written to this person several times in the last hour. Give them a bit of time to reply before writing again.",
+    },
     "message_to_label": {"de": "An", "en": "To"},
     "message_body_label": {"de": "Nachricht", "en": "Message"},
     "message_send": {"de": "Senden", "en": "Send"},

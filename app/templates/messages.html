@@ -21,7 +21,7 @@
 </div>
 
 {% if folder == "trash" and messages|length > 0 %}
-    <form method="post" action="/messages/trash/empty" onsubmit="return confirm('{{ t('message_empty_trash_confirm') }}');" style="margin-bottom:16px;">
+    <form method="post" action="/messages/trash/empty" data-confirm="{{ t('message_empty_trash_confirm') }}" style="margin-bottom:16px;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="danger">🗑️ {{ t('message_empty_trash_button') }}</button>
     </form>

@@ -76,7 +76,7 @@
     <button type="submit">{{ t('listing_form_update_submit') if is_edit else t('listing_form_submit') }}</button>
 </form>
 
-<script>
+<script nonce="{{ csp_nonce }}">
     const typeSelect = document.getElementById('listing-type-select');
     const jobFields = document.getElementById('job-fields');
     const feeInput = document.getElementById('fee-input');

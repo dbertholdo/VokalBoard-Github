@@ -41,8 +41,11 @@ def notify_matching_users(base_url: str, listing_id: int, listing_type: str, tit
                 "id IN (SELECT user_id FROM singer_profiles WHERE voice_type_id = :voice_type_id OR voice_type_id IS NULL)"
             )
             params["voice_type_id"] = voice_type_id
+        # nosec B608 abaixo: só junta fragmentos FIXOS de WHERE (definidos aqui em
+        # cima, nunca vindos de input da pessoa) — os valores de verdade vão todos
+        # por parâmetro (:voice_type_id etc.) em `params`, nunca colados na string.
         recipients = fetch_all(
-            f"SELECT email, full_name FROM users WHERE {' AND '.join(conditions)}", params
+            f"SELECT email, full_name FROM users WHERE {' AND '.join(conditions)}", params  # nosec B608
         )
     elif listing_type == "seeking_conductor":
         recipients = fetch_all(

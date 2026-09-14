@@ -3,6 +3,6 @@
 
 {% block content %}
 <h1>{{ t(title_key) }}</h1>
-<p>{{ t(message_key) }}</p>
+<p>{{ message_extra if message_extra else t(message_key) }}</p>
 <p><a href="{{ link_url }}">{{ t(link_label_key) }}</a></p>
 {% endblock %}

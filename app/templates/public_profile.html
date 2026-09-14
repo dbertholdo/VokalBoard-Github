@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{{ profile_user.full_name if profile_user else t('listing_not_found') }}{% endblock %}
 
+{# Privacidade: perfis públicos não devem aparecer no Google (nome +
+   cidade de uma pessoa real, pesquisável pra sempre) — "noindex" pede
+   pros buscadores não guardarem esta página, mesmo que alguém link pra
+   ela. Não afeta em nada quem já usa o VokalBoard: continua acessível
+   normalmente por link direto, pelo quadro de anúncios etc. #}
+{% block extra_head %}
+    <meta name="robots" content="noindex, nofollow">
+{% endblock %}
+
 {% block content %}
 {% if not profile_user %}
     <p>{{ t('listing_not_found') }} <a href="/board">{{ t('back_to_board') }}</a></p>
