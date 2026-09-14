@@ -80,28 +80,32 @@ def _years_on_site(user_id: int) -> int:
 
 
 def get_user_badges(user_id: int) -> list[dict]:
+    # "icon" holds a symbol id from app/static/img/icons.svg (our own
+    # icon set — see app/templates/profile.html / public_profile.html,
+    # which render it as <svg><use href="...#{{ b.icon }}"></svg>), not
+    # an emoji character.
     badges = [
-        {"key": "referral", "icon": "🎁", "unlocked": _referral_count(user_id) > 0, "tier": ""},
-        {"key": "listing", "icon": "📋", "unlocked": _listing_count(user_id) > 0, "tier": ""},
-        {"key": "contact", "icon": "✉️", "unlocked": _message_sent_count(user_id) > 0, "tier": ""},
-        {"key": "fast_response", "icon": "⚡", "unlocked": _has_fast_response(user_id), "tier": ""},
+        {"key": "referral", "icon": "icon-gift", "unlocked": _referral_count(user_id) > 0, "tier": ""},
+        {"key": "listing", "icon": "icon-listings", "unlocked": _listing_count(user_id) > 0, "tier": ""},
+        {"key": "contact", "icon": "icon-mail", "unlocked": _message_sent_count(user_id) > 0, "tier": ""},
+        {"key": "fast_response", "icon": "icon-bolt", "unlocked": _has_fast_response(user_id), "tier": ""},
         # "profile_complete" is filled in by with_profile_complete() —
         # the caller already computes completeness for other purposes
         # (the progress bar on /profile), so there's no point computing
         # it again here.
-        {"key": "profile_complete", "icon": "✨", "unlocked": False, "tier": ""},
+        {"key": "profile_complete", "icon": "icon-sparkle", "unlocked": False, "tier": ""},
     ]
 
-    views_badge = {"key": "views", "icon": "👀", "unlocked": False, "tier": None}
+    views_badge = {"key": "views", "icon": "icon-eye", "unlocked": False, "tier": None}
     view_count = _view_count(user_id)
     for threshold, tier in VIEW_MILESTONES:
         if view_count >= threshold:
-            views_badge = {"key": "views", "icon": "👀", "unlocked": True, "tier": tier, "threshold": threshold}
+            views_badge = {"key": "views", "icon": "icon-eye", "unlocked": True, "tier": tier, "threshold": threshold}
             break
     badges.append(views_badge)
 
     years = _years_on_site(user_id)
-    anniversary_badge = {"key": "anniversary", "icon": "🎂", "unlocked": years >= 1, "tier": str(years) if years >= 1 else "", "years": years}
+    anniversary_badge = {"key": "anniversary", "icon": "icon-cake", "unlocked": years >= 1, "tier": str(years) if years >= 1 else "", "years": years}
     badges.append(anniversary_badge)
 
     return badges

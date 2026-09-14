@@ -46,7 +46,7 @@
         <p class="badge-row">
             {% for b in badges %}
                 <span class="badge-pill" title="{{ t('badge_' ~ b.key ~ '_desc') }}">
-                    {{ b.icon }} {{ t('badge_' ~ b.key ~ '_label') }}{% if b.key == 'views' %} ({{ b.threshold }}+){% endif %}
+                    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#{{ b.icon }}"></use></svg> {{ t('badge_' ~ b.key ~ '_label') }}{% if b.key == 'views' %} ({{ b.threshold }}+){% endif %}
                     {%- if b.key == 'anniversary' %}
                         {% if lang == "de" %} ({{ b.years }} {{ "Jahr" if b.years == 1 else "Jahre" }}){% else %} ({{ b.years }} {{ "year" if b.years == 1 else "years" }}){% endif %}
                     {%- endif %}

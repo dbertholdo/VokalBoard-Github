@@ -17,12 +17,12 @@
 </div>
 
 <div class="badges-box">
-    <h3>🏅 {{ t('badges_title') }}</h3>
+    <h3><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-trophy"></use></svg> {{ t('badges_title') }}</h3>
     <p class="field-help">{{ t('badges_help') }}</p>
     <ul class="badge-grid">
         {% for b in badges %}
             <li class="badge-tile {% if not b.unlocked %}badge-locked{% endif %}">
-                <span class="badge-tile-icon">{{ b.icon }}</span>
+                <span class="badge-tile-icon"><svg class="icon" width="26" height="26"><use href="/static/img/icons.svg#{{ b.icon }}"></use></svg></span>
                 <span class="badge-tile-label">{{ t('badge_' ~ b.key ~ '_label') }}{% if b.unlocked and b.key == 'views' %} ({{ b.threshold }}+){% endif %}
                     {%- if b.unlocked and b.key == 'anniversary' %}
                         {% if lang == "de" %} ({{ b.years }} {{ "Jahr" if b.years == 1 else "Jahre" }}){% else %} ({{ b.years }} {{ "year" if b.years == 1 else "years" }}){% endif %}

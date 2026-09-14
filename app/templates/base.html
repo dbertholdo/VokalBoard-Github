@@ -47,7 +47,7 @@
     {# Our own line-icon set (app/static/img/icons.svg) — used instead
        of emoji everywhere in the nav/sidebar/banners, so the icons
        match the site's own green palette instead of the OS's emoji
-       font. Referenced below as <svg class="icon"><use
+       font. Referenced below as <svg class="icon" width="18" height="18"><use
        href="/static/img/icons.svg#icon-NAME"></use></svg>. #}
     <script nonce="{{ csp_nonce }}">
         (function () {
@@ -143,28 +143,28 @@
        covered automatically. #}
     {% if user and user.role_level and user.role_level >= 1 and (request.url.path.startswith('/admin') or request.url.path.startswith('/financeiro')) %}
         <nav class="admin-subnav">
-            <a href="/admin" class="{{ 'active' if request.url.path == '/admin' else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-home"></use></svg> Dashboard</a>
+            <a href="/admin" class="{{ 'active' if request.url.path == '/admin' else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-home"></use></svg> Dashboard</a>
             {% if user.role_level >= 2 %}
-            <a href="/admin/users" class="{{ 'active' if request.url.path.startswith('/admin/users') else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-users"></use></svg> Users</a>
-            <a href="/admin/analytics" class="{{ 'active' if request.url.path == '/admin/analytics' else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Analytics</a>
-            <a href="/admin/posts" class="{{ 'active' if request.url.path.startswith('/admin/posts') else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-posts"></use></svg> Posts</a>
+            <a href="/admin/users" class="{{ 'active' if request.url.path.startswith('/admin/users') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-users"></use></svg> Users</a>
+            <a href="/admin/analytics" class="{{ 'active' if request.url.path == '/admin/analytics' else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Analytics</a>
+            <a href="/admin/posts" class="{{ 'active' if request.url.path.startswith('/admin/posts') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-posts"></use></svg> Posts</a>
             {% endif %}
             {% if user.role_level >= 3 %}
-            <a href="/financeiro" class="admin-subnav-red {{ 'active' if request.url.path.startswith('/financeiro') else '' }}"><svg class="icon"><use href="/static/img/icons.svg#icon-redzone"></use></svg> Red Zone</a>
+            <a href="/financeiro" class="admin-subnav-red {{ 'active' if request.url.path.startswith('/financeiro') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-redzone"></use></svg> Red Zone</a>
             {% endif %}
         </nav>
     {% endif %}
 
     {% if user and capitalismo_mode_enabled and not has_active_subscription %}
         <div class="capitalismo-banner">
-            <span><svg class="icon"><use href="/static/img/icons.svg#icon-card"></use></svg> Subscribe now for {{ "%.2f"|format(subscription_prices.EUR / 100) }}€/{{ "%.2f"|format(subscription_prices.CHF / 100) }} CHF per year!</span>
+            <span><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-card"></use></svg> Subscribe now for {{ "%.2f"|format(subscription_prices.EUR / 100) }}€/{{ "%.2f"|format(subscription_prices.CHF / 100) }} CHF per year!</span>
             <a class="button-link button-primary" href="/assinar">Subscribe</a>
         </div>
     {% endif %}
 
     {% if user and not user.email_verified %}
         <div class="verify-banner">
-            <span><svg class="icon"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('verify_banner_text') }}</span>
+            <span><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('verify_banner_text') }}</span>
             <form method="post" action="/resend-verification">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="link-button">{{ t('verify_banner_resend') }}</button>
@@ -182,42 +182,42 @@
                    profile here wouldn't make sense. Same sections as
                    the horizontal .admin-subnav right below the header. #}
                 <a class="side-nav-row side-nav-tone-1" href="/">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-back"></use></svg>Back to site
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-back"></use></svg>Back to site
                 </a>
                 <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path == '/admin' else '' }}" href="/admin">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-home"></use></svg>Dashboard
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-home"></use></svg>Dashboard
                 </a>
                 {% if user.role_level >= 2 %}
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/admin/users') else '' }}" href="/admin/users">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-users"></use></svg>Users
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-users"></use></svg>Users
                 </a>
                 <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path == '/admin/analytics' else '' }}" href="/admin/analytics">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-analytics"></use></svg>Analytics
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-analytics"></use></svg>Analytics
                 </a>
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/admin/posts') else '' }}" href="/admin/posts">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-posts"></use></svg>Posts
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-posts"></use></svg>Posts
                 </a>
                 {% endif %}
                 {% if user.role_level >= 3 %}
                 <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/financeiro') else '' }}" href="/financeiro">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-redzone"></use></svg>Red Zone
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-redzone"></use></svg>Red Zone
                 </a>
                 {% endif %}
             {% else %}
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path == '/' else '' }}" href="/">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-home"></use></svg>{{ t('nav_home') }}
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-home"></use></svg>{{ t('nav_home') }}
                 </a>
                 <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/board') or request.url.path.startswith('/listings') else '' }}" href="/board">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-board"></use></svg>{{ t('nav_board') }}
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-board"></use></svg>{{ t('nav_board') }}
                 </a>
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/profile') else '' }}" href="/profile">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}
                 </a>
                 <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/my-listings') else '' }}" href="/my-listings">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-listings"></use></svg>{{ t('nav_my_listings') }}
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-listings"></use></svg>{{ t('nav_my_listings') }}
                 </a>
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/my-favorites') else '' }}" href="/my-favorites">
-                    <svg class="icon side-nav-icon"><use href="/static/img/icons.svg#icon-star"></use></svg>{{ t('nav_favorites') }}
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-star"></use></svg>{{ t('nav_favorites') }}
                 </a>
             {% endif %}
         </aside>

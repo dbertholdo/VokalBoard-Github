@@ -11,8 +11,8 @@
 
 {% if user %}
     <div id="spam-notice" class="dismissible-notice" hidden>
-        <span>📩 {{ t('spam_notice_text') }}</span>
-        <button type="button" id="spam-notice-dismiss">✕ <span class="sr-only">{{ t('spam_notice_dismiss') }}</span></button>
+        <span><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('spam_notice_text') }}</span>
+        <button type="button" id="spam-notice-dismiss"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> <span class="sr-only">{{ t('spam_notice_dismiss') }}</span></button>
     </div>
     <script nonce="{{ csp_nonce }}">
         (function () {

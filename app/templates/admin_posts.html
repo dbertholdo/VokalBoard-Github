@@ -3,16 +3,17 @@
 
 {% block content %}
 <a class="back-link" href="/admin">&larr; Admin</a>
-<h1><svg class="icon"><use href="/static/img/icons.svg#icon-posts"></use></svg> Posts</h1>
+<h1><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-posts"></use></svg> Posts</h1>
 <p class="admin-tip-banner">
-    💡 Announcements, partnerships, tips — they appear in a feed on the home
+    <svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-tip"></use></svg>
+    Announcements, partnerships, tips — they appear in a feed on the home
     page, for everyone (logged in or not). Only admins can create one.
     "Unpublish" hides the post from the home page without deleting the
     text; it can be published again later.
 </p>
 
 {% if created %}
-    <p class="success"><svg class="icon"><use href="/static/img/icons.svg#icon-check"></use></svg> Post published.</p>
+    <p class="success"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-check"></use></svg> Post published.</p>
 {% endif %}
 {% if request.query_params.get('error') == 'empty' %}
     <p class="error">Title and text cannot be blank.</p>
@@ -42,8 +43,8 @@
             <button type="button" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
             <button type="button" data-cmd="formatBlock" data-value="blockquote" title="Quote">" Quote</button>
             <span class="post-editor-sep"></span>
-            <button type="button" data-cmd="createLink" title="Insert link"><svg class="icon"><use href="/static/img/icons.svg#icon-link"></use></svg> Link</button>
-            <button type="button" data-cmd="insertImage" title="Insert image"><svg class="icon"><use href="/static/img/icons.svg#icon-image"></use></svg> Image</button>
+            <button type="button" data-cmd="createLink" title="Insert link"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-link"></use></svg> Link</button>
+            <button type="button" data-cmd="insertImage" title="Insert image"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-image"></use></svg> Image</button>
             <span class="post-editor-status" data-post-editor-status></span>
         </div>
         <div class="post-editor-toolbar-row2">
@@ -87,14 +88,14 @@
                 <form method="post" action="/admin/posts/{{ p.id }}/toggle-publish" style="display:inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="button-link">
-                        {% if p.is_published %}<svg class="icon"><use href="/static/img/icons.svg#icon-eye-off"></use></svg> Unpublish
-                        {% else %}<svg class="icon"><use href="/static/img/icons.svg#icon-eye"></use></svg> Publish
+                        {% if p.is_published %}<svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-eye-off"></use></svg> Unpublish
+                        {% else %}<svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-eye"></use></svg> Publish
                         {% endif %}
                     </button>
                 </form>
                 <form method="post" action="/admin/posts/{{ p.id }}/delete" data-confirm="Delete this post for good?" style="display:inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="button-link button-danger"><svg class="icon"><use href="/static/img/icons.svg#icon-trash"></use></svg> Delete</button>
+                    <button type="submit" class="button-link button-danger"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-trash"></use></svg> Delete</button>
                 </form>
             </li>
         {% endfor %}
