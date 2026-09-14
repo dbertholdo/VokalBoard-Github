@@ -15,3 +15,8 @@ app/static/avatars/*
 # motivo dos avatares, ver app/receipts.py.
 app/static/receipts/*
 !app/static/receipts/.gitkeep
+
+# Imagens inseridas dentro de posts pelo editor estilo WordPress — mesmo
+# motivo dos avatares, ver app/post_images.py.
+app/static/post_images/*
+!app/static/post_images/.gitkeep

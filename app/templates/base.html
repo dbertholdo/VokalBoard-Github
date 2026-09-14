@@ -63,33 +63,70 @@
                 }
             }
         });
+
+        // Barra lateral no celular: some por padrão (ver .side-nav no
+        // CSS) e vira um menu que desliza por cima do conteúdo,
+        // acionado pelo botão ☰ do cabeçalho. No desktop essa classe
+        // nunca chega a importar (o CSS já mostra a lateral fixa lá).
+        (function () {
+            var toggle = document.getElementById('sidebar-toggle');
+            var sidebar = document.getElementById('side-nav');
+            var backdrop = document.getElementById('sidebar-backdrop');
+            if (!toggle || !sidebar) return;
+
+            function closeSidebar() {
+                sidebar.classList.remove('side-nav-open');
+                toggle.setAttribute('aria-expanded', 'false');
+                if (backdrop) backdrop.classList.remove('sidebar-backdrop-visible');
+            }
+            function toggleSidebar() {
+                var open = sidebar.classList.toggle('side-nav-open');
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (backdrop) backdrop.classList.toggle('sidebar-backdrop-visible', open);
+            }
+
+            toggle.addEventListener('click', toggleSidebar);
+            if (backdrop) backdrop.addEventListener('click', closeSidebar);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeSidebar();
+            });
+        })();
     </script>
 
     <header class="site-header">
+        {% if user %}
+            <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="{{ t('nav_menu_toggle') }}" aria-expanded="false" aria-controls="side-nav">
+                <span></span><span></span><span></span>
+            </button>
+        {% endif %}
         <a class="brand" href="/"><img class="brand-icon" src="/static/img/bird-logo.svg" alt="" width="32" height="23"> VokalBoard</a>
         <nav>
             {% if user %}
                 <a href="/">{{ t('nav_home') }}</a>
+                <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/board">{{ t('nav_board') }}</a>
+                <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/profile">{{ t('nav_profile') }}</a>
-                <a href="/my-listings">{{ t('nav_my_listings') }}</a>
-                <a href="/my-favorites">{{ t('nav_favorites') }}</a>
+                <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/messages">{{ t('nav_messages') }}{% if unread_count and unread_count > 0 %} <span class="badge-count">{{ unread_count }}</span>{% endif %}</a>
-                {% if user.role_level and user.role_level >= 1 %}<a href="/admin">Admin</a>{% endif %}
+                {% if user.role_level and user.role_level >= 1 %}<span class="nav-sep" aria-hidden="true">|</span><a href="/admin">Admin</a>{% endif %}
+                <span class="nav-sep" aria-hidden="true">|</span>
+                <a href="/logout">{{ t('nav_logout') }}</a>
                 <span class="whoami">
                     {% if user.avatar_url %}<img class="nav-avatar" src="{{ user.avatar_url }}" alt="">{% endif %}
                     {{ user.full_name }} ({{ t('role_singer') if user.role == "singer" else t('role_conductor') }})
                 </span>
-                <a href="/logout">{{ t('nav_logout') }}</a>
             {% else %}
                 <a href="/board">{{ t('nav_board') }}</a>
+                <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/login">{{ t('nav_login') }}</a>
+                <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/register">{{ t('nav_register') }}</a>
             {% endif %}
             <span class="lang-switch">
-                <a href="{{ lang_urls.de }}" class="{{ 'active' if lang == 'de' else '' }}">DE</a>
+                <a href="{{ lang_urls.de }}" class="{{ 'active' if lang == 'de' else '' }}">🇩🇪 DE</a>
                 <span>/</span>
-                <a href="{{ lang_urls.en }}" class="{{ 'active' if lang == 'en' else '' }}">EN</a>
+                <a href="{{ lang_urls.en }}" class="{{ 'active' if lang == 'en' else '' }}">🇬🇧 EN</a>
             </span>
         </nav>
     </header>
@@ -130,9 +167,31 @@
         </div>
     {% endif %}
 
-    <main class="container">
-        {% block content %}{% endblock %}
-    </main>
+    <div class="layout-shell">
+        {% if user %}
+        <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+        <aside class="side-nav" id="side-nav">
+            <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path == '/' else '' }}" href="/">
+                <span class="side-nav-icon">🏠</span>{{ t('nav_home') }}
+            </a>
+            <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/board') or request.url.path.startswith('/listings') else '' }}" href="/board">
+                <span class="side-nav-icon">🎼</span>{{ t('nav_board') }}
+            </a>
+            <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/profile') else '' }}" href="/profile">
+                <span class="side-nav-icon">👤</span>{{ t('nav_profile') }}
+            </a>
+            <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/my-listings') else '' }}" href="/my-listings">
+                <span class="side-nav-icon">📋</span>{{ t('nav_my_listings') }}
+            </a>
+            <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/my-favorites') else '' }}" href="/my-favorites">
+                <span class="side-nav-icon">⭐</span>{{ t('nav_favorites') }}
+            </a>
+        </aside>
+        {% endif %}
+        <main class="container">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
 
     <footer class="site-footer">
         <p><img class="footer-bird-icon" src="/static/img/bird-logo.svg" alt="" width="20" height="14"> {{ t('footer_text') }}</p>

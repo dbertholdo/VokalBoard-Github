@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form, BackgroundTasks
+from fastapi import APIRouter, Request, Form, BackgroundTasks, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse
 
 from app.database import fetch_all, fetch_one, execute, execute_returning
@@ -8,6 +8,7 @@ from app.csrf import verify_csrf
 from app.notifications import notify_matching_users
 from app.badges import check_and_notify_new_badges
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
+from app.richtext import html_to_excerpt
 
 router = APIRouter()
 
@@ -164,6 +165,11 @@ def home(request: Request):
         LIMIT 5
         """
     )
+    # O card na home mostra só um resumo em texto puro (sem a
+    # formatação/imagens do editor) — o post inteiro, com tudo, mora em
+    # /posts/{id} (ver post_detail() logo abaixo).
+    for p in posts:
+        p["excerpt"], p["is_truncated"] = html_to_excerpt(p["body"])
 
     context = {
         "user": user,
@@ -173,6 +179,38 @@ def home(request: Request):
         "verify_required": request.query_params.get("verify_required") == "1",
     }
     return render(request, "home.html", context)
+
+
+@router.get("/posts/{post_id}", response_class=HTMLResponse)
+def post_detail(request: Request, post_id: int):
+    """
+    Página do post inteiro (aberta pra qualquer visitante, logado ou
+    não — mesmo modelo do /board). O card na home só mostra um resumo
+    em texto puro; aqui entra o HTML completo, já sanitizado no
+    momento de salvar (ver app/richtext.py), com formatação e imagens.
+
+    Um post despublicado só é visível pra quem tem nível de admin (2+)
+    — pra dar uma última conferida antes de reativar — qualquer outra
+    pessoa recebe 404 (não conta o motivo, pra não vazar que o post
+    existe mas está escondido).
+    """
+    user = get_current_user(request)
+    post = fetch_one(
+        """
+        SELECT p.id, p.title, p.body, p.is_published, p.created_at, u.full_name AS author_name
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        WHERE p.id = :id
+        """,
+        {"id": post_id},
+    )
+    if not post:
+        raise HTTPException(status_code=404)
+    if not post["is_published"] and not (user and user.get("role_level") and user["role_level"] >= 2):
+        raise HTTPException(status_code=404)
+
+    context = {"user": user, "post": post}
+    return render(request, "post_detail.html", context)
 
 
 @router.get("/board", response_class=HTMLResponse)

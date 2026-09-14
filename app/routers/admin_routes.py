@@ -16,8 +16,8 @@ direto no banco:
 (ver README, seção "Nível de admin"). Depois disso, promover outras
 pessoas já pode ser feito por aqui (/admin/users/{id}).
 """
-from fastapi import APIRouter, Request, Form
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi import APIRouter, Request, Form, UploadFile, File
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 
 from app.database import fetch_all, fetch_one, execute, execute_returning
 from app.auth import get_current_user
@@ -25,11 +25,16 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.routers.auth_routes import send_password_reset_email
 from app.permissions import require_level, sync_is_admin_flag, LEVEL_COMUM, LEVEL_MODERADOR, LEVEL_ADMIN, LEVEL_GOD
+from app.richtext import sanitize_post_body
+from app.post_images import save_post_image
 
 router = APIRouter()
 
 POST_TITLE_MAX_LENGTH = 150
-POST_BODY_MAX_LENGTH = 4000
+# Bem maior que antes (era 4000): o corpo agora guarda HTML do editor
+# (tags de formatação + <img src="/post-images/..."> contam caracteres
+# também), não só texto puro — ver app/richtext.py.
+POST_BODY_MAX_LENGTH = 20000
 
 ADMIN_USERS_PAGE_SIZE = 30
 
@@ -628,14 +633,45 @@ def admin_posts_create(
     body = body.strip()
     if not title or not body:
         return RedirectResponse(url="/admin/posts?error=empty", status_code=303)
-    title = title[:POST_TITLE_MAX_LENGTH]
-    body = body[:POST_BODY_MAX_LENGTH]
+    if len(title) > POST_TITLE_MAX_LENGTH or len(body) > POST_BODY_MAX_LENGTH:
+        # Não cortamos o HTML no limite (poderia partir uma tag no meio
+        # e sobrar marcação quebrada) — pede pra pessoa encurtar e
+        # reenviar, em vez disso.
+        return RedirectResponse(url="/admin/posts?error=too_long", status_code=303)
+
+    # O editor (app/static/js/post-editor.js) manda HTML puro — só
+    # passa daqui pra frente o que estiver na lista permitida (ver
+    # app/richtext.py); qualquer <script>/onclick/etc é removido, não
+    # escapado (os templates usam {{ post.body | safe }}).
+    body = sanitize_post_body(body)
+    if not body.strip():
+        return RedirectResponse(url="/admin/posts?error=empty", status_code=303)
 
     execute_returning(
         "INSERT INTO posts (author_id, title, body) VALUES (:author_id, :title, :body) RETURNING id",
         {"author_id": admin["id"], "title": title, "body": body},
     )
     return RedirectResponse(url="/admin/posts?created=1", status_code=303)
+
+
+@router.post("/admin/posts/upload-image")
+async def admin_posts_upload_image(request: Request, image: UploadFile = File(...)):
+    """
+    Chamada pelo botão de imagem do editor (app/static/js/post-editor.js,
+    via fetch/FormData) — devolve {"url": "/post-images/..."} pra
+    inserir no texto, ou 400 se o arquivo não for uma imagem válida.
+    Exige o mesmo CSRF token de qualquer outro POST (mandado no header
+    X-CSRF-Token, já que aqui é fetch() e não um <form> normal).
+    """
+    admin = require_admin(request)
+    if not admin:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    verify_csrf(request, request.headers.get("x-csrf-token", ""))
+
+    url = await save_post_image(image)
+    if not url:
+        return JSONResponse({"error": "invalid_image"}, status_code=400)
+    return JSONResponse({"url": url})
 
 
 @router.post("/admin/posts/{post_id}/toggle-publish")

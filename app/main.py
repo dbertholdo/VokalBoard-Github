@@ -16,6 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 
 from app.avatars import AVATAR_DIR, STORAGE_EXTENSION
+from app.post_images import POST_IMAGE_DIR, STORAGE_EXTENSION as POST_IMAGE_STORAGE_EXTENSION
 from app.auth import get_current_user
 from app.database import engine, fetch_all, execute
 from app.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, translate
@@ -239,6 +240,25 @@ def serve_avatar(filename: str):
     if not _AVATAR_FILENAME_RE.match(filename):
         raise HTTPException(status_code=404)
     path = os.path.join(AVATAR_DIR, filename)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404)
+    return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=86400"})
+
+
+# Imagens inseridas dentro de posts (editor estilo WordPress — ver
+# app/post_images.py e POST /admin/posts/upload-image em
+# app/routers/admin_routes.py). Mesmo esquema de /avatars: rota
+# própria (não StaticFiles) pra POST_IMAGE_DIR poder apontar pra fora
+# de app/static/, e o nome do arquivo é validado antes de virar
+# caminho de disco.
+_POST_IMAGE_FILENAME_RE = re.compile(r"^[A-Za-z0-9]+" + re.escape(POST_IMAGE_STORAGE_EXTENSION) + r"$")
+
+
+@app.get("/post-images/{filename}")
+def serve_post_image(filename: str):
+    if not _POST_IMAGE_FILENAME_RE.match(filename):
+        raise HTTPException(status_code=404)
+    path = os.path.join(POST_IMAGE_DIR, filename)
     if not os.path.isfile(path):
         raise HTTPException(status_code=404)
     return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=86400"})

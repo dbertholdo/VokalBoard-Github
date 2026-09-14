@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} — VokalBoard{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/">&larr; {{ t('nav_home') }}</a>
+
+{% if not post.is_published %}
+    <p class="badge">{{ t('post_unpublished_notice') }}</p>
+{% endif %}
+
+<article class="post-full">
+    <h1>{{ post.title }}</h1>
+    <p class="post-meta">{{ t('by_author') }} {{ post.author_name }} — {{ post.created_at }}</p>
+    <div class="post-body-full">{{ post.body | safe }}</div>
+</article>
+{% endblock %}

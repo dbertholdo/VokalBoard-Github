@@ -413,3 +413,101 @@ class TestAdminPosts:
 
         home = client.get("/")
         assert "Post pra despublicar" not in home.text
+
+    def test_post_body_html_is_sanitized_and_full_page_works(self, client):
+        """O editor manda HTML — só a lista permitida (ver app/richtext.py)
+        sobrevive; <script>/onclick nunca chegam a ser salvos."""
+        admin_id, admin_email, admin_password = register_test_user(client, full_name="Post Admin Rich")
+        execute("UPDATE users SET is_admin = TRUE, email_verified = TRUE WHERE id = :id", {"id": admin_id})
+        login(client, admin_email, admin_password)
+
+        r = client.get("/admin/posts")
+        token = extract_csrf(r.text)
+        dirty_body = (
+            '<p>Texto <strong>em negrito</strong> e <script>alert(1)</script></p>'
+            '<img src="/post-images/x.webp" onerror="alert(2)">'
+            '<a href="javascript:alert(3)">link malicioso</a>'
+        )
+        client.post(
+            "/admin/posts",
+            data={"csrf_token": token, "title": "Post com HTML", "body": dirty_body},
+            follow_redirects=False,
+        )
+        post = fetch_one("SELECT id, body FROM posts WHERE title = 'Post com HTML'")
+        assert post is not None
+        assert "<script>" not in post["body"]
+        assert "onerror" not in post["body"]
+        assert "javascript:" not in post["body"]
+        assert "<strong>em negrito</strong>" in post["body"]
+
+        # a página do post inteiro renderiza o HTML sanitizado sem escapar
+        # (usa {{ post.body | safe }}) e o card da home mostra só o resumo
+        # em texto puro, sem tags.
+        detail = client.get(f"/posts/{post['id']}")
+        assert detail.status_code == 200
+        assert "<strong>em negrito</strong>" in detail.text
+        assert "<script>" not in detail.text
+
+        home = client.get("/")
+        assert "Post com HTML" in home.text
+        assert "<strong>" not in home.text  # resumo é texto puro, sem marcação
+
+    def test_post_detail_404_for_missing_or_unpublished_to_non_admin(self, client):
+        admin_id, admin_email, admin_password = register_test_user(client, full_name="Post Admin Unpub")
+        execute("UPDATE users SET is_admin = TRUE, email_verified = TRUE WHERE id = :id", {"id": admin_id})
+        login(client, admin_email, admin_password)
+
+        assert client.get("/posts/999999999").status_code == 404
+
+        r = client.get("/admin/posts")
+        token = extract_csrf(r.text)
+        client.post(
+            "/admin/posts",
+            data={"csrf_token": token, "title": "Post despublicado detalhe", "body": "Texto."},
+            follow_redirects=False,
+        )
+        post_id = fetch_one("SELECT id FROM posts WHERE title = 'Post despublicado detalhe'")["id"]
+        client.post(f"/admin/posts/{post_id}/toggle-publish", data={"csrf_token": token}, follow_redirects=False)
+
+        # admin ainda consegue ver (conferir antes de republicar)
+        assert client.get(f"/posts/{post_id}").status_code == 200
+
+        # visitante sem login recebe 404 (não "sabe" que o post existe)
+        from fastapi.testclient import TestClient
+        from app.main import app as fastapi_app
+
+        anon = TestClient(fastapi_app)
+        assert anon.get(f"/posts/{post_id}").status_code == 404
+
+    def test_upload_image_requires_admin_and_rejects_non_image(self, client):
+        _, email, password = register_test_user(client)
+        login(client, email, password)
+        r = client.post("/admin/posts/upload-image", files={"image": ("x.png", b"not-an-image", "image/png")})
+        assert r.status_code == 403
+
+        admin_id, admin_email, admin_password = register_test_user(client, full_name="Post Admin Img")
+        execute("UPDATE users SET is_admin = TRUE, email_verified = TRUE WHERE id = :id", {"id": admin_id})
+        login(client, admin_email, admin_password)
+        r2 = client.get("/admin/posts")
+        token = extract_csrf(r2.text)
+
+        bad = client.post(
+            "/admin/posts/upload-image",
+            files={"image": ("x.png", b"not-an-image", "image/png")},
+            headers={"X-CSRF-Token": token},
+        )
+        assert bad.status_code == 400
+
+        import io
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (10, 10), color="red").save(buf, format="PNG")
+        buf.seek(0)
+        good = client.post(
+            "/admin/posts/upload-image",
+            files={"image": ("x.png", buf.read(), "image/png")},
+            headers={"X-CSRF-Token": token},
+        )
+        assert good.status_code == 200
+        assert good.json()["url"].startswith("/post-images/")

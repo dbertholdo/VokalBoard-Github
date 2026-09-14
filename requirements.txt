@@ -24,3 +24,11 @@ Pillow==12.3.0
 # geração dos exports de fechamento mensal/anual.
 openpyxl==3.1.5   # exportar .xlsx
 reportlab==4.2.5  # exportar .pdf (puro Python, sem dependência de sistema tipo cairo/pango)
+
+# Editor de posts estilo WordPress (ver app/richtext.py e
+# app/templates/admin_posts.html): sanitiza o HTML gerado pelo editor
+# antes de salvar — mesmo sendo só admin quem publica, evita que um
+# admin comprometido (ou um bug no editor) injete <script>/onclick/etc
+# num post que todo mundo vê na home. Escrito em Rust (bindings pro
+# ammonia) — não precisa de nenhuma dependência de sistema.
+nh3==0.3.7

@@ -16,17 +16,44 @@
 {% if request.query_params.get('error') == 'empty' %}
     <p class="error">Título e texto não podem ficar em branco.</p>
 {% endif %}
+{% if request.query_params.get('error') == 'too_long' %}
+    <p class="error">Título ou texto passou do limite ({{ title_max }} / {{ body_max }} caracteres, contando o HTML da formatação) — encurte e tente de novo.</p>
+{% endif %}
 
-<form method="post" action="/admin/posts" class="stacked-form narrow">
+<form method="post" action="/admin/posts" class="stacked-form narrow" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>Título
         <input type="text" name="title" maxlength="{{ title_max }}" required>
     </label>
-    <label>Texto
-        <textarea name="body" rows="5" maxlength="{{ body_max }}" required></textarea>
-    </label>
+
+    <div class="post-editor" data-post-editor data-upload-url="/admin/posts/upload-image" data-csrf-token="{{ csrf_token }}">
+        <label class="field-label">Texto</label>
+        <div class="post-editor-toolbar" data-post-editor-toolbar>
+            <button type="button" data-cmd="bold" title="Negrito"><strong>B</strong></button>
+            <button type="button" data-cmd="italic" title="Itálico"><em>I</em></button>
+            <button type="button" data-cmd="underline" title="Sublinhado"><u>S</u></button>
+            <span class="post-editor-sep"></span>
+            <button type="button" data-cmd="formatBlock" data-value="h2" title="Título">H2</button>
+            <button type="button" data-cmd="formatBlock" data-value="h3" title="Subtítulo">H3</button>
+            <button type="button" data-cmd="formatBlock" data-value="p" title="Parágrafo">¶</button>
+            <span class="post-editor-sep"></span>
+            <button type="button" data-cmd="insertUnorderedList" title="Lista com marcadores">• Lista</button>
+            <button type="button" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
+            <button type="button" data-cmd="formatBlock" data-value="blockquote" title="Citação">" Citação</button>
+            <span class="post-editor-sep"></span>
+            <button type="button" data-cmd="createLink" title="Inserir link">🔗 Link</button>
+            <button type="button" data-cmd="insertImage" title="Inserir imagem">🖼️ Imagem</button>
+            <span class="post-editor-status" data-post-editor-status></span>
+        </div>
+        <div class="post-editor-area" data-post-editor-area contenteditable="true" aria-label="Texto do post"></div>
+        <input type="file" accept="image/*" hidden data-post-editor-image-input>
+        <textarea name="body" hidden data-post-editor-hidden maxlength="{{ body_max }}" required></textarea>
+        <p class="field-help">Selecione o texto e clique nos botões pra formatar — igual ao WordPress. As imagens ficam salvas no servidor assim que você escolhe o arquivo.</p>
+    </div>
+
     <button type="submit" class="button-link button-primary">Publicar</button>
 </form>
+<script src="/static/js/post-editor.js" nonce="{{ csp_nonce }}"></script>
 
 <h2>Posts existentes</h2>
 {% if posts|length == 0 %}
@@ -39,7 +66,7 @@
                     <strong>{{ p.title }}</strong>
                     {% if not p.is_published %}<span class="badge">rascunho / despublicado</span>{% endif %}
                 </p>
-                <p class="post-body">{{ p.body }}</p>
+                <div class="post-body-full">{{ p.body | safe }}</div>
                 <p class="field-help">{{ t('by_author') }} {{ p.author_name }} — {{ p.created_at }}</p>
                 <form method="post" action="/admin/posts/{{ p.id }}/toggle-publish" style="display:inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

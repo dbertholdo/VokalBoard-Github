@@ -9,21 +9,6 @@
     <p class="success">{{ t('account_deleted_banner') }}</p>
 {% endif %}
 
-{% if posts %}
-    <div class="posts-feed">
-        <h2>{{ t('posts_feed_title') }}</h2>
-        <ul class="posts-list">
-            {% for p in posts %}
-            <li class="post-card">
-                <h3>{{ p.title }}</h3>
-                <p class="post-body">{{ p.body }}</p>
-                <p class="post-meta">{{ t('by_author') }} {{ p.author_name }} — {{ p.created_at }}</p>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-{% endif %}
-
 {% if user %}
     <div id="spam-notice" class="dismissible-notice" hidden>
         <span>📩 {{ t('spam_notice_text') }}</span>
@@ -116,5 +101,23 @@
         {% endfor %}
     </ul>
     <p><a class="button-link" href="/board">{{ t('home_cta_browse') }} →</a></p>
+{% endif %}
+
+{% if posts %}
+    <div class="posts-feed">
+        <h2>{{ t('posts_feed_title') }}</h2>
+        <ul class="posts-list">
+            {% for p in posts %}
+            <li class="post-card">
+                <a class="post-card-link" href="/posts/{{ p.id }}">
+                    <h3>{{ p.title }}</h3>
+                    <p class="post-body">{{ p.excerpt }}{% if p.is_truncated %}…{% endif %}</p>
+                    <p class="post-meta">{{ t('by_author') }} {{ p.author_name }} — {{ p.created_at }}</p>
+                    <span class="post-read-more">{{ t('post_read_more') }} →</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
 {% endif %}
 {% endblock %}

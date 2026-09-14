@@ -21,7 +21,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "nav_home": {"de": "Start", "en": "Home"},
     "nav_my_listings": {"de": "Meine Anzeigen", "en": "My listings"},
     "nav_favorites": {"de": "Favoriten", "en": "Favorites"},
-    "nav_board": {"de": "Jobbörse", "en": "Jobs / Browse"},
+    "nav_board": {"de": "Jobs", "en": "Jobs"},
+    "nav_menu_toggle": {"de": "Menü", "en": "Menu"},
     "nav_profile": {"de": "Mein Profil", "en": "My profile"},
     "nav_login": {"de": "Anmelden", "en": "Log in"},
     "nav_register": {"de": "Registrieren", "en": "Sign up"},
@@ -37,6 +38,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "home_title": {"de": "Schwarzes Brett", "en": "Bulletin board"},
     "home_welcome": {"de": "Willkommen, {name}", "en": "Welcome, {name}"},
     "posts_feed_title": {"de": "Neuigkeiten", "en": "Announcements"},
+    "post_read_more": {"de": "Weiterlesen", "en": "Read more"},
+    "post_unpublished_notice": {"de": "Entwurf / nicht veröffentlicht — nur für Admins sichtbar", "en": "Draft / unpublished — visible to admins only"},
     "home_matches_title": {"de": "Das könnte zu dir passen", "en": "Matches for your profile"},
     "home_matches_subtitle": {
         "de": "Bis zu 5 Anzeigen, ausgewählt nach deiner Stimmlage/Rolle und Stadt.",
