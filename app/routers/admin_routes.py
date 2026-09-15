@@ -20,6 +20,7 @@ from fastapi import APIRouter, Request, Form, UploadFile, File
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 
 from app.database import fetch_all, fetch_one, execute, execute_returning
+from app.referrals import record_referral_verification
 from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
@@ -240,6 +241,7 @@ def admin_verify_email(request: Request, user_id: int, csrf_token: str = Form(..
     verify_csrf(request, csrf_token)
 
     execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
+    record_referral_verification(user_id)
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
 
 

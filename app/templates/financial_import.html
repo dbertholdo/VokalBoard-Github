@@ -2,7 +2,7 @@
 {% block title %}Import statement — VokalBoard{% endblock %}
 
 {% block content %}
-<h1>🏦 Import bank statement</h1>
+<h1><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-bank"></use></svg> Import bank statement</h1>
 <p><a href="/financeiro">← Red Zone</a> · <a href="/financeiro/painel">Financial dashboard →</a></p>
 <p class="field-help">
     Manual upload only (no automatic bank connection — see the
@@ -12,9 +12,9 @@
     to import whenever you want.
 </p>
 
-{% if error %}<p class="error">❌ {{ error }}</p>{% endif %}
+{% if error %}<p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> {{ error }}</p>{% endif %}
 {% if saved %}
-    <p class="success">✅ Saved.
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Saved.
         {% if request.query_params.get('imported') %}
             {{ request.query_params.get('imported') }} rows imported,
             {{ request.query_params.get('skipped') }} skipped (date/amount not recognized).
@@ -30,7 +30,7 @@
     <label>Date format <input type="text" name="date_format" value="%d/%m/%Y" required></label>
     <label>Amount column name <input type="text" name="column_amount" required placeholder="e.g. Amount"></label>
     <label>Description column name <input type="text" name="column_description" required placeholder="e.g. Description"></label>
-    <button type="submit">💾 Save profile</button>
+    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-save"></use></svg> Save profile</button>
 </form>
 
 <h2>2. Import a CSV using a saved profile</h2>
@@ -45,7 +45,7 @@
             </select>
         </label>
         <label>CSV file <input type="file" name="statement_file" accept=".csv,text/csv" required></label>
-        <button type="submit">⬆️ Import</button>
+        <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-upload"></use></svg> Import</button>
     </form>
 {% endif %}
 

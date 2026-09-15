@@ -12,27 +12,27 @@
     {% endif %}
     <h1>{{ listing.title }}</h1>
     <p class="meta">
-        {% if listing.city %}📍 {{ listing.city }}{% if listing.state %}, {{ listing.state }}{% endif %}{% endif %}
+        {% if listing.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ listing.city }}{% if listing.state %}, {{ listing.state }}{% endif %}{% endif %}
         {% if listing.ensemble_type %} · {{ t('ensemble_type_' ~ listing.ensemble_type) }}{% endif %}
-        {% if listing.voice_type_name %} · 🎤 {{ listing.voice_type_name }}{% elif listing.listing_type == "seeking_singer" %} · 🎤 {{ t('voice_type_all') }}{% endif %}
-        {% if listing.repertoire %} · 🎵 {{ listing.repertoire }}{% endif %}
-        {% if listing.venue %} · 🏛️ {{ listing.venue }}{% endif %}
-        {% if listing.fee %} · 💶 {{ listing.fee }}{% endif %}
-        {% if listing.event_date %} · 📅 {{ listing.event_date }}{% endif %}
+        {% if listing.voice_type_name %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ listing.voice_type_name }}{% elif listing.listing_type == "seeking_singer" %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ t('voice_type_all') }}{% endif %}
+        {% if listing.repertoire %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ listing.repertoire }}{% endif %}
+        {% if listing.venue %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-building"></use></svg> {{ listing.venue }}{% endif %}
+        {% if listing.fee %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ listing.fee }}{% endif %}
+        {% if listing.event_date %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> {{ listing.event_date }}{% endif %}
     </p>
 
     {% if lock_reason %}
         <p class="description">{{ listing.description[:120] }}{% if listing.description|length > 120 %}…{% endif %}</p>
         <div class="locked-box">
             {% if lock_reason == "unverified" %}
-                <h3>✉️ {{ t('locked_listing_unverified_title') }}</h3>
+                <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('locked_listing_unverified_title') }}</h3>
                 <p>{{ t('locked_listing_unverified_text') }}</p>
                 <form method="post" action="/resend-verification" class="hero-actions">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="button-link button-primary">{{ t('verify_banner_resend') }}</button>
                 </form>
             {% else %}
-                <h3>🔒 {{ t('locked_listing_title') }}</h3>
+                <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-lock"></use></svg> {{ t('locked_listing_title') }}</h3>
                 <p>{{ t('locked_listing_text') }}</p>
                 <p class="hero-actions">
                     <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
@@ -47,12 +47,12 @@
             <h3>{{ t('contact_title') }}</h3>
             <p><strong><a href="/users/{{ listing.author_id }}">{{ listing.author_name }}</a></strong>
                — <a href="/users/{{ listing.author_id }}">{{ t('view_profile') }}</a></p>
-            <p>✉️ <a href="mailto:{{ listing.author_email }}">{{ listing.author_email }}</a></p>
-            {% if listing.author_phone %}<p>📞 {{ listing.author_phone }}</p>{% endif %}
+            <p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> <a href="mailto:{{ listing.author_email }}">{{ listing.author_email }}</a></p>
+            {% if listing.author_phone %}<p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-phone"></use></svg> {{ listing.author_phone }}</p>{% endif %}
             {% if user.id != listing.author_id %}
-                <p><a href="/messages/new?to={{ listing.author_id }}&listing_id={{ listing.id }}" class="button-link">✉️ {{ t('message_send_here') }}</a></p>
+                <p><a href="/messages/new?to={{ listing.author_id }}&listing_id={{ listing.id }}" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('message_send_here') }}</a></p>
                 {% if already_messaged %}
-                    <p class="already-messaged-note">✅ {{ t('already_messaged_text') }}</p>
+                    <p class="already-messaged-note"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('already_messaged_text') }}</p>
                 {% endif %}
             {% endif %}
         </div>
@@ -63,12 +63,12 @@
             {% if is_saved %}
                 <form method="post" action="/listings/{{ listing.id }}/unsave">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="button-link favorited">⭐ {{ t('favorite_remove') }}</button>
+                    <button type="submit" class="button-link favorited"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('favorite_remove') }}</button>
                 </form>
             {% else %}
                 <form method="post" action="/listings/{{ listing.id }}/save">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="button-link">☆ {{ t('favorite_add') }}</button>
+                    <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star-outline"></use></svg> {{ t('favorite_add') }}</button>
                 </form>
             {% endif %}
         </div>
@@ -87,12 +87,12 @@
     {% if user and user.id != listing.author_id %}
         <div class="listing-report-action">
             {% if reported_just_now %}
-                <p class="success">✅ {{ t('report_listing_sent') }}</p>
+                <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('report_listing_sent') }}</p>
             {% elif already_reported %}
-                <p class="field-help">🚩 {{ t('report_listing_already') }}</p>
+                <p class="field-help"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-flag"></use></svg> {{ t('report_listing_already') }}</p>
             {% else %}
                 <details class="block-user-details">
-                    <summary class="block-user-summary">🚩 {{ t('report_listing_button') }}</summary>
+                    <summary class="block-user-summary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-flag"></use></svg> {{ t('report_listing_button') }}</summary>
                     <form method="post" action="/listings/{{ listing.id }}/report" class="stacked-form narrow">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <label>{{ t('report_listing_reason_label') }}

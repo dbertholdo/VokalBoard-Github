@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ t('notas_title') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('notas_title') }}</h1>
+<p class="subtitle">{{ t('notas_subtitle') }}</p>
+
+{% if redeemed %}<p class="success">{{ t('notas_redeemed_success') }}</p>{% endif %}
+{% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
+
+<div class="notas-balance-box">
+    <span class="notas-balance-icon">
+        <svg class="icon" width="26" height="26"><use href="/static/img/icons.svg#icon-bank"></use></svg>
+    </span>
+    <div>
+        <p class="notas-balance-value">{{ balance }}</p>
+        <p class="notas-balance-label">{{ t('notas_balance_label') }}</p>
+        {% if referrals_until_next_credit > 0 %}
+            <p class="notas-balance-next">{{ t('notas_next_credit_hint').replace('{n}', referrals_until_next_credit | string) }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<p class="field-help">{{ t('notas_how_it_works').replace('{ratio}', credit_ratio | string) }}</p>
+
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('notas_catalog_title') }}</h2>
+<ul class="catalog-grid">
+    {% for item in catalog %}
+        <li class="catalog-item">
+            <span class="catalog-item-icon"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#{{ item.icon }}"></use></svg></span>
+            <p class="catalog-item-title">{{ t('notas_item_' ~ item.key ~ '_title') }}</p>
+            <p class="catalog-item-desc">{{ t('notas_item_' ~ item.key ~ '_desc') }}</p>
+            <p class="catalog-item-cost">{{ item.cost }} {{ t('notas_unit') }}</p>
+            <form method="post" action="/notas/redeem" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="item_key" value="{{ item.key }}">
+                <button type="submit" class="button-link" {% if balance < item.cost %}disabled{% endif %}>{{ t('notas_redeem_button') }}</button>
+            </form>
+        </li>
+    {% endfor %}
+    <li class="catalog-item-empty">{{ t('notas_catalog_more_soon') }}</li>
+</ul>
+
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-receipt"></use></svg> {{ t('notas_ledger_title') }}</h2>
+{% if ledger and ledger|length > 0 %}
+    <ul class="ledger-list">
+        {% for entry in ledger %}
+            <li>
+                <span>
+                    {% if entry.delta > 0 %}
+                        <span class="ledger-delta-positive">+{{ entry.delta }}</span>
+                    {% else %}
+                        <span class="ledger-delta-negative">{{ entry.delta }}</span>
+                    {% endif %}
+                    {% if entry.reason == 'referral_bonus' %}
+                        {{ t('notas_reason_referral_bonus') }}
+                    {% elif entry.reason == 'redeem_profile_highlight_7d' %}
+                        {{ t('notas_reason_redeem_profile_highlight_7d') }}
+                    {% else %}
+                        {{ entry.reason }}
+                    {% endif %}
+                </span>
+                <span class="ledger-date">{{ entry.created_at.strftime('%d.%m.%Y') }}</span>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p class="empty-state">{{ t('notas_ledger_empty') }}</p>
+{% endif %}
+
+<p><a href="/hall-da-fama"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-crown"></use></svg> {{ t('nav_hall_da_fama') }}</a></p>
+{% endblock %}

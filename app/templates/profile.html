@@ -4,6 +4,11 @@
 {% block content %}
 <h1>{{ t('profile_title') }}</h1>
 
+<p><a class="btn-preview" href="/users/{{ user.id }}">
+    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-eye"></use></svg>
+    {{ t('profile_view_as_public') }}
+</a></p>
+
 {% if saved %}<p class="success">{{ t('profile_saved') }}</p>{% endif %}
 {% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
 
@@ -21,11 +26,11 @@
     <p class="field-help">{{ t('badges_help') }}</p>
     <ul class="badge-grid">
         {% for b in badges %}
-            <li class="badge-tile {% if not b.unlocked %}badge-locked{% endif %}">
-                <span class="badge-tile-icon"><svg class="icon" width="26" height="26"><use href="/static/img/icons.svg#{{ b.icon }}"></use></svg></span>
+            <li class="badge-tile badge-key-{{ b.key }} {% if b.medal %}badge-tier-{{ b.medal }}{% endif %} {% if not b.unlocked %}badge-locked{% endif %}">
+                <span class="badge-tile-icon"><svg class="icon" width="22" height="22"><use href="/static/img/icons.svg#{{ b.icon }}"></use></svg></span>
                 <span class="badge-tile-label">{{ t('badge_' ~ b.key ~ '_label') }}{% if b.unlocked and b.key == 'views' %} ({{ b.threshold }}+){% endif %}
                     {%- if b.unlocked and b.key == 'anniversary' %}
-                        {% if lang == "de" %} ({{ b.years }} {{ "Jahr" if b.years == 1 else "Jahre" }}){% else %} ({{ b.years }} {{ "year" if b.years == 1 else "years" }}){% endif %}
+                         ({{ b.years }} {{ t('year_singular') if b.years == 1 else t('year_plural') }})
                     {%- endif %}</span>
                 <span class="badge-tile-desc">{{ t('badge_' ~ b.key ~ '_desc') }}</span>
             </li>
@@ -72,6 +77,17 @@
     </label>
     <p class="field-help">{{ t('notify_messages_help') }}</p>
 
+    <label class="checkbox-label">
+        <input type="checkbox" name="appear_in_search" value="1" {% if user.appear_in_search %}checked{% endif %}>
+        {{ t('appear_in_search_label') }}
+    </label>
+    <p class="field-help">{{ t('appear_in_search_help') }}</p>
+
+    <label>{{ t('profile_slug_label') }}
+        <input type="text" name="profile_slug" value="{{ user.profile_slug or '' }}" maxlength="60" pattern="[a-z0-9-]{3,60}" placeholder="{{ user.id }}">
+    </label>
+    <p class="field-help">{{ t('profile_slug_help').replace('{id}', user.id | string) }}</p>
+
     {% if user.role == "singer" %}
         <label>{{ t('profile_voice_type_label') }}
             <select name="voice_type_id">
@@ -82,7 +98,7 @@
             </select>
         </label>
 
-        <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ "Zeichen max." if lang == "de" else "characters max." }})
+        <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ t('chars_max_suffix') }})
             <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ singer_profile.bio if singer_profile and singer_profile.bio else "" }}</textarea>
         </label>
 
@@ -101,7 +117,7 @@
             <input type="text" name="ensemble_name" value="{{ conductor_profile.ensemble_name if conductor_profile and conductor_profile.ensemble_name else "" }}">
         </label>
 
-        <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ "Zeichen max." if lang == "de" else "characters max." }})
+        <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ t('chars_max_suffix') }})
             <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ conductor_profile.bio if conductor_profile and conductor_profile.bio else "" }}</textarea>
         </label>
     {% endif %}
@@ -121,12 +137,12 @@
     <button type="submit">{{ t('profile_save') }}</button>
 </form>
 
-<p><a href="/users/{{ user.id }}">{{ t('view_profile') }} ({{ "öffentliche Ansicht" if lang == "de" else "public view" }})</a></p>
+<p><a href="/users/{{ user.id }}">{{ t('view_profile') }} ({{ t('public_view_label') }})</a></p>
 
-<h2>⭐ {{ t('my_ratings_title') }}</h2>
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('my_ratings_title') }}</h2>
 <p class="field-help">{{ t('my_ratings_help') }}</p>
 {% if rating_summary and rating_summary.count and rating_summary.count > 0 %}
-    <p class="rating-summary">{{ rating_summary.avg_stars }} ⭐ ({{ rating_summary.count }} {{ t('my_ratings_count_label') }})</p>
+    <p class="rating-summary">{{ rating_summary.avg_stars }} <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> ({{ rating_summary.count }} {{ t('my_ratings_count_label') }})</p>
 {% else %}
     <p class="empty-state">{{ t('my_ratings_none') }}</p>
 {% endif %}
@@ -134,7 +150,7 @@
     <ul class="ratings-list">
         {% for r in my_ratings %}
             <li class="rating-item">
-                <strong>{{ r.stars }} ⭐</strong> — {{ r.rater_name }}
+                <strong>{{ r.stars }} <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg></strong> — {{ r.rater_name }}
                 {% if r.comment %}<p class="rating-comment">"{{ r.comment }}"</p>{% endif %}
             </li>
         {% endfor %}
@@ -142,7 +158,7 @@
 {% endif %}
 
 <div class="referral-box">
-    <h3>🎁 {{ t('referral_section_title') }}</h3>
+    <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('referral_section_title') }}</h3>
     <p class="field-help">{{ t('referral_section_text') }}</p>
     <div class="referral-link-row">
         <input type="text" id="referral-url-field" value="{{ referral_url }}" readonly>
@@ -167,12 +183,12 @@
 </script>
 
 <h2>{{ t('account_section_title') }}</h2>
-<p><a href="/profile/change-password">🔑 {{ t('change_password_title') }}</a></p>
-<p><a href="/my-favorites">⭐ {{ t('nav_favorites') }}</a></p>
-<p><a href="/profile/export">⬇️ {{ t('export_data_link') }}</a></p>
+<p><a href="/profile/change-password"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-key"></use></svg> {{ t('change_password_title') }}</a></p>
+<p><a href="/my-favorites"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('nav_favorites') }}</a></p>
+<p><a href="/profile/export"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> {{ t('export_data_link') }}</a></p>
 <p class="field-help">{{ t('export_data_help') }}</p>
 
-<h2>🚫 {{ t('blocked_users_title') }}</h2>
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> {{ t('blocked_users_title') }}</h2>
 <p class="field-help">{{ t('blocked_users_help') }}</p>
 {% if blocked_users and blocked_users|length > 0 %}
     <ul class="blocked-users-list">

@@ -6,7 +6,7 @@
 <h1>Users</h1>
 
 {% if request.query_params.get('deleted') == '1' %}
-    <p class="success">✅ Account permanently deleted.</p>
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Account permanently deleted.</p>
 {% endif %}
 
 <form method="get" action="/admin/users" class="stacked-form narrow admin-users-filter">
@@ -55,7 +55,7 @@
                     </td>
                     <td>{{ u.email }}{% if not u.email_verified %} <span class="field-help">(not verified)</span>{% endif %}</td>
                     <td>{{ u.city }}{% if u.state %}, {{ u.state }}{% endif %}</td>
-                    <td>{% if u.avg_rating %}⭐ {{ u.avg_rating }} ({{ u.rating_count }}){% else %}—{% endif %}</td>
+                    <td>{% if u.avg_rating %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ u.avg_rating }} ({{ u.rating_count }}){% else %}—{% endif %}</td>
                     <td>{{ u.profile_views }}</td>
                     <td>{{ u.messages_received }}</td>
                     <td>{% if u.deleted_at %}<span class="badge-danger">deactivated</span>{% else %}active{% endif %}</td>

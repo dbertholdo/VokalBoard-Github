@@ -172,4 +172,176 @@
     <path d="M4 16c1.3-1 2.7 1 4 0s2.7-1 4 0 2.7-1 4 0 2.7-1 4 0"/>
     <path d="M6.5 12V9.5M12 12V9.5M17.5 12V9.5"/>
   </symbol>
+
+  <!-- Location pin -->
+  <symbol id="icon-location" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/>
+    <circle cx="12" cy="9.5" r="2.4"/>
+  </symbol>
+
+  <!-- Microphone -->
+  <symbol id="icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="3" width="6" height="11" rx="3"/>
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0"/>
+    <path d="M12 17.5V21M9 21h6"/>
+  </symbol>
+
+  <!-- Musical note -->
+  <symbol id="icon-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5.5l10-2V16"/>
+    <circle cx="6.5" cy="18" r="2.5"/>
+    <circle cx="16.5" cy="16" r="2.5"/>
+  </symbol>
+
+  <!-- Money / fee (euro coin) -->
+  <symbol id="icon-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/>
+    <path d="M14.5 8.3a4 4 0 1 0 0 7.4"/>
+    <path d="M7.5 10.5h6M7.5 13.5h5"/>
+  </symbol>
+
+  <!-- Flag (report) -->
+  <symbol id="icon-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3v18"/>
+    <path d="M6 4.5c3-1.3 5 1.3 8 0v9c-3 1.3-5-1.3-8 0z"/>
+  </symbol>
+
+  <!-- Lock -->
+  <symbol id="icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="5" y="11" width="14" height="9" rx="1.5"/>
+    <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+  </symbol>
+
+  <!-- Phone -->
+  <symbol id="icon-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 4h3.3l1.3 4.3-2 1.7a12 12 0 0 0 6.4 6.4l1.7-2 4.3 1.3V19a2 2 0 0 1-2.2 2A16 16 0 0 1 3 5.2 2 2 0 0 1 5 4z"/>
+  </symbol>
+
+  <!-- Calendar -->
+  <symbol id="icon-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.5" y="5" width="17" height="15" rx="1.5"/>
+    <path d="M3.5 9.5h17M8 3v3.5M16 3v3.5"/>
+  </symbol>
+
+  <!-- Church / venue (building) -->
+  <symbol id="icon-building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v3.5M9.5 5h5"/>
+    <path d="M12 6.5 5 12v8.5h14V12z"/>
+    <path d="M10 20.5v-5h4v5"/>
+  </symbol>
+
+  <!-- Edit (pencil) -->
+  <symbol id="icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20l.9-3.9L16.6 4.4a1.7 1.7 0 0 1 2.4 0l.6.6a1.7 1.7 0 0 1 0 2.4L7.9 19.1z"/>
+    <path d="M14.5 6.5l3 3"/>
+  </symbol>
+
+  <!-- Star (outline, for empty/favorite states not yet saved) -->
+  <symbol id="icon-star-outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.5l2.7 5.6 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9z"/>
+  </symbol>
+
+  <!-- Upload -->
+  <symbol id="icon-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 15.5V4M8 8l4-4 4 4"/>
+    <path d="M4.5 15.5V19a1.7 1.7 0 0 0 1.7 1.7h11.6a1.7 1.7 0 0 0 1.7-1.7v-3.5"/>
+  </symbol>
+
+  <!-- Download -->
+  <symbol id="icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4v11.5M8 11.5l4 4 4-4"/>
+    <path d="M4.5 15.5V19a1.7 1.7 0 0 0 1.7 1.7h11.6a1.7 1.7 0 0 0 1.7-1.7v-3.5"/>
+  </symbol>
+
+  <!-- Save (disk) -->
+  <symbol id="icon-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 4h11l3 3v13H5z"/>
+    <path d="M8 4v5h7V4M8 20v-6h8v6"/>
+  </symbol>
+
+  <!-- Globe -->
+  <symbol id="icon-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/>
+    <path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.2 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.2-3.6-8.5S9.6 5.8 12 3.5z"/>
+  </symbol>
+
+  <!-- Refresh / recurring -->
+  <symbol id="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 12a7.5 7.5 0 0 1 12.6-5.5M19.5 12a7.5 7.5 0 0 1-12.6 5.5"/>
+    <path d="M17 3v4h-4M7 21v-4h4"/>
+  </symbol>
+
+  <!-- Bank / institution -->
+  <symbol id="icon-bank" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 9.5 12 4.5l8.5 5"/>
+    <path d="M4.5 9.5h15V20h-15z"/>
+    <path d="M4 20h16M8 12.5V17M12 12.5V17M16 12.5V17"/>
+  </symbol>
+
+  <!-- Receipt -->
+  <symbol id="icon-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3.5h12v17l-2.2-1.5-2.2 1.5-2.1-1.5-2.2 1.5-2.1-1.5-1.2.8z"/>
+    <path d="M8.7 8h6.6M8.7 11.5h6.6M8.7 15h4"/>
+  </symbol>
+
+  <!-- Book / documentation -->
+  <symbol id="icon-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 5.5A2 2 0 0 1 6 4h9.5v16H6a2 2 0 0 0-2 1.5z"/>
+    <path d="M15.5 4H18a2 2 0 0 1 2 2v14h-8"/>
+  </symbol>
+
+  <!-- Scroll / terms -->
+  <symbol id="icon-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.5 4h11v14a2.5 2.5 0 0 1-2.5 2.5H6.5z"/>
+    <path d="M6.5 4a2 2 0 0 0-2 2v12.5a2.5 2.5 0 0 0 2.5 2.5"/>
+    <path d="M9.5 9h5M9.5 12.5h5"/>
+  </symbol>
+
+  <!-- Confetti / celebration -->
+  <symbol id="icon-party" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20l3-9 6 6z"/>
+    <path d="M15 4l1.3 2.6L19 8l-2.6 1.3L15 12l-1.3-2.6L11 8l2.6-1.3z"/>
+    <path d="M6 4.5l.8 1.6M19.5 14l.8 1.6M10 3v2"/>
+  </symbol>
+
+  <!-- Crown (top referrer / VIP) -->
+  <symbol id="icon-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 18h16l-1.3-8-4 3-2.7-5-2.7 5-4-3z"/>
+    <path d="M4 20.5h16"/>
+  </symbol>
+
+  <!-- Warning / attention -->
+  <symbol id="icon-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4 21 19.5H3z"/>
+    <path d="M12 10v4"/>
+    <circle cx="12" cy="16.7" r="0.15" fill="currentColor" stroke="none"/>
+  </symbol>
+
+  <!-- Ban / blocked -->
+  <symbol id="icon-ban" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/>
+    <path d="M6.5 6.5l11 11"/>
+  </symbol>
+
+  <!-- Off / permanently deleted -->
+  <symbol id="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4v7"/>
+    <path d="M7 6.5a7.5 7.5 0 1 0 10 0"/>
+  </symbol>
+
+  <!-- Reply arrow -->
+  <symbol id="icon-reply" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 8.5 4.5 13l5.5 4.5v-3.3c6 0 8.5 1.8 9.5 5.3.3-6.3-2.3-10-9.5-10.2z"/>
+  </symbol>
+
+  <!-- Menu (hamburger) -->
+  <symbol id="icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 6.5h16M4 12h16M4 17.5h16"/>
+  </symbol>
+
+  <!-- Key (password) -->
+  <symbol id="icon-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="15" r="4"/>
+    <path d="M11 12 19 4M16.5 6.5 19 4M19 9l2.5-2.5"/>
+  </symbol>
 </svg>

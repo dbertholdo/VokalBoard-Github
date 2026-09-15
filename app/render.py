@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
-from app.i18n import translate, SUPPORTED_LANGUAGES
+from app.i18n import translate, SUPPORTED_LANGUAGES, LANGUAGE_META
 from app.csrf import get_or_create_csrf_token
 from app.database import fetch_one, execute
 from app.captcha import HONEYPOT_FIELD, TURNSTILE_SITE_KEY, captcha_enabled
@@ -39,6 +39,8 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     context["lang_urls"] = {
         code: str(request.url.include_query_params(lang=code)) for code in SUPPORTED_LANGUAGES
     }
+    context["language_meta"] = LANGUAGE_META
+    context["supported_languages"] = SUPPORTED_LANGUAGES
     context["csrf_token"] = get_or_create_csrf_token(request)
     # Used in the site's few inline <script nonce="..."> tags (see
     # SecurityHeadersMiddleware in app/main.py, which generates a new

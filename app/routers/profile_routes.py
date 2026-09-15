@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request, Form, UploadFile, File, BackgroundTasks
@@ -20,6 +21,12 @@ MAX_COMPOSER_TAGS = 10
 MAX_BIO_LENGTH = 1000
 MAX_AUDIO_LINKS = 3
 MAX_RATING_COMMENT = 500
+
+# Custom profile URL slug (/u/{slug}) — lowercase letters, digits and
+# hyphens only, 3-60 chars. Kept intentionally strict/simple (no
+# unicode, no leading/trailing hyphen edge cases to worry about) since
+# this becomes part of a public URL.
+PROFILE_SLUG_RE = re.compile(r"^[a-z0-9-]{3,60}$")
 
 # "Cooldown" window for profile view counting: the same session
 # (same browser) only generates a new row in profile_views per
@@ -305,6 +312,8 @@ async def update_profile(
     social_whatsapp: str = Form(""),
     notify_matches: str = Form(""),
     notify_messages: str = Form(""),
+    appear_in_search: str = Form(""),
+    profile_slug: str = Form(""),
     remove_avatar: str = Form(""),
     avatar: UploadFile | None = File(None),
 ):
@@ -320,16 +329,35 @@ async def update_profile(
         context = _my_profile_context(request, user, error="register_error_invalid_country")
         return render(request, "profile.html", context, status_code=400)
 
+    # Custom profile slug: optional, but once set it must be well
+    # formed and not already taken by someone else. Blank clears it
+    # (falls back to /users/{id}).
+    profile_slug = profile_slug.strip().lower() or None
+    if profile_slug is not None:
+        if not PROFILE_SLUG_RE.match(profile_slug):
+            context = _my_profile_context(request, user, error="profile_slug_invalid")
+            return render(request, "profile.html", context, status_code=400)
+        taken = fetch_one(
+            "SELECT 1 FROM users WHERE profile_slug = :slug AND id != :id",
+            {"slug": profile_slug, "id": user["id"]},
+        )
+        if taken:
+            context = _my_profile_context(request, user, error="profile_slug_taken")
+            return render(request, "profile.html", context, status_code=400)
+
     execute(
         """
         UPDATE users
         SET notify_matches = :notify_matches, notify_messages = :notify_messages,
+            appear_in_search = :appear_in_search, profile_slug = :profile_slug,
             city = :city, state = :state, country = :country
         WHERE id = :id
         """,
         {
             "notify_matches": bool(notify_matches),
             "notify_messages": bool(notify_messages),
+            "appear_in_search": bool(appear_in_search),
+            "profile_slug": profile_slug,
             "city": city or None,
             "state": state or None,
             "country": country,
@@ -624,7 +652,16 @@ def rate_user(
 @router.get("/users/{user_id}", response_class=HTMLResponse)
 def public_profile(request: Request, user_id: int, background_tasks: BackgroundTasks):
     profile_user = fetch_one(
-        "SELECT id, full_name, role, city, phone, avatar_url FROM users WHERE id = :id", {"id": user_id}
+        """
+        SELECT id, email, full_name, role, city, phone, avatar_url, profile_slug, profile_highlighted_until
+        FROM users WHERE id = :id
+        """,
+        {"id": user_id},
+    )
+    is_highlighted = bool(
+        profile_user
+        and profile_user["profile_highlighted_until"]
+        and profile_user["profile_highlighted_until"] > datetime.now(timezone.utc)
     )
 
     singer_profile = None
@@ -748,6 +785,7 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
         "is_blocked": is_blocked,
         "blocked_either_way": blocked_either_way,
         "badges": badges,
+        "is_highlighted": is_highlighted,
         "listings": listings,
         # Freemium: without login you can only see name/role/city —
         # bio, hashtags, audio links and listings stay behind signup.

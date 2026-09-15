@@ -22,11 +22,11 @@
             <p class="field-help">{{ t('message_about_listing') }}: {{ listing.title }}</p>
         {% endif %}
 
-        <label>{{ t('message_body_label') }} ({{ max_message_length }} {{ "Zeichen max." if lang == "de" else "characters max." }})
+        <label>{{ t('message_body_label') }} ({{ max_message_length }} {{ t('chars_max_suffix') }})
             <textarea name="body" rows="8" maxlength="{{ max_message_length }}"></textarea>
         </label>
 
-        <button type="submit">✉️ {{ t('message_send') }}</button>
+        <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('message_send') }}</button>
     </form>
 {% endif %}
 {% endblock %}

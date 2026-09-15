@@ -11,8 +11,8 @@
 
 {% if user %}
     <div id="spam-notice" class="dismissible-notice" hidden>
-        <span><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('spam_notice_text') }}</span>
-        <button type="button" id="spam-notice-dismiss"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> <span class="sr-only">{{ t('spam_notice_dismiss') }}</span></button>
+        <span><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-tip"></use></svg> {{ t('spam_notice_text') }}</span>
+        <button type="button" id="spam-notice-dismiss" onclick="dismissSpamNotice()"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> <span class="sr-only">{{ t('spam_notice_dismiss') }}</span></button>
     </div>
     <script nonce="{{ csp_nonce }}">
         (function () {
@@ -33,11 +33,20 @@
             }
         })();
         function dismissSpamNotice() {
-            document.getElementById('spam-notice').hidden = true;
+            var el = document.getElementById('spam-notice');
+            if (el) el.hidden = true;
             try { localStorage.setItem('spamNoticeDismissedAt', String(Date.now())); } catch (e) {}
         }
-        var dismissBtn = document.getElementById('spam-notice-dismiss');
-        if (dismissBtn) dismissBtn.addEventListener('click', dismissSpamNotice);
+        // Belt-and-braces: the inline onclick="" above already covers this
+        // (works even if this script block somehow fails to attach the
+        // listener, e.g. a stale cached copy of this file), and this
+        // delegated listener is a second path that doesn't depend on the
+        // button existing yet when the script runs.
+        document.addEventListener('click', function (e) {
+            if (e.target.closest && e.target.closest('#spam-notice-dismiss')) {
+                dismissSpamNotice();
+            }
+        });
     </script>
 
     <h1>{{ t('home_welcome').replace('{name}', user.full_name) }}</h1>
@@ -59,9 +68,9 @@
                         {% endif %}
                         <h3>{{ l.title }}</h3>
                         <p class="meta">
-                            {% if l.city %}📍 {{ l.city }}{% endif %}
-                            {% if l.voice_type_name %} · 🎤 {{ l.voice_type_name }}{% endif %}
-                            {% if l.fee %} · 💶 {{ l.fee }}{% endif %}
+                            {% if l.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ l.city }}{% endif %}
+                            {% if l.voice_type_name %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ l.voice_type_name }}{% endif %}
+                            {% if l.fee %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ l.fee }}{% endif %}
                         </p>
                         <p class="excerpt">{{ l.description[:160] }}{% if l.description|length > 160 %}…{% endif %}</p>
                         <p class="author">{{ t('by_author') }} {{ l.author_name }}</p>
@@ -71,6 +80,31 @@
             </ul>
         {% endif %}
     </div>
+
+    {% if highlights and highlights|length > 0 %}
+    <div class="highlights-section">
+        <h2><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-sparkle"></use></svg> {{ t('home_highlights_title') }}</h2>
+        <p class="subtitle">{{ t('home_highlights_subtitle') }}</p>
+        <ul class="listing-grid">
+            {% for h in highlights %}
+            <li class="person-card">
+                <a href="{{ '/u/' ~ h.profile_slug if h.profile_slug else '/users/' ~ h.id }}">
+                    {% if h.avatar_url %}
+                        <img class="person-card-avatar" src="{{ h.avatar_url }}" alt="">
+                    {% else %}
+                        <div class="person-card-avatar avatar-placeholder">{{ h.full_name[0] | upper }}</div>
+                    {% endif %}
+                    <p class="person-card-name">{{ h.full_name.split(' ')[0] }}</p>
+                    <p class="person-card-subtitle">
+                        {{ t('role_singer') if h.role == "singer" else t('role_conductor') }}{% if h.city %} · {{ h.city }}{% endif %}
+                    </p>
+                    <span class="person-card-cta">{{ t('search_people_view_profile') }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
 
     <p><a class="button-link" href="/board">{{ t('home_cta_browse') }} →</a></p>
 
@@ -94,8 +128,8 @@
                     <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
                 {% endif %}
                 <h3>{{ l.title }}</h3>
-                <p class="meta">{% if l.city %}📍 {{ l.city }}{% endif %}</p>
-                <p class="locked-hint">🔒 {{ t('locked_listing_title') }}</p>
+                <p class="meta">{% if l.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ l.city }}{% endif %}</p>
+                <p class="locked-hint"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-lock"></use></svg> {{ t('locked_listing_title') }}</p>
             </a>
         </li>
         {% endfor %}

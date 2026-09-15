@@ -14,13 +14,8 @@
 {% if not profile_user %}
     <p>{{ t('listing_not_found') }} <a href="/board">{{ t('back_to_board') }}</a></p>
 {% else %}
+    {% set is_own_profile = user and user.id == profile_user.id %}
     <a class="back-link" href="/board">&larr; {{ t('back_to_board') }}</a>
-    {% if profile_user.avatar_url %}
-        <img class="avatar-preview" src="{{ profile_user.avatar_url }}" alt="">
-    {% else %}
-        <div class="avatar-preview avatar-placeholder">{{ profile_user.full_name[0] | upper }}</div>
-    {% endif %}
-    <h1>{{ profile_user.full_name }}</h1>
 
     {% if user and user.id != profile_user.id and blocked_either_way %}
         {# Blocking needs to be invisible on both sides — whoever blocked
@@ -30,36 +25,161 @@
             {% if is_blocked %}
                 <form method="post" action="/users/{{ profile_user.id }}/unblock" class="inline-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="button-link button-secondary">🚫 {{ t('unblock_user_button') }}</button>
+                    <button type="submit" class="button-link button-secondary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> {{ t('unblock_user_button') }}</button>
                 </form>
             {% endif %}
         </div>
     {% else %}
-    <p class="meta">
-        {{ t('role_singer') if profile_user.role == "singer" else t('role_conductor') }}
-        {% if profile_user.city %} · 📍 {{ profile_user.city }}{% endif %}
-        {% if singer_profile and singer_profile.voice_type_name %} · 🎤 {{ singer_profile.voice_type_name }}{% endif %}
-        {% if conductor_profile and conductor_profile.ensemble_name %} · {{ conductor_profile.ensemble_name }}{% endif %}
-    </p>
 
-    {% if badges and badges|length > 0 %}
-        <p class="badge-row">
-            {% for b in badges %}
-                <span class="badge-pill" title="{{ t('badge_' ~ b.key ~ '_desc') }}">
-                    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#{{ b.icon }}"></use></svg> {{ t('badge_' ~ b.key ~ '_label') }}{% if b.key == 'views' %} ({{ b.threshold }}+){% endif %}
-                    {%- if b.key == 'anniversary' %}
-                        {% if lang == "de" %} ({{ b.years }} {{ "Jahr" if b.years == 1 else "Jahre" }}){% else %} ({{ b.years }} {{ "year" if b.years == 1 else "years" }}){% endif %}
-                    {%- endif %}
-                </span>
-            {% endfor %}
-        </p>
+    {% if is_own_profile %}
+        <div class="profile-toolbar">
+            <button type="button" class="btn-preview" id="profile-share-toggle">
+                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-link"></use></svg>
+                {{ t('profile_share_button') }}
+            </button>
+            <div class="share-icons" id="profile-share-icons">
+                <a href="https://wa.me/?text={{ ('https://vokalboard.de/u/' ~ (profile_user.profile_slug if profile_user.profile_slug else 'users/' ~ profile_user.id)) | urlencode }}" target="_blank" rel="noopener noreferrer" title="WhatsApp">
+                    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-reply"></use></svg>
+                </a>
+                <a href="mailto:?body={{ ('https://vokalboard.de/u/' ~ (profile_user.profile_slug if profile_user.profile_slug else 'users/' ~ profile_user.id)) | urlencode }}" title="E-mail">
+                    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg>
+                </a>
+                <button type="button" id="profile-share-copy" title="{{ t('referral_copy_button') }}">
+                    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-link"></use></svg>
+                </button>
+            </div>
+            <a class="btn-share" href="/profile"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-edit"></use></svg> {{ t('profile_edit_link') }}</a>
+        </div>
+        <script nonce="{{ csp_nonce }}">
+            (function () {
+                var toggle = document.getElementById('profile-share-toggle');
+                var icons = document.getElementById('profile-share-icons');
+                var copyBtn = document.getElementById('profile-share-copy');
+                var shareUrl = "https://vokalboard.de/{{ ('u/' ~ profile_user.profile_slug) if profile_user.profile_slug else ('users/' ~ profile_user.id) }}";
+                if (toggle && icons) {
+                    toggle.addEventListener('click', function () { icons.classList.toggle('open'); });
+                }
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', function () { navigator.clipboard.writeText(shareUrl); });
+                }
+            })();
+        </script>
     {% endif %}
 
+    <div class="profile-hero">
+        <div class="profile-grid">
+            <div class="card id-card">
+                {% if profile_user.avatar_url %}
+                    <img class="avatar-preview" src="{{ profile_user.avatar_url }}" alt="">
+                {% else %}
+                    <div class="avatar-preview avatar-placeholder">{{ profile_user.full_name[0] | upper }}</div>
+                {% endif %}
+                <p class="full-name">{{ profile_user.full_name }}</p>
+                <p class="role-line">
+                    {{ t('role_singer') if profile_user.role == "singer" else t('role_conductor') }}
+                    {% if singer_profile and singer_profile.voice_type_name %} · {{ singer_profile.voice_type_name }}{% endif %}
+                    {% if conductor_profile and conductor_profile.ensemble_name %} · {{ conductor_profile.ensemble_name }}{% endif %}
+                </p>
+
+                {% if is_highlighted %}
+                    <p class="profile-highlight-banner">
+                        <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-sparkle"></use></svg>
+                        {{ t('profile_highlighted_banner') }}
+                    </p>
+                {% endif %}
+
+                {% if badges and badges|length > 0 %}
+                    <p class="badge-row">
+                        {% for b in badges %}
+                            <span class="badge-pill badge-key-{{ b.key }} {% if b.medal %}badge-tier-{{ b.medal }}{% endif %}" title="{{ t('badge_' ~ b.key ~ '_desc') }}">
+                                <svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#{{ b.icon }}"></use></svg> {{ t('badge_' ~ b.key ~ '_label') }}{% if b.key == 'views' %} ({{ b.threshold }}+){% endif %}
+                                {%- if b.key == 'anniversary' %}
+                                     ({{ b.years }} {{ t('year_singular') if b.years == 1 else t('year_plural') }})
+                                {%- endif %}
+                            </span>
+                        {% endfor %}
+                    </p>
+                {% endif %}
+
+                {% if is_own_profile %}
+                    <div class="contact-list">
+                        <p class="row"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ profile_user.email }}</p>
+                        {% if profile_user.phone %}<p class="row"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-phone"></use></svg> {{ profile_user.phone }}</p>{% endif %}
+                        {% if profile_user.city %}<p class="row"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ profile_user.city }}</p>{% endif %}
+                    </div>
+
+                    <div class="profile-link-box">
+                        <code>vokalboard.de/{{ ('u/' ~ profile_user.profile_slug) if profile_user.profile_slug else ('users/' ~ profile_user.id) }}</code>
+                        <button type="button" id="profile-link-copy"><svg class="icon" width="11" height="11"><use href="/static/img/icons.svg#icon-link"></use></svg></button>
+                    </div>
+                    <script nonce="{{ csp_nonce }}">
+                        (function () {
+                            var btn = document.getElementById('profile-link-copy');
+                            if (btn) {
+                                btn.addEventListener('click', function () {
+                                    navigator.clipboard.writeText("https://vokalboard.de/{{ ('u/' ~ profile_user.profile_slug) if profile_user.profile_slug else ('users/' ~ profile_user.id) }}");
+                                });
+                            }
+                        })();
+                    </script>
+                    <p class="profile-edit-hint">
+                        <a href="/profile">{{ t('profile_edit_slug_hint') }}</a>
+                        · {{ t('profile_internal_id_label') }} #{{ profile_user.id }}
+                    </p>
+                {% elif profile_user.city %}
+                    <p class="meta"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ profile_user.city }}</p>
+                {% endif %}
+            </div>
+
+            <div class="profile-right-col">
+                {% if not locked %}
+                    <div class="card bio-card">
+                        <h3>{{ t('profile_bio_label') }}</h3>
+                        {% set bio = (singer_profile.bio if singer_profile else (conductor_profile.bio if conductor_profile else None)) %}
+                        <p>{{ bio if bio else t('no_bio') }}</p>
+                        {% if composer_tags and composer_tags|length > 0 %}
+                            <p class="hashtags">
+                                {% for tag in composer_tags %}<span class="hashtag">#{{ tag }}</span>{% endfor %}
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    {% if (audio_links and audio_links|length > 0) or (social_links and social_links|length > 0) %}
+                        <div class="card links-card">
+                            <h3>{{ t('audio_links_title') if audio_links and audio_links|length > 0 else t('social_links_title') }}</h3>
+                            {% for link in audio_links %}
+                                <div class="link-row">
+                                    <svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-music"></use></svg>
+                                    <a href="{{ link }}" target="_blank" rel="noopener noreferrer">{{ t('audio_link_play') }} — {{ link }}</a>
+                                </div>
+                            {% endfor %}
+                            {% for platform, url in social_links.items() %}
+                                <div class="link-row">
+                                    <svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-globe"></use></svg>
+                                    <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ t('social_platform_' ~ platform) }}</a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="card locked-box">
+                        <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-lock"></use></svg> {{ t('locked_profile_title') }}</h3>
+                        <p>{{ t('locked_profile_text') }}</p>
+                        <p class="hero-actions">
+                            <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
+                            <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     {% if user and user.id != profile_user.id %}
-        <p><a href="/messages/new?to={{ profile_user.id }}" class="button-link">✉️ {{ t('message_send_here') }}</a></p>
+        <p><a href="/messages/new?to={{ profile_user.id }}" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('message_send_here') }}</a></p>
 
         <details class="block-user-details">
-            <summary class="block-user-summary">🚫 {{ t('block_user_button') }}</summary>
+            <summary class="block-user-summary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> {{ t('block_user_button') }}</summary>
             <form method="post" action="/users/{{ profile_user.id }}/block" class="stacked-form narrow">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label>{{ t('block_user_reason_label') }}
@@ -70,47 +190,9 @@
         </details>
     {% endif %}
 
-    {% if locked %}
-        <div class="locked-box">
-            <h3>🔒 {{ t('locked_profile_title') }}</h3>
-            <p>{{ t('locked_profile_text') }}</p>
-            <p class="hero-actions">
-                <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
-                <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
-            </p>
-        </div>
-    {% else %}
-        <h3>{{ t('profile_bio_label') }}</h3>
-        {% set bio = (singer_profile.bio if singer_profile else (conductor_profile.bio if conductor_profile else None)) %}
-        <p class="description">{{ bio if bio else t('no_bio') }}</p>
-
-        {% if composer_tags and composer_tags|length > 0 %}
-            <h3>{{ t('profile_hashtags_label') }}</h3>
-            <p class="hashtags">
-                {% for tag in composer_tags %}<span class="hashtag">#{{ tag }}</span>{% endfor %}
-            </p>
-        {% endif %}
-
-        {% if audio_links and audio_links|length > 0 %}
-            <h3>{{ t('audio_links_title') }}</h3>
-            <ul class="audio-links">
-                {% for link in audio_links %}
-                    <li><a href="{{ link }}" target="_blank" rel="noopener noreferrer">{{ t('audio_link_play') }} — {{ link }}</a></li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-
-        {% if social_links and social_links|length > 0 %}
-            <h3>{{ t('social_links_title') }}</h3>
-            <p class="social-links">
-                {% for platform, url in social_links.items() %}
-                    <a class="social-badge social-badge-{{ platform }}" href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ t('social_platform_' ~ platform) }}</a>
-                {% endfor %}
-            </p>
-        {% endif %}
-
+    {% if not locked %}
         {% if can_rate %}
-            <h3>⭐ {{ t('rating_widget_title') }}</h3>
+            <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('rating_widget_title') }}</h3>
             {% if request.query_params.get('rated') == '1' %}<p class="success">{{ t('rating_saved') }}</p>{% endif %}
             <p class="field-help">{{ t('rating_widget_help') }}</p>
             <form method="post" action="/users/{{ profile_user.id }}/rate" class="stacked-form narrow rating-form">
@@ -118,7 +200,7 @@
                 <label>{{ t('rating_stars_label') }}
                     <select name="stars">
                         {% for n in range(0, 6) %}
-                            <option value="{{ n }}" {% if rating_given and rating_given.stars == n %}selected{% endif %}>{{ n }} ⭐</option>
+                            <option value="{{ n }}" {% if rating_given and rating_given.stars == n %}selected{% endif %}>{{ n }} <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg></option>
                         {% endfor %}
                     </select>
                 </label>
@@ -142,7 +224,7 @@
                             <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
                         {% endif %}
                         <h3>{{ l.title }}</h3>
-                        <p class="meta">{% if l.city %}📍 {{ l.city }}{% endif %}</p>
+                        <p class="meta">{% if l.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ l.city }}{% endif %}</p>
                     </a>
                 </li>
                 {% endfor %}

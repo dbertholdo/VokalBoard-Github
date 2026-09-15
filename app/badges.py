@@ -28,6 +28,37 @@ VIEW_MILESTONES = [
     (100, "bronze"),
 ]
 
+# Same idea for verified referrals — "platinum" is deliberately rare
+# (100 people invited is a lot), it's meant to stand out.
+REFERRAL_MILESTONES = [
+    (100, "platinum"),
+    (50, "gold"),
+    (25, "silver"),
+    (10, "bronze"),
+]
+
+# Anniversary doesn't have a natural "count" like the two above (it's
+# years on the site), so its medal thresholds are defined separately —
+# see _anniversary_medal(). Its "tier" field (below) keeps storing the
+# exact year number, not the medal name, because that's what
+# check_and_notify_new_badges() uses to send one e-mail per year —
+# changing that would mean re-notifying everyone on their next
+# anniversary. "medal" is a second, purely visual field for how the
+# badge icon is colored (see app/static/css/style.css's
+# .badge-tier-* rules), independent from that tracking key.
+
+
+def _anniversary_medal(years: int) -> str:
+    if years >= 10:
+        return "platinum"
+    if years >= 5:
+        return "gold"
+    if years >= 3:
+        return "silver"
+    if years >= 1:
+        return "bronze"
+    return ""
+
 
 def _referral_count(user_id: int) -> int:
     return fetch_one(
@@ -84,31 +115,67 @@ def get_user_badges(user_id: int) -> list[dict]:
     # icon set — see app/templates/profile.html / public_profile.html,
     # which render it as <svg><use href="...#{{ b.icon }}"></svg>), not
     # an emoji character.
+    # "medal" (bronze/silver/gold/platinum, or "" when the badge has no
+    # tiers) drives the icon color in the templates — see the
+    # .badge-tier-* / .badge-key-* rules in style.css. It's separate
+    # from "tier" (which is what check_and_notify_new_badges() uses as
+    # the uniqueness key for "already notified this one").
+    referral_count = _referral_count(user_id)
+    referral_medal = ""
+    for threshold, medal in REFERRAL_MILESTONES:
+        if referral_count >= threshold:
+            referral_medal = medal
+            break
+
     badges = [
-        {"key": "referral", "icon": "icon-gift", "unlocked": _referral_count(user_id) > 0, "tier": ""},
-        {"key": "listing", "icon": "icon-listings", "unlocked": _listing_count(user_id) > 0, "tier": ""},
-        {"key": "contact", "icon": "icon-mail", "unlocked": _message_sent_count(user_id) > 0, "tier": ""},
-        {"key": "fast_response", "icon": "icon-bolt", "unlocked": _has_fast_response(user_id), "tier": ""},
+        {"key": "referral", "icon": "icon-gift", "unlocked": referral_count > 0, "tier": referral_medal, "medal": referral_medal},
+        {"key": "listing", "icon": "icon-listings", "unlocked": _listing_count(user_id) > 0, "tier": "", "medal": ""},
+        {"key": "contact", "icon": "icon-mail", "unlocked": _message_sent_count(user_id) > 0, "tier": "", "medal": ""},
+        {"key": "fast_response", "icon": "icon-bolt", "unlocked": _has_fast_response(user_id), "tier": "", "medal": ""},
         # "profile_complete" is filled in by with_profile_complete() —
         # the caller already computes completeness for other purposes
         # (the progress bar on /profile), so there's no point computing
         # it again here.
-        {"key": "profile_complete", "icon": "icon-sparkle", "unlocked": False, "tier": ""},
+        {"key": "profile_complete", "icon": "icon-sparkle", "unlocked": False, "tier": "", "medal": ""},
     ]
 
-    views_badge = {"key": "views", "icon": "icon-eye", "unlocked": False, "tier": None}
+    views_badge = {"key": "views", "icon": "icon-eye", "unlocked": False, "tier": None, "medal": ""}
     view_count = _view_count(user_id)
     for threshold, tier in VIEW_MILESTONES:
         if view_count >= threshold:
-            views_badge = {"key": "views", "icon": "icon-eye", "unlocked": True, "tier": tier, "threshold": threshold}
+            views_badge = {"key": "views", "icon": "icon-eye", "unlocked": True, "tier": tier, "medal": tier, "threshold": threshold}
             break
     badges.append(views_badge)
 
     years = _years_on_site(user_id)
-    anniversary_badge = {"key": "anniversary", "icon": "icon-cake", "unlocked": years >= 1, "tier": str(years) if years >= 1 else "", "years": years}
+    anniversary_badge = {
+        "key": "anniversary", "icon": "icon-cake", "unlocked": years >= 1,
+        "tier": str(years) if years >= 1 else "", "medal": _anniversary_medal(years), "years": years,
+    }
     badges.append(anniversary_badge)
 
     return badges
+
+
+# Importance order for showing "top 3 badges" on a search-result card
+# (see app/routers/search_people_routes.py) — medal tiers (rarer =
+# higher) come first, then the binary badges by how meaningful they
+# feel from an outsider's point of view. "profile_complete" is
+# deliberately left out here: computing profile completeness needs the
+# role profile/tags/links loaded too, which would mean an extra set of
+# queries per card in a results list — not worth it just to decide
+# whether to show a checkmark badge.
+_MEDAL_WEIGHT = {"platinum": 4, "gold": 3, "silver": 2, "bronze": 1, "": 0}
+_KEY_WEIGHT = {"referral": 5, "views": 4, "anniversary": 3, "fast_response": 2, "contact": 1, "listing": 1}
+
+
+def top_badges(user_id: int, limit: int = 3) -> list[dict]:
+    """The `limit` most noteworthy UNLOCKED badges for this user, for
+    compact display (e.g. a search-result card) — highest medal tier
+    first, then the more "impressive" badge types."""
+    badges = [b for b in get_user_badges(user_id) if b["unlocked"]]
+    badges.sort(key=lambda b: (_MEDAL_WEIGHT.get(b.get("medal") or "", 0), _KEY_WEIGHT.get(b["key"], 0)), reverse=True)
+    return badges[:limit]
 
 
 def with_profile_complete(badges: list[dict], completeness_percent: int) -> list[dict]:
@@ -178,10 +245,10 @@ def check_and_notify_new_badges(user_id: int, base_url: str) -> None:
         safe_name = html_module.escape(user["full_name"])
         html = f"""
             <p>Hallo {safe_name},</p>
-            <p>Du hast eine neue Auszeichnung freigeschaltet: <strong>{badge_name_de}</strong> 🎉</p>
+            <p>Du hast eine neue Auszeichnung freigeschaltet: <strong>{badge_name_de}</strong></p>
             <p><a href="{profile_url}">{profile_url}</a></p>
             <hr>
-            <p>(EN) You've unlocked a new badge: <strong>{badge_name_en}</strong> 🎉<br>
+            <p>(EN) You've unlocked a new badge: <strong>{badge_name_en}</strong><br>
             <a href="{profile_url}">{profile_url}</a></p>
         """
         send_email(user["email"], "Neue Auszeichnung freigeschaltet — VokalBoard", html)

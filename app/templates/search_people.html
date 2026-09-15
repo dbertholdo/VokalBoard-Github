@@ -1,13 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ t('board_title') }} — VokalBoard{% endblock %}
+{% block title %}{{ t('search_people_title') }} — VokalBoard{% endblock %}
 
 {% block content %}
-<h1>{{ t('board_title') }}</h1>
-<p class="subtitle">{{ t('board_subtitle') }}</p>
+<h1>{{ t('search_people_title') }}</h1>
+<p class="subtitle">{{ t('search_people_subtitle') }}</p>
 
-<form class="filters" method="get" action="/board">
-    <input type="text" name="q" placeholder="{{ t('filter_search_placeholder') }}" value="{{ filters.q }}">
-
+<form class="filters" method="get" action="/people">
     <select name="country" id="filter-country-select">
         <option value="">{{ t('filter_all_countries') }}</option>
         {% for c in country_options %}
@@ -19,23 +17,16 @@
         <option value="">{{ t('filter_all_states') }}</option>
     </select>
 
-    {# City: cascades with State when possible (curated list, see
-       app/locations.py); with no state chosen, or to find a city
-       outside the list, free typing is always available — city
-       search has always been a partial ILIKE on the backend. #}
     <select name="city" id="filter-city-select" hidden disabled>
         <option value="">{{ t('filter_all_cities') }}</option>
     </select>
     <input type="text" name="city" id="filter-city-other-input" placeholder="{{ t('filter_city_placeholder') }}" value="{{ filters.city }}">
     <button type="button" id="filter-city-toggle-other" class="link-button" hidden></button>
 
-    <input type="text" name="tag" placeholder="{{ t('filter_hashtag_placeholder') }}" value="{{ filters.tag }}">
-
-    <select name="listing_type">
-        <option value="">{{ t('filter_all_types') }}</option>
-        {% for key in listing_type_keys %}
-            <option value="{{ key }}" {% if filters.listing_type == key %}selected{% endif %}>{{ t('listing_type_' ~ key) }}</option>
-        {% endfor %}
+    <select name="role">
+        <option value="">{{ t('filter_all_roles') }}</option>
+        <option value="singer" {% if filters.role == "singer" %}selected{% endif %}>{{ t('role_singer') }}</option>
+        <option value="conductor" {% if filters.role == "conductor" %}selected{% endif %}>{{ t('role_conductor') }}</option>
     </select>
 
     <select name="voice_type_id">
@@ -45,57 +36,41 @@
         {% endfor %}
     </select>
 
-    <select name="ensemble_type">
-        <option value="">{{ t('filter_all_ensemble_types') }}</option>
-        {% for key in ensemble_type_keys %}
-            <option value="{{ key }}" {% if filters.ensemble_type == key %}selected{% endif %}>{{ t('ensemble_type_' ~ key) }}</option>
-        {% endfor %}
-    </select>
-
-    <label class="filter-date-label">{{ t('filter_period_from_label') }}
-        <input type="date" name="date_from" value="{{ filters.date_from }}">
-    </label>
-    <label class="filter-date-label">{{ t('filter_period_to_label') }}
-        <input type="date" name="date_to" value="{{ filters.date_to }}">
-    </label>
-
-    <label class="show-past-toggle">
-        <input type="checkbox" name="show_past" value="1" {% if filters.show_past %}checked{% endif %}>
-        {{ t('filter_show_past') }}
-    </label>
-
     <button type="submit">{{ t('filter_button') }}</button>
-    <a class="clear-link" href="/board">{{ t('filter_clear') }}</a>
+    <a class="clear-link" href="/people">{{ t('filter_clear') }}</a>
 </form>
 
 {% if total is defined and total > 0 %}
     <p class="results-count">{{ total }} {{ t('board_results_label') }}</p>
 {% endif %}
 
-{% if listings|length == 0 %}
-    <p class="empty-state">{{ t('empty_state') }}</p>
+{% if people|length == 0 %}
+    <p class="empty-state">{{ t('search_people_empty') }}</p>
 {% endif %}
 
 <ul class="listing-grid">
-    {% for l in listings %}
-    <li class="listing-card">
-        <a href="/listings/{{ l.id }}">
-            <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
-            {% if l.event_status %}
-                <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
+    {% for p in people %}
+    <li class="person-card">
+        <a href="{{ '/u/' ~ p.profile_slug if p.profile_slug else '/users/' ~ p.id }}">
+            {% if p.avatar_url %}
+                <img class="person-card-avatar" src="{{ p.avatar_url }}" alt="">
+            {% else %}
+                <div class="person-card-avatar avatar-placeholder">{{ p.full_name[0] | upper }}</div>
             {% endif %}
-            {% if l.is_saved %}<span class="favorite-star" title="{{ t('favorite_marker') }}"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg></span>{% endif %}
-            <h3>{{ l.title }}</h3>
-            <p class="meta">
-                {% if l.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ l.city }}{% if l.country and l.country != "DE" %} ({{ l.country }}){% endif %}{% endif %}
-                {% if l.voice_type_name %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ l.voice_type_name }}{% endif %}
-                {% if l.repertoire %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ l.repertoire }}{% endif %}
-                {% if l.fee %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ l.fee }}{% endif %}
+            <p class="person-card-name">{{ p.full_name.split(' ')[0] }}</p>
+            <p class="person-card-subtitle">
+                {{ t('role_singer') if p.role == "singer" else t('role_conductor') }}{% if p.voice_type_name %} · {{ p.voice_type_name }}{% endif %}
             </p>
-            {% if user %}
-                <p class="excerpt">{{ l.description[:160] }}{% if l.description|length > 160 %}…{% endif %}</p>
+            {% if p.badges and p.badges|length > 0 %}
+                <p class="person-card-badges">
+                    {% for b in p.badges %}
+                        <span class="badge-dot badge-key-{{ b.key }} {% if b.medal %}badge-tier-{{ b.medal }}{% endif %}" title="{{ t('badge_' ~ b.key ~ '_label') }}">
+                            <svg class="icon"><use href="/static/img/icons.svg#{{ b.icon }}"></use></svg>
+                        </span>
+                    {% endfor %}
+                </p>
             {% endif %}
-            <p class="author">{{ t('by_author') }} {{ l.author_name }}</p>
+            <span class="person-card-cta">{{ t('search_people_view_profile') }}</span>
         </a>
     </li>
     {% endfor %}

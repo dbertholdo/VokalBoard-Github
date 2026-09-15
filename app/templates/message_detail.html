@@ -17,12 +17,12 @@
     <div class="message-body-box">{{ message.body }}</div>
 
     <div class="message-actions">
-        <a href="/messages/new?to={{ other_id }}{% if message.listing_id %}&listing_id={{ message.listing_id }}{% endif %}" class="button-link">↩️ {{ t('message_reply') }}</a>
+        <a href="/messages/new?to={{ other_id }}{% if message.listing_id %}&listing_id={{ message.listing_id }}{% endif %}" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-reply"></use></svg> {{ t('message_reply') }}</a>
 
         {% set is_sender = (message.sender_id == user.id) %}
         <form method="post" action="/messages/{{ message.id }}/trash">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="danger">🗑️ {{ t('message_trash_button') }}</button>
+            <button type="submit" class="danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-trash"></use></svg> {{ t('message_trash_button') }}</button>
         </form>
     </div>
 {% endif %}

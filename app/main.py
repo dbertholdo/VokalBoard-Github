@@ -19,9 +19,9 @@ from app.avatars import AVATAR_DIR, STORAGE_EXTENSION
 from app.post_images import POST_IMAGE_DIR, STORAGE_EXTENSION as POST_IMAGE_STORAGE_EXTENSION
 from app.auth import get_current_user
 from app.database import engine, fetch_all, execute
-from app.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, translate
+from app.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_META, translate
 from app.render import render, templates
-from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes
+from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes
 
 load_dotenv()
 
@@ -369,6 +369,8 @@ app.include_router(messages_routes.router)
 app.include_router(legal_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(financial_routes.router)
+app.include_router(search_people_routes.router)
+app.include_router(notas_routes.router)
 
 
 # ------------------------------------------------------------
@@ -448,6 +450,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             "lang": lang,
             "t": lambda key: translate(key, lang),
             "lang_urls": {code: str(request.url.include_query_params(lang=code)) for code in SUPPORTED_LANGUAGES},
+            "language_meta": LANGUAGE_META,
+            "supported_languages": SUPPORTED_LANGUAGES,
             "csp_nonce": getattr(request.state, "csp_nonce", ""),
             "title_key": "error_500_title",
             "message_key": "error_500_message",

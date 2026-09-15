@@ -146,23 +146,54 @@ h1, h2, h3 {
     font-size: 0.9rem;
 }
 
-.lang-switch {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.85rem;
+.lang-switch-dropdown {
+    position: relative;
+    display: inline-block;
     margin-left: 8px;
     padding-left: 12px;
     border-left: 1px solid var(--border);
+    font-size: 0.85rem;
 }
 
-.lang-switch a {
+.lang-switch-dropdown summary {
+    cursor: pointer;
     color: var(--muted);
+    list-style: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    user-select: none;
+}
+.lang-switch-dropdown summary::-webkit-details-marker { display: none; }
+.lang-switch-dropdown summary::after { content: " ▾"; font-size: 0.7em; }
+.lang-switch-dropdown summary:hover { background: var(--accent2-light); color: var(--ink); }
+
+.lang-switch-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(28, 31, 46, 0.14);
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+    z-index: 40;
+    overflow: hidden;
 }
 
-.lang-switch a.active {
+.lang-switch-menu a {
+    padding: 8px 12px;
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.lang-switch-menu a:hover { background: var(--accent2-light); }
+
+.lang-switch-menu a.active {
     color: var(--accent);
     font-weight: bold;
+    background: var(--accent-light);
 }
 
 /* ------------------------------------------------------------
@@ -235,6 +266,19 @@ h1, h2, h3 {
     background: var(--accent);
     color: #fff;
 }
+
+/* Red Zone — set far enough apart from the rest of the menu (one
+   row's worth of empty space) that it can't be clicked by accident
+   while aiming for Posts/Analytics right above it, and colored red
+   itself (not just its text) so it visually reads as "sensitive"
+   before you even read the label. */
+.side-nav-row-danger {
+    margin-top: 48px;
+    background: #d9534f;
+    color: #fff;
+}
+.side-nav-row-danger:hover { background: #c0392b; color: #fff; }
+.side-nav-row-danger.active { background: #a93226; color: #fff; }
 
 .sidebar-backdrop { display: none; }
 
@@ -310,6 +354,71 @@ h1, h2, h3 {
 .listing-card:hover {
     box-shadow: 0 8px 20px rgba(91, 95, 239, 0.10);
     transform: translateY(-2px);
+}
+
+/* --- Buscar pessoas (people search) cards --------------------------------
+   Deliberately different from .listing-card: centered, an
+   avatar-first layout (gradient initial when there's no photo), only
+   the first name (never the full name — same privacy stance as the
+   nav header), voice type as a subtitle, and up to 3 small badge
+   "dots" instead of full pills, to keep the card compact. */
+.person-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 16px;
+    text-align: center;
+    transition: box-shadow 0.15s, transform 0.15s;
+}
+.person-card:hover { box-shadow: 0 8px 20px rgba(91, 95, 239, 0.10); transform: translateY(-2px); }
+.person-card a { text-decoration: none; color: inherit; display: block; }
+
+.person-card-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    object-fit: cover;
+    display: block;
+}
+.person-card-avatar.avatar-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+
+.person-card-name { font-weight: 700; font-size: 1rem; margin: 0 0 2px; }
+.person-card-subtitle { color: var(--muted); font-size: 0.82rem; margin: 0 0 10px; }
+
+.person-card-badges {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    min-height: 26px;
+}
+
+.badge-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--badge-color, var(--accent2));
+    box-shadow: 0 2px 6px rgba(28, 31, 46, 0.15);
+}
+.badge-dot .icon { color: #fff; width: 14px; height: 14px; }
+
+.person-card-cta {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
 }
 
 .locked-card { position: relative; }
@@ -506,6 +615,10 @@ h1, h2, h3 {
     margin: 20px 0 28px;
 }
 
+.highlights-section {
+    margin: 20px 0 28px;
+}
+
 .locked-box {
     margin-top: 20px;
     padding: 20px;
@@ -529,6 +642,18 @@ h1, h2, h3 {
 .event-dot-upcoming { background: #2f9e44; }
 .event-dot-soon { background: #e0a800; }
 .event-dot-past { background: #c0392b; }
+
+/* Generic status dot (on/off), e.g. Red Zone's Capitalism Mode toggle */
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+.status-dot-on { background: #2f9e44; }
+.status-dot-off { background: #c0392b; }
 
 /* Email verification banner */
 .verify-banner {
@@ -1023,14 +1148,22 @@ form button.link-button:hover { color: var(--accent-dark); }
 .badge-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     font-size: 0.8rem;
     font-weight: 600;
-    padding: 4px 10px;
+    padding: 4px 10px 4px 4px;
     border-radius: 999px;
-    background: var(--accent2-light);
-    color: var(--accent2);
+    background: var(--badge-tint, var(--accent2-light));
+    color: var(--badge-color, var(--accent2));
     cursor: default;
+}
+
+.badge-pill .icon {
+    background: var(--badge-color, var(--accent2));
+    color: #fff;
+    border-radius: 50%;
+    padding: 3px;
+    box-sizing: content-box;
 }
 
 .badges-box {
@@ -1045,40 +1178,90 @@ form button.link-button:hover { color: var(--accent-dark); }
     gap: 10px;
 }
 
+/* Every badge (unlocked or not) is only ever gray + a faint tint of
+   its own color while locked — nothing shows what color it'll be
+   until it's earned, it's just a hint. Once unlocked, the icon's
+   circle fills solidly with that color and the icon itself turns
+   white, the same "medal" look used on the search cards.
+   --badge-color / --badge-tint come from the .badge-key-* /
+   .badge-tier-* rules below (one badge can match both — a tiered one
+   like "referral" falls back to its own key color before any medal
+   is reached, then the tier rule, being more specific/later, takes
+   over once a medal exists). */
 .badge-tile {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 4px;
+    gap: 6px;
     padding: 14px 10px;
-    background: var(--accent2-light);
-    border-radius: 10px;
-}
-
-.badge-tile.badge-locked {
     background: var(--card-bg);
-    border: 1px dashed var(--border);
-    opacity: 0.6;
+    border: 1px solid var(--border);
+    border-radius: 12px;
 }
 
-.badge-tile-icon { font-size: 1.6rem; }
+.badge-tile-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--badge-tint, var(--border));
+}
+.badge-tile-icon .icon { color: #b6c0ba; }
+
+.badge-tile:not(.badge-locked) .badge-tile-icon {
+    background: var(--badge-color, var(--muted));
+    box-shadow: 0 3px 8px rgba(28, 31, 46, 0.18);
+}
+.badge-tile:not(.badge-locked) .badge-tile-icon .icon { color: #fff; }
+
+.badge-tile.badge-locked { opacity: 0.85; }
+.badge-tile.badge-locked .badge-tile-label,
+.badge-tile.badge-locked .badge-tile-desc { color: var(--muted); }
+
 .badge-tile-label { font-weight: 600; font-size: 0.85rem; }
 .badge-tile-desc { font-size: 0.75rem; color: var(--muted); }
 
-/* --- dismissible notice (e.g. spam box) on the home page ----------------------- */
+/* Each achievement gets its own color instead of everything reading
+   as "VokalBoard green" — keeps the badges shelf feeling varied. */
+.badge-key-listing        { --badge-color: #2f7fb0; --badge-tint: #e3f0f8; }
+.badge-key-contact        { --badge-color: #c25a83; --badge-tint: #fbe8ef; }
+.badge-key-fast_response  { --badge-color: #c2891f; --badge-tint: #fbf1de; }
+.badge-key-profile_complete { --badge-color: #7c5cbf; --badge-tint: #efe9fb; }
+/* "referral" has no medal yet (fewer than 10 invites) but is already
+   unlocked (1+ invites) — gets its own color until a medal kicks in. */
+.badge-key-referral       { --badge-color: #3f9d6e; --badge-tint: #e3f5ea; }
+
+/* Medal colors — shared by the referral, views and anniversary
+   badges once they cross a threshold (see app/badges.py). Listed
+   after .badge-key-* so a medal always wins over a plain key color. */
+.badge-tier-bronze   { --badge-color: #a9683f; --badge-tint: #f3e6dc; }
+.badge-tier-silver   { --badge-color: #7c8791; --badge-tint: #eceff1; }
+.badge-tier-gold     { --badge-color: #c9932f; --badge-tint: #faf0da; }
+.badge-tier-platinum { --badge-color: #2f9fc0; --badge-tint: #e2f4f9; }
+
+/* --- dismissible notice (e.g. spam box) on the home page -----------------------
+   Deliberately NOT teal/indigo (the rest of the site's palette) — this is a
+   "tip" banner and needs to read as attention-grabbing at a glance, so it
+   gets its own warm accent instead of blending in. */
 .dismissible-notice {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    background: var(--accent2-light);
-    color: var(--ink);
+    background: #fdf1dc;
+    border: 1px solid #f0b84c;
+    border-left: 4px solid #e8930a;
+    color: #6b4a06;
     padding: 10px 14px;
     border-radius: 8px;
     margin-bottom: 16px;
     font-size: 0.9rem;
 }
+
+.dismissible-notice .icon { color: #e8930a; }
 
 .dismissible-notice button {
     background: none;
@@ -1086,11 +1269,12 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-size: 1.1rem;
     line-height: 1;
     cursor: pointer;
-    color: var(--muted);
-    padding: 2px 6px;
+    color: #6b4a06;
+    padding: 6px 8px;
+    border-radius: 6px;
 }
 
-.dismissible-notice button:hover { color: var(--ink); }
+.dismissible-notice button:hover { color: #3f2c03; background: rgba(0, 0, 0, 0.06); }
 
 .sr-only {
     position: absolute;
@@ -1804,3 +1988,351 @@ form button.link-button:hover { color: var(--accent-dark); }
     color: #fff;
     border-color: var(--accent);
 }
+
+/* --- Notas (credit bank) ------------------------------------------------ */
+.notas-balance-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 16px 0 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    color: #fff;
+}
+
+.notas-balance-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.notas-balance-icon .icon { color: #fff; }
+
+.notas-balance-value { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.notas-balance-label { font-size: 0.85rem; opacity: 0.92; }
+.notas-balance-next { font-size: 0.8rem; opacity: 0.85; margin-top: 4px; }
+
+.catalog-grid {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 12px 0 24px;
+}
+
+.catalog-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.catalog-item-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--accent2-light);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.catalog-item-title { font-weight: 600; }
+.catalog-item-desc { font-size: 0.85rem; color: var(--muted); flex: 1; }
+.catalog-item-cost {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.catalog-item-empty {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+.ledger-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+}
+
+.ledger-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+}
+
+.ledger-delta-positive { color: var(--accent); font-weight: 600; }
+.ledger-delta-negative { color: #b45309; font-weight: 600; }
+.ledger-date { color: var(--muted); font-size: 0.8rem; }
+
+/* --- Hall da Fama -------------------------------------------------------- */
+.hall-fame-grid {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+    margin: 12px 0;
+}
+
+.hall-fame-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 14px 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.hall-fame-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.hall-fame-name { font-weight: 600; font-size: 0.9rem; }
+.hall-fame-meta { font-size: 0.78rem; color: var(--muted); }
+
+/* --- Profile highlight (redeemed via Notas) ------------------------------ */
+.profile-highlight-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 12px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+/* --- Profile page redesign (translucent panel + floating cards) --------- */
+.profile-hero {
+    margin: 20px 0 28px;
+    padding: 28px;
+    border-radius: 22px;
+    /* Frosted-glass panel behind the floating cards — this is the
+       "mais translúcido" part of the redesign: a tinted, blurred
+       backdrop instead of a flat background. */
+    background: linear-gradient(160deg, rgba(223, 246, 238, 0.75), rgba(233, 251, 242, 0.55));
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 18px 44px rgba(12, 125, 104, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.profile-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.btn-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--accent-dark);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 0.86rem;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 6px 16px rgba(12, 125, 104, 0.28);
+}
+.btn-preview:hover { background: #096a58; }
+
+.btn-share {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #fff;
+    color: var(--accent-dark);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 0.86rem;
+    cursor: pointer;
+}
+
+.share-icons {
+    display: none;
+    gap: 8px;
+}
+.share-icons.open { display: flex; }
+.share-icons a {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+.share-icons a:hover { background: var(--accent2-light); }
+.share-icons button {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 22px;
+}
+@media (max-width: 720px) {
+    .profile-grid { grid-template-columns: 1fr; }
+}
+
+.profile-hero .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 24px;
+    /* Deeper, more colorful shadow than a flat site card — this is
+       what makes each card feel like it's floating above the frosted
+       panel behind it. */
+    box-shadow: 0 14px 30px rgba(12, 125, 104, 0.14), 0 2px 6px rgba(28, 31, 46, 0.06);
+}
+
+.profile-hero .card h3 {
+    margin: 0 0 12px;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.id-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+}
+
+.id-card .avatar-preview {
+    width: 108px;
+    height: 108px;
+    border: 3px solid var(--accent-light);
+    box-shadow: 0 8px 18px rgba(12, 125, 104, 0.22);
+}
+
+.id-card .full-name { font-size: 1.2rem; font-weight: 700; margin-top: 6px; }
+.id-card .role-line { color: var(--muted); font-size: 0.85rem; margin-bottom: 6px; }
+
+.id-card .contact-list {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.id-card .contact-list .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--ink);
+}
+.id-card .contact-list .row .icon { color: var(--accent); }
+
+.profile-link-box {
+    margin-top: 16px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+.profile-link-box code {
+    flex: 1;
+    font-size: 0.78rem;
+    color: var(--accent-dark);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.profile-link-box button {
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.profile-edit-hint {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 6px;
+}
+.profile-edit-hint a { color: var(--accent-dark); font-weight: 600; }
+
+.profile-right-col { display: flex; flex-direction: column; gap: 20px; }
+
+.profile-hero .bio-card p {
+    font-size: 0.94rem;
+    line-height: 1.65;
+    color: var(--ink);
+    margin: 0;
+}
+
+.profile-hero .links-card .link-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.88rem;
+}
+.profile-hero .links-card .link-row:first-of-type { border-top: none; }
+.profile-hero .links-card .link-row .icon { color: var(--accent-dark); flex-shrink: 0; }
+.profile-hero .links-card .link-row a { color: var(--ink); text-decoration: none; }
+.profile-hero .links-card .link-row a:hover { color: var(--accent-dark); }

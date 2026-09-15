@@ -141,6 +141,32 @@ CREATE TABLE users (
     -- Data Analysis dashboard — it's not tracking, it's just the SAME
     -- information as "last seen" in any messaging app.
     last_seen_at    TIMESTAMPTZ,
+    -- "Buscar pessoas" (people search, separate from the listings
+    -- board — see /pessoas in app/routers/search_people_routes.py):
+    -- whether this person shows up in that search. Defaults to TRUE
+    -- (opt-out, not opt-in) per an explicit product decision — most
+    -- people signing up to a matching site want to be found.
+    appear_in_search BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Custom, editable public-profile URL (e.g. /u/danielbertholdo
+    -- instead of /users/42) — purely cosmetic/shareable, the numeric
+    -- `id` stays the permanent internal identifier used everywhere
+    -- else (referrals, messages, FKs). NULL = no custom slug yet,
+    -- falls back to /users/{id}. Lowercase letters/digits/hyphens
+    -- only, enforced in app/routers/profile_routes.py.
+    profile_slug    VARCHAR(60) UNIQUE,
+    -- "Destaques da semana" (home page) fair-rotation bookkeeping —
+    -- see app/highlights.py. Incremented every time this profile is
+    -- picked as a fallback highlight (most-visited-this-week), so the
+    -- pick can be weighted toward whoever has been shown least so
+    -- far, instead of the same few popular profiles every week.
+    highlight_shown_count SMALLINT NOT NULL DEFAULT 0,
+    last_highlighted_at   TIMESTAMPTZ,
+    -- "Notas" (credit bank) redemption effect: set when this person
+    -- redeems the "profile highlight" catalog item — while in the
+    -- future, their public profile shows a small "featured" banner.
+    -- NULL or in the past = no active highlight. See
+    -- app/routers/notas_routes.py.
+    profile_highlighted_until TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -151,6 +177,7 @@ CREATE INDEX idx_users_state ON users(state);
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX idx_users_referred_by ON users(referred_by_user_id);
 CREATE INDEX idx_users_role_level ON users(role_level);
+CREATE INDEX idx_users_appear_in_search ON users(appear_in_search);
 
 -- Migration for anyone who was already is_admin=TRUE before role_level
 -- existed: automatically becomes level 3 (god mode), so they don't
@@ -699,6 +726,44 @@ CREATE TABLE user_badges (
 );
 
 CREATE INDEX idx_user_badges_user ON user_badges(user_id);
+
+-- ------------------------------------------------------------
+-- "Notas" (credit bank) + referral antifraud — see app/referrals.py
+-- and app/routers/notas_routes.py.
+--
+-- referral_events: one permanent row per e-mail address that was
+-- ever referred and verified. referred_email_hash is the irreversible
+-- (SHA-256) fingerprint of that e-mail — never the e-mail itself —
+-- and is UNIQUE FOREVER, even after the referred account is later
+-- soft-deleted and hard-purged (scripts/purge_deleted_accounts.py):
+-- referred_user_id is cleared (ON DELETE SET NULL) but this row
+-- stays, so the same e-mail can never generate a second referral
+-- credit by deleting and re-registering.
+-- ------------------------------------------------------------
+CREATE TABLE referral_events (
+    id                   BIGSERIAL PRIMARY KEY,
+    referrer_user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    referred_email_hash  CHAR(64) NOT NULL UNIQUE,
+    referred_user_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    credited_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_referral_events_referrer ON referral_events(referrer_user_id);
+
+-- credit_ledger: append-only history of "notas" earned (positive
+-- delta) and redeemed (negative delta). Balance = SUM(delta). Never
+-- UPDATE or DELETE a row here — a correction is a new row, so the
+-- history always explains itself.
+CREATE TABLE credit_ledger (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    delta        INTEGER NOT NULL,
+    reason       VARCHAR(50) NOT NULL,
+    reference_id BIGINT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_credit_ledger_user ON credit_ledger(user_id);
 
 -- ------------------------------------------------------------
 -- Dados iniciais (seed) — categorias de voz simplificadas (SATB)

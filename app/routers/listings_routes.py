@@ -9,6 +9,7 @@ from app.notifications import notify_matching_users
 from app.badges import check_and_notify_new_badges
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 from app.richtext import html_to_excerpt
+from app.highlights import get_weekly_highlights
 
 router = APIRouter()
 
@@ -172,11 +173,18 @@ def home(request: Request):
     for p in posts:
         p["excerpt"], p["is_truncated"] = html_to_excerpt(p["body"])
 
+    # "Destaques da semana" — logged-in only (see app/highlights.py):
+    # a teaser to a curated list of people would just be one more
+    # "sign up to see more" wall, and this feature is meant to
+    # reward/surface community members, not pressure visitors.
+    highlights = get_weekly_highlights(user["id"]) if user else []
+
     context = {
         "user": user,
         "matches": matches,
         "teaser_listings": teaser_listings,
         "posts": posts,
+        "highlights": highlights,
         "verify_required": request.query_params.get("verify_required") == "1",
     }
     return render(request, "home.html", context)

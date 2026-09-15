@@ -2,7 +2,7 @@
 {% block title %}{{ t('nav_favorites') }} — VokalBoard{% endblock %}
 
 {% block content %}
-<h1>⭐ {{ t('nav_favorites') }}</h1>
+<h1><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('nav_favorites') }}</h1>
 <p class="subtitle">{{ t('favorites_subtitle') }}</p>
 
 {% if listings|length == 0 %}
@@ -19,17 +19,17 @@
             {% endif %}
             <h3>{{ l.title }}</h3>
             <p class="meta">
-                {% if l.city %}📍 {{ l.city }}{% if l.country and l.country != "DE" %} ({{ l.country }}){% endif %}{% endif %}
-                {% if l.voice_type_name %} · 🎤 {{ l.voice_type_name }}{% endif %}
-                {% if l.repertoire %} · 🎵 {{ l.repertoire }}{% endif %}
-                {% if l.fee %} · 💶 {{ l.fee }}{% endif %}
+                {% if l.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ l.city }}{% if l.country and l.country != "DE" %} ({{ l.country }}){% endif %}{% endif %}
+                {% if l.voice_type_name %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ l.voice_type_name }}{% endif %}
+                {% if l.repertoire %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ l.repertoire }}{% endif %}
+                {% if l.fee %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ l.fee }}{% endif %}
             </p>
             <p class="excerpt">{{ l.description[:160] }}{% if l.description|length > 160 %}…{% endif %}</p>
             <p class="author">{{ t('by_author') }} {{ l.author_name }}</p>
         </a>
         <form method="post" action="/listings/{{ l.id }}/unsave">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="link-button">✕ {{ t('favorite_remove') }}</button>
+            <button type="submit" class="link-button"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> {{ t('favorite_remove') }}</button>
         </form>
     </li>
     {% endfor %}

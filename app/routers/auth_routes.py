@@ -15,7 +15,7 @@ from app.login_throttle import check_lockout, record_failure, reset as reset_log
 from app.register_throttle import is_registration_throttled, record_registration
 from app.client_ip import get_client_ip
 from app.password_policy import password_error
-from app.referrals import generate_referral_code, resolve_referrer
+from app.referrals import generate_referral_code, resolve_referrer, record_referral_verification
 from app.routers.profile_routes import parse_hashtags, parse_audio_links, set_audio_links, MAX_BIO_LENGTH
 from app.captcha import is_bot, verify_turnstile
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
@@ -323,6 +323,9 @@ def verify_email(request: Request, token: str = ""):
     if valid:
         execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": row["user_id"]})
         execute("UPDATE email_verification_tokens SET used_at = now() WHERE id = :id", {"id": row["id"]})
+        # Referral antifraud + notas: only counts/credits now that the
+        # e-mail is verified, and only once per e-mail address ever.
+        record_referral_verification(row["user_id"])
 
     context = {
         "user": get_current_user(request),

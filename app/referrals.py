@@ -5,10 +5,16 @@ someone signs up arriving through that link, we store who referred
 them (referred_by_user_id) — this lets us count how many people each
 person brought in.
 """
+import hashlib
 import secrets
 import string
 
-from app.database import fetch_one, execute
+from app.database import fetch_one, fetch_all, execute, execute_returning
+
+# How many verified referrals earn one "nota" (credit). Kept as a
+# constant instead of a config value since changing the ratio later
+# would be an intentional business decision, not a deploy-time setting.
+CREDIT_REFERRALS_PER_CREDIT = 10
 
 CODE_ALPHABET = string.ascii_uppercase + string.digits
 CODE_LENGTH = 7
@@ -66,3 +72,114 @@ def resolve_referrer(ref_code: str) -> int | None:
         return None
     row = fetch_one("SELECT id FROM users WHERE referral_code = :code", {"code": ref_code.strip().upper()})
     return row["id"] if row else None
+
+
+def _hash_email(email: str) -> str:
+    """
+    One-way (irreversible) fingerprint of an e-mail address. We never
+    store the e-mail itself here — only this hash — so this table
+    cannot be used to look up anyone's address, it can only answer
+    "has this exact e-mail already generated a referral before?".
+    """
+    normalized = email.strip().lower()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def record_referral_verification(user_id: int) -> None:
+    """
+    Call this right after a user's e-mail gets verified. If they were
+    referred by someone, this permanently records that referral (as an
+    e-mail hash, never the e-mail itself) and, every CREDIT_REFERRALS_
+    PER_CREDIT-th verified referral, credits the referrer with 1 nota.
+
+    Antifraud: referred_email_hash is UNIQUE and this row is never
+    deleted when the referred account is later removed (soft-deleted
+    or hard-purged by scripts/purge_deleted_accounts.py) — only the
+    referred_user_id link is cleared (ON DELETE SET NULL). This is
+    what stops someone from farming credits by registering, verifying,
+    deleting the account, and registering again with the same e-mail:
+    the second attempt's INSERT hits the UNIQUE constraint and is
+    silently ignored (ON CONFLICT DO NOTHING), so no second credit is
+    ever granted for the same e-mail address.
+    """
+    user = fetch_one(
+        "SELECT id, email, referred_by_user_id FROM users WHERE id = :id", {"id": user_id}
+    )
+    if not user or not user["referred_by_user_id"]:
+        return
+
+    email_hash = _hash_email(user["email"])
+    inserted = execute_returning(
+        """
+        INSERT INTO referral_events (referrer_user_id, referred_email_hash, referred_user_id)
+        VALUES (:referrer_id, :email_hash, :referred_id)
+        ON CONFLICT (referred_email_hash) DO NOTHING
+        RETURNING id
+        """,
+        {
+            "referrer_id": user["referred_by_user_id"],
+            "email_hash": email_hash,
+            "referred_id": user_id,
+        },
+    )
+    if not inserted:
+        return  # this e-mail already generated a referral before (antifraud)
+
+    credited_count = fetch_one(
+        "SELECT COUNT(*) AS n FROM referral_events WHERE referrer_user_id = :id",
+        {"id": user["referred_by_user_id"]},
+    )["n"]
+
+    if credited_count % CREDIT_REFERRALS_PER_CREDIT == 0:
+        execute(
+            """
+            INSERT INTO credit_ledger (user_id, delta, reason, reference_id)
+            VALUES (:uid, 1, 'referral_bonus', :ref_id)
+            """,
+            {"uid": user["referred_by_user_id"], "ref_id": inserted["id"]},
+        )
+
+
+def get_credit_balance(user_id: int) -> int:
+    row = fetch_one(
+        "SELECT COALESCE(SUM(delta), 0) AS balance FROM credit_ledger WHERE user_id = :id",
+        {"id": user_id},
+    )
+    return row["balance"] if row else 0
+
+
+def get_credit_ledger(user_id: int, limit: int = 50) -> list[dict]:
+    return fetch_all(
+        """
+        SELECT delta, reason, created_at FROM credit_ledger
+        WHERE user_id = :id ORDER BY created_at DESC LIMIT :limit
+        """,
+        {"id": user_id, "limit": limit},
+    )
+
+
+def get_referrals_until_next_credit(user_id: int) -> int:
+    """How many more verified referrals until the next nota (0-9)."""
+    credited_count = fetch_one(
+        "SELECT COUNT(*) AS n FROM referral_events WHERE referrer_user_id = :id",
+        {"id": user_id},
+    )["n"]
+    remainder = credited_count % CREDIT_REFERRALS_PER_CREDIT
+    return CREDIT_REFERRALS_PER_CREDIT - remainder if remainder else 0
+
+
+def get_hall_of_fame(user_id: int) -> list[dict]:
+    """
+    Private, referrer-only list of who this person referred (only
+    accounts that verified their e-mail — the same rule used for the
+    public referral counter and the referral badge).
+    """
+    return fetch_all(
+        """
+        SELECT id, full_name, avatar_url, city, country, created_at
+        FROM users
+        WHERE referred_by_user_id = :id AND email_verified = TRUE AND deleted_at IS NULL
+        ORDER BY created_at DESC
+        """,
+        {"id": user_id},
+    )

@@ -23,7 +23,7 @@
 {% if folder == "trash" and messages|length > 0 %}
     <form method="post" action="/messages/trash/empty" data-confirm="{{ t('message_empty_trash_confirm') }}" style="margin-bottom:16px;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="danger">🗑️ {{ t('message_empty_trash_button') }}</button>
+        <button type="submit" class="danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-trash"></use></svg> {{ t('message_empty_trash_button') }}</button>
     </form>
 {% endif %}
 
@@ -52,7 +52,7 @@
             {% if folder == "trash" %}
             <form method="post" action="/messages/{{ m.id }}/restore" class="message-restore-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="link-button">↩ {{ t('message_restore_button') }}</button>
+                <button type="submit" class="link-button"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-reply"></use></svg> {{ t('message_restore_button') }}</button>
             </form>
             {% endif %}
         </li>

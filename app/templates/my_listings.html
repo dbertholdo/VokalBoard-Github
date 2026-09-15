@@ -20,11 +20,11 @@
             {% endif %}
             <h3>{{ l.title }}</h3>
             <p class="meta">
-                {% if l.city %}📍 {{ l.city }}{% endif %}
+                {% if l.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ l.city }}{% endif %}
                 {% if not l.is_active %} · <em>{{ t('inactive_label') }}</em>{% endif %}
             </p>
         </a>
-        <a href="/listings/{{ l.id }}/edit" class="author">✏️ {{ t('edit_button') }}</a>
+        <a href="/listings/{{ l.id }}/edit" class="author"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-edit"></use></svg> {{ t('edit_button') }}</a>
     </li>
     {% endfor %}
 </ul>

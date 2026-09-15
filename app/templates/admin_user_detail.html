@@ -10,22 +10,22 @@
     {% endif %}
 </h1>
 <p class="meta">
-    ✉️ {{ target.email }} {% if target.email_verified %}✅{% else %}(not verified){% endif %}
-    {% if target.city %} · 📍 {{ target.city }}{% if target.state %}, {{ target.state }}{% endif %}{% endif %}
+    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ target.email }} {% if target.email_verified %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg>{% else %}(not verified){% endif %}
+    {% if target.city %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ target.city }}{% if target.state %}, {{ target.state }}{% endif %}{% endif %}
     · {{ "Singer" if target.role == "singer" else "Conductor" }}
     · since {{ target.created_at }}
     {% if target.deleted_at %} · <span class="badge-danger">account deactivated on {{ target.deleted_at }}</span>{% endif %}
 </p>
 
 {% if request.query_params.get('self_demote_blocked') == '1' %}
-    <p class="error">⚠️ You cannot remove your own admin access, deactivate, or delete your own account here. Ask another admin.</p>
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> You cannot remove your own admin access, deactivate, or delete your own account here. Ask another admin.</p>
 {% endif %}
 {% if request.query_params.get('reset_sent') == '1' %}
-    <p class="success">✅ Password reset email sent.</p>
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Password reset email sent.</p>
 {% endif %}
 
 <div class="admin-stats">
-    <div class="admin-stat"><strong>{% if stats.avg_rating %}⭐ {{ stats.avg_rating }}{% else %}—{% endif %}</strong><span>Average rating ({{ stats.rating_count }} reviews)</span></div>
+    <div class="admin-stat"><strong>{% if stats.avg_rating %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ stats.avg_rating }}{% else %}—{% endif %}</strong><span>Average rating ({{ stats.rating_count }} reviews)</span></div>
     <div class="admin-stat"><strong>{{ stats.profile_views }}</strong><span>Profile views</span></div>
     <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Active listings</span></div>
     <div class="admin-stat"><strong>{{ stats.messages_received }}</strong><span>Messages received</span></div>
@@ -39,7 +39,7 @@
     <ul class="admin-list">
         {% for r in recent_ratings %}
             <li>
-                <p>⭐ {{ r.stars }} — {{ r.rater_name }}</p>
+                <p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ r.stars }} — {{ r.rater_name }}</p>
                 {% if r.comment %}<p class="field-help">"{{ r.comment }}" — {{ r.created_at }}</p>{% else %}<p class="field-help">{{ r.created_at }}</p>{% endif %}
             </li>
         {% endfor %}
@@ -51,43 +51,43 @@
     {% if not target.email_verified %}
         <form method="post" action="/admin/users/{{ target.id }}/verify-email">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="button-link">✅ Manually confirm email</button>
+            <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Manually confirm email</button>
         </form>
     {% endif %}
 
     <form method="post" action="/admin/users/{{ target.id }}/send-reset">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="button-link">✉️ Send password reset link</button>
+        <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> Send password reset link</button>
     </form>
 
     {% if not is_self %}
         <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" data-confirm="{{ 'Remove admin access?' if target.role_level >= 2 else 'Make this person an admin?' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="button-link">{{ '⬇️ Remove admin' if target.role_level >= 2 else '⬆️ Make admin' }}</button>
+            <button type="submit" class="button-link">{{ '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> Remove admin' if target.role_level >= 2 else '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-upload"></use></svg> Make admin' }}</button>
         </form>
 
         {% if user.role_level == 3 and target.role_level >= 2 %}
         <form method="post" action="/admin/users/{{ target.id }}/toggle-god-mode" data-confirm="{{ 'Remove god mode (Red Zone access)?' if target.role_level == 3 else 'Grant god mode to this person? They will be able to see Capitalism Mode, pricing, and the financial dashboard.' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="button-link">{{ '⬇️ Remove god mode' if target.role_level == 3 else '👑 Grant god mode (Red Zone)' }}</button>
+            <button type="submit" class="button-link">{{ '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> Remove god mode' if target.role_level == 3 else '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-crown"></use></svg> Grant god mode (Red Zone)' }}</button>
         </form>
         {% endif %}
 
         {% if target.deleted_at %}
             <form method="post" action="/admin/users/{{ target.id }}/reactivate">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="button-link">♻️ Reactivate account</button>
+                <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Reactivate account</button>
             </form>
         {% else %}
             <form method="post" action="/admin/users/{{ target.id }}/deactivate" data-confirm="Deactivate this account? The person can reactivate it by logging in.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="button-link button-danger">🚫 Deactivate account</button>
+                <button type="submit" class="button-link button-danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> Deactivate account</button>
             </form>
         {% endif %}
 
         <div class="danger-zone">
             <details class="block-user-details">
-                <summary class="block-user-summary">☠️ Delete account forever</summary>
+                <summary class="block-user-summary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-off"></use></svg> Delete account forever</summary>
                 <p class="field-help">This permanently deletes the account and everything related to it (listings, messages, reviews). It cannot be undone.</p>
                 <form method="post" action="/admin/users/{{ target.id }}/delete-forever" data-confirm="Are you ABSOLUTELY sure? This cannot be undone.">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

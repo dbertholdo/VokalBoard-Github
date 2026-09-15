@@ -71,7 +71,7 @@
 
         // Sidebar on mobile: hidden by default (see .side-nav in the
         // CSS) and becomes a menu that slides over the content,
-        // triggered by the header's ☰ button. On desktop this class
+        // triggered by the header's <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-menu"></use></svg> button. On desktop this class
         // never matters (the CSS already shows the sidebar fixed there).
         (function () {
             var toggle = document.getElementById('sidebar-toggle');
@@ -119,7 +119,7 @@
                 <a href="/logout">{{ t('nav_logout') }}</a>
                 <span class="whoami">
                     {% if user.avatar_url %}<img class="nav-avatar" src="{{ user.avatar_url }}" alt="">{% endif %}
-                    {{ user.full_name }} ({{ t('role_singer') if user.role == "singer" else t('role_conductor') }})
+                    {{ user.full_name.split(' ')[0] if user.full_name else '' }} ({{ t('role_singer') if user.role == "singer" else t('role_conductor') }})
                 </span>
             {% else %}
                 <a href="/board">{{ t('nav_board') }}</a>
@@ -128,11 +128,14 @@
                 <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/register">{{ t('nav_register') }}</a>
             {% endif %}
-            <span class="lang-switch">
-                <a href="{{ lang_urls.de }}" class="{{ 'active' if lang == 'de' else '' }}">🇩🇪 DE</a>
-                <span>/</span>
-                <a href="{{ lang_urls.en }}" class="{{ 'active' if lang == 'en' else '' }}">🇬🇧 EN</a>
-            </span>
+            <details class="lang-switch-dropdown">
+                <summary>{{ language_meta[lang].flag }} {{ language_meta[lang].label }}</summary>
+                <div class="lang-switch-menu">
+                    {% for code in supported_languages %}
+                        <a href="{{ lang_urls[code] }}" class="{{ 'active' if lang == code else '' }}">{{ language_meta[code].flag }} {{ language_meta[code].label }}</a>
+                    {% endfor %}
+                </div>
+            </details>
         </nav>
     </header>
 
@@ -199,7 +202,7 @@
                 </a>
                 {% endif %}
                 {% if user.role_level >= 3 %}
-                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/financeiro') else '' }}" href="/financeiro">
+                <a class="side-nav-row side-nav-row-danger {{ 'active' if request.url.path.startswith('/financeiro') else '' }}" href="/financeiro">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-redzone"></use></svg>Red Zone
                 </a>
                 {% endif %}
@@ -210,14 +213,23 @@
                 <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/board') or request.url.path.startswith('/listings') else '' }}" href="/board">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-board"></use></svg>{{ t('nav_board') }}
                 </a>
-                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/profile') else '' }}" href="/profile">
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/people') else '' }}" href="/people">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-users"></use></svg>{{ t('nav_search_people') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/profile') else '' }}" href="/profile">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}
                 </a>
-                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/my-listings') else '' }}" href="/my-listings">
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/my-listings') else '' }}" href="/my-listings">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-listings"></use></svg>{{ t('nav_my_listings') }}
                 </a>
-                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/my-favorites') else '' }}" href="/my-favorites">
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/my-favorites') else '' }}" href="/my-favorites">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-star"></use></svg>{{ t('nav_favorites') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/notas') else '' }}" href="/notas">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-bank"></use></svg>{{ t('nav_notas') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/hall-da-fama') else '' }}" href="/hall-da-fama">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-crown"></use></svg>{{ t('nav_hall_da_fama') }}
                 </a>
             {% endif %}
         </aside>

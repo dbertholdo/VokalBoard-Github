@@ -2,7 +2,7 @@
 {% block title %}Red Zone — VokalBoard{% endblock %}
 
 {% block content %}
-<h1>🔴 Red Zone</h1>
+<h1><span class="status-dot status-dot-off"></span> Red Zone</h1>
 <p class="field-help">
     Sensitive settings, visible only to god mode (level 3). Every
     change here requires your password again, even while already
@@ -10,12 +10,12 @@
     safeguard account deletion uses.
 </p>
 
-{% if error == "senha_incorreta" %}<p class="error">❌ Incorrect password — nothing was changed.</p>{% endif %}
-{% if error == "preco_invalido" %}<p class="error">❌ Invalid price.</p>{% endif %}
-{% if saved %}<p class="success">✅ Saved.</p>{% endif %}
+{% if error == "senha_incorreta" %}<p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> Incorrect password — nothing was changed.</p>{% endif %}
+{% if error == "preco_invalido" %}<p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> Invalid price.</p>{% endif %}
+{% if saved %}<p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Saved.</p>{% endif %}
 
 <div class="red-zone-box">
-    <h2>💳 Capitalism Mode</h2>
+    <h2><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-card"></use></svg> Capitalism Mode</h2>
     <p>
         Current state:
         {% if capitalismo_enabled %}
@@ -30,12 +30,12 @@
         <label>Confirm your current password
             <input type="password" name="current_password" required autocomplete="current-password">
         </label>
-        <button type="submit" class="danger">{{ '🔴 Turn off Capitalism Mode' if capitalismo_enabled else '🟢 Turn on Capitalism Mode' }}</button>
+        <button type="submit" class="danger">{{ '<span class="status-dot status-dot-off"></span> Turn off Capitalism Mode' if capitalismo_enabled else '<span class="status-dot status-dot-on"></span> Turn on Capitalism Mode' }}</button>
     </form>
 </div>
 
 <div class="red-zone-box">
-    <h2>💶 Subscription price</h2>
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> Subscription price</h2>
     <p class="field-help">Current price: {{ price_eur }} € / {{ price_chf }} CHF per year.</p>
     <form method="post" action="/financeiro/set-price" class="stacked-form narrow">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -48,17 +48,17 @@
         <label>Confirm your current password
             <input type="password" name="current_password" required autocomplete="current-password">
         </label>
-        <button type="submit">💾 Save new price</button>
+        <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-save"></use></svg> Save new price</button>
     </form>
 </div>
 
 <div class="red-zone-box">
-    <h2>📖 Financial dashboard</h2>
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-book"></use></svg> Financial dashboard</h2>
     <p><a class="button-link" href="/financeiro/painel">Open financial dashboard →</a></p>
     <p><a class="button-link" href="/financeiro/extrato">Import bank statement →</a></p>
 </div>
 
-<h2>📜 Recent audit log</h2>
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-scroll"></use></svg> Recent audit log</h2>
 {% if recent_audit|length == 0 %}
     <p class="empty-state">No actions recorded yet.</p>
 {% else %}
