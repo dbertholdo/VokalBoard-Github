@@ -16,6 +16,7 @@ from app.csrf import get_or_create_csrf_token
 from app.database import fetch_one, execute
 from app.captcha import HONEYPOT_FIELD, TURNSTILE_SITE_KEY, captcha_enabled
 from app.financial_settings import is_capitalismo_mode_enabled, get_subscription_prices_cents
+from app.banners import visible_banners
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -71,6 +72,7 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     # once, instead of in every route.
     path = request.url.path
     context["is_admin_area"] = path.startswith("/admin") or path.startswith("/financeiro")
+    context["site_banners"] = [] if context["is_admin_area"] else visible_banners(context.get("user"))
 
     user_id = request.session.get("user_id")
     context["unread_count"] = 0
@@ -101,4 +103,7 @@ def render(request: Request, template_name: str, context: dict | None = None, st
             request.session[_LAST_SEEN_SESSION_KEY] = now.isoformat()
             execute("UPDATE users SET last_seen_at = now() WHERE id = :id", {"id": user_id})
 
-    return templates.TemplateResponse(template_name, context, status_code=status_code)
+    # Starlette 1.x requires Request as the first argument. Keeping this
+    # compatibility point central prevents every route from depending on the
+    # template engine's calling convention.
+    return templates.TemplateResponse(request, template_name, context, status_code=status_code)

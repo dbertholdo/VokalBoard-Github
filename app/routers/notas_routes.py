@@ -15,7 +15,9 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 
-from app.database import execute, fetch_one
+from sqlalchemy import text
+
+from app.database import engine
 from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
@@ -79,32 +81,36 @@ def redeem_notas(request: Request, item_key: str = Form(...), csrf_token: str = 
     if not item:
         return RedirectResponse(url="/notas?error=notas_item_not_found", status_code=303)
 
-    balance = get_credit_balance(user["id"])
-    if balance < item["cost"]:
-        return RedirectResponse(url="/notas?error=notas_insufficient_balance", status_code=303)
+    # Lock the account row for the complete read-balance / debit / reward
+    # operation. Without this, two simultaneous requests could both see the
+    # same balance and spend the same Notes twice.
+    with engine.begin() as conn:
+        account = conn.execute(
+            text("SELECT profile_highlighted_until FROM users WHERE id = :id FOR UPDATE"),
+            {"id": user["id"]},
+        ).mappings().first()
+        balance = conn.execute(
+            text("SELECT COALESCE(SUM(delta), 0) FROM credit_ledger WHERE user_id = :id"),
+            {"id": user["id"]},
+        ).scalar_one()
+        if balance < item["cost"]:
+            return RedirectResponse(url="/notas?error=notas_insufficient_balance", status_code=303)
 
-    execute(
-        """
-        INSERT INTO credit_ledger (user_id, delta, reason)
-        VALUES (:uid, :delta, :reason)
-        """,
-        {"uid": user["id"], "delta": -item["cost"], "reason": f"redeem_{item_key}"},
-    )
+        conn.execute(
+            text("INSERT INTO credit_ledger (user_id, delta, reason) VALUES (:uid, :delta, :reason)"),
+            {"uid": user["id"], "delta": -item["cost"], "reason": f"redeem_{item_key}"},
+        )
 
-    if item_key == "profile_highlight_7d":
-        # Extends from the current highlight if there's still time left
-        # on it (redeeming twice stacks the days), otherwise starts now.
-        now = datetime.now(timezone.utc)
-        current_row = fetch_one(
-            "SELECT profile_highlighted_until FROM users WHERE id = :id", {"id": user["id"]}
-        )
-        current_until = current_row["profile_highlighted_until"] if current_row else None
-        base = current_until if current_until and current_until > now else now
-        new_until = base + timedelta(days=item["days"])
-        execute(
-            "UPDATE users SET profile_highlighted_until = :until WHERE id = :id",
-            {"until": new_until, "id": user["id"]},
-        )
+        if item_key == "profile_highlight_7d":
+            # Extends from the current highlight if there's still time left
+            # on it (redeeming twice stacks the days), otherwise starts now.
+            now = datetime.now(timezone.utc)
+            current_until = account["profile_highlighted_until"] if account else None
+            base = current_until if current_until and current_until > now else now
+            conn.execute(
+                text("UPDATE users SET profile_highlighted_until = :until WHERE id = :id"),
+                {"until": base + timedelta(days=item["days"]), "id": user["id"]},
+            )
 
     return RedirectResponse(url=f"/notas?redeemed={item_key}", status_code=303)
 

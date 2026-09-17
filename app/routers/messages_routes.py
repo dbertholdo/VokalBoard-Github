@@ -186,7 +186,7 @@ def send_message(
         return RedirectResponse(url="/messages", status_code=303)
 
     recipient = fetch_one(
-        "SELECT email, full_name, email_verified, notify_messages FROM users WHERE id = :id AND deleted_at IS NULL",
+        "SELECT email, full_name, email_verified, notify_messages, preferred_language FROM users WHERE id = :id AND deleted_at IS NULL",
         {"id": recipient_id},
     )
     if not recipient:
@@ -216,6 +216,7 @@ def send_message(
             recipient["email"],
             recipient["full_name"],
             user["full_name"],
+            recipient.get("preferred_language"),
         )
 
     # Badges that depend on messages (contact, fast response) —

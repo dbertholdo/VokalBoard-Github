@@ -20,6 +20,23 @@ from app.main import app
 TEST_EMAIL_PREFIX = "sectest_"
 
 
+def _remove_test_match_rows():
+    """Remove Match rows before test users.
+
+    Matches intentionally use restrictive foreign keys in production so an
+    accepted job cannot disappear accidentally.  Test cleanup must therefore
+    remove only the rows owned by disposable ``sectest_`` accounts first.
+    """
+    execute(
+        """
+        DELETE FROM job_matches
+        WHERE artist_user_id IN (SELECT id FROM users WHERE email LIKE :p)
+           OR contractor_user_id IN (SELECT id FROM users WHERE email LIKE :p)
+        """,
+        {"p": f"{TEST_EMAIL_PREFIX}%"},
+    )
+
+
 @pytest.fixture()
 def client():
     return TestClient(app)
@@ -37,8 +54,10 @@ def cleanup_test_data():
     # one.
     execute("DELETE FROM login_lockouts WHERE email LIKE :p", {"p": f"{TEST_EMAIL_PREFIX}%"})
     execute("DELETE FROM registration_attempts")
+    _remove_test_match_rows()
     execute("DELETE FROM users WHERE email LIKE :p", {"p": f"{TEST_EMAIL_PREFIX}%"})
     yield
     execute("DELETE FROM login_lockouts WHERE email LIKE :p", {"p": f"{TEST_EMAIL_PREFIX}%"})
     execute("DELETE FROM registration_attempts")
+    _remove_test_match_rows()
     execute("DELETE FROM users WHERE email LIKE :p", {"p": f"{TEST_EMAIL_PREFIX}%"})

@@ -1,4 +1,4 @@
-fastapi==0.115.0
+fastapi==0.141.1
 uvicorn[standard]==0.30.6
 SQLAlchemy==2.0.35
 psycopg2-binary==2.9.9
@@ -6,7 +6,7 @@ psycopg2-binary==2.9.9
 # falhas de segurança conhecidas (achadas pelo pip-audit — ver
 # .github/workflows/security.yml), compatível sem mudança de código.
 Jinja2==3.1.6
-python-multipart==0.0.20
+python-multipart==0.0.31
 passlib==1.7.4
 bcrypt==4.0.1
 itsdangerous==2.2.0
@@ -17,13 +17,15 @@ httpx==0.27.2
 # (upload -> verify -> exif_transpose -> convert -> thumbnail -> save
 # como WEBP) e contra a suíte de testes inteira, sem quebrar nada.
 Pillow==12.3.0
-# starlette segue "presa" à versão que o fastapi==0.115.0 traz junto —
-# CVEs dela pendentes de revisão (exigiria subir o fastapi também).
+# FastAPI é mantido atualizado para receber uma versão corrigida de Starlette.
 
 # Painel financeiro interno (Zona Vermelha — ver app/routers/financial_routes.py):
 # geração dos exports de fechamento mensal/anual.
 openpyxl==3.1.5   # exportar .xlsx
 reportlab==4.2.5  # exportar .pdf (puro Python, sem dependência de sistema tipo cairo/pango)
+# Rascunhos de Rechnung por Match ficam criptografados em repouso. A chave fica
+# exclusivamente no ambiente de execução, nunca no banco ou no repositório.
+cryptography==50.0.1
 
 # Editor de posts estilo WordPress (ver app/richtext.py e
 # app/templates/admin_posts.html): sanitiza o HTML gerado pelo editor

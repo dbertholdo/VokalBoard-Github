@@ -65,12 +65,10 @@ def require_admin(request: Request) -> dict | None:
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request):
-    # Level 1 (moderator) already gets in here — the /admin panel
-    # itself is read-only (numbers + reports/blocks queue), with no
-    # actions on users/posts/finances. The screens that actually do
-    # something (/admin/users, /admin/posts) still require
-    # require_admin (level 2+) on each of them.
-    admin = require_level(request, LEVEL_MODERATOR)
+    # Reports reveal sensitive allegations and the dashboard links to
+    # privilege management.  The product rule is therefore that only God
+    # Mode can manage or even triage this material.
+    admin = require_level(request, LEVEL_GOD)
     if not admin:
         # Intentionally does NOT distinguish "not an admin" from "page
         # doesn't exist" for someone probing the URL — just redirects
@@ -252,15 +250,17 @@ def admin_send_reset(request: Request, user_id: int, csrf_token: str = Form(...)
         return RedirectResponse(url="/", status_code=303)
     verify_csrf(request, csrf_token)
 
-    target = fetch_one("SELECT id, email, full_name FROM users WHERE id = :id", {"id": user_id})
+    target = fetch_one("SELECT id, email, full_name, preferred_language FROM users WHERE id = :id", {"id": user_id})
     if target:
-        send_password_reset_email(request, target["id"], target["email"], target["full_name"])
+        send_password_reset_email(request, target["id"], target["email"], target["full_name"], target.get("preferred_language"))
     return RedirectResponse(url=f"/admin/users/{user_id}?reset_sent=1", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/toggle-admin")
 def admin_toggle_admin(request: Request, user_id: int, csrf_token: str = Form(...)):
-    admin = require_admin(request)
+    # Raising or removing privileges is a God Mode action.  A regular admin
+    # must never be able to create another admin account.
+    admin = require_level(request, LEVEL_GOD)
     if not admin:
         return RedirectResponse(url="/", status_code=303)
     verify_csrf(request, csrf_token)

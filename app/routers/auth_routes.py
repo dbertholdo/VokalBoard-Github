@@ -1,4 +1,3 @@
-import html as html_module
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -10,6 +9,7 @@ from app.auth import hash_password, verify_password, get_current_user
 from app.render import render
 from app.csrf import verify_csrf
 from app.email import send_email
+from app.email_localization import verification_email, password_reset_email
 from app.avatars import save_avatar
 from app.login_throttle import check_lockout, record_failure, reset as reset_login_lockout
 from app.register_throttle import is_registration_throttled, record_registration
@@ -48,42 +48,26 @@ def _expires_at(hours: int) -> datetime:
     return datetime.now(timezone.utc) + timedelta(hours=hours)
 
 
-def send_verification_email(request: Request, user_id: int, email: str, full_name: str) -> None:
+def send_verification_email(request: Request, user_id: int, email: str, full_name: str, preferred_language: str | None = None) -> None:
     token = secrets.token_urlsafe(32)
     execute(
         "INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES (:user_id, :token, :expires_at)",
         {"user_id": user_id, "token": token, "expires_at": _expires_at(VERIFICATION_TOKEN_HOURS)},
     )
     verify_url = f"{str(request.base_url).rstrip('/')}/verify-email?token={token}"
-    html = f"""
-        <p>Hallo {html_module.escape(full_name)},</p>
-        <p>Bitte bestätige deine E-Mail-Adresse für VokalBoard:</p>
-        <p><a href="{verify_url}">{verify_url}</a></p>
-        <p>Dieser Link ist {VERIFICATION_TOKEN_HOURS} Stunden gültig.</p>
-        <hr>
-        <p>(EN) Please confirm your email address for VokalBoard using the link above.
-        This link is valid for {VERIFICATION_TOKEN_HOURS} hours.</p>
-    """
-    send_email(email, "Bestätige deine E-Mail-Adresse — VokalBoard", html)
+    subject, html = verification_email(preferred_language, full_name, verify_url, VERIFICATION_TOKEN_HOURS)
+    send_email(email, subject, html)
 
 
-def send_password_reset_email(request: Request, user_id: int, email: str, full_name: str) -> None:
+def send_password_reset_email(request: Request, user_id: int, email: str, full_name: str, preferred_language: str | None = None) -> None:
     token = secrets.token_urlsafe(32)
     execute(
         "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (:user_id, :token, :expires_at)",
         {"user_id": user_id, "token": token, "expires_at": _expires_at(RESET_TOKEN_HOURS)},
     )
     reset_url = f"{str(request.base_url).rstrip('/')}/reset-password?token={token}"
-    html = f"""
-        <p>Hallo {html_module.escape(full_name)},</p>
-        <p>Klicke auf den folgenden Link, um ein neues Passwort festzulegen:</p>
-        <p><a href="{reset_url}">{reset_url}</a></p>
-        <p>Dieser Link ist {RESET_TOKEN_HOURS} Stunden gültig. Wenn du das nicht angefordert hast, ignoriere diese E-Mail.</p>
-        <hr>
-        <p>(EN) Click the link above to set a new password. Valid for {RESET_TOKEN_HOURS} hours.
-        If you didn't request this, just ignore this email.</p>
-    """
-    send_email(email, "Passwort zurücksetzen — VokalBoard", html)
+    subject, html = password_reset_email(preferred_language, full_name, reset_url, RESET_TOKEN_HOURS)
+    send_email(email, subject, html)
 
 
 def _register_context(request: Request, error: str | None = None, ref: str = ""):
@@ -172,8 +156,8 @@ async def register_submit(
 
     new_user = execute_returning(
         """
-        INSERT INTO users (email, password_hash, full_name, role, city, state, country, phone, referral_code, referred_by_user_id)
-        VALUES (:email, :password_hash, :full_name, :role, :city, :state, :country, :phone, :referral_code, :referred_by_user_id)
+        INSERT INTO users (email, password_hash, full_name, role, city, state, country, phone, preferred_language, referral_code, referred_by_user_id)
+        VALUES (:email, :password_hash, :full_name, :role, :city, :state, :country, :phone, :preferred_language, :referral_code, :referred_by_user_id)
         RETURNING id
         """,
         {
@@ -185,6 +169,7 @@ async def register_submit(
             "state": state or None,
             "country": country,
             "phone": phone or None,
+            "preferred_language": getattr(request.state, "lang", "en"),
             "referral_code": generate_referral_code(),
             "referred_by_user_id": referred_by_user_id,
         },
@@ -233,7 +218,7 @@ async def register_submit(
             {"user_id": user_id, "ensemble_name": ensemble_name or None, "bio": bio or None},
         )
 
-    send_verification_email(request, user_id, email, full_name)
+    send_verification_email(request, user_id, email, full_name, getattr(request.state, "lang", "en"))
 
     request.session["user_id"] = user_id
     return RedirectResponse(url="/", status_code=303)
@@ -343,7 +328,7 @@ def resend_verification(request: Request, csrf_token: str = Form("")):
 
     user = get_current_user(request)
     if user and not user["email_verified"]:
-        send_verification_email(request, user["id"], user["email"], user["full_name"])
+        send_verification_email(request, user["id"], user["email"], user["full_name"], user.get("preferred_language"))
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -374,9 +359,9 @@ def forgot_password_submit(
         }
         return render(request, "auth_message.html", context)
 
-    user = fetch_one("SELECT id, full_name FROM users WHERE email = :email", {"email": email})
+    user = fetch_one("SELECT id, full_name, preferred_language FROM users WHERE email = :email", {"email": email})
     if user:
-        send_password_reset_email(request, user["id"], email, user["full_name"])
+        send_password_reset_email(request, user["id"], email, user["full_name"], user.get("preferred_language"))
 
     # Same message always, whether or not the account exists — prevents
     # someone from using this form to find out which emails are registered.

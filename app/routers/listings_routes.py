@@ -99,10 +99,6 @@ def home(request: Request):
         order_by_city = "CASE WHEN l.city ILIKE :city THEN 0 ELSE 1 END, l.created_at DESC" if user["city"] else "l.created_at DESC"
 
         if user["role"] == "singer":
-            singer_profile = fetch_one(
-                "SELECT voice_type_id FROM singer_profiles WHERE user_id = :id", {"id": user["id"]}
-            )
-            voice_type_id = singer_profile["voice_type_id"] if singer_profile else None
             conditions = [
                 "l.is_active = TRUE",
                 "l.listing_type = 'seeking_singer'",
@@ -110,9 +106,25 @@ def home(request: Request):
                 "NOT EXISTS (SELECT 1 FROM blocked_users bu WHERE (bu.blocker_id = :viewer_block_id AND bu.blocked_id = l.author_id) OR (bu.blocker_id = l.author_id AND bu.blocked_id = :viewer_block_id))",
             ]
             match_params["viewer_block_id"] = user["id"]
-            if voice_type_id:
-                conditions.append("(l.voice_type_id = :voice_type_id OR l.voice_type_id IS NULL)")
-                match_params["voice_type_id"] = voice_type_id
+            # A singer can now have more than one voice type.  The old
+            # singer_profiles.voice_type_id remains as a compatibility
+            # fallback, but matching must use the dedicated relation first.
+            conditions.append(
+                """(
+                    l.voice_type_id IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM singer_profile_voice_types spvt
+                        WHERE spvt.user_id = :viewer_voice_user_id
+                          AND spvt.voice_type_id = l.voice_type_id
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM singer_profiles sp
+                        WHERE sp.user_id = :viewer_voice_user_id
+                          AND sp.voice_type_id = l.voice_type_id
+                    )
+                )"""
+            )
+            match_params["viewer_voice_user_id"] = user["id"]
             matches = fetch_all(
                 f"""
                 SELECT {LISTING_COLUMNS}, u.id AS author_id, u.full_name AS author_name, vt.name AS voice_type_name
@@ -330,7 +342,6 @@ def board(
     where_clause = " AND ".join(conditions)
 
     page = max(1, page)
-    offset = (page - 1) * BOARD_PAGE_SIZE
 
     total_row = fetch_one(
         f"""
@@ -343,6 +354,8 @@ def board(
     )
     total = total_row["n"] if total_row else 0
     total_pages = max(1, (total + BOARD_PAGE_SIZE - 1) // BOARD_PAGE_SIZE)
+    page = min(page, total_pages)
+    offset = (page - 1) * BOARD_PAGE_SIZE
 
     # "is_saved": to draw the little favorite star already correctly
     # marked on each card, without needing a second query per listing
@@ -363,7 +376,7 @@ def board(
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
         LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
         WHERE {where_clause}
-        ORDER BY l.created_at DESC
+        ORDER BY l.created_at DESC, l.id DESC
         LIMIT :limit OFFSET :offset
         """,  # nosec B608 - same fixed-fragment where_clause explained above.
         {**params, "limit": BOARD_PAGE_SIZE, "offset": offset, "viewer_id": user["id"] if user else None},
@@ -564,6 +577,29 @@ def listing_detail(request: Request, listing_id: int):
     )
     user = get_current_user(request)
 
+    # Names and the internal messenger can be used by verified people, but
+    # direct e-mail/phone contact is intentionally withheld until both sides
+    # have a confirmed Match for this particular listing.  This prevents the
+    # board from becoming a directory of scrapeable contact details.
+    can_view_direct_contact = False
+    if user and listing:
+        if user["id"] == listing["author_id"]:
+            can_view_direct_contact = True
+        elif user["email_verified"]:
+            can_view_direct_contact = fetch_one(
+                """
+                SELECT 1 FROM job_matches
+                WHERE listing_id = :listing_id
+                  AND status IN ('confirmed', 'completed')
+                  AND (
+                    (artist_user_id = :viewer_id AND contractor_user_id = :author_id)
+                    OR (contractor_user_id = :viewer_id AND artist_user_id = :author_id)
+                  )
+                LIMIT 1
+                """,
+                {"listing_id": listing_id, "viewer_id": user["id"], "author_id": listing["author_id"]},
+            ) is not None
+
     # "Message already sent for this listing" — doesn't prevent
     # sending again, just keeps the person from forgetting and
     # flooding the poster's inbox with the same question several times.
@@ -596,6 +632,7 @@ def listing_detail(request: Request, listing_id: int):
         "already_messaged": already_messaged,
         "is_saved": is_saved,
         "already_reported": already_reported,
+        "can_view_direct_contact": can_view_direct_contact,
         "reported_just_now": request.query_params.get("reported") == "1",
         # Freemium: without login (or logged in but with an e-mail
         # not yet confirmed) you can see that the listing exists

@@ -43,9 +43,17 @@ def _cleanup_financial_test_rows():
         t: (fetch_one(f"SELECT COALESCE(MAX(id), 0) AS n FROM {t}")["n"])
         for t in ("expenses", "financial_closings", "audit_log", "bank_import_profiles", "bank_transactions")
     }
+    # Financial behavior tests must not inherit an on/off setting from a
+    # previous interrupted run.  The production default is off.
+    execute(
+        "UPDATE system_settings SET value = 'false' WHERE key = 'capitalismo_mode_enabled'"
+    )
     yield
     for t, max_id in max_ids.items():
         execute(f"DELETE FROM {t} WHERE id > :max_id", {"max_id": max_id})  # nosec B608 - t comes only from the fixed tuple above
+    execute(
+        "UPDATE system_settings SET value = 'false' WHERE key = 'capitalismo_mode_enabled'"
+    )
 
 
 @pytest.fixture()
@@ -71,16 +79,16 @@ class TestAccessLevels:
         r = client.get("/financeiro", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/"
-        # but the "regular" /admin dashboard is still accessible
+        # Report triage and privilege management are God Mode only.
         r2 = client.get("/admin", follow_redirects=False)
-        assert r2.status_code == 200
+        assert r2.status_code == 303
 
     def test_moderator_level_1_cannot_reach_admin_users(self, client):
         user_id, email, password = register_test_user(client, full_name="Moderator Test")
         _promote(user_id, 1)
         login(client, email, password)
-        # the read-only /admin dashboard already lets them in (level >= 1)
-        assert client.get("/admin", follow_redirects=False).status_code == 200
+        # Reports are sensitive and only visible to God Mode.
+        assert client.get("/admin", follow_redirects=False).status_code == 303
         # but user management requires level 2+
         r = client.get("/admin/users", follow_redirects=False)
         assert r.status_code == 303
@@ -108,6 +116,15 @@ class TestAccessLevels:
         )
         level_after = fetch_one("SELECT role_level FROM users WHERE id = :id", {"id": target_id})["role_level"]
         assert level_after == 2, "a regular admin should not be able to promote anyone to god mode"
+
+    def test_only_god_mode_can_promote_another_to_admin(self, client):
+        admin_id, admin_email, admin_password = register_test_user(client, full_name="Regular Admin")
+        _promote(admin_id, 2)
+        target_id, _, _ = register_test_user(client, full_name="Admin Target")
+        login(client, admin_email, admin_password)
+        token = extract_csrf(client.get(f"/admin/users/{target_id}").text)
+        client.post(f"/admin/users/{target_id}/toggle-admin", data={"csrf_token": token}, follow_redirects=False)
+        assert fetch_one("SELECT role_level FROM users WHERE id = :id", {"id": target_id})["role_level"] == 0
 
 
 class TestSecurityLockOnSensitiveActions:

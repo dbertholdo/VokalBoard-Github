@@ -10,8 +10,8 @@
     {% if listing.event_status %}
         <span class="event-dot event-dot-{{ listing.event_status }}" title="{{ t('event_status_' ~ listing.event_status) }}"></span>
     {% endif %}
-    <h1>{{ listing.title }}</h1>
-    <p class="meta">
+    <h1 class="listing-detail-title">{{ listing.title }}</h1>
+    <p class="meta listing-detail-meta">
         {% if listing.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ listing.city }}{% if listing.state %}, {{ listing.state }}{% endif %}{% endif %}
         {% if listing.ensemble_type %} · {{ t('ensemble_type_' ~ listing.ensemble_type) }}{% endif %}
         {% if listing.voice_type_name %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ listing.voice_type_name }}{% elif listing.listing_type == "seeking_singer" %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ t('voice_type_all') }}{% endif %}
@@ -22,7 +22,7 @@
     </p>
 
     {% if lock_reason %}
-        <p class="description">{{ listing.description[:120] }}{% if listing.description|length > 120 %}…{% endif %}</p>
+        <p class="description listing-detail-description">{{ listing.description[:120] }}{% if listing.description|length > 120 %}…{% endif %}</p>
         <div class="locked-box">
             {% if lock_reason == "unverified" %}
                 <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('locked_listing_unverified_title') }}</h3>
@@ -41,14 +41,18 @@
             {% endif %}
         </div>
     {% else %}
-        <p class="description">{{ listing.description }}</p>
+        <p class="description listing-detail-description">{{ listing.description }}</p>
 
-        <div class="contact-box">
+        <div class="contact-box listing-contact-card">
             <h3>{{ t('contact_title') }}</h3>
             <p><strong><a href="/users/{{ listing.author_id }}">{{ listing.author_name }}</a></strong>
                — <a href="/users/{{ listing.author_id }}">{{ t('view_profile') }}</a></p>
-            <p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> <a href="mailto:{{ listing.author_email }}">{{ listing.author_email }}</a></p>
-            {% if listing.author_phone %}<p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-phone"></use></svg> {{ listing.author_phone }}</p>{% endif %}
+            {% if can_view_direct_contact %}
+                <p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> <a href="mailto:{{ listing.author_email }}">{{ listing.author_email }}</a></p>
+                {% if listing.author_phone %}<p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-phone"></use></svg> {{ listing.author_phone }}</p>{% endif %}
+            {% elif user.id != listing.author_id %}
+                <p class="field-help">Direct contact details are shared after a confirmed Match.</p>
+            {% endif %}
             {% if user.id != listing.author_id %}
                 <p><a href="/messages/new?to={{ listing.author_id }}&listing_id={{ listing.id }}" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('message_send_here') }}</a></p>
                 {% if already_messaged %}

@@ -16,7 +16,7 @@ noticing (GitHub Actions runs this on every push — see
 import re
 import uuid
 
-from app.database import fetch_one, execute
+from app.database import fetch_one, execute, execute_returning
 
 CSRF_RE = re.compile(r'name="csrf_token"\s+value="([^"]+)"')
 
@@ -104,6 +104,62 @@ class TestCSRFProtection:
             data={"email": "someone@example.com", "password": "whatever", "csrf_token": "token-forged-by-an-attacker"},
         )
         assert r.status_code == 400
+
+
+class TestPublicProfilePrivacy:
+    def test_deleted_account_is_not_available_on_its_public_url(self, client):
+        user_id, _, _ = register_test_user(client)
+        execute("UPDATE users SET deleted_at = now() WHERE id = :id", {"id": user_id})
+
+        response = client.get(f"/users/{user_id}")
+
+        assert response.status_code == 404
+
+    def test_listing_contact_details_require_a_confirmed_match(self, client):
+        author_id, author_email, _ = register_test_user(client, full_name="Listing Author")
+        viewer_id, _, _ = register_test_user(client, full_name="Listing Viewer")
+        execute("UPDATE users SET email_verified = TRUE, phone = '0170 1234567' WHERE id IN (:author, :viewer)", {"author": author_id, "viewer": viewer_id})
+        listing = execute_returning(
+            """
+            INSERT INTO listings (author_id, listing_type, title, description, city, country, event_date)
+            VALUES (:author_id, 'seeking_singer', 'Private contact test', 'A valid listing description.', 'München', 'DE', CURRENT_DATE + 10)
+            RETURNING id
+            """,
+            {"author_id": author_id},
+        )
+
+        hidden = client.get(f"/listings/{listing['id']}")
+        assert hidden.status_code == 200
+        assert author_email not in hidden.text
+        assert "0170 1234567" not in hidden.text
+
+        voice_type_id = fetch_one("SELECT id FROM voice_types ORDER BY id LIMIT 1")["id"]
+        vacancy = execute_returning(
+            "INSERT INTO listing_vacancies (listing_id, voice_type_id) VALUES (:listing_id, :voice_type_id) RETURNING id",
+            {"listing_id": listing["id"], "voice_type_id": voice_type_id},
+        )
+        execute(
+            """
+            INSERT INTO job_matches (listing_id, vacancy_id, artist_user_id, contractor_user_id, status)
+            VALUES (:listing_id, :vacancy_id, :artist_user_id, :contractor_user_id, 'confirmed')
+            """,
+            {"listing_id": listing["id"], "vacancy_id": vacancy["id"], "artist_user_id": viewer_id, "contractor_user_id": author_id},
+        )
+
+        visible = client.get(f"/listings/{listing['id']}")
+        assert author_email in visible.text
+        assert "0170 1234567" in visible.text
+
+
+class TestInlineHandlerFreeTemplates:
+    def test_home_notice_does_not_use_an_inline_click_handler(self, client):
+        user_id, email, password = register_test_user(client)
+        execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
+        login(client, email, password)
+
+        response = client.get("/")
+
+        assert 'id="spam-notice-dismiss" onclick=' not in response.text
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +289,9 @@ class TestRegistrationThrottle:
         from app.register_throttle import MAX_REGISTRATIONS_PER_WINDOW
 
         ip = "198.51.100.77"
+        # This test owns this fixed demonstration IP.  Resetting only this
+        # row makes reruns deterministic without weakening the throttle.
+        execute("DELETE FROM registration_attempts WHERE ip_address = :ip", {"ip": ip})
         for i in range(MAX_REGISTRATIONS_PER_WINDOW):
             register_test_user(client, email=f"sectest_throttle_{i}_{uuid.uuid4().hex[:8]}@example.com", ip=ip)
 

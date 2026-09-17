@@ -74,7 +74,6 @@ def search_people(
     where_clause = " AND ".join(conditions)
 
     page = max(1, page)
-    offset = (page - 1) * PEOPLE_PAGE_SIZE
 
     total_row = fetch_one(
         f"""
@@ -88,6 +87,8 @@ def search_people(
     )
     total = total_row["n"] if total_row else 0
     total_pages = max(1, (total + PEOPLE_PAGE_SIZE - 1) // PEOPLE_PAGE_SIZE)
+    page = min(page, total_pages)
+    offset = (page - 1) * PEOPLE_PAGE_SIZE
 
     rows = fetch_all(
         f"""
@@ -97,7 +98,7 @@ def search_people(
         LEFT JOIN singer_profiles sp ON sp.user_id = u.id
         LEFT JOIN voice_types vt ON vt.id = sp.voice_type_id
         WHERE {where_clause}
-        ORDER BY u.last_seen_at DESC NULLS LAST, u.created_at DESC
+        ORDER BY u.last_seen_at DESC NULLS LAST, u.created_at DESC, u.id DESC
         LIMIT :limit OFFSET :offset
         """,  # nosec B608 - same fixed where_clause explained above.
         {**params, "limit": PEOPLE_PAGE_SIZE, "offset": offset},

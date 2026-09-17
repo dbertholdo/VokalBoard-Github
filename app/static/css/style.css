@@ -263,9 +263,38 @@ h1, h2, h3 {
 .side-nav-row:hover { background: var(--accent2); color: #fff; }
 
 .side-nav-row.active {
-    background: var(--accent);
+    background: #c62828;
     color: #fff;
 }
+
+/* Conversation surfaces: familiar message bubbles without hiding the
+   existing inbox/sent/trash controls. */
+.message-list { list-style: none; padding: 0; display: grid; gap: 10px; }
+.message-list-item-trash, .message-list li { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.message-row { display: block; padding: 14px 16px; color: inherit; text-decoration: none; }
+.message-row.unread { border-left: 4px solid #c62828; background: #fff6f6; }
+.message-body-box { max-width: 720px; padding: 16px 18px; border-radius: 16px 16px 16px 4px; background: var(--surface, #f4f5f7); border: 1px solid var(--border); white-space: pre-wrap; line-height: 1.55; }
+.message-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+/* P1: listing forms use two deliberate groups rather than an undifferentiated
+   long form.  The markup remains compatible while P3 adds vacancy fields. */
+.listing-form-card {
+    padding: 20px;
+    margin: 16px 0;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 5px 16px rgba(28, 31, 46, 0.07);
+}
+
+/* P1 profile editor: achievements stay first; editable account sections are
+   visually contained so privacy and account controls do not blend into the
+   public-facing profile material. */
+.profile-editor-card { margin: 22px 0; padding: 22px; border-radius: 18px; background: var(--card-bg); border: 1px solid var(--border); box-shadow: 0 6px 18px rgba(28,31,46,.08); }
+.profile-editor-card > h2 { margin-top: 0; }
+.profile-editor-form > fieldset { margin: 16px 0; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--accent-light); }
+.profile-editor-form > .checkbox-label { padding: 10px 12px; border-radius: 10px; background: #f7f8f8; }
+.profile-editor-form > label:not(.checkbox-label) { padding: 12px; border-left: 3px solid var(--accent); background: #fbfcfc; }
 
 /* Red Zone — set far enough apart from the rest of the menu (one
    row's worth of empty space) that it can't be clicked by accident
@@ -354,6 +383,44 @@ h1, h2, h3 {
 .listing-card:hover {
     box-shadow: 0 8px 20px rgba(91, 95, 239, 0.10);
     transform: translateY(-2px);
+}
+
+/* Listing detail — intentionally uses the same rounded, softly elevated
+   language as profile cards. The classes are separate so future Match and
+   invitation actions can be added here without changing card styles sitewide. */
+.listing-detail-title {
+    margin: 10px 0 8px;
+    font-size: clamp(1.7rem, 4vw, 2.35rem);
+    line-height: 1.15;
+}
+
+.listing-detail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 14px;
+    margin: 0 0 18px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.listing-detail-description {
+    max-width: 78ch;
+    padding: 20px;
+    margin: 0 0 18px;
+    white-space: pre-line;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(28, 31, 46, 0.06);
+    line-height: 1.65;
+}
+
+.listing-contact-card {
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(28, 31, 46, 0.06);
 }
 
 /* --- Buscar pessoas (people search) cards --------------------------------
@@ -1931,6 +1998,13 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin: 16px 0;
     background: rgba(217, 83, 79, 0.04);
 }
+.red-zone-hero { display:flex; align-items:center; gap:18px; padding:18px; border-radius:18px; color:#fff; background:linear-gradient(135deg,#7d1d22,#c62828); margin-bottom:18px; }
+.red-zone-hero img { width:108px; height:108px; object-fit:contain; animation:red-zone-patrol 10min linear infinite; }
+.red-zone-hero h1 { margin:0; color:#fff; }
+.red-zone-hero p { margin:4px 0; }
+.red-zone-kicker { font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:.76rem; }
+@keyframes red-zone-patrol { 0%,98%,100% { transform:rotate(0) } 99% { transform:rotate(-8deg) } }
+@media (max-width:860px) { .red-zone-hero img { width:76px; height:76px; } }
 
 .red-zone-box h2 {
     margin-top: 0;

@@ -21,7 +21,7 @@ from app.auth import get_current_user
 from app.database import engine, fetch_all, execute
 from app.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_META, translate
 from app.render import render, templates
-from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes
+from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes, invoice_routes
 
 load_dotenv()
 
@@ -48,6 +48,8 @@ if os.getenv("SECRET_KEY", _DEFAULT_SECRET_KEY) == _DEFAULT_SECRET_KEY:
 # Defaults to False so running the project locally without HTTPS
 # doesn't break.
 SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+SESSION_IDLE_TIMEOUT = timedelta(hours=24)
+_SESSION_LAST_ACTIVITY_KEY = "last_authenticated_activity_at"
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -183,6 +185,34 @@ class VisitTrackingMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class SessionIdleTimeoutMiddleware(BaseHTTPMiddleware):
+    """Ends an authenticated session after 24 hours without real site activity.
+
+    Static files never prolong a login.  A malformed timestamp is treated as
+    expired instead of granting an indefinite session.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        user_id = request.session.get("user_id")
+        if user_id and not path.startswith(("/static", "/avatars", "/post-images", "/health")):
+            now = datetime.now(timezone.utc)
+            last_activity = request.session.get(_SESSION_LAST_ACTIVITY_KEY)
+            expired = False
+            if last_activity:
+                try:
+                    expired = now - datetime.fromisoformat(last_activity) > SESSION_IDLE_TIMEOUT
+                except ValueError:
+                    expired = True
+
+            if expired:
+                request.session.clear()
+            else:
+                request.session[_SESSION_LAST_ACTIVITY_KEY] = now.isoformat()
+
+        return await call_next(request)
+
+
 class LanguageMiddleware(BaseHTTPMiddleware):
     """
     Decides the current request's language and stores it in
@@ -225,6 +255,7 @@ class LanguageMiddleware(BaseHTTPMiddleware):
 app.add_middleware(LanguageMiddleware)
 app.add_middleware(VisitTrackingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(SessionIdleTimeoutMiddleware)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY", "dev-secret-key-change-in-production"),
@@ -362,6 +393,8 @@ def sitemap_xml(request: Request):
     return Response(content="\n".join(xml_parts), media_type="application/xml")
 
 
+from app.routers import banner_routes
+app.include_router(banner_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(listings_routes.router)
 app.include_router(profile_routes.router)
@@ -371,6 +404,7 @@ app.include_router(admin_routes.router)
 app.include_router(financial_routes.router)
 app.include_router(search_people_routes.router)
 app.include_router(notas_routes.router)
+app.include_router(invoice_routes.router)
 
 
 # ------------------------------------------------------------

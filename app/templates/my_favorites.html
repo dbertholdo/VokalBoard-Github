@@ -12,7 +12,7 @@
 <ul class="listing-grid">
     {% for l in listings %}
     <li class="listing-card">
-        <a href="/listings/{{ l.id }}">
+        <a href="/listings/{{ l.id }}" target="_blank" rel="noopener noreferrer">
             <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
             {% if l.event_status %}
                 <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>

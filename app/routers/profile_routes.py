@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, Form, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Request, Form, UploadFile, File, BackgroundTasks, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse, Response
 
 from app.database import fetch_all, fetch_one, execute
@@ -14,6 +14,7 @@ from app.referrals import ensure_referral_code, get_referral_stats
 from app.badges import get_user_badges, with_profile_complete, check_and_notify_new_badges
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 from app.password_policy import password_error
+from app.i18n import SUPPORTED_LANGUAGES
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ VIEW_COOLDOWN_SECONDS = 12 * 60 * 60
 # field) so we can always show just the network's name ("Instagram",
 # "Facebook"...) instead of the full link, and keep the profile view
 # uncluttered, as requested.
-SOCIAL_PLATFORMS = ["website", "facebook", "instagram", "twitter", "whatsapp"]
+SOCIAL_PLATFORMS = ["website", "facebook", "instagram", "twitter"]
 
 
 def parse_hashtags(raw: str) -> list[str]:
@@ -312,6 +313,7 @@ async def update_profile(
     social_whatsapp: str = Form(""),
     notify_matches: str = Form(""),
     notify_messages: str = Form(""),
+    preferred_language: str = Form("en"),
     appear_in_search: str = Form(""),
     profile_slug: str = Form(""),
     remove_avatar: str = Form(""),
@@ -328,6 +330,8 @@ async def update_profile(
     if country not in COUNTRY_OPTIONS:
         context = _my_profile_context(request, user, error="register_error_invalid_country")
         return render(request, "profile.html", context, status_code=400)
+    if preferred_language not in SUPPORTED_LANGUAGES:
+        preferred_language = "en"
 
     # Custom profile slug: optional, but once set it must be well
     # formed and not already taken by someone else. Blank clears it
@@ -349,6 +353,7 @@ async def update_profile(
         """
         UPDATE users
         SET notify_matches = :notify_matches, notify_messages = :notify_messages,
+            preferred_language = :preferred_language,
             appear_in_search = :appear_in_search, profile_slug = :profile_slug,
             city = :city, state = :state, country = :country
         WHERE id = :id
@@ -356,6 +361,7 @@ async def update_profile(
         {
             "notify_matches": bool(notify_matches),
             "notify_messages": bool(notify_messages),
+            "preferred_language": preferred_language,
             "appear_in_search": bool(appear_in_search),
             "profile_slug": profile_slug,
             "city": city or None,
@@ -654,10 +660,12 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
     profile_user = fetch_one(
         """
         SELECT id, email, full_name, role, city, phone, avatar_url, profile_slug, profile_highlighted_until
-        FROM users WHERE id = :id
+        FROM users WHERE id = :id AND deleted_at IS NULL
         """,
         {"id": user_id},
     )
+    if not profile_user:
+        raise HTTPException(status_code=404)
     is_highlighted = bool(
         profile_user
         and profile_user["profile_highlighted_until"]

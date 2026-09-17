@@ -41,6 +41,19 @@ CREATE TABLE voice_types (
     sort_order  SMALLINT NOT NULL DEFAULT 0
 );
 
+CREATE TABLE site_banners (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(150) NOT NULL,
+    body VARCHAR(500) NOT NULL,
+    link_url VARCHAR(500),
+    voice_type_id INTEGER REFERENCES voice_types(id),
+    audience VARCHAR(32) NOT NULL DEFAULT 'all' CHECK (audience IN ('all','singer','conductor','no_subscription')),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    deleted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ------------------------------------------------------------
 -- Lookup table: real cities in Germany, Austria and
 -- Switzerland, each already tied to its state/canton (see `state` in
@@ -109,6 +122,9 @@ CREATE TABLE users (
     -- because these are two quite different types of email — the person
     -- may want one without the other.
     notify_messages BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Transactional e-mails use this saved preference rather than the
+    -- browser cookie. Unknown/legacy values fall back to English in code.
+    preferred_language VARCHAR(8) NOT NULL DEFAULT 'en',
     -- "Refer a friend": unique short code, generated at signup
     -- (see app/referrals.py), used in a link like /register?ref=CODE.
     referral_code       VARCHAR(12) UNIQUE,
@@ -564,6 +580,122 @@ CREATE INDEX idx_listings_active_created ON listings(is_active, created_at DESC)
 CREATE INDEX idx_listings_state ON listings(state);
 CREATE INDEX idx_listings_event_date ON listings(event_date);
 CREATE INDEX idx_listings_author ON listings(author_id);
+
+-- ------------------------------------------------------------
+-- Profile voice types and the P3 hiring workflow. The original
+-- voice_type_id fields stay in place as a backwards-compatible primary
+-- choice while singer_profile_voice_types permits additional voices.
+-- ------------------------------------------------------------
+CREATE TABLE singer_profile_voice_types (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    voice_type_id BIGINT NOT NULL REFERENCES voice_types(id) ON DELETE RESTRICT,
+    PRIMARY KEY (user_id, voice_type_id)
+);
+
+CREATE TABLE listing_vacancies (
+    id BIGSERIAL PRIMARY KEY,
+    listing_id BIGINT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    voice_type_id BIGINT NOT NULL REFERENCES voice_types(id) ON DELETE RESTRICT,
+    fee VARCHAR(100),
+    total_slots SMALLINT NOT NULL DEFAULT 1 CHECK (total_slots > 0),
+    filled_slots SMALLINT NOT NULL DEFAULT 0 CHECK (filled_slots >= 0 AND filled_slots <= total_slots),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (listing_id, voice_type_id)
+);
+
+CREATE TABLE job_invitations (
+    id BIGSERIAL PRIMARY KEY,
+    vacancy_id BIGINT NOT NULL REFERENCES listing_vacancies(id) ON DELETE CASCADE,
+    artist_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    initiated_by_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'expired')),
+    expires_at TIMESTAMPTZ NOT NULL,
+    responded_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (artist_user_id <> initiated_by_user_id)
+);
+CREATE UNIQUE INDEX uq_pending_job_invitation ON job_invitations (vacancy_id, artist_user_id) WHERE status = 'pending';
+
+CREATE TABLE job_matches (
+    id BIGSERIAL PRIMARY KEY,
+    listing_id BIGINT NOT NULL REFERENCES listings(id) ON DELETE RESTRICT,
+    vacancy_id BIGINT NOT NULL REFERENCES listing_vacancies(id) ON DELETE RESTRICT,
+    artist_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    contractor_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    invitation_id BIGINT UNIQUE REFERENCES job_invitations(id) ON DELETE SET NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'completed', 'cancelled')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at TIMESTAMPTZ,
+    CHECK (artist_user_id <> contractor_user_id)
+);
+CREATE INDEX idx_job_invitations_artist_pending ON job_invitations (artist_user_id, status, expires_at);
+CREATE INDEX idx_job_matches_user ON job_matches (artist_user_id, contractor_user_id, status);
+
+-- ------------------------------------------------------------
+-- Rechnungmaker metadata. Sensitive invoice form values (bank data,
+-- tax ID and addresses) are intentionally absent: the avulso generator
+-- is stateless. Match forms are stored only as encrypted, expiring drafts;
+-- generated Match PDFs are e-mailed and never retained by VokalBoard.
+-- ------------------------------------------------------------
+CREATE TABLE invoice_number_sequences (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    invoice_year SMALLINT NOT NULL CHECK (invoice_year >= 2000),
+    last_number INTEGER NOT NULL DEFAULT 0 CHECK (last_number >= 0),
+    PRIMARY KEY (user_id, invoice_year)
+);
+
+CREATE TABLE invoice_monthly_usage (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    usage_month DATE NOT NULL CHECK (usage_month = date_trunc('month', usage_month)::date),
+    free_used SMALLINT NOT NULL DEFAULT 0 CHECK (free_used BETWEEN 0 AND 5),
+    PRIMARY KEY (user_id, usage_month)
+);
+
+CREATE TABLE purchased_invoice_credits (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    delta SMALLINT NOT NULL CHECK (delta <> 0),
+    reason VARCHAR(50) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_purchased_invoice_credits_user ON purchased_invoice_credits (user_id, created_at DESC);
+
+-- Legacy operational metadata retained for migration compatibility. New Match
+-- invoices use invoice_match_drafts below and do not store PDF files.
+CREATE TABLE ephemeral_match_invoices (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES job_matches(id) ON DELETE CASCADE,
+    created_by_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    stored_filename VARCHAR(100) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_ephemeral_match_invoices_expiry ON ephemeral_match_invoices (expires_at);
+
+CREATE TABLE invoice_match_drafts (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES job_matches(id) ON DELETE CASCADE,
+    requested_by_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    issuer_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    contractor_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    encrypted_payload BYTEA NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'awaiting_contractor'
+        CHECK (status IN ('awaiting_issuer', 'awaiting_contractor', 'confirmed', 'expired', 'cancelled')),
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    confirmed_at TIMESTAMPTZ,
+    CHECK (issuer_user_id <> contractor_user_id)
+);
+-- A rota permite iniciar somente até CURRENT_DATE <= listings.event_date + 7.
+-- Depois disso, a outra parte recebe sete dias completos: expires_at é
+-- created_at + 7 dias, ainda que passe da janela original do evento.
+CREATE UNIQUE INDEX uq_open_invoice_match_draft
+ON invoice_match_drafts (match_id)
+WHERE status IN ('awaiting_issuer', 'awaiting_contractor');
+CREATE INDEX idx_invoice_match_drafts_expiry
+ON invoice_match_drafts (expires_at)
+WHERE status IN ('awaiting_issuer', 'awaiting_contractor');
 
 -- ------------------------------------------------------------
 -- Internal messages (inbox / sent / trash), so people don't need to

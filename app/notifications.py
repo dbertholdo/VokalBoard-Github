@@ -24,6 +24,7 @@ import html as html_module
 
 from app.database import fetch_all
 from app.email import send_email
+from app.email_localization import new_message_email
 
 
 def notify_matching_users(base_url: str, listing_id: int, listing_type: str, title: str,
@@ -39,7 +40,17 @@ def notify_matching_users(base_url: str, listing_id: int, listing_type: str, tit
         params = {"author_id": author_id}
         if voice_type_id:
             conditions.append(
-                "id IN (SELECT user_id FROM singer_profiles WHERE voice_type_id = :voice_type_id OR voice_type_id IS NULL)"
+                """(
+                    EXISTS (
+                        SELECT 1 FROM singer_profile_voice_types spvt
+                        WHERE spvt.user_id = users.id AND spvt.voice_type_id = :voice_type_id
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM singer_profiles sp
+                        WHERE sp.user_id = users.id
+                          AND (sp.voice_type_id = :voice_type_id OR sp.voice_type_id IS NULL)
+                    )
+                )"""
             )
             params["voice_type_id"] = voice_type_id
         # nosec B608 below: only joins FIXED WHERE fragments (defined above,
@@ -83,7 +94,7 @@ def notify_matching_users(base_url: str, listing_id: int, listing_type: str, tit
         send_email(recipient["email"], f"Neue passende Anzeige: {title} — VokalBoard", html)
 
 
-def notify_new_message(base_url: str, recipient_email: str, recipient_name: str, sender_name: str) -> None:
+def notify_new_message(base_url: str, recipient_email: str, recipient_name: str, sender_name: str, preferred_language: str | None = None) -> None:
     """
     E-mail letting someone know "you received a message" — different
     from the matching-listing alert above. Each person can turn this
@@ -97,17 +108,5 @@ def notify_new_message(base_url: str, recipient_email: str, recipient_name: str,
     to the site.
     """
     inbox_url = f"{base_url.rstrip('/')}/messages"
-    safe_recipient_name = html_module.escape(recipient_name)
-    safe_sender_name = html_module.escape(sender_name)
-    html = f"""
-        <p>Hallo {safe_recipient_name},</p>
-        <p><strong>{safe_sender_name}</strong> hat dir eine neue Nachricht auf VokalBoard geschickt.</p>
-        <p><a href="{inbox_url}">{inbox_url}</a></p>
-        <p>Du erhältst diese Benachrichtigung, weil Nachrichten-E-Mails für dein Konto aktiviert sind.
-        Das kannst du jederzeit in deinem Profil ausschalten.</p>
-        <hr>
-        <p>(EN) <strong>{safe_sender_name}</strong> sent you a new message on VokalBoard.
-        <a href="{inbox_url}">{inbox_url}</a><br>
-        You're getting this because message e-mails are on for your account — you can turn them off anytime in your profile.</p>
-    """
-    send_email(recipient_email, f"Neue Nachricht von {sender_name} — VokalBoard", html)
+    subject, html = new_message_email(preferred_language, recipient_name, sender_name, inbox_url)
+    send_email(recipient_email, subject, html)

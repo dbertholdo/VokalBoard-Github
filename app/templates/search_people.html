@@ -5,7 +5,7 @@
 <h1>{{ t('search_people_title') }}</h1>
 <p class="subtitle">{{ t('search_people_subtitle') }}</p>
 
-<form class="filters" method="get" action="/people">
+<form class="filters" method="get" action="/people" data-search-results="people-results">
     <select name="country" id="filter-country-select">
         <option value="">{{ t('filter_all_countries') }}</option>
         {% for c in country_options %}
@@ -40,6 +40,8 @@
     <a class="clear-link" href="/people">{{ t('filter_clear') }}</a>
 </form>
 
+{% include '_search_error.html' %}
+<section id="people-results" aria-live="polite" tabindex="-1">
 {% if total is defined and total > 0 %}
     <p class="results-count">{{ total }} {{ t('board_results_label') }}</p>
 {% endif %}
@@ -51,7 +53,7 @@
 <ul class="listing-grid">
     {% for p in people %}
     <li class="person-card">
-        <a href="{{ '/u/' ~ p.profile_slug if p.profile_slug else '/users/' ~ p.id }}">
+        <a href="{{ '/u/' ~ p.profile_slug if p.profile_slug else '/users/' ~ p.id }}" target="_blank" rel="noopener noreferrer">
             {% if p.avatar_url %}
                 <img class="person-card-avatar" src="{{ p.avatar_url }}" alt="">
             {% else %}
@@ -88,6 +90,8 @@
 </nav>
 {% endif %}
 
+</section>
+<script src="/static/js/search-pagination.js" defer></script>
 <script nonce="{{ csp_nonce }}">
     const STATE_OPTIONS = {{ state_options | tojson }};
     const CITY_OPTIONS = {{ city_options | tojson }};
@@ -96,8 +100,8 @@
     const filterCity = document.getElementById('filter-city-select');
     const filterCityOther = document.getElementById('filter-city-other-input');
     const filterCityToggle = document.getElementById('filter-city-toggle-other');
-    const currentStateFilter = "{{ filters.state | e }}";
-    const currentCityFilter = "{{ filters.city | e }}";
+    let currentStateFilter = {{ filters.state | tojson }};
+    let currentCityFilter = {{ filters.city | tojson }};
     let cityManualMode = !currentStateFilter || !CITY_OPTIONS[currentStateFilter];
 
     function updateFilterStates() {
@@ -149,5 +153,13 @@
 
     updateFilterStates();
     updateFilterCities();
+    document.querySelector('.filters').addEventListener('search:restore', ({detail: params}) => {
+        filterCountry.value = params.get('country') || '';
+        currentStateFilter = params.get('state') || '';
+        currentCityFilter = params.get('city') || '';
+        cityManualMode = !CITY_OPTIONS[currentStateFilter]?.includes(currentCityFilter);
+        updateFilterStates();
+        updateFilterCities();
+    });
 </script>
 {% endblock %}

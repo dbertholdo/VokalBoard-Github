@@ -8,6 +8,8 @@
 
 <form method="post" action="{{ ('/listings/' ~ listing_id ~ '/edit') if is_edit else '/listings/new' }}" class="stacked-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <section class="listing-form-card">
+    <h2>{{ t('listing_form_required_section') }}</h2>
     <label>{{ t('listing_form_type_label') }}
         <select name="listing_type" id="listing-type-select" required>
             {% for key in listing_type_keys %}
@@ -28,7 +30,10 @@
     {% set loc_state = values.state if values and values.state else '' %}
     {% set loc_city = values.city if values and values.city else '' %}
     {% include "_location_fields.html" %}
+    </section>
 
+    <section class="listing-form-card">
+    <h2>{{ t('listing_form_optional_section') }}</h2>
     <label>{{ t('listing_form_ensemble_type_label') }}
         <select name="ensemble_type">
             <option value="">—</option>
@@ -72,6 +77,7 @@
     <label>{{ t('listing_form_event_date_label') }}
         <input type="date" name="event_date" value="{{ values.event_date if values else '' }}">
     </label>
+    </section>
 
     <button type="submit">{{ t('listing_form_update_submit') if is_edit else t('listing_form_submit') }}</button>
 </form>

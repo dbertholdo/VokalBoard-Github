@@ -38,7 +38,10 @@
     </ul>
 </div>
 
-<form method="post" action="/profile" class="stacked-form" enctype="multipart/form-data">
+<section class="profile-editor-card">
+<h2>{{ t('profile_title') }}</h2>
+<p class="field-help">Edit public profile details and notification preferences.</p>
+<form method="post" action="/profile" class="stacked-form profile-editor-form" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
     <fieldset class="avatar-fieldset">
@@ -76,6 +79,15 @@
         {{ t('notify_messages_label') }}
     </label>
     <p class="field-help">{{ t('notify_messages_help') }}</p>
+
+    <label>Email language
+        <select name="preferred_language">
+            {% for code in supported_languages %}
+                <option value="{{ code }}" {% if user.preferred_language == code %}selected{% endif %}>{{ language_meta[code].label }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <p class="field-help">Transactional emails use this language. If a translation is unavailable, they are sent in English.</p>
 
     <label class="checkbox-label">
         <input type="checkbox" name="appear_in_search" value="1" {% if user.appear_in_search %}checked{% endif %}>
@@ -136,6 +148,7 @@
 
     <button type="submit">{{ t('profile_save') }}</button>
 </form>
+</section>
 
 <p><a href="/users/{{ user.id }}">{{ t('view_profile') }} ({{ t('public_view_label') }})</a></p>
 

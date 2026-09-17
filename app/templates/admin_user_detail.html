@@ -61,10 +61,12 @@
     </form>
 
     {% if not is_self %}
+        {% if user.role_level == 3 %}
         <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" data-confirm="{{ 'Remove admin access?' if target.role_level >= 2 else 'Make this person an admin?' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="button-link">{{ '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> Remove admin' if target.role_level >= 2 else '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-upload"></use></svg> Make admin' }}</button>
         </form>
+        {% endif %}
 
         {% if user.role_level == 3 and target.role_level >= 2 %}
         <form method="post" action="/admin/users/{{ target.id }}/toggle-god-mode" data-confirm="{{ 'Remove god mode (Red Zone access)?' if target.role_level == 3 else 'Grant god mode to this person? They will be able to see Capitalism Mode, pricing, and the financial dashboard.' }}">

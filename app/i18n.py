@@ -17,7 +17,7 @@ Language is a UI-only choice, independent from currency (EUR/CHF are
 picked by country, not by language) — see app/financial_settings.py.
 """
 
-SUPPORTED_LANGUAGES = ["de", "en", "fr", "it", "pt"]
+SUPPORTED_LANGUAGES = ["de", "en", "fr", "it", "pt", "zh", "ko", "ro"]
 DEFAULT_LANGUAGE = "de"
 
 # Flag + native label for each supported language, used by the
@@ -29,14 +29,18 @@ LANGUAGE_META = {
     "fr": {"flag": "🇫🇷", "label": "FR"},
     "it": {"flag": "🇮🇹", "label": "IT"},
     "pt": {"flag": "🇧🇷", "label": "PT"},
+    "zh": {"flag": "🇨🇳", "label": "中文"},
+    "ko": {"flag": "🇰🇷", "label": "한국어"},
+    "ro": {"flag": "🇷🇴", "label": "RO"},
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
     # --- navigation / layout -------------------------------------------------
+    "site_tagline": {"de": "Dein Weg zu dem perfekten Auftritt!", "en": "Your path to the perfect performance!", "fr": "Votre chemin vers la prestation parfaite !", "it": "La tua strada verso la performance perfetta!", "pt": "Seu caminho para a apresentação perfeita!"},
     "nav_home": {"de": "Start", "en": "Home", "fr": "Accueil", "it": "Home", "pt": "Início"},
     "nav_my_listings": {"de": "Meine Anzeigen", "en": "My listings", "fr": "Mes annonces", "it": "I miei annunci", "pt": "Meus anúncios"},
     "nav_favorites": {"de": "Favoriten", "en": "Favorites", "fr": "Favoris", "it": "Preferiti", "pt": "Favoritos"},
-    "nav_notas": {"de": "Punkte", "en": "Credits", "fr": "Crédits", "it": "Crediti", "pt": "Notas"},
+    "nav_notas": {"de": "Notas", "en": "Notas", "fr": "Notas", "it": "Notas", "pt": "Notas"},
     "nav_hall_da_fama": {"de": "Ruhmeshalle", "en": "Hall of Fame", "fr": "Temple de la renommée", "it": "Bacheca della fama", "pt": "Hall da Fama"},
     "nav_board": {"de": "Jobs", "en": "Jobs", "fr": "Annonces", "it": "Annunci", "pt": "Vagas"},
     "nav_menu_toggle": {"de": "Menü", "en": "Menu", "fr": "Menu", "it": "Menu", "pt": "Menu"},
@@ -161,6 +165,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # --- listing form -------------------------------------------------
     "listing_form_title": {"de": "Anzeige aufgeben", "en": "Post a listing", "fr": "Publier une annonce", "it": "Pubblica un annuncio", "pt": "Publicar anúncio"},
+    "listing_form_required_section": {"de": "Pflichtangaben", "en": "Required information", "fr": "Informations obligatoires", "it": "Informazioni obbligatorie", "pt": "Informações obrigatórias"},
+    "listing_form_optional_section": {"de": "Optionale Details", "en": "Optional details", "fr": "Détails facultatifs", "it": "Dettagli facoltativi", "pt": "Detalhes opcionais"},
     "listing_form_edit_title": {"de": "Anzeige bearbeiten", "en": "Edit listing", "fr": "Modifier l'annonce", "it": "Modifica annuncio", "pt": "Editar anúncio"},
     "listing_form_type_label": {"de": "Anzeigentyp", "en": "Listing type", "fr": "Type d'annonce", "it": "Tipo di annuncio", "pt": "Tipo de anúncio"},
     "listing_form_title_label": {"de": "Titel", "en": "Title", "fr": "Titre", "it": "Titolo", "pt": "Título"},
@@ -512,6 +518,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # --- pagination -----------------------------------------------------------
     "pagination_prev": {"de": "Zurück", "en": "Previous", "fr": "Précédent", "it": "Precedente", "pt": "Anterior"},
     "pagination_next": {"de": "Weiter", "en": "Next", "fr": "Suivant", "it": "Successivo", "pt": "Próximo"},
+    "pagination_error": {"de": "Ergebnisse konnten nicht geladen werden.", "en": "Could not load results.", "fr": "Impossible de charger les résultats.", "it": "Impossibile caricare i risultati.", "pt": "Não foi possível carregar os resultados."},
+    "pagination_retry": {"de": "Erneut versuchen", "en": "Try again", "fr": "Réessayer", "it": "Riprova", "pt": "Tentar novamente"},
     "pagination_page": {"de": "Seite", "en": "Page", "fr": "Page", "it": "Pagina", "pt": "Página"},
 
     # --- "message already sent" -------------------------------------------------
@@ -697,7 +705,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "referral_copied": {"de": "Kopiert!", "en": "Copied!", "fr": "Copié !", "it": "Copiato!", "pt": "Copiado!"},
 
     # --- notas (banco de créditos) -------------------------------------------
-    "notas_title": {"de": "Punkte", "en": "Notas (credits)", "fr": "Notas (crédits)", "it": "Notas (crediti)", "pt": "Notas"},
+    "notas_title": {"de": "Notas", "en": "Notas", "fr": "Notas", "it": "Notas", "pt": "Notas"},
     "notas_subtitle": {
         "de": "Deine Prämien fürs Einladen von Freunden — hier ansehen und einlösen.",
         "en": "Your rewards for inviting friends — view and redeem them here.",
@@ -1029,8 +1037,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
 
 def translate(key: str, lang: str) -> str:
-    """Returns the translation of `key` in language `lang` (fallback: German, then the key itself)."""
+    """Returns a translation, using English while a new locale is completed."""
     entry = TRANSLATIONS.get(key)
     if not entry:
         return key
-    return entry.get(lang) or entry.get(DEFAULT_LANGUAGE) or key
+    return entry.get(lang) or entry.get("en") or entry.get(DEFAULT_LANGUAGE) or key

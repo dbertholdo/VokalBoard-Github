@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}VokalBoard{% endblock %}</title>
+    <title>Vokal Board — {{ t('site_tagline') }}{% block title_suffix %}{% endblock %}</title>
     <meta name="description" content="{{ t('og_site_description') }}">
 
     {# ------------------------------------------------------------
@@ -73,7 +73,7 @@
         // CSS) and becomes a menu that slides over the content,
         // triggered by the header's <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-menu"></use></svg> button. On desktop this class
         // never matters (the CSS already shows the sidebar fixed there).
-        (function () {
+        function bindSidebarMenu() {
             var toggle = document.getElementById('sidebar-toggle');
             var sidebar = document.getElementById('side-nav');
             var backdrop = document.getElementById('sidebar-backdrop');
@@ -95,7 +95,11 @@
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') closeSidebar();
             });
-        })();
+        }
+        // The header and sidebar are rendered after this nonce-bearing script.
+        // Bind only after their elements exist, otherwise mobile navigation has
+        // no click listener at all.
+        document.addEventListener('DOMContentLoaded', bindSidebarMenu);
     </script>
 
     <header class="site-header">
@@ -153,6 +157,7 @@
             <a href="/admin/posts" class="{{ 'active' if request.url.path.startswith('/admin/posts') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-posts"></use></svg> Posts</a>
             {% endif %}
             {% if user.role_level >= 3 %}
+            <a href="/admin/banners">Banners</a>
             <a href="/financeiro" class="admin-subnav-red {{ 'active' if request.url.path.startswith('/financeiro') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-redzone"></use></svg> Red Zone</a>
             {% endif %}
         </nav>
@@ -202,6 +207,7 @@
                 </a>
                 {% endif %}
                 {% if user.role_level >= 3 %}
+                <a class="side-nav-row" href="/admin/banners">Banners</a>
                 <a class="side-nav-row side-nav-row-danger {{ 'active' if request.url.path.startswith('/financeiro') else '' }}" href="/financeiro">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-redzone"></use></svg>Red Zone
                 </a>
@@ -235,6 +241,12 @@
         </aside>
         {% endif %}
         <main class="container">
+            {% for banner in site_banners %}
+            <aside class="listing-form-card" aria-label="{{ banner.title }}">
+                <strong>{{ banner.title }}</strong><p>{{ banner.body }}</p>
+                {% if banner.link_url %}<a href="{{ banner.link_url }}" rel="noopener noreferrer">{{ banner.title }}</a>{% endif %}
+            </aside>
+            {% endfor %}
             {% block content %}{% endblock %}
         </main>
     </div>

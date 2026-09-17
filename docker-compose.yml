@@ -35,8 +35,10 @@ services:
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     ports:
       - "8000:8000"
-    volumes:
-      - ./app:/code/app
+    # Não montar ./app por cima da imagem: em pastas sincronizadas do Google
+    # Drive, o Docker Desktop pode expor esse bind como diretório vazio e o
+    # serviço deixa de importar app.main. Para desenvolver com atualização ao
+    # vivo, use uma cópia local fora da pasta sincronizada.
 
   # Adminer: web interface to view/edit the database live, without
   # having to write a single line of custom admin code (see the
