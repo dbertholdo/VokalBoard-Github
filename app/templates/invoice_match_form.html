@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Rechnung — {{ match.title }}{% endblock %}
+{% block content %}
+<a class="back-link" href="/rechnungmaker?tab=match">&larr; {{ t('nav_rechnungmaker') }}</a>
+<section class="card">
+<h1>Rechnung — {{ match.title }}</h1>
+<p class="field-help">Match-Rechnung: os dados ficam criptografados até {{ match.contractor_name }} confirmar. Nada fica salvo em texto aberto.</p>
+{% if error %}<p class="form-error">Confira os campos obrigatórios.</p>{% endif %}
+<form method="post" action="/profile/matches/{{ match.id }}/invoice" class="form-grid">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<label>Rechnungsnummer<input name="number" value="{{ existing.number or suggested_number }}" required></label>
+<label>Ausstellungsdatum<input type="date" name="issue_date" value="{{ existing.issue_date or today }}" required></label>
+<label>Leistungsdatum<input type="date" name="service_date" value="{{ existing.service_date or '' }}" required></label>
+<label>Seu nome<input name="issuer_name" value="{{ existing.issuer_name or match.artist_name }}" required></label>
+<label>Seu endereço<textarea name="issuer_address" required>{{ existing.issuer_address or '' }}</textarea></label>
+<label>Steuernummer / USt-IdNr.<input name="issuer_tax_id" value="{{ existing.issuer_tax_id or '' }}" required></label>
+<label>Destinatário<input name="recipient_name" value="{{ existing.recipient_name or match.contractor_name }}" required></label>
+<label>Endereço do destinatário<textarea name="recipient_address" required>{{ existing.recipient_address or '' }}</textarea></label>
+<label>Serviço<textarea name="service_description" required>{{ existing.service_description or match.title }}</textarea></label>
+<label>Valor líquido<input name="net_amount" inputmode="decimal" value="{{ existing.net_amount or '' }}" required></label>
+<label>Moeda<select name="currency"><option {% if existing.currency == 'CHF' %}selected{% endif %}>EUR</option><option {% if existing.currency == 'CHF' %}selected{% endif %}>CHF</option></select></label>
+<label>País e tributação (USt/MWST)
+<select id="tax_preset_match" onchange="(function(v){var p=v.split(':');document.getElementById('tax_country_match').value=p[0];document.getElementById('tax_status_match').value=p[1];})(this.value)">
+    {% for value, label in tax_preset_options %}<option value="{{ value }}" {% if value == 'DE:standard' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+</select>
+</label>
+<input type="hidden" id="tax_country_match" name="tax_country" value="DE">
+<input type="hidden" id="tax_status_match" name="tax_status" value="standard">
+<label>Alíquota (só se "padrão"/"outro")<input name="tax_rate_override" inputmode="decimal" placeholder="ex.: 19"></label>
+<label>Observação fiscal / texto livre ("outro")<textarea name="tax_custom_text">{{ existing.tax_note or '' }}</textarea></label>
+<label>Fahrkosten / deslocamento (opcional)<input name="expense_travel_amount" inputmode="decimal" value="{{ existing.expense_travel_amount or '0' }}"></label>
+<label>Übernachtungskosten / hospedagem (opcional)<input name="expense_lodging_amount" inputmode="decimal" value="{{ existing.expense_lodging_amount or '0' }}"></label>
+<label>Condições de pagamento<textarea name="payment_terms">{{ existing.payment_terms or '' }}</textarea></label>
+<label>IBAN<input name="iban" value="{{ existing.iban or '' }}"></label>
+<label>BIC<input name="bic" value="{{ existing.bic or '' }}"></label>
+<button class="button-primary" type="submit">Salvar e enviar para revisão</button>
+</form>
+</section>
+{% endblock %}

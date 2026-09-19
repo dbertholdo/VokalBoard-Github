@@ -77,7 +77,7 @@
                 <p class="full-name">{{ profile_user.full_name }}</p>
                 <p class="role-line">
                     {{ t('role_singer') if profile_user.role == "singer" else t('role_conductor') }}
-                    {% if singer_profile and singer_profile.voice_type_name %} · {{ singer_profile.voice_type_name }}{% endif %}
+                    {% if all_voice_names %} · {{ all_voice_names | join(', ') }}{% elif singer_profile and singer_profile.voice_type_name %} · {{ singer_profile.voice_type_name }}{% endif %}
                     {% if conductor_profile and conductor_profile.ensemble_name %} · {{ conductor_profile.ensemble_name }}{% endif %}
                 </p>
 
@@ -129,6 +129,9 @@
                 {% elif profile_user.city %}
                     <p class="meta"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ profile_user.city }}</p>
                 {% endif %}
+                {% if not is_own_profile and not locked and profile_user.phone_visibility == 'public' and profile_user.phone %}
+                    <p class="meta"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-phone"></use></svg> {{ profile_user.phone }}</p>
+                {% endif %}
             </div>
 
             <div class="profile-right-col">
@@ -140,6 +143,12 @@
                         {% if composer_tags and composer_tags|length > 0 %}
                             <p class="hashtags">
                                 {% for tag in composer_tags %}<span class="hashtag">#{{ tag }}</span>{% endfor %}
+                            </p>
+                        {% endif %}
+                        {% if spoken_language_names and spoken_language_names|length > 0 %}
+                            <p class="spoken-languages">
+                                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-globe"></use></svg>
+                                {{ spoken_language_names | join(', ') }}
                             </p>
                         {% endif %}
                     </div>
@@ -161,6 +170,43 @@
                             {% endfor %}
                         </div>
                     {% endif %}
+
+                    {% if works_by_category and (works_by_category.solo or works_by_category.choir) %}
+                        {# P2 cluster (19/09/2026): solo vs. choir repertoire, in two
+                           separate card groups per the spec — see app/singer_works.py.
+                           No iframe embed (the site's CSP frame-src is locked down to
+                           the Cloudflare Turnstile challenge only), so "minimalist
+                           player" here means a plain link to watch/listen, not an
+                           inline embed. #}
+                        {% if works_by_category.solo %}
+                            <div class="card works-card">
+                                <h3>{{ t('works_solo_title') }}</h3>
+                                <ul class="works-list">
+                                    {% for w in works_by_category.solo %}
+                                        <li class="work-item">
+                                            <strong>{{ w.title }}</strong>{% if w.composer %} — {{ w.composer }}{% endif %}
+                                            {% if w.video_url %}<a href="{{ w.video_url }}" target="_blank" rel="noopener noreferrer"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ t('work_watch_link') }}</a>{% endif %}
+                                            {% if w.audio_url %}<a href="{{ w.audio_url }}" target="_blank" rel="noopener noreferrer"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ t('audio_link_play') }}</a>{% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        {% if works_by_category.choir %}
+                            <div class="card works-card">
+                                <h3>{{ t('works_choir_title') }}</h3>
+                                <ul class="works-list">
+                                    {% for w in works_by_category.choir %}
+                                        <li class="work-item">
+                                            <strong>{{ w.title }}</strong>{% if w.composer %} — {{ w.composer }}{% endif %}
+                                            {% if w.video_url %}<a href="{{ w.video_url }}" target="_blank" rel="noopener noreferrer"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ t('work_watch_link') }}</a>{% endif %}
+                                            {% if w.audio_url %}<a href="{{ w.audio_url }}" target="_blank" rel="noopener noreferrer"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ t('audio_link_play') }}</a>{% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    {% endif %}
                 {% else %}
                     <div class="card locked-box">
                         <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-lock"></use></svg> {{ t('locked_profile_title') }}</h3>
@@ -177,6 +223,38 @@
 
     {% if user and user.id != profile_user.id %}
         <p><a href="/messages/new?to={{ profile_user.id }}" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('message_send_here') }}</a></p>
+
+        {% if invite_error %}<p class="error">{{ t(invite_error) }}</p>{% endif %}
+        {% if invited %}<p class="success">{{ t('invitation_invited_success') }}</p>{% endif %}
+        {% if invitable_vacancies %}
+            <details class="invite-to-vacancy-details">
+                <summary class="block-user-summary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ t('invitation_invite_button') }}</summary>
+                <form method="post" action="/listings/{{ invitable_vacancies[0].listing_id }}/invite" class="stacked-form narrow invite-to-vacancy-form" id="invite-to-vacancy-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="artist_user_id" value="{{ profile_user.id }}">
+                    <input type="hidden" name="next" value="/users/{{ profile_user.id }}">
+                    <label>{{ t('invitation_choose_vacancy_label') }}
+                        <select name="vacancy_id" id="invite-vacancy-select" data-listings-by-vacancy="{{ invitable_vacancies|map(attribute='vacancy_id')|list|join(',') }}">
+                            {% for v in invitable_vacancies %}
+                                <option value="{{ v.vacancy_id }}" data-listing-id="{{ v.listing_id }}">{{ v.listing_title }} — {{ v.voice_type_name }} ({{ v.total_slots - v.filled_slots }} {{ t('listing_form_vacancy_slots_placeholder') }})</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <button type="submit" class="button-link button-primary">{{ t('invitation_invite_confirm') }}</button>
+                </form>
+            </details>
+            <script nonce="{{ csp_nonce }}">
+                (function () {
+                    var form = document.getElementById('invite-to-vacancy-form');
+                    var select = document.getElementById('invite-vacancy-select');
+                    if (!form || !select) return;
+                    form.addEventListener('submit', function () {
+                        var opt = select.options[select.selectedIndex];
+                        if (opt) { form.action = '/listings/' + opt.getAttribute('data-listing-id') + '/invite'; }
+                    });
+                })();
+            </script>
+        {% endif %}
 
         <details class="block-user-details">
             <summary class="block-user-summary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> {{ t('block_user_button') }}</summary>

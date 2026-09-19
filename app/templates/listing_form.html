@@ -2,6 +2,7 @@
 {% block title %}{{ t('listing_form_edit_title') if is_edit else t('listing_form_title') }}{% endblock %}
 
 {% block content %}
+{% set is_job = values.listing_type in ['seeking_singer', 'seeking_conductor'] %}
 <h1>{{ t('listing_form_edit_title') if is_edit else t('listing_form_title') }}</h1>
 
 {% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
@@ -26,10 +27,68 @@
         <textarea name="description" rows="6" required>{{ values.description if values else '' }}</textarea>
     </label>
 
+    <fieldset id="listing-location" data-optional-for-availability>
+    <legend>{{ t('listing_location_scope') }}</legend>
+    <p class="field-help">{{ t('availability_location_help') }}</p>
     {% set loc_country = values.country if values and values.country else 'DE' %}
     {% set loc_state = values.state if values and values.state else '' %}
     {% set loc_city = values.city if values and values.city else '' %}
     {% include "_location_fields.html" %}
+    </fieldset>
+    <fieldset id="availability-fields" {% if values.listing_type != 'singer_available' %}hidden disabled{% endif %}>
+        <legend>{{ t('availability_period') }}</legend>
+        <p class="field-help">{{ t('availability_help') }}</p>
+        <label>{{ t('availability_from') }}<input type="date" name="available_from" required value="{{ values.available_from or '' }}"></label>
+        <label>{{ t('availability_until') }}<input type="date" name="available_until" required value="{{ values.available_until or '' }}"></label>
+    </fieldset>
+    </section>
+
+    <section class="listing-form-card" aria-labelledby="listing-details-heading">
+    <h2 id="listing-details-heading">{{ t('listing_form_details_section') }}</h2>
+    <p class="field-help" id="job-required-help" {% if not is_job %}hidden{% endif %}>{{ t('listing_form_job_required_help') }}</p>
+    <label>
+        <span class="label-generic" {% if is_job %}hidden{% endif %}>{{ t('listing_form_repertoire_label') }}</span>
+        <span class="label-job" {% if not is_job %}hidden{% endif %}>{{ t('listing_form_work_label') }}</span>
+        <input type="text" name="repertoire" id="repertoire-input" maxlength="200"
+               {% if is_job %}required{% endif %}
+               placeholder="{{ t('listing_form_repertoire_placeholder') }}"
+               value="{{ values.repertoire if values else '' }}">
+    </label>
+    <fieldset id="job-fields">
+        <legend>{{ t('listing_form_details_section') }}</legend>
+        <label>{{ t('listing_form_venue_label') }}
+            <input type="text" name="venue" id="venue-input" maxlength="200" value="{{ values.venue if values else '' }}">
+        </label>
+        {% set fee_negotiable_checked = values.fee_negotiable if values and values.fee_negotiable is defined else False %}
+        {% set fee_amount_value = values.fee_amount if values and values.fee_amount else '' %}
+        {% set fee_currency_value = values.fee_currency if values and values.fee_currency else currencies[0] %}
+        <div class="fee-fields">
+            <label>
+                <span class="label-generic" {% if is_job %}hidden{% endif %}>{{ t('match_fee') }}</span>
+                <span class="label-job" {% if not is_job %}hidden{% endif %}>{{ t('listing_form_fee_label') }}</span>
+                <input type="text" name="fee_amount" id="fee-amount-input" maxlength="20" inputmode="decimal"
+                       placeholder="{{ t('listing_form_fee_placeholder') }}"
+                       {% if fee_negotiable_checked %}disabled{% endif %}
+                       value="{{ fee_amount_value }}">
+            </label>
+            <label>
+                <span class="sr-only">{{ t('listing_form_fee_currency_label') }}</span>
+                <select name="fee_currency" id="fee-currency-select" {% if fee_negotiable_checked %}disabled{% endif %}>
+                    {% for currency in currencies %}
+                        <option value="{{ currency }}" {% if fee_currency_value == currency %}selected{% endif %}>{{ currency }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="fee-negotiable-label">
+                <input type="checkbox" name="fee_negotiable" id="fee-negotiable-checkbox" value="1" {% if fee_negotiable_checked %}checked{% endif %}>
+                {{ t('fee_negotiable_checkbox') }}
+            </label>
+        </div>
+        <p class="field-help" id="fee-required-help" {% if not is_job %}hidden{% endif %}>{{ t('fee_amount_or_negotiable_required') }}</p>
+    </fieldset>
+    <label id="event-date-field" {% if values.listing_type == 'singer_available' %}hidden{% endif %}>{{ t('match_event_date') }}
+        <input type="date" name="event_date" {% if is_job %}required{% endif %} value="{{ values.event_date if values else '' }}">
+    </label>
     </section>
 
     <section class="listing-form-card">
@@ -44,8 +103,7 @@
     </label>
 
     <label>
-        <span class="label-generic">{{ t('listing_form_voice_type_label') }}</span>
-        <span class="label-job" hidden>{{ t('listing_form_voice_type_required_label') }}</span>
+        <span>{{ t('listing_form_voice_type_label') }}</span>
         <select name="voice_type_id">
             <option value="">{{ t('voice_type_all') }}</option>
             {% for vt in voice_types %}
@@ -53,53 +111,73 @@
             {% endfor %}
         </select>
     </label>
+    <p class="field-help">{{ t('listing_form_voice_type_help') }}</p>
 
-    <label>
-        <span class="label-generic">{{ t('listing_form_repertoire_label') }}</span>
-        <span class="label-job" hidden>{{ t('listing_form_work_label') }}</span>
-        <input type="text" name="repertoire" id="repertoire-input" maxlength="200"
-               placeholder="{{ t('listing_form_repertoire_placeholder') }}"
-               value="{{ values.repertoire if values else '' }}">
+    <label class="checkbox-label">
+        <input type="checkbox" name="travel_cost_covered" value="1" {% if values.travel_cost_covered %}checked{% endif %}>
+        {{ t('listing_form_travel_cost_label') }}
     </label>
-
-    <fieldset id="job-fields" hidden>
-        <legend>{{ t('listing_type_seeking_singer') }}</legend>
-        <label>{{ t('listing_form_venue_label') }}
-            <input type="text" name="venue" id="venue-input" maxlength="200" value="{{ values.venue if values else '' }}">
-        </label>
-        <label>{{ t('listing_form_fee_label') }}
-            <input type="text" name="fee" id="fee-input" maxlength="100"
-                   placeholder="{{ t('listing_form_fee_placeholder') }}"
-                   value="{{ values.fee if values else '' }}">
-        </label>
-    </fieldset>
-
-    <label>{{ t('listing_form_event_date_label') }}
-        <input type="date" name="event_date" value="{{ values.event_date if values else '' }}">
+    <label class="checkbox-label">
+        <input type="checkbox" name="rehearsal_schedule_available" value="1" {% if values.rehearsal_schedule_available %}checked{% endif %}>
+        {{ t('listing_form_rehearsal_schedule_label') }}
     </label>
+    {# P5 Etapa 2 (18/09/2026): só faz sentido marcar como urgente
+       quem está procurando preencher vaga — reaproveita o mesmo
+       padrão .label-job já usado nesta página (ver
+       app/static/js/listing-form.js updateJobFields()) pra
+       esconder/mostrar conforme o tipo de anúncio escolhido. #}
+    <label class="checkbox-label label-job" {% if not is_job %}hidden{% endif %}>
+        <input type="checkbox" name="is_urgent" value="1">
+        <svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-bolt"></use></svg>
+        {{ t('listing_form_urgent_label') }}
+    </label>
+    <p class="field-help label-job" {% if not is_job %}hidden{% endif %}>{{ t('listing_form_urgent_help') }}</p>
+    <label class="checkbox-label">
+        <input type="checkbox" id="sheet-music-toggle" name="sheet_music_available" value="1" {% if values.sheet_music_available %}checked{% endif %}>
+        {{ t('listing_form_sheet_music_label') }}
+    </label>
+    <div id="sheet-music-url-field" {% if not values.sheet_music_available %}hidden{% endif %}>
+        <label>{{ t('listing_form_sheet_music_url_label') }}
+            <input type="url" name="sheet_music_url" maxlength="500" placeholder="https://..." value="{{ values.sheet_music_url or '' }}">
+        </label>
+        <p class="field-help">{{ t('listing_form_sheet_music_url_help') }}</p>
+    </div>
+
+    </section>
+
+    <section class="listing-form-card" id="vacancies-section" {% if values.listing_type != 'seeking_singer' %}hidden{% endif %}>
+    <h2>{{ t('listing_form_vacancies_section') }}</h2>
+    <p class="field-help">{{ t('listing_form_vacancies_help') }}</p>
+    {% set max_vacancies = 10 %}
+    {% for i in range(max_vacancies) %}
+        {% set v = vacancies[i] if i < vacancies|length else None %}
+        <div class="vacancy-row {% if not v and i >= (vacancies|length + 1) %}vacancy-row-extra{% endif %}" {% if not v and i >= (vacancies|length + 1) %}hidden{% endif %}>
+            <select name="vacancy_voice_type_id">
+                <option value="">{{ t('spoken_language_none') }}</option>
+                {% for vt in voice_types %}
+                    <option value="{{ vt.id }}" {% if v and v.voice_type_id == vt.id %}selected{% endif %}>{{ vt.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="number" name="vacancy_total_slots" min="1" max="99" placeholder="{{ t('listing_form_vacancy_slots_placeholder') }}" value="{{ v.total_slots if v else '' }}">
+            <input type="text" name="vacancy_fee_amount" class="vacancy-fee-amount" maxlength="20" inputmode="decimal" placeholder="{{ t('listing_form_fee_placeholder') }}" {% if v and v.fee_negotiable %}disabled{% endif %} value="{{ v.fee_amount if v and v.fee_amount else '' }}">
+            <select name="vacancy_fee_currency" class="vacancy-fee-currency" {% if v and v.fee_negotiable %}disabled{% endif %}>
+                {% for currency in currencies %}
+                    <option value="{{ currency }}" {% if v and v.fee_currency == currency %}selected{% endif %}>{{ currency }}</option>
+                {% endfor %}
+            </select>
+            <label class="fee-negotiable-label">
+                <input type="checkbox" name="vacancy_fee_negotiable_{{ i }}" class="vacancy-fee-negotiable" value="1" {% if v and v.fee_negotiable %}checked{% endif %}>
+                {{ t('fee_negotiable_checkbox') }}
+            </label>
+            {% if v %}<span class="field-help">{{ v.filled_slots }}/{{ v.total_slots }} {{ t('listing_form_vacancy_filled_label') }}</span>{% endif %}
+        </div>
+    {% endfor %}
+    <button type="button" id="add-vacancy-row" class="btn-secondary">{{ t('listing_form_add_vacancy') }}</button>
+    <p class="field-help">{{ t('listing_form_vacancies_remove_help') }}</p>
     </section>
 
     <button type="submit">{{ t('listing_form_update_submit') if is_edit else t('listing_form_submit') }}</button>
 </form>
 
-<script nonce="{{ csp_nonce }}">
-    const typeSelect = document.getElementById('listing-type-select');
-    const jobFields = document.getElementById('job-fields');
-    const feeInput = document.getElementById('fee-input');
-    const repertoireInput = document.getElementById('repertoire-input');
-    const labelGeneric = document.querySelectorAll('.label-generic');
-    const labelJob = document.querySelectorAll('.label-job');
-
-    function updateJobFields() {
-        const isJob = typeSelect.value === 'seeking_singer';
-        jobFields.hidden = !isJob;
-        feeInput.required = isJob;
-        repertoireInput.required = isJob;
-        labelGeneric.forEach(el => { el.hidden = isJob; });
-        labelJob.forEach(el => { el.hidden = !isJob; });
-    }
-
-    typeSelect.addEventListener('change', updateJobFields);
-    updateJobFields();
-</script>
+<script src="/static/js/listing-form.js" defer></script>
 {% endblock %}

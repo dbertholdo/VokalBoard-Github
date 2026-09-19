@@ -11,19 +11,25 @@
        site's link is shared on WhatsApp, Telegram, LinkedIn, etc.
        Without this, the link would show up "bare" (just the URL, no
        image/description) — the image (og-preview.png) has the bird
-       and the site name, generated from bird-logo.svg.
+       and the site name.
     ------------------------------------------------------------ #}
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="VokalBoard">
-    <meta property="og:title" content="VokalBoard">
-    <meta property="og:description" content="{{ t('og_site_description') }}">
+    {# P3.D "convite express": a listing page overrides og_title/og_description
+       to show only a teaser (Obra/Compositor/Cidade) when its link is shared
+       outside the site — see listing_detail.html. Anyone still lands on the
+       normal, fully-open listing page when they click through; only the
+       PREVIEW card is restricted. Default stays generic "VokalBoard" for
+       every other page. #}
+    <meta property="og:title" content="{% block og_title %}VokalBoard{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}{{ t('og_site_description') }}{% endblock %}">
     <meta property="og:url" content="{{ request.url }}">
     <meta property="og:image" content="{{ request.base_url }}static/img/og-preview.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="VokalBoard">
-    <meta name="twitter:description" content="{{ t('og_site_description') }}">
+    <meta name="twitter:title" content="{% block twitter_title %}VokalBoard{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}{{ t('og_site_description') }}{% endblock %}">
     <meta name="twitter:image" content="{{ request.base_url }}static/img/og-preview.png">
 
     {# Extension point: pages that must NOT be indexed by Google
@@ -31,8 +37,79 @@
        block to add <meta name="robots" content="noindex">. #}
     {% block extra_head %}{% endblock %}
 
-    <link rel="icon" type="image/svg+xml" href="/static/img/bird-logo.svg">
+    {# Logo (19/09/2026) — approved symbol "V/asas — Assinatura", option
+       03 per the brand handoff (INSTRUCOES_MARCA_CODEX_CLAUDE.md §2 /
+       MANUAL_VISUAL_VOKALBOARD_V1.md §3). icon-small-navy.svg is the
+       small-size-optimized variant (below the 48px-width threshold
+       where the manual says to prefer it over the full symbol) — used
+       here and everywhere else this logo appears at nav/favicon/footer
+       scale. PNG fallbacks for browsers that don't take an SVG favicon. #}
+    <link rel="icon" type="image/svg+xml" href="/static/img/brand/icon-small-navy.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/brand/icon-32.png">
+    <link rel="apple-touch-icon" href="/static/img/brand/icon-256.png">
     <link rel="stylesheet" href="/static/css/style.css">
+
+    {# ------------------------------------------------------------
+       Mascot moment toast helper (Part 2 backlog item 4, 19/09/2026) —
+       defined here in <head>, ahead of {% block content %}, so any
+       page's own content can call window.vbShowMascotToast(...) inline
+       right after its own success message (used by notas.html,
+       profile.html, my_listings.html for the Joinha "thumbs up, wink"
+       moment). base.html's own triggers (Acolhedor welcome, Atento
+       reminder) run later at the end of <body> — see there for the
+       design writeup and app/mascot_moments.py.
+    ------------------------------------------------------------ #}
+    <script nonce="{{ csp_nonce }}">
+        window.vbShowMascotToast = function (src, message, holdMs, opts) {
+            opts = opts || {};
+            var edges = ['edge-left', 'edge-right', 'edge-bottom'];
+            var edge = opts.edge || edges[Math.floor(Math.random() * edges.length)];
+
+            var wrap = document.createElement('div');
+            wrap.className = 'vb-mascot-toast vb-mascot-toast-' + edge + (opts.extraClass ? ' ' + opts.extraClass : '');
+            wrap.setAttribute('role', 'status');
+            wrap.setAttribute('aria-live', 'polite');
+            // P2 cluster (19/09/2026): the "incomplete profile" nudge
+            // links to the Profile Wizard instead of being a dead
+            // toast — opts.href, when given, makes the whole toast
+            // clickable (still keyboard-reachable via the button role).
+            if (opts.href) {
+                wrap.setAttribute('role', 'link');
+                wrap.style.cursor = 'pointer';
+                wrap.addEventListener('click', function () { window.location.href = opts.href; });
+            }
+
+            var img = document.createElement('img');
+            img.className = 'vb-mascot-toast-img';
+            img.src = src;
+            img.alt = '';
+            wrap.appendChild(img);
+
+            if (message) {
+                var bubble = document.createElement('div');
+                bubble.className = 'vb-mascot-toast-bubble';
+                bubble.textContent = message;
+                wrap.appendChild(bubble);
+            }
+
+            function attach() {
+                document.body.appendChild(wrap);
+                // Two rAFs so the browser paints the off-screen
+                // starting position first, then transitions into view.
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        wrap.classList.add('vb-mascot-toast-visible');
+                    });
+                });
+                setTimeout(function () {
+                    wrap.classList.remove('vb-mascot-toast-visible');
+                    setTimeout(function () { wrap.remove(); }, 400);
+                }, holdMs);
+            }
+            if (document.body) attach();
+            else document.addEventListener('DOMContentLoaded', attach);
+        };
+    </script>
 </head>
 <body>
     {# ------------------------------------------------------------
@@ -108,16 +185,21 @@
                 <span></span><span></span><span></span>
             </button>
         {% endif %}
-        <a class="brand" href="/"><img class="brand-icon" src="/static/img/bird-logo.svg" alt="" width="32" height="23"> VokalBoard</a>
+        <a class="brand" href="/"><img class="brand-icon" src="/static/img/brand/icon-small-navy.svg" alt="" width="28" height="28"> VokalBoard</a>
         <nav>
             {% if user %}
                 <a href="/">{{ t('nav_home') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/board">{{ t('nav_board') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
-                <a href="/profile">{{ t('nav_profile') }}</a>
+                <details class="profile-menu">
+                    <summary>{{ t('nav_profile') }}</summary>
+                    <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
+                </details>
                 <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/messages">{{ t('nav_messages') }}{% if unread_count and unread_count > 0 %} <span class="badge-count">{{ unread_count }}</span>{% endif %}</a>
+                <span class="nav-sep" aria-hidden="true">|</span>
+                <a href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
                 {% if user.role_level and user.role_level >= 1 %}<span class="nav-sep" aria-hidden="true">|</span><a href="/admin">Admin</a>{% endif %}
                 <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/logout">{{ t('nav_logout') }}</a>
@@ -155,6 +237,9 @@
             <a href="/admin/users" class="{{ 'active' if request.url.path.startswith('/admin/users') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-users"></use></svg> Users</a>
             <a href="/admin/analytics" class="{{ 'active' if request.url.path == '/admin/analytics' else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Analytics</a>
             <a href="/admin/posts" class="{{ 'active' if request.url.path.startswith('/admin/posts') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-posts"></use></svg> Posts</a>
+            <a href="/admin/loja" class="{{ 'active' if request.url.path.startswith('/admin/loja') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-gift"></use></svg> Loja</a>
+            <a href="/admin/emails" class="{{ 'active' if request.url.path.startswith('/admin/emails') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-mail"></use></svg> E-mails</a>
+            <a href="/admin/tickets" class="{{ 'active' if request.url.path.startswith('/admin/tickets') else '' }}"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-flag"></use></svg> Tickets</a>
             {% endif %}
             {% if user.role_level >= 3 %}
             <a href="/admin/banners">Banners</a>
@@ -205,6 +290,15 @@
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/admin/posts') else '' }}" href="/admin/posts">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-posts"></use></svg>Posts
                 </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/admin/loja') else '' }}" href="/admin/loja">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-gift"></use></svg>Loja
+                </a>
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/admin/emails') else '' }}" href="/admin/emails">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-mail"></use></svg>E-mails
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/admin/tickets') else '' }}" href="/admin/tickets">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-flag"></use></svg>Tickets
+                </a>
                 {% endif %}
                 {% if user.role_level >= 3 %}
                 <a class="side-nav-row" href="/admin/banners">Banners</a>
@@ -222,9 +316,10 @@
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/people') else '' }}" href="/people">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-users"></use></svg>{{ t('nav_search_people') }}
                 </a>
-                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/profile') else '' }}" href="/profile">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}
-                </a>
+                <details class="profile-side-menu" {% if request.url.path.startswith('/profile') %}open{% endif %}>
+                    <summary class="side-nav-row side-nav-tone-2"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}</summary>
+                    <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
+                </details>
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/my-listings') else '' }}" href="/my-listings">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-listings"></use></svg>{{ t('nav_my_listings') }}
                 </a>
@@ -252,15 +347,66 @@
     </div>
 
     <footer class="site-footer">
-        <p><img class="footer-bird-icon" src="/static/img/bird-logo.svg" alt="" width="20" height="14"> {{ t('footer_text') }}</p>
+        <p><img class="footer-bird-icon" src="/static/img/brand/icon-small-navy.svg" alt="" width="18" height="18"> {{ t('footer_text') }}</p>
         <p class="footer-links">
             <a href="/impressum">{{ t('footer_impressum') }}</a>
             <span>·</span>
             <a href="/datenschutz">{{ t('footer_privacy') }}</a>
             <span>·</span>
             <a href="/code-of-conduct">{{ t('footer_conduct') }}</a>
+            <span>·</span>
+            <a href="/contato">{{ t('footer_contact') }}</a>
         </p>
     </footer>
+
+    {# ------------------------------------------------------------
+       "Reportar erro" — a floating button on EVERY page (P6
+       close-out, 19/09/2026). Opens a small modal; the inline script
+       right below fills page_url/page_name from the CURRENT page at
+       the moment it's opened (not at page load), so it's always
+       accurate even on a page whose content changes client-side. See
+       app/routers/support_routes.py (POST /support/report-bug) and
+       app/support_tickets.py.
+    ------------------------------------------------------------ #}
+    <button type="button" class="bug-report-fab" id="bug-report-fab" aria-haspopup="dialog" aria-controls="bug-report-dialog">
+        <svg class="icon" width="18" height="18"><use href="/static/img/icons.svg#icon-flag"></use></svg>
+        <span>{{ t('bug_report_button') }}</span>
+    </button>
+    <dialog id="bug-report-dialog" class="bug-report-dialog">
+        <form method="post" action="/support/report-bug">
+            <h2>{{ t('bug_report_title') }}</h2>
+            <p class="field-help">{{ t('bug_report_help') }}</p>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="page_url" id="bug-report-page-url" value="">
+            <input type="hidden" name="page_name" id="bug-report-page-name" value="">
+            <label class="sr-only" for="bug-report-description">{{ t('bug_report_description_label') }}</label>
+            <textarea id="bug-report-description" name="description" required minlength="10" maxlength="4000" rows="5" placeholder="{{ t('bug_report_description_placeholder') }}"></textarea>
+            <div class="bug-report-dialog-actions">
+                <button type="button" class="button-link" id="bug-report-cancel">{{ t('bug_report_cancel') }}</button>
+                <button type="submit">{{ t('bug_report_submit') }}</button>
+            </div>
+        </form>
+    </dialog>
+    {% if request.query_params.get('bug_report_sent') == '1' %}
+        <p class="success bug-report-toast"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('bug_report_sent') }}</p>
+    {% endif %}
+    <script nonce="{{ csp_nonce }}">
+        (function () {
+            var fab = document.getElementById('bug-report-fab');
+            var dialog = document.getElementById('bug-report-dialog');
+            var cancel = document.getElementById('bug-report-cancel');
+            var pageUrlField = document.getElementById('bug-report-page-url');
+            var pageNameField = document.getElementById('bug-report-page-name');
+            if (!fab || !dialog) return;
+            fab.addEventListener('click', function () {
+                pageUrlField.value = window.location.href;
+                pageNameField.value = document.title;
+                if (typeof dialog.showModal === 'function') dialog.showModal();
+                else dialog.setAttribute('open', 'open');
+            });
+            if (cancel) cancel.addEventListener('click', function () { dialog.close(); });
+        })();
+    </script>
 
     {# ------------------------------------------------------------
        Flying bird: every once in a while (every 1–2 min), the
@@ -311,6 +457,52 @@
 
             setTimeout(spawnBird, 5000); // the first one shows up early, as a welcome
             scheduleNext();
+        })();
+    </script>
+
+    {# ------------------------------------------------------------
+       Mascot moment triggers, server side (Part 2 backlog item 4,
+       19/09/2026) — Acolhedor (login welcome) and Atento (the one
+       pending-item nudge). window.vbShowMascotToast() itself is
+       defined in <head> above (so per-page content, like the Joinha
+       confirmations, can call it too) — see app/mascot_moments.py for
+       the full design writeup. Respects prefers-reduced-motion (shows
+       instantly, holds, disappears — no slide, via the CSS media query
+       in style.css). Only ever runs from a real page load.
+    ------------------------------------------------------------ #}
+    <script nonce="{{ csp_nonce }}">
+        (function () {
+            var queue = [];
+            {% if mascot_welcome_name %}
+            queue.push([
+                '/static/img/mascot/mascot-welcoming.png',
+                {{ t('mascot_welcome_balloon').replace('{name}', mascot_welcome_name) | tojson }},
+                2000,
+            ]);
+            {% endif %}
+            {% if mascot_reminder_key %}
+            queue.push([
+                '/static/img/mascot/mascot-attentive.png',
+                {{ t(mascot_reminder_key).replace('{name}', (user.full_name if user else '')) | tojson }},
+                2000,
+                {# P2 cluster (19/09/2026): the "incomplete profile" nudge
+                   is the one reminder with somewhere useful to send you —
+                   opens the Profile Wizard instead of just disappearing. #}
+                {% if mascot_reminder_key == 'mascot_reminder_profile' %}{href: '/profile/wizard'}{% else %}{}{% endif %},
+            ]);
+            {% endif %}
+            if (!queue.length) return;
+            // Sequenced, never simultaneous — a welcome and a nudge on
+            // the same fresh login both get their own moment instead
+            // of piling up (at most one dominant mascot presence at a
+            // time, per the brand manual).
+            var delay = 300;
+            queue.forEach(function (item) {
+                setTimeout(function () {
+                    window.vbShowMascotToast(item[0], item[1], item[2], item[3]);
+                }, delay);
+                delay += item[2] + 500;
+            });
         })();
     </script>
 </body>

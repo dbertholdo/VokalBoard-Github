@@ -37,8 +37,14 @@ class InvoiceDocument:
     payment_terms: str = ""
     iban: str = ""
     bic: str = ""
+    # Despesas adicionais opcionais (Fahrkosten/Übernachtungskosten) —
+    # só o VALOR entra na Rechnung como linha extra; comprovante nunca é
+    # anexado/armazenado pelo site (decisão do Daniel, 18/09/2026: o
+    # comprovante é resolvido diretamente entre as partes, fora daqui).
+    expense_travel_amount: str = "0"
+    expense_lodging_amount: str = "0"
 
-    def validate(self) -> tuple[Decimal, Decimal, Decimal]:
+    def validate(self) -> tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
         required = {
             "number": self.number,
             "issue_date": self.issue_date,
@@ -57,12 +63,18 @@ class InvoiceDocument:
         try:
             net = Decimal(self.net_amount.replace(",", "."))
             rate = Decimal(self.tax_rate.replace(",", "."))
+            travel = Decimal(str(self.expense_travel_amount or "0").replace(",", "."))
+            lodging = Decimal(str(self.expense_lodging_amount or "0").replace(",", "."))
         except (InvalidOperation, AttributeError) as exc:
             raise InvoiceValidationError("Amounts must be valid numbers") from exc
-        if net < 0 or rate < 0 or rate > 100:
+        if net < 0 or rate < 0 or rate > 100 or travel < 0 or lodging < 0:
             raise InvoiceValidationError("Amounts or tax rate are outside the allowed range")
         tax = (net * rate / Decimal("100")).quantize(Decimal("0.01"))
-        return net.quantize(Decimal("0.01")), tax, (net + tax).quantize(Decimal("0.01"))
+        net_q = net.quantize(Decimal("0.01"))
+        travel_q = travel.quantize(Decimal("0.01"))
+        lodging_q = lodging.quantize(Decimal("0.01"))
+        total = (net_q + tax + travel_q + lodging_q).quantize(Decimal("0.01"))
+        return net_q, tax, travel_q, lodging_q, total
 
 
 def _escape(value: str) -> str:
@@ -70,7 +82,7 @@ def _escape(value: str) -> str:
 
 
 def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
-    net, tax, total = invoice.validate()
+    net, tax, travel, lodging, total = invoice.validate()
     stream = BytesIO()
     document = SimpleDocTemplate(stream, pagesize=A4, rightMargin=20 * mm, leftMargin=20 * mm, topMargin=18 * mm)
     styles = getSampleStyleSheet()
@@ -86,9 +98,13 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     rows = [
         ["Leistung", "Netto"],
         [Paragraph(_escape(invoice.service_description), body), f"{net:.2f} {invoice.currency}"],
-        ["Umsatzsteuer" + (f" ({invoice.tax_rate}%)" if tax else ""), f"{tax:.2f} {invoice.currency}"],
-        ["Gesamtbetrag", f"{total:.2f} {invoice.currency}"],
     ]
+    if travel:
+        rows.append(["Fahrkosten", f"{travel:.2f} {invoice.currency}"])
+    if lodging:
+        rows.append(["Übernachtungskosten", f"{lodging:.2f} {invoice.currency}"])
+    rows.append(["Umsatzsteuer" + (f" ({invoice.tax_rate}%)" if tax else ""), f"{tax:.2f} {invoice.currency}"])
+    rows.append(["Gesamtbetrag", f"{total:.2f} {invoice.currency}"])
     table = Table(rows, colWidths=[120 * mm, 50 * mm])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f5f4a")),
@@ -103,5 +119,22 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     notes = [value for value in [invoice.tax_note, invoice.payment_terms, f"IBAN: {invoice.iban}" if invoice.iban else "", f"BIC: {invoice.bic}" if invoice.bic else ""] if value]
     if notes:
         story.extend([Spacer(1, 8 * mm), Paragraph("<br/>".join(_escape(note) for note in notes), body)])
+    # Assinatura no rodapé (to-do do P4, adicionada em 18/09/2026) — mesmo
+    # texto/estilo nos dois fluxos (Avulso e Match), já que os dois passam
+    # por esta mesma função de render.
+    story.extend([Spacer(1, 12 * mm), Paragraph(_INVOICE_FOOTER_TEXT, _footer_style())])
     document.build(story)
     return stream.getvalue()
+
+
+_INVOICE_FOOTER_TEXT = "Made with assistance of VokalBoard - Rechnung Maker - www.vokalboard.com/rechnungmaker"
+
+
+def _footer_style():
+    styles = getSampleStyleSheet()
+    footer = styles["BodyText"].clone("InvoiceFooter")
+    footer.fontSize = 7
+    footer.leading = 9
+    footer.alignment = 1  # TA_CENTER
+    footer.textColor = colors.HexColor("#8a9a94")
+    return footer

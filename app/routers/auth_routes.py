@@ -15,7 +15,7 @@ from app.login_throttle import check_lockout, record_failure, reset as reset_log
 from app.register_throttle import is_registration_throttled, record_registration
 from app.client_ip import get_client_ip
 from app.password_policy import password_error
-from app.referrals import generate_referral_code, resolve_referrer, record_referral_verification
+from app.referrals import generate_referral_code, resolve_referrer, record_referral_verification, get_referrer_preview
 from app.routers.profile_routes import parse_hashtags, parse_audio_links, set_audio_links, MAX_BIO_LENGTH
 from app.captcha import is_bot, verify_turnstile
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
@@ -76,6 +76,12 @@ def _register_context(request: Request, error: str | None = None, ref: str = "")
         "error": error,
         "max_bio_length": MAX_BIO_LENGTH,
         "ref": ref,
+        # Hall da Fama polish, 19/09/2026: name + avatar of whoever's
+        # referral link this is, for social proof ("Fulano convidou você")
+        # instead of the old generic "you were invited by someone" text.
+        # None for an empty/invalid/unknown code — the template falls back
+        # to the generic text in that case, same as before.
+        "referrer": get_referrer_preview(ref) if ref else None,
         "country_options": COUNTRY_OPTIONS,
         "state_options": STATE_OPTIONS,
         "city_options": get_city_options(),
@@ -250,13 +256,20 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
     # so the next step can distinguish "wrong password" from "this
     # account was deleted, do you want to reactivate it?".
     user = fetch_one(
-        "SELECT id, password_hash, deleted_at FROM users WHERE email = :email", {"email": email}
+        "SELECT id, password_hash, deleted_at, banned_at FROM users WHERE email = :email", {"email": email}
     )
     if not user or not verify_password(password, user["password_hash"]):
         record_failure(email)
         return render(request, "login.html", {"user": None, "error": "login_error"}, status_code=400)
 
     reset_login_lockout(email)
+
+    # Banimento (P6, 18/09/2026, ver app/moderation.py) — checado ANTES
+    # do fluxo de reativação: uma conta banida sempre tem deleted_at
+    # também preenchido, mas NUNCA deve cair no fluxo de "reativar
+    # sozinho" — só um Admin reverte, via POST /admin/users/{id}/unban.
+    if user["banned_at"]:
+        return render(request, "login.html", {"user": None, "error": "login_error_banned"}, status_code=403)
 
     if user["deleted_at"]:
         # "Deleted" account (soft delete, kept for 6 months) — don't log
@@ -265,6 +278,14 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
         return RedirectResponse(url="/reactivate-account", status_code=303)
 
     request.session["user_id"] = user["id"]
+    # Acolhedor mascot toast (Part 2 backlog item 4, 19/09/2026): fires
+    # every login, not just the first ever — Daniel was explicit about
+    # that. One-shot flag, popped by app/render.py on the very next
+    # page render (see app/mascot_moments.py). A fresh login also gets
+    # a fresh shot at the Atento reminder, in case something changed
+    # since the last session.
+    request.session["show_welcome_toast"] = True
+    request.session.pop("mascot_reminder_shown", None)
     return RedirectResponse(url="/", status_code=303)
 
 

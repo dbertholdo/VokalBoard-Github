@@ -13,7 +13,7 @@ bcrypt).
 import re
 
 MIN_LENGTH = 6
-SPECIAL_CHARS = "!@#$%^&*()-_=+"
+SPECIAL_CHARS = "!@#$%^&*()-_=+."
 
 _HAS_LETTER = re.compile(r"[A-Za-zÀ-ÿ]")
 _HAS_DIGIT = re.compile(r"[0-9]")

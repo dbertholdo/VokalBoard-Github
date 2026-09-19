@@ -12,9 +12,30 @@ from app.csrf import verify_csrf
 from app.avatars import save_avatar, remove_existing_avatar
 from app.referrals import ensure_referral_code, get_referral_stats
 from app.badges import get_user_badges, with_profile_complete, check_and_notify_new_badges
+from app.match_evaluations import get_quality_tiers
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 from app.password_policy import password_error
 from app.i18n import SUPPORTED_LANGUAGES
+from app.singer_works import (
+    get_works,
+    get_works_by_category,
+    add_work,
+    delete_work,
+    WorkValidationError,
+    MAX_WORKS,
+    MAX_TITLE_LENGTH as MAX_WORK_TITLE_LENGTH,
+    MAX_COMPOSER_LENGTH as MAX_WORK_COMPOSER_LENGTH,
+)
+from app.cv_pdf import CvDocument, CvWork, render_cv_pdf
+from app.languages import (
+    SPOKEN_LANGUAGE_OPTIONS,
+    OTHER_LANGUAGE_CODE,
+    MAX_SPOKEN_LANGUAGES,
+    get_spoken_languages,
+    get_spoken_language_names,
+    set_spoken_languages,
+    parse_spoken_languages_form,
+)
 
 router = APIRouter()
 
@@ -92,6 +113,59 @@ def get_singer_profile(user_id: int) -> dict | None:
         """,
         {"user_id": user_id},
     )
+
+
+def get_extra_voice_types(user_id: int) -> list[dict]:
+    """Additional voice types the singer also sings, besides the primary
+    one in singer_profiles.voice_type_id (see singer_profile_voice_types
+    in db/schema.sql — foundation applied 17/09, UI added here in P2)."""
+    return fetch_all(
+        """
+        SELECT vt.id, vt.name
+        FROM singer_profile_voice_types spvt
+        JOIN voice_types vt ON vt.id = spvt.voice_type_id
+        WHERE spvt.user_id = :user_id
+        ORDER BY vt.sort_order
+        """,
+        {"user_id": user_id},
+    )
+
+
+def get_all_voice_type_names(user_id: int) -> list[str]:
+    """Primary voice + additional voices, deduplicated, in catalog order
+    — used for display on the person's own /profile and on the public
+    profile (/users/{id})."""
+    rows = fetch_all(
+        """
+        SELECT vt.id, vt.name
+        FROM voice_types vt
+        WHERE vt.id IN (
+            SELECT voice_type_id FROM singer_profiles WHERE user_id = :user_id AND voice_type_id IS NOT NULL
+            UNION
+            SELECT voice_type_id FROM singer_profile_voice_types WHERE user_id = :user_id
+        )
+        ORDER BY vt.sort_order
+        """,
+        {"user_id": user_id},
+    )
+    return [r["name"] for r in rows]
+
+
+def set_extra_voice_types(user_id: int, voice_type_ids: list[int]) -> None:
+    execute("DELETE FROM singer_profile_voice_types WHERE user_id = :user_id", {"user_id": user_id})
+    seen = set()
+    for vt_id in voice_type_ids:
+        if vt_id in seen:
+            continue
+        seen.add(vt_id)
+        execute(
+            """
+            INSERT INTO singer_profile_voice_types (user_id, voice_type_id)
+            VALUES (:user_id, :voice_type_id)
+            ON CONFLICT DO NOTHING
+            """,
+            {"user_id": user_id, "voice_type_id": vt_id},
+        )
 
 
 def get_conductor_profile(user_id: int) -> dict | None:
@@ -232,6 +306,7 @@ def get_blocked_users(user_id: int) -> list[dict]:
 
 def _my_profile_context(request: Request, user: dict, error: str | None = None, saved: bool = False) -> dict:
     singer_profile = get_singer_profile(user["id"]) if user["role"] == "singer" else None
+    extra_voice_types = get_extra_voice_types(user["id"]) if user["role"] == "singer" else []
     conductor_profile = get_conductor_profile(user["id"]) if user["role"] == "conductor" else None
     composer_tags = get_composer_tags(user["id"]) if user["role"] == "singer" else []
     audio_links = get_audio_links(user["id"]) if user["role"] == "singer" else []
@@ -244,6 +319,7 @@ def _my_profile_context(request: Request, user: dict, error: str | None = None, 
 
     completeness = compute_profile_completeness(user, role_profile, composer_tags, audio_links, social_links)
     badges = with_profile_complete(get_user_badges(user["id"]), completeness["percent"])
+    ui_lang = getattr(request.state, "lang", "de")
 
     return {
         "user": user,
@@ -251,8 +327,21 @@ def _my_profile_context(request: Request, user: dict, error: str | None = None, 
         "referral_count": get_referral_stats(user["id"])["count"],
         "blocked_users": get_blocked_users(user["id"]),
         "badges": badges,
+        # P3.F: selos de qualidade — SÓ na própria /profile (nunca em
+        # public_profile.html), "estilo Uber" (pode subir/descer),
+        # agregado, nunca mostra quem avaliou (ver app/match_evaluations.py).
+        "quality_tiers": get_quality_tiers(user["id"]),
         "voice_types": fetch_all("SELECT id, name FROM voice_types ORDER BY sort_order"),
         "singer_profile": singer_profile,
+        "extra_voice_type_ids": {v["id"] for v in extra_voice_types},
+        # P2.B — spoken languages (any role). spoken_languages: saved rows
+        # to pre-fill the form fields; spoken_language_options: fixed
+        # list (+ "Outra") to build the <select>s.
+        "spoken_languages": get_spoken_languages(user["id"]),
+        "spoken_language_options": SPOKEN_LANGUAGE_OPTIONS,
+        "other_language_code": OTHER_LANGUAGE_CODE,
+        "max_spoken_languages": MAX_SPOKEN_LANGUAGES,
+        "ui_lang": ui_lang,
         "conductor_profile": conductor_profile,
         "composer_tags": composer_tags,
         "audio_links": audio_links,
@@ -269,6 +358,13 @@ def _my_profile_context(request: Request, user: dict, error: str | None = None, 
         "country_options": COUNTRY_OPTIONS,
         "state_options": STATE_OPTIONS,
         "city_options": get_city_options(),
+        # P2 cluster (19/09/2026) — solo/choir "works" a singer manages
+        # here and that show up split into two card groups on their
+        # public profile (see app/singer_works.py).
+        "my_works": get_works(user["id"]) if user["role"] == "singer" else [],
+        "max_works": MAX_WORKS,
+        "max_work_title_length": MAX_WORK_TITLE_LENGTH,
+        "max_work_composer_length": MAX_WORK_COMPOSER_LENGTH,
         "error": error,
         "saved": saved,
     }
@@ -316,6 +412,8 @@ async def update_profile(
     preferred_language: str = Form("en"),
     appear_in_search: str = Form(""),
     profile_slug: str = Form(""),
+    phone: str = Form(""),
+    phone_visibility_public: str = Form(""),
     remove_avatar: str = Form(""),
     avatar: UploadFile | None = File(None),
 ):
@@ -324,6 +422,30 @@ async def update_profile(
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
+
+    # Multiple checkboxes sharing the name "extra_voice_type_ids" arrive as
+    # repeated form fields — FastAPI's Form() doesn't declare that shape
+    # cleanly for a mix with single-value fields above, so read it straight
+    # off the already-parsed request form.
+    form = await request.form()
+    valid_voice_ids = {r["id"] for r in fetch_all("SELECT id FROM voice_types")}
+    extra_voice_type_ids = []
+    for raw_id in form.getlist("extra_voice_type_ids"):
+        try:
+            vt_id = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if vt_id in valid_voice_ids:
+            extra_voice_type_ids.append(vt_id)
+
+    # Same pattern for the spoken-languages fields (P2.B): a repeated,
+    # parallel pair of fields per row — "spoken_language_code" (fixed
+    # list value or "other") and "spoken_language_custom" (free text,
+    # only meaningful when the code is "other").
+    spoken_language_entries = parse_spoken_languages_form(
+        form.getlist("spoken_language_code"),
+        form.getlist("spoken_language_custom"),
+    )
 
     bio = bio.strip()[:MAX_BIO_LENGTH]
 
@@ -355,7 +477,8 @@ async def update_profile(
         SET notify_matches = :notify_matches, notify_messages = :notify_messages,
             preferred_language = :preferred_language,
             appear_in_search = :appear_in_search, profile_slug = :profile_slug,
-            city = :city, state = :state, country = :country
+            city = :city, state = :state, country = :country,
+            phone = :phone, phone_visibility = :phone_visibility
         WHERE id = :id
         """,
         {
@@ -367,6 +490,13 @@ async def update_profile(
             "city": city or None,
             "state": state or None,
             "country": country,
+            # P2.C — phone stays visible on the public profile only when
+            # the person opts in; it's ALWAYS shared with a Match
+            # counterpart regardless of this setting (see
+            # match_history_routes.py), since that reveal is a platform
+            # rule, not a per-user choice.
+            "phone": phone.strip()[:50] or None,
+            "phone_visibility": "public" if phone_visibility_public else "private",
             "id": user["id"],
         },
     )
@@ -416,6 +546,7 @@ async def update_profile(
             )
 
         set_audio_links(user["id"], parse_audio_links(audio_links))
+        set_extra_voice_types(user["id"], extra_voice_type_ids)
     else:
         execute(
             """
@@ -425,6 +556,10 @@ async def update_profile(
             """,
             {"ensemble_name": ensemble_name or None, "bio": bio or None, "user_id": user["id"]},
         )
+
+    # Spoken languages (P2.B) — not tied to a role, singers and
+    # conductors can both state them.
+    set_spoken_languages(user["id"], spoken_language_entries)
 
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
     return RedirectResponse(url="/profile?saved=1", status_code=303)
@@ -521,15 +656,15 @@ def export_my_data(request: Request):
         {"id": user_id},
     )
     listings = fetch_all(
-        "SELECT id, listing_type, title, description, city, state, country, repertoire, venue, fee, ensemble_type, event_date, is_active, created_at FROM listings WHERE author_id = :id ORDER BY created_at",
+        "SELECT id, listing_type, title, description, city, state, country, repertoire, venue, fee, ensemble_type, event_date, is_active, created_at FROM visible_listings WHERE author_id = :id ORDER BY created_at",
         {"id": user_id},
     )
     messages_sent = fetch_all(
-        "SELECT id, recipient_id, listing_id, body, created_at FROM messages WHERE sender_id = :id ORDER BY created_at",
+        "SELECT id, recipient_id, listing_id, body, created_at FROM visible_messages WHERE sender_id = :id ORDER BY created_at",
         {"id": user_id},
     )
     messages_received = fetch_all(
-        "SELECT id, sender_id, listing_id, body, created_at, read_at FROM messages WHERE recipient_id = :id ORDER BY created_at",
+        "SELECT id, sender_id, listing_id, body, created_at, read_at FROM visible_messages WHERE recipient_id = :id ORDER BY created_at",
         {"id": user_id},
     )
     ratings_received = get_my_ratings(user_id)
@@ -562,6 +697,127 @@ def export_my_data(request: Request):
         content=body,
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="vokalboard-data-{user_id}.json"'},
+    )
+
+
+@router.get("/profile/wizard", response_class=HTMLResponse)
+def profile_wizard(request: Request):
+    """
+    P2 cluster, Profile Wizard (19/09/2026) — decided with Daniel via
+    AskUserQuestion ("1 and 2"): the SAME fields/form as /profile,
+    just walked through step by step with a progress bar (see
+    profile_wizard.html), submitting to the existing POST /profile
+    below — no duplicated validation logic. Reachable two ways: the
+    one-time automatic redirect right after signup when the profile is
+    still incomplete (see app/routers/listings_routes.py home()), and
+    anytime afterward on demand (linked from the Atento mascot nudge,
+    see mascot_reminder_key handling in app/templates/base.html).
+    """
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    # Marks the automatic-redirect gate as spent the first time this
+    # person actually reaches the wizard — whether they got here via
+    # that auto-redirect or clicked the link themselves. Only ever
+    # writes once (IS NULL guard); doesn't affect being able to come
+    # back to this page manually later.
+    if not user.get("profile_wizard_seen_at"):
+        execute("UPDATE users SET profile_wizard_seen_at = now() WHERE id = :id", {"id": user["id"]})
+
+    context = _my_profile_context(request, user)
+    return render(request, "profile_wizard.html", context)
+
+
+@router.post("/profile/works/add")
+def add_singer_work(
+    request: Request,
+    csrf_token: str = Form(""),
+    title: str = Form(""),
+    composer: str = Form(""),
+    category: str = Form(""),
+    video_url: str = Form(""),
+    audio_url: str = Form(""),
+):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    verify_csrf(request, csrf_token)
+    if user["role"] != "singer":
+        raise HTTPException(status_code=403)
+
+    try:
+        add_work(user["id"], title, composer, category, video_url, audio_url)
+    except WorkValidationError as exc:
+        context = _my_profile_context(request, user, error=f"work_{exc}")
+        return render(request, "profile.html", context, status_code=400)
+
+    return RedirectResponse(url="/profile?saved=1#works", status_code=303)
+
+
+@router.post("/profile/works/{work_id}/delete")
+def delete_singer_work(request: Request, work_id: int, csrf_token: str = Form("")):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    delete_work(user["id"], work_id)
+    return RedirectResponse(url="/profile?saved=1#works", status_code=303)
+
+
+@router.get("/profile/cv.pdf")
+def download_cv_pdf(request: Request):
+    """
+    P2 cluster, CV export (19/09/2026) — stateless PDF generation (see
+    app/cv_pdf.py, same "no filesystem access" shape as the Rechnung
+    generator in app/invoice_pdf.py). Only the PDF-CV half of the
+    original spec item was picked by Daniel; no business-card/QR
+    export yet.
+    """
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    account = fetch_one("SELECT email, phone, phone_visibility FROM users WHERE id = :id", {"id": user["id"]})
+    is_singer = user["role"] == "singer"
+    role_profile = get_singer_profile(user["id"]) if is_singer else get_conductor_profile(user["id"])
+    works = get_works_by_category(user["id"]) if is_singer else {"solo": [], "choir": []}
+
+    if is_singer:
+        headline = role_profile.get("voice_type_name") if role_profile else ""
+        if role_profile and role_profile.get("fach"):
+            headline = f"{headline} — {role_profile['fach']}" if headline else role_profile["fach"]
+    else:
+        headline = role_profile.get("ensemble_name") if role_profile else ""
+
+    profile_slug = user.get("profile_slug")
+    profile_url = f"{str(request.base_url).rstrip('/')}/{'u/' + profile_slug if profile_slug else 'users/' + str(user['id'])}"
+
+    cv = CvDocument(
+        full_name=user["full_name"],
+        headline=headline or "",
+        city=user.get("city") or "",
+        country=user.get("country") or "",
+        bio=(role_profile.get("bio") if role_profile else "") or "",
+        # Respects the same visibility choice as the public profile —
+        # a CV downloaded by the person themselves still shouldn't
+        # leak a phone number they explicitly kept private, since a
+        # PDF is easy to forward on.
+        phone=(account["phone"] or "") if account and account["phone_visibility"] == "public" else "",
+        email=account["email"] if account else "",
+        profile_url=profile_url,
+        spoken_languages=get_spoken_language_names(user["id"], getattr(request.state, "lang", "de")),
+        composer_tags=get_composer_tags(user["id"]) if is_singer else [],
+        solo_works=[CvWork(title=w["title"], composer=w.get("composer") or "") for w in works["solo"]],
+        choir_works=[CvWork(title=w["title"], composer=w.get("composer") or "") for w in works["choir"]],
+        audio_links=get_audio_links(user["id"]) if is_singer else [],
+    )
+    pdf_bytes = render_cv_pdf(cv)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="vokalboard-cv-{user["id"]}.pdf"'},
     )
 
 
@@ -659,7 +915,7 @@ def rate_user(
 def public_profile(request: Request, user_id: int, background_tasks: BackgroundTasks):
     profile_user = fetch_one(
         """
-        SELECT id, email, full_name, role, city, phone, avatar_url, profile_slug, profile_highlighted_until
+        SELECT id, email, full_name, role, city, phone, phone_visibility, avatar_url, profile_slug, profile_highlighted_until
         FROM users WHERE id = :id AND deleted_at IS NULL
         """,
         {"id": user_id},
@@ -722,7 +978,7 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
                 WHEN event_date <= CURRENT_DATE + INTERVAL '7 days' THEN 'soon'
                 ELSE 'upcoming'
             END AS event_status
-        FROM listings
+        FROM visible_listings
         WHERE author_id = :author_id AND is_active = TRUE
         ORDER BY created_at DESC
         """,
@@ -770,6 +1026,37 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
     # (the profile doesn't get cluttered with "locked achievements"
     # for visitors) — the person themselves sees all of them, locked
     # or not, in /profile.
+    # P3.B: if I (the viewer) have my own open vacancies and this
+    # profile belongs to a singer, offer to invite them directly —
+    # "convite pelo diretório". Only listings I OWN with at least one
+    # vacancy that still has room, and only ever from HERE (not shown
+    # to the artist themselves, and never for a conductor profile).
+    invitable_vacancies = []
+    if (
+        profile_user
+        and viewer is not None
+        and viewer["id"] != user_id
+        and profile_user["role"] == "singer"
+        and not blocked_either_way
+    ):
+        invitable_vacancies = fetch_all(
+            """
+            SELECT lv.id AS vacancy_id, lv.total_slots, lv.filled_slots,
+                   l.id AS listing_id, l.title AS listing_title, vt.name AS voice_type_name
+            FROM listing_vacancies lv
+            JOIN listings l ON l.id = lv.listing_id
+            JOIN voice_types vt ON vt.id = lv.voice_type_id
+            WHERE l.author_id = :viewer_id AND l.is_active = TRUE
+              AND lv.filled_slots < lv.total_slots
+              AND NOT EXISTS (
+                  SELECT 1 FROM job_invitations ji
+                  WHERE ji.vacancy_id = lv.id AND ji.artist_user_id = :profile_id AND ji.status = 'pending'
+              )
+            ORDER BY l.created_at DESC
+            """,
+            {"viewer_id": viewer["id"], "profile_id": user_id},
+        )
+
     badges = []
     if profile_user and not blocked_either_way:
         role_profile_for_badges = singer_profile if profile_user["role"] == "singer" else conductor_profile
@@ -795,8 +1082,27 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
         "badges": badges,
         "is_highlighted": is_highlighted,
         "listings": listings,
+        # Primary voice + extra voices (singer_profile_voice_types),
+        # deduplicated — P2.A. Empty for conductors/composers.
+        "all_voice_names": get_all_voice_type_names(user_id) if profile_user and profile_user["role"] == "singer" else [],
+        # Spoken languages (P2.B) — any role.
+        "spoken_language_names": get_spoken_language_names(user_id, getattr(request.state, "lang", "de")) if profile_user else [],
+        # P3.B: "convidar para uma vaga" widget data + flash messages
+        # from the invite form's redirect back to this same page.
+        "invitable_vacancies": invitable_vacancies,
+        "invited": request.query_params.get("invited") == "1",
+        "invite_error": request.query_params.get("invite_error"),
         # Freemium: without login you can only see name/role/city —
         # bio, hashtags, audio links and listings stay behind signup.
         "locked": viewer is None,
+        # P2 cluster (19/09/2026) — solo vs. choir repertoire cards
+        # (see app/singer_works.py). Empty for conductors/composers and
+        # for the locked (not-logged-in) freemium view, same gating as
+        # audio_links/composer_tags above.
+        "works_by_category": (
+            get_works_by_category(user_id)
+            if profile_user and profile_user["role"] == "singer" and viewer is not None
+            else {"solo": [], "choir": []}
+        ),
     }
     return render(request, "public_profile.html", context)

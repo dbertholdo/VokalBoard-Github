@@ -1,0 +1,6 @@
+<a href="/users/{{ user.id }}">{{ t('nav_view_my_profile') }}</a>
+<a href="/profile">{{ t('nav_edit_profile') }}</a>
+<a href="/profile/matches">{{ t('nav_match_history') }}{% if pending_evaluations_count and pending_evaluations_count > 0 %} <span class="badge-count">{{ pending_evaluations_count }}</span>{% endif %}</a>
+<a href="/rechnungmaker">{{ t('nav_rechnungmaker') }}{% if pending_invoice_actions_count and pending_invoice_actions_count > 0 %} <span class="badge-count">{{ pending_invoice_actions_count }}</span>{% endif %}</a>
+<a href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
+<span aria-disabled="true" class="profile-menu-pending">{{ t('nav_profile_download') }} — {{ t('feature_coming_soon') }}</span>

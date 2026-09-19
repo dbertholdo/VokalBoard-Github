@@ -61,7 +61,7 @@
             {% endif %}
             <p class="person-card-name">{{ p.full_name.split(' ')[0] }}</p>
             <p class="person-card-subtitle">
-                {{ t('role_singer') if p.role == "singer" else t('role_conductor') }}{% if p.voice_type_name %} · {{ p.voice_type_name }}{% endif %}
+                {{ t('role_singer') if p.role == "singer" else t('role_conductor') }}{% if p.all_voice_type_names %} · {{ p.all_voice_type_names }}{% elif p.voice_type_name %} · {{ p.voice_type_name }}{% endif %}
             </p>
             {% if p.badges and p.badges|length > 0 %}
                 <p class="person-card-badges">

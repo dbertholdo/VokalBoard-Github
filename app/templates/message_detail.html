@@ -15,6 +15,8 @@
     </p>
 
     <div class="message-body-box">{{ message.body }}</div>
+    {% set retention_days = message.retention_days %}
+    {% include '_retention_warning.html' %}
 
     <div class="message-actions">
         <a href="/messages/new?to={{ other_id }}{% if message.listing_id %}&listing_id={{ message.listing_id }}{% endif %}" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-reply"></use></svg> {{ t('message_reply') }}</a>

@@ -1,0 +1,7 @@
+{% if retention_days %}
+{% set warning_text = t('message_retention_warning').replace('{days}', retention_days|string) %}
+<details class="retention-warning">
+    <summary title="{{ warning_text }}" aria-label="{{ warning_text }}">(!)</summary>
+    <p>{{ warning_text }}</p>
+</details>
+{% endif %}

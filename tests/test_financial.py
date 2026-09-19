@@ -286,6 +286,50 @@ class TestFinancialClosing:
         assert pdf_resp.headers["content-type"] == "application/pdf"
 
 
+class TestPeriodFilter:
+    """"Ver transações por período" (Daniel, 18/09/2026) — date-range
+    filter on /financeiro/painel, applied to the expenses list, its
+    total and the "by category" chart."""
+
+    def test_expenses_filtered_by_period(self, god_user, client):
+        r = client.get("/financeiro/painel")
+        token = extract_csrf(r.text)
+
+        client.post(
+            "/financeiro/expenses",
+            data={
+                "csrf_token": token, "description": "Inside Period Expense", "amount": "10.00",
+                "currency": "EUR", "category": "hosting", "expense_date": "2026-09-10",
+            },
+            follow_redirects=False,
+        )
+        client.post(
+            "/financeiro/expenses",
+            data={
+                "csrf_token": token, "description": "Outside Period Expense", "amount": "20.00",
+                "currency": "EUR", "category": "hosting", "expense_date": "2026-01-01",
+            },
+            follow_redirects=False,
+        )
+
+        unfiltered = client.get("/financeiro/painel")
+        assert "Inside Period Expense" in unfiltered.text
+        assert "Outside Period Expense" in unfiltered.text
+
+        filtered = client.get("/financeiro/painel", params={"start": "2026-09-01", "end": "2026-09-30"})
+        assert filtered.status_code == 200
+        assert "Inside Period Expense" in filtered.text
+        assert "Outside Period Expense" not in filtered.text
+        # The date inputs keep the values submitted, so the admin can see
+        # (and tweak) the active filter rather than it silently resetting.
+        assert 'value="2026-09-01"' in filtered.text
+        assert 'value="2026-09-30"' in filtered.text
+
+    def test_invalid_period_is_ignored_not_an_error(self, god_user, client):
+        r = client.get("/financeiro/painel", params={"start": "not-a-date", "end": ""})
+        assert r.status_code == 200
+
+
 class TestCapitalismoBannerHidden:
     def test_banner_hidden_while_capitalismo_mode_off(self, client):
         user_id, email, password = register_test_user(client, full_name="Banner Test User")

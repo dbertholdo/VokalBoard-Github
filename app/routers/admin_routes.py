@@ -16,18 +16,57 @@ direct UPDATE on the database:
 (see README, "Admin level" section). After that, promoting other
 people can be done from here (/admin/users/{id}).
 """
+from decimal import Decimal, InvalidOperation
+
 from fastapi import APIRouter, Request, Form, UploadFile, File
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 
 from app.database import fetch_all, fetch_one, execute, execute_returning
-from app.referrals import record_referral_verification
+from app.match_evaluations import get_quality_tiers
+from app.referrals import record_referral_verification, get_credit_ledger
+from app.notas_wallet import get_credit_balance, refund_ledger_entry
+from app.highlights import adjust_highlight_days, MAX_HIGHLIGHT_DAYS_ADJUSTMENT
+from app.moderation import resolve_report, apply_moderation_punishment, unban_user, get_moderation_history, PUNISHMENT_TYPES
+from app.email import send_email
+from app.email_localization import report_resolved_email, moderation_punishment_email
+from app.shop_catalog import (
+    list_all_catalog_items,
+    toggle_catalog_item_active,
+    create_catalog_item,
+    update_catalog_item,
+    get_shop_history,
+    count_shop_history,
+    SHOP_HISTORY_PAGE_SIZE,
+    ALLOWED_ICONS,
+    DEFAULT_ICON,
+)
 from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
 from app.routers.auth_routes import send_password_reset_email
-from app.permissions import require_level, sync_is_admin_flag, LEVEL_COMMON, LEVEL_MODERATOR, LEVEL_ADMIN, LEVEL_GOD
+from app.permissions import require_level, sync_is_admin_flag, log_audit_action, LEVEL_COMMON, LEVEL_MODERATOR, LEVEL_ADMIN, LEVEL_GOD
 from app.richtext import sanitize_post_body
 from app.post_images import save_post_image
+from app.system_flags import is_compatibility_score_visible, set_compatibility_score_visible
+from app.feature_usage import get_feature_usage_totals
+from app.email_layout import (
+    get_email_layout_settings,
+    update_email_layout_settings,
+    update_email_template,
+    reset_email_template,
+    render_email,
+    DEFAULT_TEMPLATE_HTML,
+)
+from app.periodic_mails import (
+    FREQUENCIES,
+    list_periodic_mails,
+    get_periodic_mail,
+    create_periodic_mail,
+    update_periodic_mail,
+    set_periodic_mail_active,
+    delete_periodic_mail,
+    render_body_preview,
+)
 
 router = APIRouter()
 
@@ -77,23 +116,23 @@ def admin_dashboard(request: Request):
 
     stats = {
         "users": fetch_one("SELECT COUNT(*) AS n FROM users WHERE deleted_at IS NULL")["n"],
-        "listings": fetch_one("SELECT COUNT(*) AS n FROM listings WHERE is_active = TRUE")["n"],
-        "messages": fetch_one("SELECT COUNT(*) AS n FROM messages")["n"],
+        "listings": fetch_one("SELECT COUNT(*) AS n FROM visible_listings WHERE is_active = TRUE")["n"],
+        "messages": fetch_one("SELECT COUNT(*) AS n FROM visible_messages")["n"],
         "blocked_pairs": fetch_one("SELECT COUNT(*) AS n FROM blocked_users")["n"],
-        "open_reports": fetch_one("SELECT COUNT(*) AS n FROM listing_reports")["n"],
+        "open_reports": fetch_one("SELECT COUNT(*) AS n FROM listing_reports WHERE status = 'open'")["n"],
     }
 
     reports = fetch_all(
         """
-        SELECT lr.id, lr.reason, lr.created_at,
+        SELECT lr.id, lr.reason, lr.created_at, lr.status,
                l.id AS listing_id, l.title AS listing_title,
                ru.full_name AS reporter_name,
                au.full_name AS author_name
         FROM listing_reports lr
-        JOIN listings l ON l.id = lr.listing_id
+        JOIN visible_listings l ON l.id = lr.listing_id
         JOIN users ru ON ru.id = lr.reporter_id
         JOIN users au ON au.id = l.author_id
-        ORDER BY lr.created_at DESC
+        ORDER BY (lr.status = 'open') DESC, lr.created_at DESC
         LIMIT 50
         """
     )
@@ -115,12 +154,93 @@ def admin_dashboard(request: Request):
         "stats": stats,
         "reports": reports,
         "blocks": blocks,
+        # P3.E: on/off for the "% compatibilidade" signal (see
+        # app/compatibility.py) — off by default, Daniel wants to
+        # discuss the actual display before turning it on for real
+        # users. Sorting by it (fee > cidade > nota) already happens
+        # on the Home regardless of this flag; this only controls
+        # whether the number itself is ever shown.
+        "compatibility_score_visible": is_compatibility_score_visible(),
+        # P4 Etapa 3 (18/09/2026): "quais ferramentas do site são mais
+        # usadas" — pedido do Daniel, junto do badge de pendência do
+        # Rechnungmaker. Genérico (app/feature_usage.py); Rechnungmaker é
+        # só o primeiro a alimentar isso.
+        "feature_usage": get_feature_usage_totals(),
     }
     return render(request, "admin.html", context)
 
 
+@router.post("/admin/reports/{report_id}/accept")
+def admin_accept_report(request: Request, report_id: int, csrf_token: str = Form(...), punishment: str = Form("")):
+    """"No botão de denúncia precisamos definir alguma forma de
+    warning/punição/banimento" (pedido do Daniel, P6) — aceitar uma
+    denúncia agora também aplica (opcionalmente) uma punição ao autor
+    do anúncio, escolhida no mesmo formulário. `punishment` vazio =
+    aceita sem punir a conta (ex.: já resolvido de outro jeito)."""
+    admin = require_level(request, LEVEL_GOD)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    if punishment and punishment not in PUNISHMENT_TYPES:
+        return RedirectResponse(url="/admin?report_error=1", status_code=303)
+
+    report = resolve_report(report_id, accepted=True, admin_id=admin["id"])
+    if not report:
+        return RedirectResponse(url="/admin", status_code=303)
+
+    subject, html = report_resolved_email(
+        report.get("preferred_language"), report["reporter_name"], report["listing_title"], True,
+    )
+    send_email(report["reporter_email"], subject, html)
+
+    if punishment:
+        apply_moderation_punishment(report["author_id"], punishment, report_id, admin["id"])
+        subject, html = moderation_punishment_email(
+            report.get("author_preferred_language"), report["author_name"], report["listing_title"], punishment,
+        )
+        send_email(report["author_email"], subject, html)
+        log_audit_action(request, admin, "moderation_punishment", f"user_id={report['author_id']} punishment={punishment} report_id={report_id}")
+
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/admin/reports/{report_id}/reject")
+def admin_reject_report(request: Request, report_id: int, csrf_token: str = Form(...)):
+    """Rejeitar NUNCA aplica punição — só fecha a denúncia e avisa quem
+    denunciou que não foi encontrada violação (ver
+    report_resolved_email())."""
+    admin = require_level(request, LEVEL_GOD)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    report = resolve_report(report_id, accepted=False, admin_id=admin["id"])
+    if report:
+        subject, html = report_resolved_email(
+            report.get("preferred_language"), report["reporter_name"], report["listing_title"], False,
+        )
+        send_email(report["reporter_email"], subject, html)
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/unban")
+def admin_unban_user(request: Request, user_id: int, csrf_token: str = Form(...)):
+    """Reverte um banimento — sempre manual, exige God Mode (mesmo
+    nível que aplica a punição em primeiro lugar), mesmo a página
+    /admin/users/{id} sendo acessível a partir do nível Admin comum."""
+    admin = require_level(request, LEVEL_GOD)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    unban_user(user_id)
+    log_audit_action(request, admin, "admin_unban_user", f"user_id={user_id}")
+    return RedirectResponse(url=f"/admin/users/{user_id}?unban_done=1", status_code=303)
+
+
 @router.get("/admin/users", response_class=HTMLResponse)
-def admin_users_list(request: Request, q: str = "", sort: str = "newest", page: int = 1):
+def admin_users_list(request: Request, q: str = "", sort: str = "newest", page: int = 1, active_only: str = ""):
     admin = require_admin(request)
     if not admin:
         return RedirectResponse(url="/", status_code=303)
@@ -129,6 +249,12 @@ def admin_users_list(request: Request, q: str = "", sort: str = "newest", page: 
     page = max(page, 1)
     offset = (page - 1) * ADMIN_USERS_PAGE_SIZE
     search = f"%{q.strip()}%" if q.strip() else "%"
+    # "Lista de usuários ativos filtrável" (pedido do Daniel, P6) — só
+    # exclui quem desativou a própria conta (users.deleted_at); usuários
+    # com role_level baixo/sem verificação continuam contando como
+    # "ativos" (não confundir com "email_verified").
+    active_only_flag = active_only == "1"
+    active_clause = "AND u.deleted_at IS NULL" if active_only_flag else ""
 
     # Aggregated subqueries (profile views, average rating/count of
     # ratings RECEIVED, messages received) joined via LEFT JOIN so a
@@ -151,18 +277,20 @@ def admin_users_list(request: Request, q: str = "", sort: str = "newest", page: 
         ) r ON r.rated_id = u.id
         LEFT JOIN (
             SELECT recipient_id, COUNT(*) AS messages_received
-            FROM messages GROUP BY recipient_id
+            FROM visible_messages GROUP BY recipient_id
         ) m ON m.recipient_id = u.id
-        WHERE u.full_name ILIKE :search OR u.email ILIKE :search
+        WHERE (u.full_name ILIKE :search OR u.email ILIKE :search) {active_clause}
         ORDER BY {ADMIN_USER_SORT_OPTIONS[sort]}
         LIMIT :limit OFFSET :offset
     """  # nosec B608 - ORDER BY comes only from ADMIN_USER_SORT_OPTIONS (a fixed
-         # allowlist, `sort` already validated against its keys above); the actual
-         # search values (search, limit, offset) are all passed as parameters.
+         # allowlist, `sort` already validated against its keys above); active_clause
+         # is also a fixed literal ("" or the hardcoded AND above, never user input
+         # interpolated directly) — the actual search values (search, limit, offset)
+         # are all passed as parameters.
     users = fetch_all(base_query, {"search": search, "limit": ADMIN_USERS_PAGE_SIZE, "offset": offset})
 
     total = fetch_one(
-        "SELECT COUNT(*) AS n FROM users WHERE full_name ILIKE :search OR email ILIKE :search",
+        f"SELECT COUNT(*) AS n FROM users u WHERE (u.full_name ILIKE :search OR u.email ILIKE :search) {active_clause}",  # nosec B608 - same fixed active_clause
         {"search": search},
     )["n"]
 
@@ -177,6 +305,7 @@ def admin_users_list(request: Request, q: str = "", sort: str = "newest", page: 
         "has_next": offset + ADMIN_USERS_PAGE_SIZE < total,
         "has_prev": page > 1,
         "sort_options": list(ADMIN_USER_SORT_OPTIONS.keys()),
+        "active_only": active_only_flag,
     }
     return render(request, "admin_users.html", context)
 
@@ -202,13 +331,13 @@ def admin_user_detail(request: Request, user_id: int):
             "SELECT COUNT(*) AS n FROM ratings WHERE rated_id = :id", {"id": user_id}
         )["n"],
         "listings": fetch_one(
-            "SELECT COUNT(*) AS n FROM listings WHERE author_id = :id AND is_active = TRUE", {"id": user_id}
+            "SELECT COUNT(*) AS n FROM visible_listings WHERE author_id = :id AND is_active = TRUE", {"id": user_id}
         )["n"],
         "messages_sent": fetch_one(
-            "SELECT COUNT(*) AS n FROM messages WHERE sender_id = :id", {"id": user_id}
+            "SELECT COUNT(*) AS n FROM visible_messages WHERE sender_id = :id", {"id": user_id}
         )["n"],
         "messages_received": fetch_one(
-            "SELECT COUNT(*) AS n FROM messages WHERE recipient_id = :id", {"id": user_id}
+            "SELECT COUNT(*) AS n FROM visible_messages WHERE recipient_id = :id", {"id": user_id}
         )["n"],
     }
 
@@ -221,14 +350,94 @@ def admin_user_detail(request: Request, user_id: int):
         {"id": user_id},
     )
 
+    # P3.F: selos de qualidade (média corrente por categoria, estilo Uber)
+    # — agregado só, o Admin pode ver o mesmo que o próprio dono vê na
+    # /profile, mas NUNCA quem avaliou ou a nota individual de um Match
+    # (ver app/match_evaluations.py — secreto por decisão do Daniel).
+    quality_tiers = get_quality_tiers(user_id)
+
     context = {
         "user": admin,
         "target": target,
         "stats": stats,
         "recent_ratings": recent_ratings,
+        "quality_tiers": quality_tiers,
         "is_self": target["id"] == admin["id"],
+        # Extrato de Notas — pedido do Daniel (18/09/2026, painel de
+        # Admin da Loja): buscar um usuário e ver o extrato dele. Mostra
+        # o extrato COMPLETO (não só compras da loja) — pra suporte,
+        # ver bônus/recompensas junto com resgates dá o quadro inteiro.
+        "notas_balance": get_credit_balance(user_id),
+        "notas_ledger": get_credit_ledger(user_id, limit=100),
+        # IDs de linhas de débito já reembolsadas (ver refund-notas
+        # abaixo) — pra esconder o botão "Reembolsar" de quem já foi
+        # reembolsado (idempotência visual; o backend também impede via
+        # idempotency_key).
+        "refunded_ledger_ids": {
+            row["reference_id"]
+            for row in fetch_all(
+                "SELECT reference_id FROM credit_ledger WHERE user_id = :id AND reason = 'admin_refund' AND reference_id IS NOT NULL",
+                {"id": user_id},
+            )
+        },
+        "max_highlight_days_adjustment": MAX_HIGHLIGHT_DAYS_ADJUSTMENT,
+        # Histórico de punições de moderação (P6, 18/09/2026) — ver
+        # app/moderation.py.
+        "moderation_history": get_moderation_history(user_id),
     }
     return render(request, "admin_user_detail.html", context)
+
+
+@router.post("/admin/users/{user_id}/highlight-days")
+def admin_adjust_highlight_days(request: Request, user_id: int, days: int = Form(...), csrf_token: str = Form(...)):
+    """"Adicionar/remover dias" (pedido do Daniel, painel de Admin,
+    P6) — dá ou tira dias de destaque de perfil manualmente (cortesia
+    de suporte, corrigir um resgate com bug, etc.), sem passar pela
+    Loja/Notas. `days` pode ser negativo pra remover."""
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    if abs(days) > MAX_HIGHLIGHT_DAYS_ADJUSTMENT:
+        return RedirectResponse(url=f"/admin/users/{user_id}?highlight_error=1", status_code=303)
+
+    adjust_highlight_days(user_id, days)
+    log_audit_action(request, admin, "admin_highlight_days_adjust", f"user_id={user_id} days={days}")
+    return RedirectResponse(url=f"/admin/users/{user_id}?highlight_updated=1", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/refund-notas/{ledger_id}")
+def admin_refund_notas(request: Request, user_id: int, ledger_id: int, csrf_token: str = Form(...)):
+    """"Reembolso" (pedido do Daniel, painel de Admin, P6) — credita de
+    volta o valor de UMA linha de débito específica do extrato de
+    Notas desse usuário (ex.: resgate de item da Loja que deu bug).
+    Só aceita reembolsar uma linha que (a) é realmente um débito
+    (delta < 0) e (b) pertence a esse usuário — nunca um valor "total"
+    vindo do formulário. `idempotency_key` amarrada ao `ledger_id`
+    impede reembolsar a mesma linha duas vezes por engano (duplo
+    clique/F5)."""
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    # A linha precisa pertencer a ESSE usuário — refund_ledger_entry()
+    # sozinha não checa isso (é chamada também de /financeiro/estornos,
+    # que não tem um user_id de URL pra comparar), então a checagem
+    # fica aqui, na rota, antes de delegar.
+    entry = fetch_one(
+        "SELECT id FROM credit_ledger WHERE id = :id AND user_id = :uid",
+        {"id": ledger_id, "uid": user_id},
+    )
+    if not entry:
+        return RedirectResponse(url=f"/admin/users/{user_id}?refund_error=1", status_code=303)
+
+    credited, _ = refund_ledger_entry(ledger_id, admin["id"])
+    if not credited:
+        return RedirectResponse(url=f"/admin/users/{user_id}?refund_error=1", status_code=303)
+    log_audit_action(request, admin, "admin_refund_notas", f"user_id={user_id} ledger_id={ledger_id}")
+    return RedirectResponse(url=f"/admin/users/{user_id}?refund_done=1", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/verify-email")
@@ -254,6 +463,24 @@ def admin_send_reset(request: Request, user_id: int, csrf_token: str = Form(...)
     if target:
         send_password_reset_email(request, target["id"], target["email"], target["full_name"], target.get("preferred_language"))
     return RedirectResponse(url=f"/admin/users/{user_id}?reset_sent=1", status_code=303)
+
+
+@router.post("/admin/toggle-compatibility-score-visible")
+def admin_toggle_compatibility_score_visible(request: Request, csrf_token: str = Form(...)):
+    """
+    P3.E: on/off for showing the "% compatibilidade" signal to end
+    users (see app/compatibility.py, app/system_flags.py). Not a Red
+    Zone action — it's not financial/destructive, just a display
+    toggle — so any LEVEL_GOD admin can flip it, no password
+    re-auth, same as toggle-admin/toggle-god-mode above.
+    """
+    admin = require_level(request, LEVEL_GOD)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    set_compatibility_score_visible(not is_compatibility_score_visible(), admin["id"])
+    return RedirectResponse(url="/admin", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/toggle-admin")
@@ -336,6 +563,13 @@ def admin_reactivate(request: Request, user_id: int, csrf_token: str = Form(...)
         return RedirectResponse(url="/", status_code=303)
     verify_csrf(request, csrf_token)
 
+    # Banimento é diferente de desativação (ver app/moderation.py) —
+    # essa rota nunca deve reverter um ban por engano/URL manipulada;
+    # só POST /admin/users/{id}/unban (God Mode) faz isso.
+    target = fetch_one("SELECT banned_at FROM users WHERE id = :id", {"id": user_id})
+    if target and target["banned_at"]:
+        return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
+
     execute("UPDATE users SET deleted_at = NULL WHERE id = :id", {"id": user_id})
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
 
@@ -356,6 +590,319 @@ def admin_delete_forever(request: Request, user_id: int, csrf_token: str = Form(
     # everything related to the account. Irreversible.
     execute("DELETE FROM users WHERE id = :id", {"id": user_id})
     return RedirectResponse(url="/admin/users?deleted=1", status_code=303)
+
+
+# ------------------------------------------------------------
+# Loja (P5 — painel de Admin, 18/09/2026). Pedido do Daniel: um menu
+# dedicado pra controlar a loja — ativar/desativar produto (ex.: bug
+# num item, sem tirar a loja inteira do ar) + histórico geral das
+# transações da loja. "Busca por usuário e extrato" reaproveita
+# /admin/users (busca já existente) — o extrato em si foi adicionado
+# à página /admin/users/{id} (ver admin_user_detail acima), em vez de
+# duplicar uma busca de usuário só pra loja.
+# ------------------------------------------------------------
+ADMIN_LOJA_HISTORY_PAGE_SIZE = SHOP_HISTORY_PAGE_SIZE
+
+
+@router.get("/admin/loja", response_class=HTMLResponse)
+def admin_loja(request: Request, page: int = 1, created: str = "", updated: str = "", error: str = ""):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+
+    page = max(page, 1)
+    offset = (page - 1) * ADMIN_LOJA_HISTORY_PAGE_SIZE
+    total_history = count_shop_history()
+
+    context = {
+        "user": admin,
+        "catalog_items": list_all_catalog_items(),
+        "allowed_icons": ALLOWED_ICONS,
+        "history": get_shop_history(limit=ADMIN_LOJA_HISTORY_PAGE_SIZE, offset=offset),
+        "page": page,
+        "total_history": total_history,
+        "page_size": ADMIN_LOJA_HISTORY_PAGE_SIZE,
+        "has_next": offset + ADMIN_LOJA_HISTORY_PAGE_SIZE < total_history,
+        "has_prev": page > 1,
+        "created": created,
+        "updated": updated,
+        "error": error,
+    }
+    return render(request, "admin_loja.html", context)
+
+
+@router.post("/admin/loja/catalog/{item_id}/toggle-active")
+def admin_loja_toggle_catalog_item(request: Request, item_id: int, csrf_token: str = Form(...)):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    toggle_catalog_item_active(item_id)
+    return RedirectResponse(url="/admin/loja", status_code=303)
+
+
+def _parse_catalog_cost(raw: str) -> Decimal | None:
+    """Aceita tanto "3" quanto "3,50" (vírgula, formato do site) ou
+    "3.50" — devolve None se não for um número válido ou não for
+    positivo."""
+    try:
+        value = Decimal(raw.strip().replace(",", "."))
+    except (InvalidOperation, AttributeError):
+        return None
+    if value <= 0:
+        return None
+    return value
+
+
+@router.post("/admin/loja/catalog/new")
+def admin_loja_create_catalog_item(
+    request: Request,
+    title: str = Form(...),
+    description: str = Form(...),
+    cost: str = Form(...),
+    icon: str = Form(DEFAULT_ICON),
+    csrf_token: str = Form(...),
+):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    parsed_cost = _parse_catalog_cost(cost)
+    if not title.strip() or not description.strip() or parsed_cost is None:
+        return RedirectResponse(url="/admin/loja?error=invalid_item", status_code=303)
+
+    create_catalog_item(title, description, parsed_cost, icon)
+    return RedirectResponse(url="/admin/loja?created=1", status_code=303)
+
+
+@router.post("/admin/loja/catalog/{item_id}/edit")
+def admin_loja_edit_catalog_item(
+    request: Request,
+    item_id: int,
+    title: str = Form(...),
+    description: str = Form(...),
+    cost: str = Form(...),
+    icon: str = Form(DEFAULT_ICON),
+    csrf_token: str = Form(...),
+):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    parsed_cost = _parse_catalog_cost(cost)
+    if not title.strip() or not description.strip() or parsed_cost is None:
+        return RedirectResponse(url="/admin/loja?error=invalid_item", status_code=303)
+
+    update_catalog_item(item_id, title, description, parsed_cost, icon)
+    return RedirectResponse(url="/admin/loja?updated=1", status_code=303)
+
+
+# ------------------------------------------------------------
+# Layout compartilhado de e-mails (P6, 18/09/2026). Pedido do Daniel:
+# editar o layout (logo, cor de destaque, emoji de cabeçalho,
+# assinatura, rodapé) de TODOS os e-mails automáticos num lugar só —
+# ver app/email_layout.py (render_email(), chamado automaticamente por
+# app/email.py's send_email() em TODOS os ~16 pontos de envio do
+# site). O "corpo mudar automaticamente baseado no objetivo do
+# e-mail" já acontecia naturalmente antes disso — cada função decide
+# o próprio conteúdo; esta tela só edita o envelope ao redor.
+# ------------------------------------------------------------
+
+SAMPLE_EMAIL_BODY_PREVIEW = """
+    <p>Olá Maria,</p>
+    <p>Este é um exemplo de corpo de e-mail — o texto real muda
+    conforme o motivo do envio (confirmação de cadastro, novo convite,
+    lembrete, etc.), mas o layout ao redor é sempre este.</p>
+    <p><a href="#">https://exemplo.com/link</a></p>
+"""
+
+
+@router.get("/admin/emails", response_class=HTMLResponse)
+def admin_emails(request: Request, tab: str = "form", updated: str = "", error: str = ""):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+
+    tab = tab if tab in ("form", "code", "periodic") else "form"
+    settings = get_email_layout_settings()
+    context = {
+        "user": admin,
+        "tab": tab,
+        "settings": settings,
+        "default_template_html": DEFAULT_TEMPLATE_HTML,
+        "preview_html": render_email(SAMPLE_EMAIL_BODY_PREVIEW),
+        "updated": updated,
+        "error": error,
+        # Only actually used by the "Periodic" tab, but cheap enough
+        # (a handful of rows, admin-only page) to just always fetch —
+        # avoids a second round-trip route just for this list.
+        "periodic_mails": list_periodic_mails() if tab == "periodic" else [],
+    }
+    return render(request, "admin_emails.html", context)
+
+
+# ------------------------------------------------------------
+# Periodic mails (P0 backlog item: daily/weekly/monthly reports) —
+# built 19/09/2026 at Daniel's request. See app/periodic_mails.py's
+# module docstring for the full design (recipients fixed to the admin
+# team this round, body-only editing, scheduling). List lives on the
+# "Periodic" tab of /admin/emails above; these are its create/edit/
+# pause/delete actions.
+# ------------------------------------------------------------
+
+@router.get("/admin/emails/periodic/new", response_class=HTMLResponse)
+def admin_periodic_mail_new(request: Request, error: str = ""):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+
+    context = {
+        "user": admin,
+        "mail": None,
+        "frequencies": FREQUENCIES,
+        "error": error,
+        "preview_html": "",
+    }
+    return render(request, "admin_periodic_mail_form.html", context)
+
+
+@router.post("/admin/emails/periodic/new")
+def admin_periodic_mail_create(
+    request: Request,
+    name: str = Form(...),
+    subject: str = Form(...),
+    body_html: str = Form(...),
+    frequency: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    new_id = create_periodic_mail(name, subject, body_html, frequency, admin["id"])
+    if new_id is None:
+        return RedirectResponse(url="/admin/emails/periodic/new?error=dados_invalidos", status_code=303)
+
+    log_audit_action(request, admin, "create_periodic_mail", f"periodic_mail_id={new_id} name={name.strip()[:80]}")
+    return RedirectResponse(url="/admin/emails?tab=periodic&updated=1", status_code=303)
+
+
+@router.get("/admin/emails/periodic/{mail_id}/edit", response_class=HTMLResponse)
+def admin_periodic_mail_edit_form(request: Request, mail_id: int, error: str = ""):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+
+    mail = get_periodic_mail(mail_id)
+    if not mail:
+        return RedirectResponse(url="/admin/emails?tab=periodic", status_code=303)
+
+    context = {
+        "user": admin,
+        "mail": mail,
+        "frequencies": FREQUENCIES,
+        "error": error,
+        "preview_html": render_body_preview(mail["body_html"]),
+    }
+    return render(request, "admin_periodic_mail_form.html", context)
+
+
+@router.post("/admin/emails/periodic/{mail_id}/edit")
+def admin_periodic_mail_update(
+    request: Request,
+    mail_id: int,
+    name: str = Form(...),
+    subject: str = Form(...),
+    body_html: str = Form(...),
+    frequency: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    ok = update_periodic_mail(mail_id, name, subject, body_html, frequency, admin["id"])
+    if not ok:
+        return RedirectResponse(url=f"/admin/emails/periodic/{mail_id}/edit?error=dados_invalidos", status_code=303)
+
+    log_audit_action(request, admin, "update_periodic_mail", f"periodic_mail_id={mail_id}")
+    return RedirectResponse(url="/admin/emails?tab=periodic&updated=1", status_code=303)
+
+
+@router.post("/admin/emails/periodic/{mail_id}/toggle")
+def admin_periodic_mail_toggle(request: Request, mail_id: int, is_active: str = Form(...), csrf_token: str = Form(...)):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    set_periodic_mail_active(mail_id, is_active == "1", admin["id"])
+    log_audit_action(request, admin, "toggle_periodic_mail", f"periodic_mail_id={mail_id} is_active={is_active == '1'}")
+    return RedirectResponse(url="/admin/emails?tab=periodic&updated=1", status_code=303)
+
+
+@router.post("/admin/emails/periodic/{mail_id}/delete")
+def admin_periodic_mail_delete(request: Request, mail_id: int, csrf_token: str = Form(...)):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    delete_periodic_mail(mail_id)
+    log_audit_action(request, admin, "delete_periodic_mail", f"periodic_mail_id={mail_id}")
+    return RedirectResponse(url="/admin/emails?tab=periodic&updated=1", status_code=303)
+
+
+@router.post("/admin/emails")
+async def admin_emails_update(
+    request: Request,
+    accent_color: str = Form(...),
+    header_emoji: str = Form(...),
+    signature: str = Form(...),
+    footer: str = Form(...),
+    csrf_token: str = Form(...),
+    logo: UploadFile | None = File(None),
+):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    logo_url = None  # None = mantém o logo atual (não reenviar arquivo toda vez)
+    if logo is not None and logo.filename:
+        logo_url = await save_post_image(logo)  # mesmo validador/processamento já usado nos posts do blog
+
+    update_email_layout_settings(logo_url, accent_color, header_emoji, signature, footer, admin["id"])
+    return RedirectResponse(url="/admin/emails?updated=1", status_code=303)
+
+
+@router.post("/admin/emails/template")
+def admin_emails_update_template(request: Request, template_html: str = Form(...), csrf_token: str = Form(...)):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    ok = update_email_template(template_html, admin["id"])
+    if not ok:
+        return RedirectResponse(url="/admin/emails?tab=code&error=invalid_template", status_code=303)
+    return RedirectResponse(url="/admin/emails?tab=code&updated=1", status_code=303)
+
+
+@router.post("/admin/emails/template/reset")
+def admin_emails_reset_template(request: Request, csrf_token: str = Form(...)):
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+
+    reset_email_template(admin["id"])
+    return RedirectResponse(url="/admin/emails?tab=code&updated=1", status_code=303)
 
 
 # Weekday names for Postgres's EXTRACT(dow ...), which returns
@@ -494,7 +1041,7 @@ def admin_analytics(request: Request):
             COUNT(*) FILTER (WHERE email_verified) AS verified,
             COUNT(DISTINCT l.author_id) AS posted_listing
         FROM users u
-        LEFT JOIN listings l ON l.author_id = u.id
+        LEFT JOIN visible_listings l ON l.author_id = u.id
         WHERE u.deleted_at IS NULL
         """
     )
@@ -507,7 +1054,7 @@ def admin_analytics(request: Request):
         """
         WITH pairs AS (
             SELECT LEAST(sender_id, recipient_id) AS a, GREATEST(sender_id, recipient_id) AS b, sender_id
-            FROM messages
+            FROM visible_messages
         ),
         conversations AS (
             SELECT a, b, COUNT(DISTINCT sender_id) AS distinct_senders
@@ -529,7 +1076,7 @@ def admin_analytics(request: Request):
         "SELECT stars, COUNT(*) AS n FROM ratings GROUP BY stars ORDER BY stars DESC"
     )
     listing_type_distribution = fetch_all(
-        "SELECT listing_type, COUNT(*) AS n FROM listings WHERE is_active = TRUE GROUP BY listing_type ORDER BY n DESC"
+        "SELECT listing_type, COUNT(*) AS n FROM visible_listings WHERE is_active = TRUE GROUP BY listing_type ORDER BY n DESC"
     )
 
     # --- Retention -------------------------------------------------------

@@ -49,6 +49,8 @@
                 </span>
                 <p class="snippet">{{ m.body[:120] }}{% if m.body|length > 120 %}…{% endif %}</p>
             </a>
+            {% set retention_days = m.retention_days %}
+            {% include '_retention_warning.html' %}
             {% if folder == "trash" %}
             <form method="post" action="/messages/{{ m.id }}/restore" class="message-restore-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

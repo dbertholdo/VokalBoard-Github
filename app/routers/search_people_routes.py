@@ -68,7 +68,15 @@ def search_people(
         conditions.append("u.role = :role")
         params["role"] = role
     if voice_type_id:
-        conditions.append("sp.voice_type_id = :voice_type_id")
+        # Match either the primary voice (singer_profiles.voice_type_id)
+        # or any additional voice the singer registered
+        # (singer_profile_voice_types) — same "any voice" pattern used
+        # for board matching/notifications/banners (P2.A).
+        conditions.append(
+            "(sp.voice_type_id = :voice_type_id OR EXISTS "
+            "(SELECT 1 FROM singer_profile_voice_types spvt "
+            "WHERE spvt.user_id = u.id AND spvt.voice_type_id = :voice_type_id))"
+        )
         params["voice_type_id"] = int(voice_type_id)
 
     where_clause = " AND ".join(conditions)
@@ -93,7 +101,13 @@ def search_people(
     rows = fetch_all(
         f"""
         SELECT u.id, u.full_name, u.role, u.city, u.state, u.country, u.avatar_url, u.profile_slug,
-               vt.name AS voice_type_name
+               vt.name AS voice_type_name,
+               (
+                   SELECT string_agg(DISTINCT vt2.name, ', ' ORDER BY vt2.name)
+                   FROM voice_types vt2
+                   WHERE vt2.id = sp.voice_type_id
+                      OR vt2.id IN (SELECT voice_type_id FROM singer_profile_voice_types WHERE user_id = u.id)
+               ) AS all_voice_type_names
         FROM users u
         LEFT JOIN singer_profiles sp ON sp.user_id = u.id
         LEFT JOIN voice_types vt ON vt.id = sp.voice_type_id

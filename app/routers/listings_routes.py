@@ -7,9 +7,35 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.notifications import notify_matching_users
 from app.badges import check_and_notify_new_badges
+from app.urgency import ListingNotEligible, UrgencyUnavailable, get_urgency_status, mark_listing_urgent
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 from app.richtext import html_to_excerpt
 from app.highlights import get_weekly_highlights
+from app.retention_rules import availability_valid
+from app.vacancies import get_vacancies, parse_vacancies_form, set_vacancies
+from app.fees import fee_valid, CURRENCIES, DEFAULT_CURRENCY
+from app.compatibility import FEE_COMPATIBILITY_ORDER_SQL, RATING_JOIN_SQL, viewer_location_params
+from app.mascot_moments import _profile_incomplete
+from datetime import date
+from sqlalchemy.exc import IntegrityError
+
+
+def _persist_listing(query, params, returning=False):
+    try:
+        return execute_returning(query, params) if returning else execute(query, params)
+    except IntegrityError as exc:
+        reason = getattr(getattr(exc.orig, 'diag', None), 'message_primary', '')
+        if reason in ('availability_limit', 'availability_invalid'):
+            raise HTTPException(status_code=400, detail=reason) from exc
+        raise
+
+
+def _valid_event_date(value):
+    try:
+        date.fromisoformat(value)
+        return True
+    except (ValueError, TypeError):
+        return False
 
 router = APIRouter()
 
@@ -40,9 +66,17 @@ EVENT_STATUS_SQL = """
 
 LISTING_COLUMNS = f"""
     l.id, l.title, l.description, l.city, l.state, l.country, l.listing_type,
-    l.repertoire, l.venue, l.fee, l.ensemble_type, l.event_date, l.created_at,
+    l.repertoire, l.venue, l.fee_amount, l.fee_currency, l.fee_negotiable,
+    l.ensemble_type, l.event_date, l.available_from, l.available_until, l.created_at,
+    l.travel_cost_covered, l.rehearsal_schedule_available, l.sheet_music_available,
+    l.is_urgent, l.urgent_marked_at,
     {EVENT_STATUS_SQL}
 """
+
+# P5 Etapa 2 (18/09/2026): "urgência" só faz sentido pra quem está
+# procurando preencher uma vaga — um autoanúncio de disponibilidade
+# não tem "vaga" nenhuma pra marcar como urgente. Decisão do Daniel.
+URGENCY_ELIGIBLE_LISTING_TYPES = ("seeking_singer", "seeking_conductor")
 
 BOARD_PAGE_SIZE = 20
 
@@ -58,22 +92,25 @@ LISTING_WINDOW_MINUTES = 5
 
 def _listing_creation_throttled(author_id: int) -> bool:
     row = fetch_one(
-        "SELECT COUNT(*) AS n FROM listings WHERE author_id = :id AND created_at > now() - interval '1 minute' * :window",
+        "SELECT COUNT(*) AS n FROM visible_listings WHERE author_id = :id AND created_at > now() - interval '1 minute' * :window",
         {"id": author_id, "window": LISTING_WINDOW_MINUTES},
     )
     return bool(row and row["n"] >= MAX_LISTINGS_PER_WINDOW)
 
 
-def _job_fields_valid(listing_type: str, city: str, repertoire: str, fee: str) -> bool:
+def _job_fields_valid(listing_type: str, city: str, repertoire: str, fee_ok: bool) -> bool:
     """
-    Listings of type 'seeking_singer' (looking for a singer for a
-    job) need Repertoire, City and Fee filled in — as requested.
+    Hiring a singer or conductor requires Repertoire, City and Fee.
     Voice type doesn't enter the validation because "blank" already
-    means "all voices", a valid choice.
+    means "all voices", a valid choice. `fee_ok` is computed by the
+    caller via app.fees.fee_valid() — P3.E: "Fee" is no longer a plain
+    non-empty string, it's "exactly one of fee_amount/fee_negotiable",
+    which needs its own parsing (comma/dot decimal, currency), so that
+    lives in app/fees.py instead of being re-implemented here.
     """
-    if listing_type != "seeking_singer":
+    if listing_type not in ("seeking_singer", "seeking_conductor"):
         return True
-    return bool(city.strip()) and bool(repertoire.strip()) and bool(fee.strip())
+    return bool(city.strip()) and bool(repertoire.strip()) and fee_ok
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -94,9 +131,28 @@ def home(request: Request):
     user = get_current_user(request)
     matches = []
 
+    # P2 cluster, Profile Wizard (19/09/2026, decided with Daniel via
+    # AskUserQuestion — "1 and 2": BOTH shown once automatically right
+    # after signup AND reachable anytime later on demand from the
+    # Atento mascot nudge, see app/templates/base.html). This is the
+    # "once automatically" half: fires only the very first time this
+    # person ever lands on a page with an incomplete profile, gated by
+    # users.profile_wizard_seen_at (set the moment they actually reach
+    # /profile/wizard — see app/routers/profile_routes.py). Never
+    # fires again after that, even if the profile becomes incomplete
+    # again later (e.g. they clear their bio) — it's a first-time
+    # onboarding nudge, not a recurring interruption; the Atento toast
+    # already covers "incomplete profile" as an ongoing nudge.
+    if user and not user.get("profile_wizard_seen_at") and _profile_incomplete(user):
+        return RedirectResponse(url="/profile/wizard", status_code=303)
+
     if user:
-        match_params = {"city": f"%{user['city']}%" if user["city"] else ""}
-        order_by_city = "CASE WHEN l.city ILIKE :city THEN 0 ELSE 1 END, l.created_at DESC" if user["city"] else "l.created_at DESC"
+        # P3.E: "quem paga mais primeiro", negociável por último,
+        # desempatando por compatibilidade (cidade > nota, nunca
+        # exibida) — ver app/compatibility.py. Substitui a antiga
+        # ordem só-por-cidade.
+        match_params = viewer_location_params(user)
+        order_by_city = FEE_COMPATIBILITY_ORDER_SQL
 
         if user["role"] == "singer":
             conditions = [
@@ -128,9 +184,10 @@ def home(request: Request):
             matches = fetch_all(
                 f"""
                 SELECT {LISTING_COLUMNS}, u.id AS author_id, u.full_name AS author_name, vt.name AS voice_type_name
-                FROM listings l
+                FROM visible_listings l
                 JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
                 LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+                {RATING_JOIN_SQL}
                 WHERE {" AND ".join(conditions)}
                 ORDER BY {order_by_city}
                 LIMIT 5
@@ -143,9 +200,10 @@ def home(request: Request):
             matches = fetch_all(
                 f"""
                 SELECT {LISTING_COLUMNS}, u.id AS author_id, u.full_name AS author_name, vt.name AS voice_type_name
-                FROM listings l
+                FROM visible_listings l
                 JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
                 LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+                {RATING_JOIN_SQL}
                 WHERE l.is_active = TRUE AND l.listing_type = 'seeking_conductor'
                     AND (l.event_date IS NULL OR l.event_date >= CURRENT_DATE)
                     AND NOT EXISTS (SELECT 1 FROM blocked_users bu WHERE (bu.blocker_id = :viewer_block_id AND bu.blocked_id = l.author_id) OR (bu.blocker_id = l.author_id AND bu.blocked_id = :viewer_block_id))
@@ -158,15 +216,22 @@ def home(request: Request):
 
     teaser_listings = []
     if not user:
+        # P3.E: sem login não dá pra personalizar por cidade/perfil —
+        # mas a ordem "quem paga mais primeiro, negociável por último"
+        # vale igual (Daniel: "aparecerá 5 anúncios genéricos e
+        # mistos, com os que pagam mais primeiro").
         teaser_listings = fetch_all(
             f"""
             SELECT {LISTING_COLUMNS}, u.full_name AS author_name
-            FROM listings l
+            FROM visible_listings l
             JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
+            {RATING_JOIN_SQL}
             WHERE l.is_active = TRUE AND (l.event_date IS NULL OR l.event_date >= CURRENT_DATE)
-            ORDER BY l.created_at DESC
+            ORDER BY {FEE_COMPATIBILITY_ORDER_SQL}
             LIMIT 5
-            """  # nosec B608 - only LISTING_COLUMNS (fixed constant, no person input) and a SQL literal.
+            """,  # nosec B608 - only fixed fragments (FEE_COMPATIBILITY_ORDER_SQL,
+                  # no person input); the real values go in the params dict, by parameter.
+            viewer_location_params(None),
         )
 
     posts = fetch_all(
@@ -249,6 +314,7 @@ def board(
     show_past: str = "",
     date_from: str = "",
     date_to: str = "",
+    urgent: str = "",
     page: int = 1,
 ):
     """
@@ -294,27 +360,26 @@ def board(
         )
         params["viewer_block_id"] = user["id"]
 
-    if not show_past and not date_from and not date_to:
-        conditions.append("(l.event_date IS NULL OR l.event_date >= CURRENT_DATE)")
+    # Retention view, rather than event end, determines when a listing disappears.
 
     if date_from:
-        conditions.append("l.event_date >= :date_from")
+        conditions.append("COALESCE(l.available_until,l.event_date) >= :date_from")
         params["date_from"] = date_from
 
     if date_to:
-        conditions.append("l.event_date <= :date_to")
+        conditions.append("COALESCE(l.available_from,l.event_date) <= :date_to")
         params["date_to"] = date_to
 
     if city:
-        conditions.append("l.city ILIKE :city")
+        conditions.append("(l.city ILIKE :city OR (l.listing_type='singer_available' AND l.country IS NULL))")
         params["city"] = f"%{city}%"
 
     if state:
-        conditions.append("l.state = :state")
+        conditions.append("(l.state = :state OR (l.listing_type='singer_available' AND l.country IS NULL))")
         params["state"] = state
 
     if country:
-        conditions.append("l.country = :country")
+        conditions.append("(l.country = :country OR (l.listing_type='singer_available' AND l.country IS NULL))")
         params["country"] = country
 
     if listing_type:
@@ -339,6 +404,13 @@ def board(
         )
         params["tag"] = f"%{tag}%"
 
+    # P5 Etapa 2 (18/09/2026): "?urgent=1" é o "quadro de vagas
+    # urgentes" — reaproveita TODOS os filtros já existentes acima
+    # (inclusive o de voz, "filtro por voz" do plano) em vez de ser
+    # uma página separada com sua própria query.
+    if urgent:
+        conditions.append("l.is_urgent = TRUE")
+
     where_clause = " AND ".join(conditions)
 
     page = max(1, page)
@@ -346,7 +418,7 @@ def board(
     total_row = fetch_one(
         f"""
         SELECT count(*) AS n
-        FROM listings l
+        FROM visible_listings l
         WHERE {where_clause}
         """,  # nosec B608 - where_clause is just the join of fixed fragments (`conditions`,
               # assembled above); the real search values go in `params`.
@@ -372,11 +444,11 @@ def board(
                 SELECT 1 FROM saved_listings sl
                 WHERE sl.listing_id = l.id AND sl.user_id = :viewer_id
             ) AS is_saved
-        FROM listings l
+        FROM visible_listings l
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
         LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
         WHERE {where_clause}
-        ORDER BY l.created_at DESC, l.id DESC
+        ORDER BY l.is_urgent DESC, l.created_at DESC, l.id DESC
         LIMIT :limit OFFSET :offset
         """,  # nosec B608 - same fixed-fragment where_clause explained above.
         {**params, "limit": BOARD_PAGE_SIZE, "offset": offset, "viewer_id": user["id"] if user else None},
@@ -408,6 +480,7 @@ def board(
             "show_past": show_past,
             "date_from": date_from,
             "date_to": date_to,
+            "urgent": urgent,
         },
     }
     return render(request, "board.html", context)
@@ -429,17 +502,20 @@ def new_listing_form(request: Request):
         "country_options": COUNTRY_OPTIONS,
         "state_options": STATE_OPTIONS,
         "city_options": get_city_options(),
-        "values": {"country": "DE"},
+        "currencies": CURRENCIES,
+        "values": {"country": "DE", "fee_currency": DEFAULT_CURRENCY},
         "is_edit": False,
         "listing_id": None,
         "error": None,
+        "vacancies": [],
     }
     return render(request, "listing_form.html", context)
 
 
 def _listing_form_error_context(user, listing_type, title, description, city, state, country,
-                                 voice_type_id, repertoire, venue, fee, ensemble_type, event_date,
-                                 is_edit, listing_id):
+                                 voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable,
+                                 ensemble_type, event_date,
+                                 is_edit, listing_id, available_from="", available_until=""):
     voice_types = fetch_all("SELECT id, name FROM voice_types ORDER BY sort_order")
     return {
         "user": user,
@@ -449,6 +525,7 @@ def _listing_form_error_context(user, listing_type, title, description, city, st
         "country_options": COUNTRY_OPTIONS,
         "state_options": STATE_OPTIONS,
         "city_options": get_city_options(),
+        "currencies": CURRENCIES,
         "values": {
             "listing_type": listing_type,
             "title": title,
@@ -459,18 +536,27 @@ def _listing_form_error_context(user, listing_type, title, description, city, st
             "voice_type_id": voice_type_id,
             "repertoire": repertoire,
             "venue": venue,
-            "fee": fee,
+            "fee_amount": fee_amount,
+            "fee_currency": fee_currency,
+            "fee_negotiable": fee_negotiable,
             "ensemble_type": ensemble_type,
             "event_date": event_date,
+            "available_from": available_from,
+            "available_until": available_until,
         },
         "is_edit": is_edit,
         "listing_id": listing_id,
         "error": "error_required_fields",
+        # Known rough edge: vacancy rows and the logistics checkboxes
+        # aren't threaded back through this specific error path yet, so
+        # they reset to empty on a validation error — the person just
+        # re-checks them, nothing is lost from the database.
+        "vacancies": [],
     }
 
 
 @router.post("/listings/new")
-def create_listing(
+async def create_listing(
     request: Request,
     background_tasks: BackgroundTasks,
     csrf_token: str = Form(""),
@@ -483,9 +569,18 @@ def create_listing(
     voice_type_id: str = Form(""),
     repertoire: str = Form(""),
     venue: str = Form(""),
-    fee: str = Form(""),
+    fee_amount: str = Form(""),
+    fee_currency: str = Form(DEFAULT_CURRENCY),
+    fee_negotiable: str = Form(""),
     ensemble_type: str = Form(""),
     event_date: str = Form(""),
+    available_from: str = Form(""),
+    available_until: str = Form(""),
+    travel_cost_covered: str = Form(""),
+    sheet_music_available: str = Form(""),
+    sheet_music_url: str = Form(""),
+    rehearsal_schedule_available: str = Form(""),
+    is_urgent: str = Form(""),
 ):
     verify_csrf(request, csrf_token)
 
@@ -495,6 +590,39 @@ def create_listing(
     if not user["email_verified"]:
         return RedirectResponse(url="/?verify_required=1", status_code=303)
 
+    # P3.E: valor numérico + moeda + "a negociar" — ver app/fees.py.
+    # fee_ok já valida "exatamente um dos dois" (quando aplicável, ver
+    # _job_fields_valid); fee_amount_parsed é o Decimal já pronto pro
+    # INSERT (None quando negociável ou quando o cachê não é obrigatório
+    # pro listing_type e o campo ficou em branco).
+    fee_negotiable_bool = bool(fee_negotiable)
+    if fee_currency not in CURRENCIES:
+        fee_currency = DEFAULT_CURRENCY
+    fee_ok, fee_amount_parsed = fee_valid(fee_amount, fee_negotiable_bool)
+
+    # P3.A: multiple vacancies (naipe + cotas + cachê), additive on top
+    # of the single voice_type_id/fee above — see app/vacancies.py.
+    form = await request.form()
+    vacancies = parse_vacancies_form(
+        form.getlist("vacancy_voice_type_id"),
+        form.getlist("vacancy_fee_amount"),
+        form.getlist("vacancy_fee_currency"),
+        lambda i: form.get(f"vacancy_fee_negotiable_{i}"),
+        form.getlist("vacancy_total_slots"),
+    )
+
+    # P2.C: e-mail (já garantido acima, precisa estar verificado) e
+    # telefone são obrigatórios para publicar um anúncio — nenhum dos
+    # dois aparece em nenhum lugar até acontecer um Match (ver
+    # match_history_routes.py); aqui só garantimos que existem.
+    if not (user.get("phone") or "").strip():
+        context = _listing_form_error_context(
+            user, listing_type, title, description, city, state, country,
+            voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, False, None, available_from, available_until,
+        )
+        context["error"] = "error_phone_required_for_listing"
+        return render(request, "listing_form.html", context, status_code=400)
+
     if country not in COUNTRY_OPTIONS:
         country = "DE"
     if ensemble_type not in ENSEMBLE_TYPE_KEYS:
@@ -503,24 +631,33 @@ def create_listing(
     if _listing_creation_throttled(user["id"]):
         context = _listing_form_error_context(
             user, listing_type, title, description, city, state, country,
-            voice_type_id, repertoire, venue, fee, ensemble_type, event_date, False, None,
+            voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, False, None, available_from, available_until,
         )
         context["error"] = "error_listing_rate_limited"
         return render(request, "listing_form.html", context, status_code=429)
 
     # "State" is required for any listing (not just openings) —
     # together with Repertoire/City/Fee in the specific case of seeking_singer.
-    if not state.strip() or not _job_fields_valid(listing_type, city, repertoire, fee):
+    available = listing_type == 'singer_available'
+    if (available and not availability_valid(available_from, available_until)) or (not available and (not state.strip() or not _job_fields_valid(listing_type, city, repertoire, fee_ok))):
         context = _listing_form_error_context(
             user, listing_type, title, description, city, state, country,
-            voice_type_id, repertoire, venue, fee, ensemble_type, event_date, False, None,
+            voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, False, None, available_from, available_until,
         )
         return render(request, "listing_form.html", context, status_code=400)
 
-    new_listing = execute_returning(
+    if listing_type in ('seeking_singer', 'seeking_conductor') and not _valid_event_date(event_date):
+        raise HTTPException(status_code=400, detail='Event date required')
+    if available:
+        event_date = ''
+        if not state.strip() and not city.strip():
+            country = None
+    new_listing = _persist_listing(
         """
-        INSERT INTO listings (author_id, listing_type, title, description, city, state, country, voice_type_id, repertoire, venue, fee, ensemble_type, event_date)
-        VALUES (:author_id, :listing_type, :title, :description, :city, :state, :country, :voice_type_id, :repertoire, :venue, :fee, :ensemble_type, :event_date)
+        INSERT INTO listings (author_id, listing_type, title, description, city, state, country, voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable, ensemble_type, event_date, available_from, available_until,
+                               travel_cost_covered, sheet_music_available, sheet_music_url, rehearsal_schedule_available)
+        VALUES (:author_id, :listing_type, :title, :description, :city, :state, :country, :voice_type_id, :repertoire, :venue, :fee_amount, :fee_currency, :fee_negotiable, :ensemble_type, :event_date, :available_from, :available_until,
+                :travel_cost_covered, :sheet_music_available, :sheet_music_url, :rehearsal_schedule_available)
         RETURNING id
         """,
         {
@@ -534,11 +671,39 @@ def create_listing(
             "voice_type_id": int(voice_type_id) if voice_type_id else None,
             "repertoire": repertoire or None,
             "venue": venue or None,
-            "fee": fee or None,
+            "fee_amount": fee_amount_parsed,
+            "fee_currency": fee_currency,
+            "fee_negotiable": fee_negotiable_bool,
             "ensemble_type": ensemble_type,
             "event_date": event_date or None,
-        },
+            "available_from": available_from if available else None,
+            "available_until": available_until if available else None,
+            "travel_cost_covered": bool(travel_cost_covered),
+            # Zero-Storage: the link is only kept when "available" is
+            # checked — an unchecked box discards any leftover URL text.
+            "sheet_music_available": bool(sheet_music_available),
+            "sheet_music_url": (sheet_music_url.strip()[:500] or None) if sheet_music_available else None,
+            "rehearsal_schedule_available": bool(rehearsal_schedule_available),
+        }, returning=True,
     )
+
+    if listing_type == 'seeking_singer' and vacancies:
+        set_vacancies(new_listing["id"], vacancies)
+
+    # P5 Etapa 2 (18/09/2026): checkbox "marcar como urgente" já na
+    # criação — mesma função usada pelo botão "depois" em
+    # mark_listing_urgent_route(). Síncrono (não background_task) de
+    # propósito: se faltar Notas pra comprar, a pessoa precisa saber
+    # na hora (vira um aviso na página seguinte), não descobrir depois
+    # que a vaga simplesmente não ficou urgente.
+    urgent_error = ""
+    if is_urgent and listing_type in URGENCY_ELIGIBLE_LISTING_TYPES:
+        try:
+            mark_listing_urgent(user["id"], new_listing["id"])
+        except UrgencyUnavailable:
+            urgent_error = "insufficient_balance"
+        except ListingNotEligible:
+            pass  # não deveria acontecer aqui — vaga recém-criada, tipo já validado acima
 
     # Matching-listing alert: sends an e-mail to whoever has the
     # right profile (a singer with the voice being sought, or a
@@ -556,8 +721,14 @@ def create_listing(
     )
 
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
+    # Recompensa de Notas por anúncio publicado: REDESENHADA 19/09/2026 —
+    # não credita mais na hora daqui. app/listing_reward_worker.py (rodando
+    # de hora em hora) é quem credita agora, depois que a vaga fica 48h no
+    # ar (ou na hora, se marcada urgente) — ver app/listing_rewards.py pro
+    # design completo. Nada a chamar aqui.
 
-    return RedirectResponse(url="/my-listings", status_code=303)
+    redirect_url = "/my-listings?urgent_error=insufficient_balance" if urgent_error else "/my-listings?created=1"
+    return RedirectResponse(url=redirect_url, status_code=303)
 
 
 @router.get("/listings/{listing_id}", response_class=HTMLResponse)
@@ -568,7 +739,7 @@ def listing_detail(request: Request, listing_id: int):
             {LISTING_COLUMNS}, l.author_id,
             u.full_name AS author_name, u.email AS author_email, u.phone AS author_phone,
             vt.name AS voice_type_name
-        FROM listings l
+        FROM visible_listings l
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
         LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
         WHERE l.id = :id
@@ -606,10 +777,39 @@ def listing_detail(request: Request, listing_id: int):
     already_messaged = False
     if user and listing and user["id"] != listing["author_id"]:
         existing_message = fetch_one(
-            "SELECT 1 FROM messages WHERE sender_id = :sender AND listing_id = :listing_id LIMIT 1",
+            "SELECT 1 FROM visible_messages WHERE sender_id = :sender AND listing_id = :listing_id LIMIT 1",
             {"sender": user["id"], "listing_id": listing_id},
         )
         already_messaged = existing_message is not None
+
+    # P3.A: vacancies (one row per naipe/voice type) — only meaningful
+    # for seeking_singer listings; an empty list means the listing
+    # still uses the legacy single voice_type_id/fee fields.
+    vacancies = get_vacancies(listing_id) if listing and listing["listing_type"] == "seeking_singer" else []
+
+    # P3.B: does the viewer (a singer) already have a pending/accepted
+    # row for each vacancy? Avoids an N+1 by fetching once and mapping
+    # by vacancy_id, and lets the template show "already applied"
+    # instead of an Apply button for those rows.
+    my_invitation_by_vacancy = {}
+    if user and listing and user["role"] == "singer" and user["id"] != listing["author_id"] and vacancies:
+        vacancy_ids = [v["id"] for v in vacancies]
+        my_rows = fetch_all(
+            "SELECT vacancy_id, status FROM job_invitations WHERE artist_user_id = :artist_id AND vacancy_id = ANY(:vacancy_ids) AND status IN ('pending', 'accepted') ORDER BY created_at DESC",
+            {"artist_id": user["id"], "vacancy_ids": vacancy_ids},
+        )
+        for row in my_rows:
+            my_invitation_by_vacancy.setdefault(row["vacancy_id"], row["status"])
+
+    # Zero-Storage: the sheet music link itself (not just the "available"
+    # flag) is withheld until the viewer has a confirmed Match for this
+    # listing — same gating as direct contact details above.
+    sheet_music_url = None
+    if listing and listing["sheet_music_available"] and can_view_direct_contact:
+        sheet_music_row = fetch_one(
+            "SELECT sheet_music_url FROM listings WHERE id = :id", {"id": listing_id}
+        )
+        sheet_music_url = sheet_music_row["sheet_music_url"] if sheet_music_row else None
 
     is_saved = False
     already_reported = False
@@ -633,7 +833,12 @@ def listing_detail(request: Request, listing_id: int):
         "is_saved": is_saved,
         "already_reported": already_reported,
         "can_view_direct_contact": can_view_direct_contact,
+        "vacancies": vacancies,
+        "sheet_music_url": sheet_music_url,
+        "my_invitation_by_vacancy": my_invitation_by_vacancy,
         "reported_just_now": request.query_params.get("reported") == "1",
+        "applied": request.query_params.get("applied") == "1",
+        "invite_error": request.query_params.get("invite_error"),
         # Freemium: without login (or logged in but with an e-mail
         # not yet confirmed) you can see that the listing exists
         # (title, city, type, status dot) but not the full
@@ -642,6 +847,15 @@ def listing_detail(request: Request, listing_id: int):
         # show different CTAs in the template (register/log in vs.
         # resend confirmation).
         "lock_reason": "anon" if user is None else ("unverified" if not user["email_verified"] else None),
+        # P3.D follow-up, confirmed with Daniel on 2026-09-18: a vaga's
+        # Cachê (and venue/date/voice type) pulls too much of the
+        # incentive to register away — an anonymous visitor on a vaga
+        # listing now sees only Nome/Obra/Cidade in the meta line (see
+        # listing_detail.html), same fields as the convite express
+        # preview card. Scoped to vaga listings only (seeking_singer/
+        # seeking_conductor) — self-ad listings (singer_available/
+        # conductor_available) are unaffected, wasn't part of this ask.
+        "anon_teaser": user is None and bool(listing) and listing["listing_type"] in ("seeking_singer", "seeking_conductor"),
     }
     return render(request, "listing_detail.html", context)
 
@@ -661,7 +875,7 @@ def report_listing(request: Request, listing_id: int, csrf_token: str = Form("")
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    listing = fetch_one("SELECT id, author_id FROM listings WHERE id = :id", {"id": listing_id})
+    listing = fetch_one("SELECT id, author_id FROM visible_listings WHERE id = :id", {"id": listing_id})
     reason = reason.strip()
     if not listing or listing["author_id"] == user["id"] or len(reason) < 10:
         return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
@@ -679,7 +893,7 @@ def edit_listing_form(request: Request, listing_id: int):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    listing = fetch_one("SELECT * FROM listings WHERE id = :id", {"id": listing_id})
+    listing = fetch_one("SELECT * FROM visible_listings WHERE id = :id", {"id": listing_id})
     if not listing or listing["author_id"] != user["id"]:
         return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
 
@@ -692,16 +906,18 @@ def edit_listing_form(request: Request, listing_id: int):
         "country_options": COUNTRY_OPTIONS,
         "state_options": STATE_OPTIONS,
         "city_options": get_city_options(),
+        "currencies": CURRENCIES,
         "values": listing,
         "is_edit": True,
         "listing_id": listing_id,
         "error": None,
+        "vacancies": get_vacancies(listing_id) if listing["listing_type"] == "seeking_singer" else [],
     }
     return render(request, "listing_form.html", context)
 
 
 @router.post("/listings/{listing_id}/edit")
-def update_listing(
+async def update_listing(
     request: Request,
     listing_id: int,
     csrf_token: str = Form(""),
@@ -714,9 +930,17 @@ def update_listing(
     voice_type_id: str = Form(""),
     repertoire: str = Form(""),
     venue: str = Form(""),
-    fee: str = Form(""),
+    fee_amount: str = Form(""),
+    fee_currency: str = Form(DEFAULT_CURRENCY),
+    fee_negotiable: str = Form(""),
     ensemble_type: str = Form(""),
     event_date: str = Form(""),
+    available_from: str = Form(""),
+    available_until: str = Form(""),
+    travel_cost_covered: str = Form(""),
+    sheet_music_available: str = Form(""),
+    sheet_music_url: str = Form(""),
+    rehearsal_schedule_available: str = Form(""),
 ):
     verify_csrf(request, csrf_token)
 
@@ -724,28 +948,54 @@ def update_listing(
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    existing = fetch_one("SELECT author_id FROM listings WHERE id = :id", {"id": listing_id})
+    existing = fetch_one("SELECT author_id FROM visible_listings WHERE id = :id", {"id": listing_id})
     if not existing or existing["author_id"] != user["id"]:
         return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
+
+    fee_negotiable_bool = bool(fee_negotiable)
+    if fee_currency not in CURRENCIES:
+        fee_currency = DEFAULT_CURRENCY
+    fee_ok, fee_amount_parsed = fee_valid(fee_amount, fee_negotiable_bool)
+
+    form = await request.form()
+    vacancies = parse_vacancies_form(
+        form.getlist("vacancy_voice_type_id"),
+        form.getlist("vacancy_fee_amount"),
+        form.getlist("vacancy_fee_currency"),
+        lambda i: form.get(f"vacancy_fee_negotiable_{i}"),
+        form.getlist("vacancy_total_slots"),
+    )
 
     if country not in COUNTRY_OPTIONS:
         country = "DE"
     if ensemble_type not in ENSEMBLE_TYPE_KEYS:
         ensemble_type = None
 
-    if not state.strip() or not _job_fields_valid(listing_type, city, repertoire, fee):
+    available = listing_type == 'singer_available'
+    if (available and not availability_valid(available_from, available_until)) or (not available and (not state.strip() or not _job_fields_valid(listing_type, city, repertoire, fee_ok))):
         context = _listing_form_error_context(
             user, listing_type, title, description, city, state, country,
-            voice_type_id, repertoire, venue, fee, ensemble_type, event_date, True, listing_id,
+            voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, True, listing_id, available_from, available_until,
         )
         return render(request, "listing_form.html", context, status_code=400)
 
-    execute(
+    if listing_type in ('seeking_singer', 'seeking_conductor') and not _valid_event_date(event_date):
+        raise HTTPException(status_code=400, detail='Event date required')
+    if available:
+        event_date = ''
+        if not state.strip() and not city.strip():
+            country = None
+    _persist_listing(
         """
         UPDATE listings
         SET listing_type = :listing_type, title = :title, description = :description,
             city = :city, state = :state, country = :country, voice_type_id = :voice_type_id, repertoire = :repertoire,
-            venue = :venue, fee = :fee, ensemble_type = :ensemble_type, event_date = :event_date, updated_at = now()
+            venue = :venue, fee_amount = :fee_amount, fee_currency = :fee_currency, fee_negotiable = :fee_negotiable,
+            ensemble_type = :ensemble_type, event_date = :event_date,
+            available_from = :available_from, available_until = :available_until,
+            travel_cost_covered = :travel_cost_covered, sheet_music_available = :sheet_music_available,
+            sheet_music_url = :sheet_music_url, rehearsal_schedule_available = :rehearsal_schedule_available,
+            updated_at = now()
         WHERE id = :id
         """,
         {
@@ -759,11 +1009,21 @@ def update_listing(
             "voice_type_id": int(voice_type_id) if voice_type_id else None,
             "repertoire": repertoire or None,
             "venue": venue or None,
-            "fee": fee or None,
+            "fee_amount": fee_amount_parsed,
+            "fee_currency": fee_currency,
+            "fee_negotiable": fee_negotiable_bool,
             "ensemble_type": ensemble_type,
             "event_date": event_date or None,
+            "available_from": available_from if available else None,
+            "available_until": available_until if available else None,
+            "travel_cost_covered": bool(travel_cost_covered),
+            "sheet_music_available": bool(sheet_music_available),
+            "sheet_music_url": (sheet_music_url.strip()[:500] or None) if sheet_music_available else None,
+            "rehearsal_schedule_available": bool(rehearsal_schedule_available),
         },
     )
+    if listing_type == 'seeking_singer':
+        set_vacancies(listing_id, vacancies)
     return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
 
 
@@ -775,22 +1035,23 @@ def delete_listing(request: Request, listing_id: int, csrf_token: str = Form("")
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    listing = fetch_one("SELECT author_id FROM listings WHERE id = :id", {"id": listing_id})
+    listing = fetch_one("SELECT author_id FROM visible_listings WHERE id = :id", {"id": listing_id})
     if listing and listing["author_id"] == user["id"]:
-        execute("DELETE FROM listings WHERE id = :id", {"id": listing_id})
+        execute("UPDATE listings SET deleted_at=now(), archived_at=now(), is_active=FALSE WHERE id = :id", {"id": listing_id})
     return RedirectResponse(url="/", status_code=303)
 
 
 @router.get("/my-listings", response_class=HTMLResponse)
-def my_listings(request: Request):
+def my_listings(request: Request, urgent_error: str = "", urgent_marked: str = "", created: str = ""):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
     listings = fetch_all(
         f"""
-        SELECT l.id, l.title, l.listing_type, l.city, l.is_active, l.created_at, {EVENT_STATUS_SQL}
-        FROM listings l
+        SELECT l.id, l.title, l.listing_type, l.city, l.is_active, l.created_at,
+               l.is_urgent, {EVENT_STATUS_SQL}
+        FROM visible_listings l
         WHERE l.author_id = :author_id
         ORDER BY l.created_at DESC
         """,  # nosec B608 - only EVENT_STATUS_SQL (fixed constant); author_id goes by parameter.
@@ -799,8 +1060,35 @@ def my_listings(request: Request):
     context = {
         "user": user,
         "listings": listings,
+        # P5 Etapa 2 (18/09/2026): usado pelo botão "Marcar como
+        # urgente" por linha — mostra se ainda sobra o token grátis
+        # dessa semana, ou o custo em Notas se já foi usado.
+        "urgency_status": get_urgency_status(user["id"]),
+        "urgency_eligible_types": URGENCY_ELIGIBLE_LISTING_TYPES,
+        "urgent_error": urgent_error,
+        "urgent_marked": urgent_marked,
+        "created": created == "1",
     }
     return render(request, "my_listings.html", context)
+
+
+@router.post("/listings/{listing_id}/mark-urgent")
+def mark_listing_urgent_route(request: Request, listing_id: int, csrf_token: str = Form("")):
+    """P5 Etapa 2 (18/09/2026): o botão "marcar como urgente depois",
+    pra quem não marcou na hora de publicar — mesma função
+    (mark_listing_urgent) usada pelo checkbox de create_listing()."""
+    verify_csrf(request, csrf_token)
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    try:
+        mark_listing_urgent(user["id"], listing_id)
+        return RedirectResponse(url="/my-listings?urgent_marked=1", status_code=303)
+    except UrgencyUnavailable:
+        return RedirectResponse(url="/my-listings?urgent_error=insufficient_balance", status_code=303)
+    except ListingNotEligible:
+        return RedirectResponse(url="/my-listings?urgent_error=not_eligible", status_code=303)
 
 
 @router.post("/listings/{listing_id}/save")
@@ -810,7 +1098,7 @@ def save_listing(request: Request, listing_id: int, csrf_token: str = Form("")):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    listing = fetch_one("SELECT id FROM listings WHERE id = :id", {"id": listing_id})
+    listing = fetch_one("SELECT id FROM visible_listings WHERE id = :id", {"id": listing_id})
     if listing:
         # ON CONFLICT DO NOTHING: favoriting again something that's
         # already favorited simply does nothing (idempotent), instead
@@ -856,7 +1144,7 @@ def my_favorites(request: Request):
         SELECT {LISTING_COLUMNS}, u.id AS author_id, u.full_name AS author_name, vt.name AS voice_type_name,
             sl.created_at AS saved_at
         FROM saved_listings sl
-        JOIN listings l ON l.id = sl.listing_id
+        JOIN visible_listings l ON l.id = sl.listing_id
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
         LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
         WHERE sl.user_id = :user_id

@@ -23,6 +23,10 @@
             {% endfor %}
         </select>
     </label>
+    <label class="checkbox-inline">
+        <input type="checkbox" name="active_only" value="1" {{ 'checked' if active_only else '' }}>
+        Only active accounts (hide deactivated)
+    </label>
     <button type="submit" class="button-link">Filter</button>
 </form>
 
@@ -66,9 +70,9 @@
     </table>
 
     <p class="admin-pagination">
-        {% if has_prev %}<a href="/admin/users?q={{ q }}&sort={{ sort }}&page={{ page - 1 }}">&larr; Previous</a>{% endif %}
+        {% if has_prev %}<a href="/admin/users?q={{ q }}&sort={{ sort }}&active_only={{ '1' if active_only else '' }}&page={{ page - 1 }}">&larr; Previous</a>{% endif %}
         <span>Page {{ page }}</span>
-        {% if has_next %}<a href="/admin/users?q={{ q }}&sort={{ sort }}&page={{ page + 1 }}">Next &rarr;</a>{% endif %}
+        {% if has_next %}<a href="/admin/users?q={{ q }}&sort={{ sort }}&active_only={{ '1' if active_only else '' }}&page={{ page + 1 }}">Next &rarr;</a>{% endif %}
     </p>
 {% endif %}
 {% endblock %}

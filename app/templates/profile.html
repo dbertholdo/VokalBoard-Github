@@ -9,7 +9,9 @@
     {{ t('profile_view_as_public') }}
 </a></p>
 
-{% if saved %}<p class="success">{{ t('profile_saved') }}</p>{% endif %}
+{% if saved %}<p class="success">{{ t('profile_saved') }}</p>
+<script nonce="{{ csp_nonce }}">window.vbShowMascotToast('/static/img/mascot/mascot-thumbsup.png', '', 1000);</script>
+{% endif %}
 {% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
 
 <div class="completeness-box">
@@ -22,7 +24,7 @@
 </div>
 
 <div class="badges-box">
-    <h3><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-trophy"></use></svg> {{ t('badges_title') }}</h3>
+    <h2><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-trophy"></use></svg> {{ t('badges_title') }}</h2>
     <p class="field-help">{{ t('badges_help') }}</p>
     <ul class="badge-grid">
         {% for b in badges %}
@@ -38,13 +40,30 @@
     </ul>
 </div>
 
-<section class="profile-editor-card">
-<h2>{{ t('profile_title') }}</h2>
-<p class="field-help">Edit public profile details and notification preferences.</p>
+<div class="badges-box quality-tiers-box">
+    <h2><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('eval_quality_section_title') }}</h2>
+    <p class="field-help">{{ t('eval_quality_section_help') }}</p>
+    <ul class="badge-grid">
+        {% for cat, data in quality_tiers.items() %}
+            <li class="badge-tile {% if data.tier %}badge-tier-{{ data.tier }}{% else %}badge-locked{% endif %}">
+                <span class="badge-tile-label">{{ t('eval_category_' ~ cat) }}</span>
+                {% if data.tier %}
+                    <span class="badge-tile-desc">{{ t('eval_tier_' ~ data.tier) }} — {{ data.average }} ★ ({{ data.count }})</span>
+                {% else %}
+                    <span class="badge-tile-desc">{{ t('eval_quality_not_enough') }}</span>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<section class="profile-editor" aria-labelledby="profile-editor-title">
+<h2 id="profile-editor-title">{{ t('profile_title') }}</h2>
 <form method="post" action="/profile" class="stacked-form profile-editor-form" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-    <fieldset class="avatar-fieldset">
+    <div class="profile-edit-grid">
+    <fieldset class="avatar-fieldset profile-edit-card">
         <legend>{{ t('profile_avatar_label') }}</legend>
         {% if user.avatar_url %}
             <img class="avatar-preview" src="{{ user.avatar_url }}" alt="">
@@ -59,7 +78,7 @@
         <p class="field-help">{{ t('register_avatar_help') }}</p>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="profile-edit-card">
         <legend>{{ t('profile_location_label') }}</legend>
         <p class="field-help">{{ t('profile_location_help') }}</p>
         {% set loc_country = user.country if user.country else 'DE' %}
@@ -68,6 +87,21 @@
         {% include "_location_fields.html" %}
     </fieldset>
 
+    <fieldset class="profile-edit-card">
+        <legend>{{ t('profile_phone_card') }}</legend>
+        <p class="field-help">{{ t('profile_phone_help') }}</p>
+        <label>{{ t('profile_phone_label') }}
+            <input type="tel" name="phone" value="{{ user.phone or '' }}" maxlength="50" placeholder="+49 151 23456789">
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" name="phone_visibility_public" value="1" {% if user.phone_visibility == 'public' %}checked{% endif %}>
+            {{ t('profile_phone_visibility_label') }}
+        </label>
+        <p class="field-help">{{ t('profile_phone_visibility_help') }}</p>
+    </fieldset>
+
+    <fieldset class="profile-edit-card profile-edit-private">
+    <legend>{{ t('profile_preferences_card') }}</legend>
     <label class="checkbox-label">
         <input type="checkbox" name="notify_matches" value="1" {% if user.notify_matches %}checked{% endif %}>
         {{ t('notify_matches_label') }}
@@ -80,15 +114,18 @@
     </label>
     <p class="field-help">{{ t('notify_messages_help') }}</p>
 
-    <label>Email language
+    <label>{{ t('profile_email_language') }}
         <select name="preferred_language">
             {% for code in supported_languages %}
                 <option value="{{ code }}" {% if user.preferred_language == code %}selected{% endif %}>{{ language_meta[code].label }}</option>
             {% endfor %}
         </select>
     </label>
-    <p class="field-help">Transactional emails use this language. If a translation is unavailable, they are sent in English.</p>
+    <p class="field-help">{{ t('profile_email_language_help') }}</p>
+    </fieldset>
 
+    <fieldset class="profile-edit-card">
+    <legend>{{ t('profile_visibility_card') }}</legend>
     <label class="checkbox-label">
         <input type="checkbox" name="appear_in_search" value="1" {% if user.appear_in_search %}checked{% endif %}>
         {{ t('appear_in_search_label') }}
@@ -99,7 +136,30 @@
         <input type="text" name="profile_slug" value="{{ user.profile_slug or '' }}" maxlength="60" pattern="[a-z0-9-]{3,60}" placeholder="{{ user.id }}">
     </label>
     <p class="field-help">{{ t('profile_slug_help').replace('{id}', user.id | string) }}</p>
+    </fieldset>
 
+    <fieldset class="profile-edit-card">
+    <legend>{{ t('profile_spoken_languages_card') }}</legend>
+    <p class="field-help">{{ t('profile_spoken_languages_help') }}</p>
+    {% for i in range(max_spoken_languages) %}
+        {% set saved_row = spoken_languages[i] if i < spoken_languages|length else None %}
+        <div class="spoken-language-row">
+            <select name="spoken_language_code">
+                <option value="">{{ t('spoken_language_none') }}</option>
+                {% for code, names in spoken_language_options.items() %}
+                    <option value="{{ code }}" {% if saved_row and saved_row.language_code == code %}selected{% endif %}>{{ names[ui_lang] or names['en'] }}</option>
+                {% endfor %}
+                <option value="{{ other_language_code }}" {% if saved_row and saved_row.language_code == other_language_code %}selected{% endif %}>{{ t('spoken_language_other') }}</option>
+            </select>
+            <input type="text" name="spoken_language_custom" maxlength="100" placeholder="{{ t('spoken_language_other_placeholder') }}"
+                   value="{{ saved_row.custom_name if saved_row and saved_row.custom_name else '' }}">
+        </div>
+    {% endfor %}
+    <p class="field-help">{{ t('profile_spoken_languages_remove_help') }}</p>
+    </fieldset>
+
+    <fieldset class="profile-edit-card">
+    <legend>{{ t('profile_professional_card') }}</legend>
     {% if user.role == "singer" %}
         <label>{{ t('profile_voice_type_label') }}
             <select name="voice_type_id">
@@ -109,6 +169,17 @@
                 {% endfor %}
             </select>
         </label>
+
+        <fieldset class="extra-voice-types">
+            <legend>{{ t('profile_extra_voice_types_label') }}</legend>
+            <p class="field-help">{{ t('profile_extra_voice_types_help') }}</p>
+            {% for vt in voice_types %}
+                <label class="checkbox-inline">
+                    <input type="checkbox" name="extra_voice_type_ids" value="{{ vt.id }}" {% if vt.id in extra_voice_type_ids %}checked{% endif %}>
+                    {{ vt.name }}
+                </label>
+            {% endfor %}
+        </fieldset>
 
         <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ t('chars_max_suffix') }})
             <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ singer_profile.bio if singer_profile and singer_profile.bio else "" }}</textarea>
@@ -133,8 +204,9 @@
             <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ conductor_profile.bio if conductor_profile and conductor_profile.bio else "" }}</textarea>
         </label>
     {% endif %}
+    </fieldset>
 
-    <fieldset>
+    <fieldset class="profile-edit-card">
         <legend>{{ t('social_links_title') }}</legend>
         <p class="field-help">{{ t('social_links_help') }}</p>
         {% for platform in social_platforms %}
@@ -145,14 +217,71 @@
             </label>
         {% endfor %}
     </fieldset>
+    </div>
 
     <button type="submit">{{ t('profile_save') }}</button>
 </form>
 </section>
 
-<p><a href="/users/{{ user.id }}">{{ t('view_profile') }} ({{ t('public_view_label') }})</a></p>
+<p>
+    <a href="/users/{{ user.id }}">{{ t('view_profile') }} ({{ t('public_view_label') }})</a>
+    &nbsp;·&nbsp;
+    <a href="/profile/cv.pdf"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> {{ t('cv_export_link') }}</a>
+</p>
 
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('my_ratings_title') }}</h2>
+{% if user.role == "singer" %}
+<section class="profile-edit-card" id="works" aria-labelledby="profile-works-title">
+<h2 id="profile-works-title">{{ t('works_section_title') }}</h2>
+<p class="field-help">{{ t('works_section_help') }}</p>
+
+{% if my_works and my_works|length > 0 %}
+    <ul class="works-list">
+        {% for w in my_works %}
+            <li class="work-item">
+                <span class="work-category-tag work-category-{{ w.category }}">{{ t('work_category_' ~ w.category) }}</span>
+                <strong>{{ w.title }}</strong>{% if w.composer %} — {{ w.composer }}{% endif %}
+                <form method="post" action="/profile/works/{{ w.id }}/delete" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-link button-secondary">{{ t('work_delete_button') }}</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p class="empty-state">{{ t('works_empty') }}</p>
+{% endif %}
+
+{% if my_works|length < max_works %}
+<form method="post" action="/profile/works/add" class="stacked-form narrow">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ t('work_title_label') }}
+        <input type="text" name="title" maxlength="{{ max_work_title_length }}" required>
+    </label>
+    <label>{{ t('work_composer_label') }}
+        <input type="text" name="composer" maxlength="{{ max_work_composer_length }}">
+    </label>
+    <label>{{ t('work_category_label') }}
+        <select name="category" required>
+            <option value="solo">{{ t('work_category_solo') }}</option>
+            <option value="choir">{{ t('work_category_choir') }}</option>
+        </select>
+    </label>
+    <label>{{ t('work_video_url_label') }}
+        <input type="url" name="video_url" maxlength="500" placeholder="https://www.youtube.com/watch?v=...">
+    </label>
+    <label>{{ t('work_audio_url_label') }}
+        <input type="url" name="audio_url" maxlength="500" placeholder="https://...">
+    </label>
+    <button type="submit">{{ t('work_add_button') }}</button>
+</form>
+{% else %}
+    <p class="field-help">{{ t('works_max_reached') }}</p>
+{% endif %}
+</section>
+{% endif %}
+
+<section class="profile-edit-card" aria-labelledby="profile-ratings-title">
+<h2 id="profile-ratings-title"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('my_ratings_title') }}</h2>
 <p class="field-help">{{ t('my_ratings_help') }}</p>
 {% if rating_summary and rating_summary.count and rating_summary.count > 0 %}
     <p class="rating-summary">{{ rating_summary.avg_stars }} <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> ({{ rating_summary.count }} {{ t('my_ratings_count_label') }})</p>
@@ -170,8 +299,9 @@
     </ul>
 {% endif %}
 
-<div class="referral-box">
-    <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('referral_section_title') }}</h3>
+</section>
+<div class="referral-box profile-edit-card">
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('referral_section_title') }}</h2>
     <p class="field-help">{{ t('referral_section_text') }}</p>
     <div class="referral-link-row">
         <input type="text" id="referral-url-field" value="{{ referral_url }}" readonly>
@@ -195,13 +325,20 @@
     })();
 </script>
 
-<h2>{{ t('account_section_title') }}</h2>
+<section class="profile-account-area" aria-labelledby="profile-account-title">
+<h2 id="profile-account-title">{{ t('account_section_title') }}</h2>
+<p class="field-help">{{ t('profile_account_private_help') }}</p>
+<div class="profile-edit-grid">
+<section class="profile-edit-card">
+<h3>{{ t('profile_account_controls') }}</h3>
 <p><a href="/profile/change-password"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-key"></use></svg> {{ t('change_password_title') }}</a></p>
 <p><a href="/my-favorites"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ t('nav_favorites') }}</a></p>
 <p><a href="/profile/export"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> {{ t('export_data_link') }}</a></p>
 <p class="field-help">{{ t('export_data_help') }}</p>
+</section>
 
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> {{ t('blocked_users_title') }}</h2>
+<section class="profile-edit-card">
+<h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> {{ t('blocked_users_title') }}</h3>
 <p class="field-help">{{ t('blocked_users_help') }}</p>
 {% if blocked_users and blocked_users|length > 0 %}
     <ul class="blocked-users-list">
@@ -219,7 +356,9 @@
     <p class="empty-state">{{ t('blocked_users_empty') }}</p>
 {% endif %}
 
-<div class="danger-zone">
+</section>
+</div>
+<div class="danger-zone profile-edit-card">
     <h3>{{ t('danger_zone_title') }}</h3>
     <p class="field-help">{{ t('delete_account_help') }}</p>
     <details>
@@ -234,4 +373,5 @@
         </form>
     </details>
 </div>
+</section>
 {% endblock %}

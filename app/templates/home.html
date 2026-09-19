@@ -67,7 +67,8 @@
                         <p class="meta">
                             {% if l.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ l.city }}{% endif %}
                             {% if l.voice_type_name %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ l.voice_type_name }}{% endif %}
-                            {% if l.fee %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ l.fee }}{% endif %}
+                            {% set l_fee_display = format_fee(l.fee_amount, l.fee_currency, l.fee_negotiable) %}
+                            {% if l_fee_display %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ l_fee_display }}{% endif %}
                         </p>
                         <p class="excerpt">{{ l.description[:160] }}{% if l.description|length > 160 %}…{% endif %}</p>
                         <p class="author">{{ t('by_author') }} {{ l.author_name }}</p>
@@ -107,7 +108,7 @@
 
 {% else %}
     <div class="hero">
-        <h1><img class="hero-bird-icon" src="/static/img/bird-logo.svg" alt="" width="40" height="29">{{ t('home_anon_title') }}</h1>
+        <h1><img class="hero-bird-icon" src="/static/img/brand/icon-small-navy.svg" alt="" width="40" height="29">{{ t('home_anon_title') }}</h1>
         <p class="subtitle">{{ t('home_anon_subtitle') }}</p>
         <p class="hero-actions">
             <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>

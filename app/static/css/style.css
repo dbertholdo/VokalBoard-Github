@@ -1,34 +1,249 @@
 /* ============================================================
-   Palette and typography — green scheme, inspired by the colors of
-   the mascot bird (see app/static/img/bird-logo.svg): the wing's
-   darker green as the primary color (buttons/links), the body's
-   mint green as the secondary tone in gradients/headings.
+   Palette and typography — VokalBoard visual identity v1.0 ("Mineral"
+   palette, Manrope typography, direction A — Abertura). Applied
+   19/09/2026 per MANUAL_VISUAL_VOKALBOARD_V1.md (brand handoff,
+   phased rollout — tokens/typography/spacing now, logo+mascot assets
+   held for the final package/item 8). Replaces the earlier green
+   scheme; token NAMES were kept stable (--accent, --ink, --bg, etc.)
+   so this is a values-only swap — every existing var(--accent) usage
+   across this file repaints automatically, no per-rule rewrite needed.
+   --accent2/--accent2-light have no equivalent in the manual (Mineral
+   is a single-accent palette) — kept as a lighter violet tint, used
+   only for gradients/fallback badge colors, so multi-stop gradients
+   stay tonal instead of introducing an unrelated hue.
    ============================================================ */
+/* Author display rules must not override semantic visibility (dismiss/conditional UI). */
+[hidden] { display: none !important; }
+
 :root {
-    --bg: #f5faf8;
-    --ink: #1c1f2e;
-    --muted: #4c5f57;
-    --accent: #12a488;
-    --accent-dark: #0c7d68;
-    --accent-light: #dff6ee;
-    --accent2: #5fbf93;
-    --accent2-light: #e9fbf2;
-    --border: #dcece5;
-    --card-bg: #ffffff;
+    /* Core palette */
+    --bg: #F5F7FA;              /* canvas */
+    --ink: #17283F;             /* brand / text-primary */
+    --muted: #526176;           /* text-secondary */
+    --accent: #635BDE;          /* action */
+    --accent-dark: #5148C5;     /* action-hover */
+    --accent-light: #EEECFC;    /* accent-soft */
+    --accent2: #7B74E8;         /* lighter violet — gradients/fallback badges only, see note above */
+    --accent2-light: #F4F3FD;
+    --border: #DCE2EB;          /* border-subtle (decorative only, not for field/control identification) */
+    --border-control: #64748B;  /* border-control — form fields and controls */
+    --card-bg: #FFFFFF;         /* surface */
+    --disabled-surface: #E3E7EF;
+
+    /* Semantic states — always pair with text/icon, never color alone */
+    --success-text: #176545;
+    --success-bg: #EAF6EF;
+    --attention-text: #805000;
+    --attention-bg: #FFF4DB;
+    --error-text: #B42338;
+    --error-bg: #FFF0F2;
+    --info-text: #2457A0;
+    --info-bg: #EDF4FF;
+
+    /* Spacing scale (4/8/12/16/24/32/48) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+
+    /* Radius: card/panel, control, tag */
+    --radius-card: 16px;
+    --radius-control: 8px;
+    --radius-tag: 6px;
+    --radius-pill: 999px;
+}
+
+/* Manrope (brand typography, MANUAL_VISUAL_VOKALBOARD_V1.md §4) — self-hosted
+   per the manual's "hospedagem local" direction, so nothing depends on a
+   third-party font host. Pulled from the @fontsource/manrope npm package
+   (Google Fonts distribution, SIL OFL 1.1 — license copied to
+   app/static/fonts/manrope/LICENSE.txt as the manual requires). Only the
+   latin + latin-ext subsets are bundled: they cover every Latin-script UI
+   language today (de/en/pt/es/it/fr/ro). Chinese Simplified and Korean fall
+   back to the system stack below — the manual flags this as a known gap,
+   a complementary CJK/Hangul family is still pending, not assumed covered.
+   Only the 4 weights actually used by the type scale in §4 are loaded. */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/static/fonts/manrope/manrope-latin-400-normal.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/static/fonts/manrope/manrope-latin-ext-400-normal.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('/static/fonts/manrope/manrope-latin-500-normal.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('/static/fonts/manrope/manrope-latin-ext-500-normal.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/static/fonts/manrope/manrope-latin-600-normal.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/static/fonts/manrope/manrope-latin-ext-600-normal.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('/static/fonts/manrope/manrope-latin-700-normal.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('/static/fonts/manrope/manrope-latin-ext-700-normal.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Private profile editor: independent from the public profile layout. */
+.profile-menu { display: inline-block; position: relative; }
+.profile-menu summary, .profile-side-menu summary { cursor: pointer; }
+.profile-menu-links { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.profile-menu > .profile-menu-links {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 250px;
+    max-width: 85vw;
+    z-index: 100;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.profile-menu-links a { display: block; padding: 6px; }
+.profile-menu-pending { color: var(--muted); font-size: .85rem; padding: 6px; }
+.stacked-form.profile-editor-form { max-width: none; }
+.profile-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+.profile-edit-card,
+.profile-editor-form fieldset.profile-edit-card {
+    min-width: 0;
+    margin: 0 0 20px;
+    padding: 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow-wrap: anywhere;
+}
+.profile-edit-grid > .profile-edit-card { margin-bottom: 0; }
+.profile-edit-card legend { font-weight: 700; padding: 0 6px; }
+.profile-edit-card label { margin-top: 12px; }
+.profile-edit-card input, .profile-edit-card select, .profile-edit-card textarea { max-width: 100%; }
+.profile-edit-card h2, .profile-edit-card h3 { margin-top: 0; }
+.extra-voice-types { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; }
+.extra-voice-types .checkbox-inline { display: flex; align-items: center; gap: 6px; margin-top: 0; font-weight: 400; }
+.spoken-language-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* P2 cluster (19/09/2026): Profile Wizard */
+.wizard-shell { max-width: 640px; margin: 0 auto; }
+.wizard-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 20px; }
+.wizard-nav .wizard-skip-spacer { flex: 1; }
+
+/* P2 cluster (19/09/2026): "works" (solo/choir repertoire) */
+.works-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.work-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.work-item:last-child { border-bottom: none; }
+.work-category-tag { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
+.work-category-tag.work-category-choir { background: var(--ink); }
+.works-card .work-item a { margin-left: auto; font-size: .85rem; }
+.spoken-language-row select { flex: 1 1 160px; }
+.spoken-language-row input[type="text"] { flex: 1 1 160px; }
+.spoken-languages { display: flex; align-items: center; gap: 6px; color: var(--text-muted, inherit); }
+.profile-account-area {
+    margin-top: 32px;
+    padding: 24px;
+    background: var(--accent2-light);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-card);
+}
+.profile-editor-form .profile-edit-private { border-style: dashed; }
+.profile-account-area .danger-zone { margin-top: 24px; border-color: #a82c35; }
+@media (max-width: 700px) {
+    .profile-edit-grid { grid-template-columns: minmax(0, 1fr); }
+    .profile-account-area { padding: 14px; }
 }
 
 * { box-sizing: border-box; }
 
-body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    line-height: 1.55;
+/* Keyboard focus — MANUAL_VISUAL_VOKALBOARD_V1.md §6: "anel visível, sem
+   remover outline... 2px navy com afastamento de 2px em superfícies
+   claras". Only replaces the default ring for keyboard navigation
+   (:focus-visible) — a mouse click never triggers it, so this never
+   fights or hides the browser's own mouse-focus behavior. */
+:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
 }
 
+body {
+    margin: 0;
+    /* Manrope first (self-hosted above), system stack as fallback for
+       scripts/weights it doesn't cover (see the @font-face block's note
+       on CJK/Hangul) — never a hard dependency on the brand font loading. */
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+/* Type scale — MANUAL_VISUAL_VOKALBOARD_V1.md §4. h1 = page title
+   (desktop size; mobile override below), h2 = section title, h3 = card
+   title. Weights use Manrope's 700/600 per the manual's role table. */
 h1, h2, h3 {
     letter-spacing: -0.01em;
+    font-weight: 700;
+    text-wrap: balance;
+}
+h1 { font-size: 2rem; line-height: 2.5rem; }       /* 32/40 */
+h2 { font-size: 1.5rem; line-height: 2rem; }        /* 24/32 */
+h3 { font-size: 1.25rem; line-height: 1.75rem; }    /* 20/28 */
+@media (max-width: 700px) {
+    h1 { font-size: 1.75rem; line-height: 2.25rem; } /* 28/36 */
+}
+label, .field-label { font-weight: 600; }
+button, .button-primary, .button-secondary, .button-danger, .button-link {
+    font-weight: 600;
 }
 
 /* "Kicker" — small small-caps label above a heading, to give an
@@ -69,7 +284,7 @@ h1, h2, h3 {
     font-size: 0.85rem;
     font-weight: 600;
     padding: 6px 10px;
-    border-radius: 6px;
+    border-radius: var(--radius-tag);
 }
 
 .admin-subnav a:hover {
@@ -127,7 +342,7 @@ h1, h2, h3 {
     height: 34px;
     padding: 0;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--card-bg);
     cursor: pointer;
 }
@@ -160,7 +375,7 @@ h1, h2, h3 {
     color: var(--muted);
     list-style: none;
     padding: 4px 8px;
-    border-radius: 6px;
+    border-radius: var(--radius-tag);
     user-select: none;
 }
 .lang-switch-dropdown summary::-webkit-details-marker { display: none; }
@@ -173,7 +388,7 @@ h1, h2, h3 {
     top: calc(100% + 4px);
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     box-shadow: 0 6px 18px rgba(28, 31, 46, 0.14);
     display: flex;
     flex-direction: column;
@@ -282,7 +497,7 @@ h1, h2, h3 {
     padding: 20px;
     margin: 16px 0;
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: var(--radius-card);
     background: var(--card-bg);
     box-shadow: 0 5px 16px rgba(28, 31, 46, 0.07);
 }
@@ -316,7 +531,7 @@ h1, h2, h3 {
     flex: 1 1 auto;
     min-width: 0;
     margin: 0 auto;
-    padding: 24px;
+    padding: var(--space-5); /* 24px — manual §6: desktop 24-32px */
 }
 
 .subtitle { color: var(--muted); margin-top: -8px; }
@@ -336,13 +551,13 @@ h1, h2, h3 {
     padding: 16px;
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
 }
 
 .filters input, .filters select {
     padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: 1px solid var(--border-control);
+    border-radius: var(--radius-control);
     font-family: inherit;
 }
 
@@ -351,7 +566,7 @@ h1, h2, h3 {
     background: var(--accent);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     cursor: pointer;
     font-weight: 600;
 }
@@ -510,10 +725,27 @@ h1, h2, h3 {
     font-size: 0.75rem;
     font-weight: 600;
     padding: 4px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--accent-light);
     color: var(--accent-dark);
 }
+
+/* P5 Etapa 2 (18/09/2026): Sistema de Urgência — tom âmbar/laranja de
+   propósito, distinto do verde da marca E do vermelho reservado à Red
+   Zone (CLAUDE.md Seção 1: "separação evidente e restrita"). */
+.badge-urgent {
+    background: var(--attention-bg);
+    color: var(--attention-text);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 6px;
+}
+.listing-card-urgent {
+    border: 1px solid #f0b866;
+    box-shadow: 0 0 0 1px #f0b86622;
+}
+.urgent-toggle .icon { color: var(--attention-text); }
 
 .empty-state { color: var(--muted); font-style: italic; }
 
@@ -536,8 +768,8 @@ h1, h2, h3 {
 
 .stacked-form input, .stacked-form select, .stacked-form textarea {
     padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: 1px solid var(--border-control);
+    border-radius: var(--radius-control);
     font-family: inherit;
     font-size: 1rem;
     color: var(--ink);
@@ -545,7 +777,7 @@ h1, h2, h3 {
 
 .stacked-form fieldset {
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     padding: 12px;
 }
 
@@ -554,7 +786,7 @@ h1, h2, h3 {
     background: var(--accent);
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-control);
     font-size: 1rem;
     cursor: pointer;
 }
@@ -567,7 +799,7 @@ h1, h2, h3 {
     margin-top: 20px;
     padding: 16px;
     background: var(--accent-light);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
 }
 
 .back-link {
@@ -578,17 +810,17 @@ h1, h2, h3 {
 }
 
 .error {
-    background: #fdeaea;
-    color: #a33;
+    background: var(--error-bg);
+    color: var(--error-text);
     padding: 10px 14px;
-    border-radius: 6px;
+    border-radius: var(--radius-tag);
 }
 
 .success {
-    background: #e8f3e6;
-    color: #2f6b2a;
+    background: var(--success-bg);
+    color: var(--success-text);
     padding: 10px 14px;
-    border-radius: 6px;
+    border-radius: var(--radius-tag);
 }
 
 /* Standalone "tip" callout — e.g. the explainer at the top of
@@ -600,7 +832,7 @@ h1, h2, h3 {
     padding: 12px 16px;
     background: var(--accent2-light);
     border-left: 4px solid var(--accent);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 0.9rem;
     color: var(--ink);
     line-height: 1.5;
@@ -622,7 +854,7 @@ h1, h2, h3 {
     display: inline-block;
     font-size: 0.85rem;
     padding: 4px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--accent-light);
     color: var(--accent);
 }
@@ -640,7 +872,7 @@ h1, h2, h3 {
     background: var(--card-bg);
     border: 1px solid var(--accent);
     color: var(--accent);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 600;
@@ -664,7 +896,7 @@ h1, h2, h3 {
 /* Home: hero (not-logged-in visitor) and matches section (logged in) */
 .hero {
     background: linear-gradient(135deg, var(--accent-light), var(--accent2-light));
-    border-radius: 16px;
+    border-radius: var(--radius-card);
     padding: 36px 28px;
     margin-bottom: 28px;
 }
@@ -767,7 +999,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     min-width: 16px;
     padding: 1px 5px;
     margin-left: 4px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--accent);
     color: white;
     font-size: 0.7rem;
@@ -828,7 +1060,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     padding: 12px 16px;
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     text-decoration: none;
     color: inherit;
 }
@@ -872,7 +1104,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 .message-body-box {
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     padding: 16px;
     white-space: pre-wrap;
     margin: 16px 0;
@@ -888,7 +1120,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 .social-badge {
     display: inline-block;
     padding: 6px 14px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--card-bg);
     border: 1px solid var(--border);
     color: var(--accent);
@@ -928,7 +1160,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin-top: 24px;
     padding: 16px;
     border: 1px solid #d9534f;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: rgba(217, 83, 79, 0.06);
 }
 
@@ -1039,6 +1271,118 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-weight: normal;
 }
 
+/* --- P3.A: vacancies per voice type + logistics flags --------------------- */
+.vacancy-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #e5e7e7;
+}
+.vacancy-row-extra[hidden] { display: none; }
+.vacancy-row select,
+.vacancy-row input[type="number"],
+.vacancy-row input[type="text"] {
+    flex: 1 1 auto;
+    min-width: 100px;
+}
+.vacancy-row .field-help { flex: 0 0 100%; margin: 0; }
+
+.listing-logistics-flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+}
+.logistics-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    background: #f0f5f0;
+    color: var(--accent, #2f6b3c);
+    font-size: 0.9em;
+}
+.logistics-flag a { color: inherit; }
+
+.listing-vacancies-box {
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: #fbfcfc;
+    border: 1px solid #e5e7e7;
+}
+.vacancy-list {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+}
+.vacancy-list-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #eef0f0;
+}
+.vacancy-list-item:last-child { border-bottom: none; }
+.vacancy-voice-name { font-weight: 600; }
+.vacancy-fee { color: #555; }
+.vacancy-slots { margin-left: auto; font-size: 0.9em; color: #666; font-variant-numeric: tabular-nums; }
+.vacancy-apply-form { margin: 0 0 0 auto; }
+.vacancy-apply-status {
+    margin-left: auto;
+    padding: 2px 10px;
+    border-radius: var(--radius-pill);
+    background: #eef2ee;
+    font-size: 0.85em;
+    color: #4a4a4a;
+}
+
+/* --- P3.B: convites / candidaturas ------------------------------------ */
+.invite-to-vacancy-details {
+    margin: 10px 0;
+}
+.invitation-list {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+}
+.invitation-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef0f0;
+}
+.invitation-item:last-child { border-bottom: none; }
+.invitation-item-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.invitation-meta { font-size: 0.9em; color: #666; }
+.invitation-item-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.invitation-item-actions form { margin: 0; }
+.invitation-status {
+    padding: 3px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+.invitation-status-pending { background: #fdf3d8; color: #8a6d1d; }
+.invitation-status-accepted { background: #e3f3e6; color: var(--accent, #2f6b3c); }
+.invitation-status-declined,
+.invitation-status-expired { background: #f2eaea; color: #8a4444; }
+
 /* --- profile completeness indicator --------------------------------------- */
 .completeness-box {
     margin: 12px 0 20px;
@@ -1047,7 +1391,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 .completeness-bar-track {
     width: 100%;
     height: 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--card-bg);
     border: 1px solid var(--border);
     overflow: hidden;
@@ -1056,7 +1400,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 .completeness-bar-fill {
     height: 100%;
     background: var(--accent);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     transition: width 0.3s ease;
 }
 
@@ -1139,7 +1483,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     margin: 16px 0;
     padding: 16px;
     background: var(--accent2-light);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
 }
 
 .referral-box h3 { margin-top: 0; }
@@ -1155,8 +1499,8 @@ form button.link-button:hover { color: var(--accent-dark); }
     flex: 1;
     min-width: 200px;
     padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: 1px solid var(--border-control);
+    border-radius: var(--radius-control);
     font-family: inherit;
     background: var(--card-bg);
     color: var(--ink);
@@ -1190,7 +1534,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     padding: 16px;
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
 }
 
 .legal-block h3 { margin-top: 0; }
@@ -1219,7 +1563,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-size: 0.8rem;
     font-weight: 600;
     padding: 4px 10px 4px 4px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--badge-tint, var(--accent2-light));
     color: var(--badge-color, var(--accent2));
     cursor: default;
@@ -1309,6 +1653,35 @@ form button.link-button:hover { color: var(--accent-dark); }
 .badge-tier-gold     { --badge-color: #c9932f; --badge-tint: #faf0da; }
 .badge-tier-platinum { --badge-color: #2f9fc0; --badge-tint: #e2f4f9; }
 
+/* --- Rechnungmaker (P4 Etapa 3): duas abas grandes e óbvias, sem JS —
+   pensado pra gente sem muita intimidade com informática: cada aba é só
+   um link normal que recarrega a página, nunca algo "escondido" atrás
+   de clique em ícone. A aba ativa fica visivelmente destacada. */
+.tool-tabs {
+    display: flex;
+    gap: 10px;
+    margin: 16px 0 20px;
+    flex-wrap: wrap;
+}
+.tool-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--ink);
+}
+.tool-tab.active {
+    background: var(--accent-dark);
+    border-color: var(--accent-dark);
+    color: #fff;
+}
+.tool-tab .badge-count { margin-left: 2px; }
+
 /* --- dismissible notice (e.g. spam box) on the home page -----------------------
    Deliberately NOT teal/indigo (the rest of the site's palette) — this is a
    "tip" banner and needs to read as attention-grabbing at a glance, so it
@@ -1318,17 +1691,17 @@ form button.link-button:hover { color: var(--accent-dark); }
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    background: #fdf1dc;
+    background: var(--attention-bg);
     border: 1px solid #f0b84c;
-    border-left: 4px solid #e8930a;
-    color: #6b4a06;
+    border-left: 4px solid var(--attention-text);
+    color: var(--attention-text);
     padding: 10px 14px;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     margin-bottom: 16px;
     font-size: 0.9rem;
 }
 
-.dismissible-notice .icon { color: #e8930a; }
+.dismissible-notice .icon { color: var(--attention-text); }
 
 .dismissible-notice button {
     background: none;
@@ -1336,12 +1709,12 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-size: 1.1rem;
     line-height: 1;
     cursor: pointer;
-    color: #6b4a06;
+    color: var(--attention-text);
     padding: 6px 8px;
-    border-radius: 6px;
+    border-radius: var(--radius-control);
 }
 
-.dismissible-notice button:hover { color: #3f2c03; background: rgba(0, 0, 0, 0.06); }
+.dismissible-notice button:hover { color: var(--attention-text); background: rgba(0, 0, 0, 0.06); }
 
 .sr-only {
     position: absolute;
@@ -1356,6 +1729,17 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 
 /* --- admin (read-only panel) ---------------------------------------- */
+/* Mini card (18/09/2026, painel de Admin) — resumo rápido de status
+   ao gerenciar um perfil: uma fileira de badges, não outro grid de
+   .admin-stat (esses são contadores; isso é status). */
+.admin-mini-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 12px 0 20px;
+}
+
 .admin-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1385,6 +1769,26 @@ form button.link-button:hover { color: var(--accent-dark); }
 .admin-list {
     list-style: none;
     padding: 0;
+}
+
+/* P3.E: /admin feature toggles (e.g. compatibility_score_visible) —
+   same card language as .admin-stat, but a row (label+description on
+   the left, action button on the right) instead of a centered number. */
+.admin-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0 24px;
+    flex-wrap: wrap;
+}
+
+.admin-toggle-row .field-help {
+    margin: 4px 0 0;
 }
 
 .admin-list li {
@@ -1522,9 +1926,21 @@ form button.link-button:hover { color: var(--accent-dark); }
 
 .badge-danger {
     display: inline-block;
-    background: rgba(217, 83, 79, 0.12);
-    color: #d9534f;
-    border-radius: 999px;
+    background: var(--error-bg);
+    color: var(--error-text);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Money-in indicator on the Extrato Geral statement (/financeiro/extrato-geral) —
+   same shape as .badge-danger above, using the success semantic tokens. */
+.badge-success {
+    display: inline-block;
+    background: var(--success-bg);
+    color: var(--success-text);
+    border-radius: var(--radius-pill);
     padding: 1px 8px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -1600,6 +2016,117 @@ form button.link-button:hover { color: var(--accent-dark); }
     .vb-flying-wrap { display: none; }
 }
 
+/* --- mascot moment toast (Part 2 backlog item 4, 19/09/2026) -----------
+   Shared by Acolhedor (login welcome), Atento (one pending-item nudge)
+   and Joinha (brief confirmation wink) — see base.html's
+   vbShowMascotToast() and app/mascot_moments.py.
+
+   Daniel, refining the design mid-build: it peeks in from one edge —
+   only about 75% of the body ever comes into view — holds, then falls
+   back out the SAME edge it came from. It never slides across the
+   screen from one side to the other; each edge variant only ever
+   moves along its own single axis (edge-bottom: up/down,
+   edge-left/edge-right: in/out sideways), between "fully hidden past
+   that edge" and "75% peeking in". The speech bubble is positioned
+   apart from the image (via its own edge-specific offset below) so
+   IT stays fully readable even while the mascot's own body is
+   partway off-screen. */
+.vb-mascot-toast {
+    position: fixed;
+    z-index: 600;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.vb-mascot-toast.vb-mascot-toast-visible {
+    opacity: 1;
+}
+
+.vb-mascot-toast-img {
+    display: block;
+    width: 88px;
+    height: auto;
+    filter: drop-shadow(0 3px 8px rgba(28, 31, 46, 0.22));
+}
+
+.vb-mascot-toast-bubble {
+    position: absolute;
+    background: var(--card-bg);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: 14px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    max-width: 200px;
+    white-space: normal;
+    box-shadow: 0 3px 10px rgba(28, 31, 46, 0.2);
+}
+
+/* Bottom edge: rises up from below, 75% of the body shows (the
+   remaining 25% still past the bottom edge), then sinks back down.
+   Bubble sits fixed just above the image, unaffected by the peek. */
+.vb-mascot-toast-edge-bottom {
+    left: 50%;
+    bottom: 0;
+    transform: translate(-50%, 100%);
+}
+.vb-mascot-toast-edge-bottom.vb-mascot-toast-visible {
+    transform: translate(-50%, 25%);
+}
+.vb-mascot-toast-edge-bottom .vb-mascot-toast-bubble {
+    left: 50%;
+    bottom: 100%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+}
+
+/* Left edge: peeks in sideways from the left, 75% of the body shows,
+   then retreats back out to the left (never crosses to the right). */
+.vb-mascot-toast-edge-left {
+    left: 0;
+    bottom: 24px;
+    transform: translateX(-100%);
+}
+.vb-mascot-toast-edge-left.vb-mascot-toast-visible {
+    transform: translateX(-25%);
+}
+.vb-mascot-toast-edge-left .vb-mascot-toast-bubble {
+    left: 100%;
+    bottom: 0;
+    margin-left: 10px;
+}
+
+/* Right edge: mirror of the left one. */
+.vb-mascot-toast-edge-right {
+    right: 0;
+    bottom: 24px;
+    transform: translateX(100%);
+}
+.vb-mascot-toast-edge-right.vb-mascot-toast-visible {
+    transform: translateX(25%);
+}
+.vb-mascot-toast-edge-right .vb-mascot-toast-bubble {
+    right: 100%;
+    bottom: 0;
+    margin-right: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vb-mascot-toast { transition: opacity 0.2s ease; }
+    .vb-mascot-toast-edge-bottom,
+    .vb-mascot-toast-edge-bottom.vb-mascot-toast-visible { transform: translate(-50%, 25%); }
+    .vb-mascot-toast-edge-left,
+    .vb-mascot-toast-edge-left.vb-mascot-toast-visible { transform: translateX(-25%); }
+    .vb-mascot-toast-edge-right,
+    .vb-mascot-toast-edge-right.vb-mascot-toast-visible { transform: translateX(25%); }
+}
+
+@media (max-width: 860px) {
+    .vb-mascot-toast-img { width: 64px; }
+    .vb-mascot-toast-bubble { max-width: 150px; font-size: 0.82rem; padding: 6px 10px; }
+}
+
 /* ------------------------------------------------------------
    Narrow screens (mobile) — single breakpoint at 860px, covers
    everything that genuinely depends on width: the sidebar becomes a
@@ -1637,7 +2164,7 @@ form button.link-button:hover { color: var(--accent-dark); }
         background: rgba(20, 24, 30, 0.35);
     }
 
-    .container { padding: 16px; }
+    .container { padding: var(--space-4); } /* 16px — manual §6: mobile margin */
 
     /* The logged-in user's name/avatar is the last thing that needs to
        fit — on very narrow screens it wraps to its own line instead of
@@ -1754,7 +2281,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 .post-body-full h3 { font-size: 1.15rem; margin: 16px 0 6px; }
 .post-body-full p { margin: 0 0 12px; }
 .post-body-full ul, .post-body-full ol { margin: 0 0 12px; padding-left: 24px; }
-.post-body-full img { max-width: 100%; border-radius: 8px; margin: 10px 0; display: block; }
+.post-body-full img { max-width: 100%; border-radius: var(--radius-control); margin: 10px 0; display: block; }
 .post-body-full blockquote {
     margin: 12px 0;
     padding: 4px 16px;
@@ -1869,16 +2396,16 @@ form button.link-button:hover { color: var(--accent-dark); }
     width: 26px;
     height: 26px;
     padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: 1px solid var(--border-control);
+    border-radius: var(--radius-control);
     background: none;
     cursor: pointer;
 }
 
 .post-editor-toolbar-row2 select {
     padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: 1px solid var(--border-control);
+    border-radius: var(--radius-control);
     font-family: inherit;
     font-size: 0.83rem;
     color: var(--ink);
@@ -1916,7 +2443,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 
 .post-editor-area img {
     max-width: 100%;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     cursor: grab;
     transition: box-shadow 0.12s ease;
 }
@@ -1941,7 +2468,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     gap: 2px;
     padding: 4px;
     background: var(--ink);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     box-shadow: 0 4px 14px rgba(28, 31, 46, 0.25);
     z-index: 5;
 }
@@ -2051,7 +2578,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 .chart-type-toggle button {
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     padding: 4px 12px;
     font-size: 0.85rem;
     cursor: pointer;
@@ -2188,6 +2715,46 @@ form button.link-button:hover { color: var(--accent-dark); }
 .hall-fame-name { font-weight: 600; font-size: 0.9rem; }
 .hall-fame-meta { font-size: 0.78rem; color: var(--muted); }
 
+/* --- Referrer preview on /register?ref=CODE (Hall da Fama polish, 19/09/2026) --- */
+.referrer-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.referrer-preview-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.referrer-preview .success { margin: 0; }
+
+/* --- Invite-a-friend box on the Hall da Fama page (same date) ----------- */
+.invite-friend-box {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 20px 0;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+}
+.invite-friend-box p {
+    margin: 0;
+    color: #fff;
+    font-weight: 600;
+}
+.invite-friend-box .button-link {
+    background: #fff;
+    color: var(--accent);
+    border: none;
+    white-space: nowrap;
+}
+
 /* --- Profile highlight (redeemed via Notas) ------------------------------ */
 .profile-highlight-banner {
     display: inline-flex;
@@ -2197,7 +2764,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     padding: 6px 12px;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
     color: #fff;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: 0.82rem;
     font-weight: 600;
 }
@@ -2375,7 +2942,7 @@ form button.link-button:hover { color: var(--accent-dark); }
     border: none;
     background: var(--accent);
     color: #fff;
-    border-radius: 6px;
+    border-radius: var(--radius-control);
     padding: 5px 9px;
     font-size: 0.72rem;
     font-weight: 700;
@@ -2410,3 +2977,213 @@ form button.link-button:hover { color: var(--accent-dark); }
 .profile-hero .links-card .link-row .icon { color: var(--accent-dark); flex-shrink: 0; }
 .profile-hero .links-card .link-row a { color: var(--ink); text-decoration: none; }
 .profile-hero .links-card .link-row a:hover { color: var(--accent-dark); }
+
+/* ------------------------------------------------------------
+   "Reportar erro" — floating button + modal on every page (P6
+   close-out, 19/09/2026). Fixed bottom-right, never overlaps the
+   flying-bird mascot (top area) or the footer links (it sits above
+   them, z-index kept below any real modal/dialog the browser itself
+   manages via <dialog>).
+------------------------------------------------------------ */
+.bug-report-fab {
+    position: fixed;
+    right: var(--space-4);
+    bottom: var(--space-4);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--ink);
+    font-size: 0.82rem;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(23, 40, 63, 0.14);
+    cursor: pointer;
+}
+.bug-report-fab:hover { background: var(--accent-light); border-color: var(--accent); }
+.bug-report-fab .icon { color: var(--accent-dark); }
+
+.bug-report-dialog {
+    border: none;
+    border-radius: var(--radius-card);
+    padding: var(--space-5);
+    max-width: 420px;
+    width: calc(100% - 2 * var(--space-4));
+    box-shadow: 0 8px 30px rgba(23, 40, 63, 0.25);
+}
+.bug-report-dialog::backdrop { background: rgba(23, 40, 63, 0.45); }
+.bug-report-dialog h2 { margin-top: 0; }
+.bug-report-dialog textarea {
+    width: 100%;
+    border: 1px solid var(--border-control);
+    border-radius: var(--radius-control);
+    padding: var(--space-3);
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+}
+.bug-report-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+}
+
+.bug-report-toast {
+    position: fixed;
+    right: var(--space-4);
+    bottom: calc(var(--space-4) + 56px);
+    z-index: 40;
+    box-shadow: 0 2px 10px rgba(23, 40, 63, 0.14);
+}
+
+@media (max-width: 700px) {
+    .bug-report-fab span { display: none; }
+    .bug-report-fab { padding: 12px; }
+}
+
+/* ------------------------------------------------------------
+   P99.10 — anon gate: blur + login popup on a vaga listing's
+   detail page, logged-out visitor only (19/09/2026). Unifies the
+   old anon_teaser hint line + separate .locked-box into a single
+   gate — see the comment in listing_detail.html for scope. The
+   blurred block is decorative (an already-public excerpt plus two
+   fake bars, no hidden data), so `filter: blur()` here is a purely
+   visual affordance, not a security boundary.
+------------------------------------------------------------- */
+.anon-gate {
+    position: relative;
+    margin: var(--space-5) 0;
+}
+.anon-gate-blur {
+    filter: blur(4px);
+    -webkit-filter: blur(4px);
+    user-select: none;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 95%);
+    mask-image: linear-gradient(to bottom, #000 30%, transparent 95%);
+}
+.anon-gate-fake-line {
+    height: 0.85em;
+    margin-top: 10px;
+    border-radius: 6px;
+    background: var(--border);
+}
+.anon-gate-fake-line-short { width: 55%; }
+.anon-gate-card {
+    position: relative;
+    margin-top: -32px;
+    padding: var(--space-5);
+    border-radius: var(--radius-card);
+    background: rgba(245, 247, 250, 0.92);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 30px rgba(23, 40, 63, 0.18);
+    text-align: center;
+}
+.anon-gate-card h3 { margin-top: 0; }
+.anon-gate-card .field-help { margin-top: -6px; }
+
+/* ------------------------------------------------------------
+   Tangará mascot — first inline placements (19/09/2026), per
+   MANUAL_VISUAL_VOKALBOARD_V1.md §7 ("Tangará: sistema de uso").
+   Decorative (alt="" on every <img>) — the text next to each one
+   already carries the information; no animation (manual: "Não há
+   animação aprovada"). Sizes follow the manual's own reference
+   table: 80–96px Zona de Alerta, 144–160px celebration; the
+   Solidário/empty-state size isn't in that table, kept modest.
+------------------------------------------------------------- */
+.mascot-inline {
+    display: block;
+    height: auto;
+    flex-shrink: 0;
+}
+.mascot-inline-alert { width: 88px; }
+.mascot-inline-celebrate { width: 152px; }
+.mascot-inline-empty { width: 112px; margin: 0 auto var(--space-3); }
+.mascot-inline-wink { width: 56px; display: inline-block; vertical-align: middle; margin-right: 8px; }
+.mascot-inline-lost { width: 128px; margin: 0 auto var(--space-3); }
+
+/* Piscadinha (wink) on Hall da Fama's invite box — a playful,
+   low-stakes incentive line, never near billing/security/terms per
+   the manifest's rule (this page is neither). */
+.invite-friend-incentive {
+    display: flex;
+    align-items: center;
+    font-size: 0.92rem;
+    color: var(--ink);
+    margin: 8px 0 var(--space-2);
+}
+
+.alert-zone-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: #FFF0F2;
+    border: 1px solid rgba(180, 35, 56, 0.25);
+    border-radius: var(--radius-card);
+}
+.alert-zone-banner strong { color: #B42338; }
+
+.empty-state-block {
+    text-align: center;
+    padding: var(--space-6) var(--space-3);
+}
+
+.match-celebrate {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+/* ------------------------------------------------------------
+   Periodic mails (P0 backlog: daily/weekly/monthly reports) —
+   19/09/2026, /admin/emails?tab=periodic. Reuses the site's own
+   card/badge idiom rather than introducing new component patterns.
+------------------------------------------------------------- */
+.periodic-mail-list {
+    list-style: none;
+    margin: var(--space-4) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+.periodic-mail-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    padding: var(--space-4);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+}
+.periodic-mail-paused { opacity: 0.72; }
+.periodic-mail-info .field-help { margin: 4px 0 0; }
+.periodic-mail-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+.badge-active-mail, .badge-paused-mail {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: var(--space-2);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+.badge-active-mail { color: #176545; background: #EAF6EF; }
+.badge-paused-mail { color: var(--muted); background: var(--bg); }

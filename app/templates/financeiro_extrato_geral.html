@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Financeiro — Extrato Geral{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/financeiro">&larr; Red Zone</a>
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-bank"></use></svg> Extrato Geral</h1>
+<p class="field-help">
+    Todo o dinheiro entrando e saindo da plataforma, num lugar só —
+    igual um extrato de banco. "Entra" = receita de assinatura
+    (dinheiro real, sem contar assinaturas já estornadas). "Sai" =
+    despesas lançadas no painel financeiro. O saldo corrente soma tudo
+    em ordem cronológica; os filtros abaixo valem pra tela E pro
+    export, sempre os dois batendo.
+</p>
+
+<div class="admin-stats">
+    <div class="admin-stat"><strong>{{ total_in }} €</strong><span>Total entradas</span></div>
+    <div class="admin-stat"><strong>{{ total_out }} €</strong><span>Total saídas</span></div>
+    <div class="admin-stat"><strong>{{ net }} €</strong><span>Saldo líquido</span></div>
+</div>
+
+<form method="get" action="/financeiro/extrato-geral" class="stacked-form narrow">
+    <label>De <input type="date" name="start" value="{{ period_start }}"></label>
+    <label>Até <input type="date" name="end" value="{{ period_end }}"></label>
+    <label>Tipo
+        <select name="tipo">
+            <option value="" {% if tipo == "" %}selected{% endif %}>Entradas + saídas</option>
+            <option value="in" {% if tipo == "in" %}selected{% endif %}>Só entradas</option>
+            <option value="out" {% if tipo == "out" %}selected{% endif %}>Só saídas</option>
+        </select>
+    </label>
+    <label>Categoria (só afeta saídas)
+        <select name="categoria">
+            <option value="" {% if categoria == "" %}selected{% endif %}>Todas</option>
+            {% for cat in categories %}
+                <option value="{{ cat }}" {% if categoria == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Filtrar</button>
+    {% if period_start or period_end or tipo or categoria %}<a class="button-link" href="/financeiro/extrato-geral">Limpar filtros</a>{% endif %}
+</form>
+
+<p>
+    Exportar o que está filtrado acima:
+    <a class="button-link" href="/financeiro/extrato-geral/export.csv?start={{ period_start | urlencode }}&amp;end={{ period_end | urlencode }}&amp;tipo={{ tipo | urlencode }}&amp;categoria={{ categoria | urlencode }}"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> CSV</a>
+    ·
+    <a class="button-link" href="/financeiro/extrato-geral/export.xlsx?start={{ period_start | urlencode }}&amp;end={{ period_end | urlencode }}&amp;tipo={{ tipo | urlencode }}&amp;categoria={{ categoria | urlencode }}">Excel</a>
+    ·
+    <a class="button-link" href="/financeiro/extrato-geral/export.pdf?start={{ period_start | urlencode }}&amp;end={{ period_end | urlencode }}&amp;tipo={{ tipo | urlencode }}&amp;categoria={{ categoria | urlencode }}">PDF</a>
+</p>
+
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-receipt"></use></svg> Movimentações</h2>
+{% if movements|length == 0 %}
+    <p class="empty-state">Nenhuma movimentação encontrada com esses filtros.</p>
+{% else %}
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Tipo</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Valor</th>
+                <th>Saldo corrente</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in movements %}
+                <tr>
+                    <td>{{ m.date }}</td>
+                    <td>
+                        {% if m.type == "in" %}
+                            <span class="badge-success">Entra</span>
+                        {% else %}
+                            <span class="badge-danger">Sai</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ m.description }}</td>
+                    <td>{{ m.category or "—" }}</td>
+                    <td>{{ "+" if m.type == "in" else "-" }}{{ format_amount_cents(m.amount_cents) }} {{ m.currency }}</td>
+                    <td>{{ format_amount_cents(m.running_balance_cents) }} €</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

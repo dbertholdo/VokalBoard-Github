@@ -6,14 +6,22 @@
 
 <p><a class="button-link button-primary" href="/listings/new">{{ t('my_listings_new_button') }}</a></p>
 
+{% if created %}<p class="success">{{ t('listing_created_success') }}</p>
+<script nonce="{{ csp_nonce }}">window.vbShowMascotToast('/static/img/mascot/mascot-thumbsup.png', '', 1000);</script>
+{% endif %}
+{% if urgent_marked %}<p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-bolt"></use></svg> {{ t('urgent_marked_success') }}</p>{% endif %}
+{% if urgent_error == 'insufficient_balance' %}<p class="error">{{ t('urgent_error_insufficient_balance') }}</p>{% endif %}
+{% if urgent_error == 'not_eligible' %}<p class="error">{{ t('urgent_error_not_eligible') }}</p>{% endif %}
+
 {% if listings|length == 0 %}
     <p class="empty-state">{{ t('my_listings_empty') }} <a href="/listings/new">{{ t('my_listings_publish_first') }}</a></p>
 {% endif %}
 
 <ul class="listing-grid">
     {% for l in listings %}
-    <li class="listing-card">
+    <li class="listing-card {% if l.is_urgent %}listing-card-urgent{% endif %}">
         <a href="/listings/{{ l.id }}">
+            {% if l.is_urgent %}<span class="badge badge-urgent"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-bolt"></use></svg> {{ t('urgent_badge') }}</span>{% endif %}
             <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
             {% if l.event_status %}
                 <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
@@ -25,6 +33,22 @@
             </p>
         </a>
         <a href="/listings/{{ l.id }}/edit" class="author"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-edit"></use></svg> {{ t('edit_button') }}</a>
+        {% if l.listing_type == 'seeking_singer' %}
+            <a href="/listings/{{ l.id }}/candidates" class="author"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('listing_candidates_link') }}</a>
+        {% endif %}
+        {% if l.listing_type in urgency_eligible_types and not l.is_urgent and l.is_active %}
+        <form method="post" action="/listings/{{ l.id }}/mark-urgent" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="button-link">
+                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-bolt"></use></svg>
+                {% if urgency_status.free_tokens_left > 0 %}
+                    {{ t('mark_urgent_button_free') }}
+                {% else %}
+                    {{ t('mark_urgent_button_paid').replace('{cost}', format_notas(urgency_status.purchase_cost_notas)) }}
+                {% endif %}
+            </button>
+        </form>
+        {% endif %}
     </li>
     {% endfor %}
 </ul>

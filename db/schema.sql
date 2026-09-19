@@ -21,6 +21,7 @@ DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS password_reset_tokens CASCADE;
 DROP TABLE IF EXISTS email_verification_tokens CASCADE;
 DROP TABLE IF EXISTS user_social_links CASCADE;
+DROP TABLE IF EXISTS singer_works CASCADE;
 DROP TABLE IF EXISTS singer_audio_links CASCADE;
 DROP TABLE IF EXISTS singer_composer_tags CASCADE;
 DROP TABLE IF EXISTS listings CASCADE;
@@ -99,6 +100,12 @@ CREATE TABLE users (
     state           VARCHAR(100),                          -- Bundesland/Kanton — same list used in listings (see `cities`)
     country         VARCHAR(10) NOT NULL DEFAULT 'DE' CHECK (country IN ('DE', 'AT', 'CH', 'OTHER')),
     phone           VARCHAR(50),
+    -- P2.C: whether the phone number shows on the public profile.
+    -- 'private' (default) hides it there — it still gets shared with a
+    -- Match counterpart regardless of this setting (see job_matches
+    -- contact reveal), since that reveal is a platform rule, not a
+    -- per-user choice.
+    phone_visibility VARCHAR(10) NOT NULL DEFAULT 'private' CHECK (phone_visibility IN ('private', 'public')),
     email_verified  BOOLEAN NOT NULL DEFAULT FALSE,
     -- Account deletion "soft delete": when the person asks to delete
     -- their account, we only set deleted_at (we don't actually DELETE).
@@ -107,6 +114,17 @@ CREATE TABLE users (
     -- external maintenance process (see scripts/purge_deleted_accounts.py)
     -- permanently deletes anyone marked for more than 6 months.
     deleted_at      TIMESTAMPTZ,
+    -- Banimento por moderação (P6, 18/09/2026) — DIFERENTE de uma
+    -- autodesativação: quando banned_at está preenchido, deleted_at
+    -- também é (esconde tudo pelos mesmos filtros que já existem),
+    -- mas login NÃO oferece reativação (ver app/routers/auth_routes.py)
+    -- e só um Admin reverte manualmente (ver
+    -- POST /admin/users/{id}/unban em app/routers/admin_routes.py). Se
+    -- um dia existir uma rotina de purga automática de contas
+    -- deletadas há 6+ meses, ela precisa excluir banned_at IS NOT NULL
+    -- — banimento é definitivo, não deve "expirar" sozinho.
+    banned_at         TIMESTAMPTZ,
+    banned_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     -- Profile photo: relative path inside /static (e.g.
     -- "/static/avatars/42.jpg"), not the image itself — the file lives
     -- on disk (see app/avatars.py). NULL = no photo, shows a
@@ -183,6 +201,12 @@ CREATE TABLE users (
     -- NULL or in the past = no active highlight. See
     -- app/routers/notas_routes.py.
     profile_highlighted_until TIMESTAMPTZ,
+    -- P2 cluster, Profile Wizard (19/09/2026): gates ONLY the one-time
+    -- automatic redirect to /profile/wizard right after signup (see
+    -- app/routers/listings_routes.py home()) — the wizard itself stays
+    -- reachable manually at any time regardless of this column. NULL =
+    -- never auto-shown yet.
+    profile_wizard_seen_at TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -245,7 +269,19 @@ CREATE TABLE system_settings (
 INSERT INTO system_settings (key, value) VALUES
     ('capitalismo_mode_enabled', 'false'),
     ('subscription_price_eur_cents', '590'),
-    ('subscription_price_chf_cents', '690')
+    ('subscription_price_chf_cents', '690'),
+    -- P3.E: whether the compatibility score/criteria show to the end
+    -- user (Home/board). Off by default — Daniel wants to discuss the
+    -- UI for this later; the ranking itself always runs regardless of
+    -- this toggle, only its visible explanation is gated by it.
+    ('compatibility_score_visible', 'false'),
+    -- P6 (18/09/2026): layout compartilhado de todos os e-mails
+    -- automáticos (ver app/email_layout.py) — editável em /admin/emails.
+    ('email_layout_logo_url', ''),
+    ('email_layout_accent_color', '#12a488'),
+    ('email_layout_header_emoji', '🎵'),
+    ('email_layout_signature', 'Equipe VokalBoard'),
+    ('email_layout_footer', 'Você recebeu este e-mail porque tem uma conta no VokalBoard.')
 ON CONFLICT (key) DO NOTHING;
 
 -- Audit log of Red Zone sensitive actions (turning Capitalism
@@ -327,7 +363,16 @@ CREATE TABLE subscriptions (
     country             VARCHAR(10),
     started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at          TIMESTAMPTZ,
-    is_active           BOOLEAN NOT NULL DEFAULT TRUE
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Estorno (P6, 18/09/2026) — "estornar compra... com dinheiro, em
+    -- algum submenu do financeiro". Sem gateway de pagamento conectado
+    -- ainda, então isso só marca o registro interno (tira de
+    -- is_active/da receita de um fechamento futuro) — não devolve
+    -- dinheiro de verdade sozinho; isso o Admin faz por fora (ex.:
+    -- transferência manual) quando aplicável. Ver
+    -- POST /financeiro/estornos/assinatura/{id}.
+    refunded_at         TIMESTAMPTZ,
+    refunded_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE INDEX idx_subscriptions_user ON subscriptions(user_id);
 CREATE INDEX idx_subscriptions_active_country ON subscriptions(is_active, country);
@@ -523,6 +568,27 @@ CREATE TABLE singer_audio_links (
 CREATE INDEX idx_singer_audio_links_user ON singer_audio_links(user_id);
 
 -- ------------------------------------------------------------
+-- "Works" (repertoire items), P2 cluster (19/09/2026): a singer's own
+-- portfolio pieces, tagged solo vs. choir so the public profile can
+-- show them in two separate card groups. Deliberately NOT the same as
+-- singer_audio_links above (a bare, untagged URL list) nor
+-- listings.repertoire (a job-posting field, not a personal portfolio).
+-- ------------------------------------------------------------
+CREATE TABLE singer_works (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title        VARCHAR(150) NOT NULL,
+    composer     VARCHAR(150),
+    category     VARCHAR(10) NOT NULL CHECK (category IN ('solo', 'choir')),
+    video_url    VARCHAR(500),
+    audio_url    VARCHAR(500),
+    sort_order   SMALLINT NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_singer_works_user ON singer_works(user_id);
+
+-- ------------------------------------------------------------
 -- Conductor-specific profile (1:1 with users when role='conductor')
 -- ------------------------------------------------------------
 CREATE TABLE conductor_profiles (
@@ -558,12 +624,40 @@ CREATE TABLE listings (
     voice_type_id   INTEGER REFERENCES voice_types(id),   -- NULL = "all voices" when applicable
     repertoire      VARCHAR(200),                          -- "Piece": e.g. "Mozart, Requiem"
     venue           VARCHAR(200),                          -- "Where" / Ort: church, concert hall, etc.
-    fee             VARCHAR(100),                          -- "Fee": free text (e.g. "250€", "negotiable")
+    fee             VARCHAR(100),                          -- LEGACY free text (e.g. "250€", "negotiable") —
+                                                             -- kept for old rows; P3.E's fee_amount/fee_currency/
+                                                             -- fee_negotiable below are what the app reads/writes now.
+    -- P3.E (2026-09-18 migration): structured cachê. Exactly one of
+    -- fee_amount/fee_negotiable holds for a listing_type that requires a
+    -- fee (validated in app/routers/listings_routes.py:_fee_valid — the
+    -- CHECK below only forbids having BOTH at once). Multi-currency is
+    -- pre-built for a future non-DACH launch; today it's mostly EUR/CHF.
+    fee_amount      NUMERIC(10, 2) CHECK (fee_amount IS NULL OR fee_amount >= 0),
+    fee_currency    VARCHAR(3) NOT NULL DEFAULT 'EUR' CHECK (fee_currency IN ('EUR', 'CHF', 'USD', 'GBP')),
+    fee_negotiable  BOOLEAN NOT NULL DEFAULT FALSE,
     ensemble_type   VARCHAR(10) CHECK (ensemble_type IN ('solo', 'choir', 'both')),  -- solo / choir / both (optional)
     event_date      DATE,                                  -- date of the event/audition, if any
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    -- P3.A: optional logistics checkboxes (Fahrkosten/Partitur
+    -- vorhanden/Probenplan vorhanden). sheet_music_url is Zero-Storage —
+    -- an external link only, shown to a candidate only once a Match is
+    -- confirmed (see listing_detail.html / listings_routes.py).
+    travel_cost_covered            BOOLEAN NOT NULL DEFAULT FALSE,
+    sheet_music_available           BOOLEAN NOT NULL DEFAULT FALSE,
+    sheet_music_url                 VARCHAR(500),
+    rehearsal_schedule_available    BOOLEAN NOT NULL DEFAULT FALSE,
+    -- P5 Etapa 2 (18/09/2026): Sistema de Urgência — só faz sentido
+    -- pra seeking_singer/seeking_conductor (ver
+    -- URGENCY_ELIGIBLE_LISTING_TYPES em listings_routes.py), mas fica
+    -- na tabela toda por simplicidade (mesmo padrão de outros campos
+    -- opcionais aqui). urgent_reminder_sent_at garante que o worker de
+    -- lembrete de 6h manda o aviso só uma vez por vaga.
+    is_urgent               BOOLEAN NOT NULL DEFAULT FALSE,
+    urgent_marked_at        TIMESTAMPTZ,
+    urgent_reminder_sent_at TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (NOT (fee_amount IS NOT NULL AND fee_negotiable))
 );
 
 CREATE INDEX idx_listings_type ON listings(listing_type);
@@ -571,6 +665,7 @@ CREATE INDEX idx_listings_city ON listings(city);
 CREATE INDEX idx_listings_country ON listings(country);
 CREATE INDEX idx_listings_voice_type ON listings(voice_type_id);
 CREATE INDEX idx_listings_active_created ON listings(is_active, created_at DESC);
+CREATE INDEX idx_listings_urgent ON listings (is_urgent) WHERE is_urgent = TRUE;
 -- Added together with the State and Period filters in /board, and the
 -- one on author_id because it's involved in practically every JOIN with
 -- users (including the ones that check deleted_at) — without an index,
@@ -596,23 +691,32 @@ CREATE TABLE listing_vacancies (
     id BIGSERIAL PRIMARY KEY,
     listing_id BIGINT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
     voice_type_id BIGINT NOT NULL REFERENCES voice_types(id) ON DELETE RESTRICT,
-    fee VARCHAR(100),
+    fee VARCHAR(100),  -- LEGACY free text, see listings.fee above — same P3.E replacement below.
+    fee_amount NUMERIC(10, 2) CHECK (fee_amount IS NULL OR fee_amount >= 0),
+    fee_currency VARCHAR(3) NOT NULL DEFAULT 'EUR' CHECK (fee_currency IN ('EUR', 'CHF', 'USD', 'GBP')),
+    fee_negotiable BOOLEAN NOT NULL DEFAULT FALSE,
     total_slots SMALLINT NOT NULL DEFAULT 1 CHECK (total_slots > 0),
     filled_slots SMALLINT NOT NULL DEFAULT 0 CHECK (filled_slots >= 0 AND filled_slots <= total_slots),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (listing_id, voice_type_id)
+    UNIQUE (listing_id, voice_type_id),
+    CHECK (NOT (fee_amount IS NOT NULL AND fee_negotiable))
 );
 
 CREATE TABLE job_invitations (
     id BIGSERIAL PRIMARY KEY,
     vacancy_id BIGINT NOT NULL REFERENCES listing_vacancies(id) ON DELETE CASCADE,
     artist_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- P3.B: who STARTED this row decides who must accept/decline it.
+    -- initiated_by_user_id = artist_user_id -> candidatura espontânea
+    -- (the contractor, the vacancy's listing author, accepts/declines).
+    -- initiated_by_user_id = someone else -> a convite (the artist
+    -- accepts/declines). See app/match_service.py:create_invitation /
+    -- respond_invitation for the actual rule.
     initiated_by_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'expired')),
     expires_at TIMESTAMPTZ NOT NULL,
     responded_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (artist_user_id <> initiated_by_user_id)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX uq_pending_job_invitation ON job_invitations (vacancy_id, artist_user_id) WHERE status = 'pending';
 
@@ -626,10 +730,46 @@ CREATE TABLE job_matches (
     status VARCHAR(16) NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'completed', 'cancelled')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at TIMESTAMPTZ,
+    -- P3.F: um por lado do Match, para o worker de lembrete
+    -- (app/match_evaluation_reminder_worker.py) não reenviar o e-mail
+    -- toda hora durante os 14 dias da janela de avaliação.
+    artist_eval_reminder_sent_at TIMESTAMPTZ,
+    contractor_eval_reminder_sent_at TIMESTAMPTZ,
+    -- P4: marcador não-sensível — só diz "já foi enviada", nunca guarda
+    -- conteúdo (ver app/invoice_match_drafts.py e comentário na migração
+    -- 2026-09-18_p4_match_invoice_marker.sql).
+    invoice_sent_at TIMESTAMPTZ,
     CHECK (artist_user_id <> contractor_user_id)
 );
 CREATE INDEX idx_job_invitations_artist_pending ON job_invitations (artist_user_id, status, expires_at);
 CREATE INDEX idx_job_matches_user ON job_matches (artist_user_id, contractor_user_id, status);
+
+-- P3.F: avaliação pós-Match, 5 categorias (1-5 estrelas cada), mútua —
+-- cada lado do Match avalia o outro (uma linha por match+rater).
+-- SECRETO por decisão do Daniel (18/09/2026): "igual Uber, ninguém vê
+-- quem avaliou e como" — nenhuma rota expõe linhas desta tabela
+-- individualmente pra ninguém (nem pro próprio avaliado, nem pro
+-- Admin pela UI normal); só a MÉDIA agregada por categoria é lida
+-- (ver app/match_evaluations.py), e só pro próprio dono do perfil e
+-- pro Admin — nunca publicamente. Selo/tier NÃO é armazenado (é
+-- calculado em tempo real a partir do AVG — "estilo Uber", pode subir
+-- ou descer com o tempo).
+CREATE TABLE match_evaluations (
+    id                       BIGSERIAL PRIMARY KEY,
+    match_id                 BIGINT NOT NULL REFERENCES job_matches(id) ON DELETE CASCADE,
+    rater_id                 BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rated_id                 BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    punctuality              SMALLINT NOT NULL CHECK (punctuality BETWEEN 1 AND 5),
+    preparation              SMALLINT NOT NULL CHECK (preparation BETWEEN 1 AND 5),
+    musicality               SMALLINT NOT NULL CHECK (musicality BETWEEN 1 AND 5),
+    communication             SMALLINT NOT NULL CHECK (communication BETWEEN 1 AND 5),
+    collaboration            SMALLINT NOT NULL CHECK (collaboration BETWEEN 1 AND 5),
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (rater_id <> rated_id),
+    UNIQUE (match_id, rater_id)
+);
+CREATE INDEX idx_match_evaluations_rated ON match_evaluations (rated_id);
 
 -- ------------------------------------------------------------
 -- Rechnungmaker metadata. Sensitive invoice form values (bank data,
@@ -659,6 +799,16 @@ CREATE TABLE purchased_invoice_credits (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_purchased_invoice_credits_user ON purchased_invoice_credits (user_id, created_at DESC);
+
+-- P4 Etapa 3 (18/09/2026): contador genérico de uso de ferramentas do site
+-- pro Admin ("quais ferramentas são mais usadas" — pedido do Daniel,
+-- inclui o Rechnungmaker). Ver app/feature_usage.py.
+CREATE TABLE feature_usage_monthly (
+    feature_key VARCHAR(64) NOT NULL,
+    usage_month DATE NOT NULL,
+    count BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (feature_key, usage_month)
+);
 
 -- Legacy operational metadata retained for migration compatibility. New Match
 -- invoices use invoice_match_drafts below and do not store PDF files.
@@ -800,14 +950,95 @@ CREATE INDEX idx_saved_listings_listing ON saved_listings(listing_id);
 --   ORDER BY lr.created_at DESC;
 -- ------------------------------------------------------------
 CREATE TABLE listing_reports (
-    id          BIGSERIAL PRIMARY KEY,
-    listing_id  BIGINT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
-    reporter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    reason      TEXT NOT NULL CHECK (char_length(reason) >= 10),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                  BIGSERIAL PRIMARY KEY,
+    listing_id          BIGINT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    reporter_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reason              TEXT NOT NULL CHECK (char_length(reason) >= 10),
+    -- Moderação (P6, 18/09/2026) — "resposta a denúncias e notificação
+    -- ao usuário quando denúncia for aceita" — ver app/moderation.py.
+    status              VARCHAR(20) NOT NULL DEFAULT 'open'
+                            CHECK (status IN ('open', 'accepted', 'rejected')),
+    resolved_at         TIMESTAMPTZ,
+    resolved_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_listing_reports_listing ON listing_reports(listing_id);
+CREATE INDEX idx_listing_reports_status ON listing_reports(status);
+
+-- Histórico de punições de moderação (P6, 18/09/2026) — "no botão de
+-- denúncia precisamos definir alguma forma de warning/punição/
+-- banimento". Uma linha por ação aplicada (ao autor do anúncio
+-- denunciado, ao aceitar a denúncia) — permite ver quantos
+-- avisos/suspensões/bans uma conta já recebeu (ver
+-- app/moderation.py, apply_moderation_punishment()).
+CREATE TABLE moderation_actions (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    report_id    BIGINT REFERENCES listing_reports(id) ON DELETE SET NULL,
+    action_type  VARCHAR(20) NOT NULL CHECK (action_type IN ('warning', 'suspend', 'ban')),
+    admin_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_moderation_actions_user ON moderation_actions(user_id);
+
+-- ------------------------------------------------------------
+-- Support tickets: "Fale conosco" (contact) + "Reportar erro" (bug
+-- report) — one unified inbox, distinguished by `type` — P6 close-out
+-- (19/09/2026). Mirrors the listing_reports shape (open ->
+-- answered/resolved, resolved_by/resolved_at). A bug report
+-- auto-captures page_url/page_name from wherever the button was
+-- clicked (see app/templates/base.html); user_id is nullable (SET
+-- NULL, never blocks account deletion). `email` only matters for a
+-- logged-out submission — see app/routers/support_routes.py.
+-- ------------------------------------------------------------
+CREATE TABLE support_tickets (
+    id                   BIGSERIAL PRIMARY KEY,
+    type                 VARCHAR(20) NOT NULL CHECK (type IN ('contact', 'bug_report')),
+    user_id              BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    email                VARCHAR(255),
+    subject              VARCHAR(200),
+    description          TEXT NOT NULL CHECK (char_length(description) >= 10),
+    page_url             TEXT,
+    page_name            VARCHAR(200),
+    status               VARCHAR(20) NOT NULL DEFAULT 'open'
+                             CHECK (status IN ('open', 'answered', 'resolved')),
+    admin_response       TEXT,
+    resolved_by_user_id  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at          TIMESTAMPTZ,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_support_tickets_status ON support_tickets(status);
+CREATE INDEX idx_support_tickets_user ON support_tickets(user_id);
+
+-- ------------------------------------------------------------
+-- Periodic mails (P0 backlog item: daily/weekly/monthly reports) —
+-- Daniel's follow-up request (19/09/2026): a screen to build, list,
+-- edit, pause and delete recurring admin emails. Body only per mail
+-- (wrapped by the existing shared email layout, app/email_layout.py).
+-- Recipients fixed to the admin team (role_level >= 2) this round —
+-- see app/periodic_mails.py's module docstring; recipient_scope is a
+-- column, not a hardcoded constant, so a second scope can be added
+-- later without another migration.
+-- ------------------------------------------------------------
+CREATE TABLE periodic_mails (
+    id                  BIGSERIAL PRIMARY KEY,
+    name                VARCHAR(200) NOT NULL,
+    subject             VARCHAR(300) NOT NULL,
+    body_html           TEXT NOT NULL,
+    frequency           VARCHAR(10) NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly')),
+    recipient_scope     VARCHAR(20) NOT NULL DEFAULT 'admins' CHECK (recipient_scope IN ('admins')),
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    last_sent_at        TIMESTAMPTZ,
+    next_send_at        TIMESTAMPTZ NOT NULL,
+    created_by_user_id  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_by_user_id  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_periodic_mails_due ON periodic_mails(next_send_at) WHERE is_active = TRUE;
 
 -- ------------------------------------------------------------
 -- User block: whoever blocks stops seeing the blocked person's
@@ -886,16 +1117,61 @@ CREATE INDEX idx_referral_events_referrer ON referral_events(referrer_user_id);
 -- delta) and redeemed (negative delta). Balance = SUM(delta). Never
 -- UPDATE or DELETE a row here — a correction is a new row, so the
 -- history always explains itself.
+-- delta é NUMERIC (não INTEGER) desde o P5 Etapa 1 (18/09/2026) —
+-- precisa suportar valores fracionados (ex.: 0,50 Nota por vaga
+-- postada), além dos inteiros de sempre (+1 indicação, -3 resgate).
+-- idempotency_key (opcional) protege créditos automáticos contra
+-- duplicidade por retry — ver app/notas_wallet.py.
 CREATE TABLE credit_ledger (
-    id           BIGSERIAL PRIMARY KEY,
-    user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    delta        INTEGER NOT NULL,
-    reason       VARCHAR(50) NOT NULL,
-    reference_id BIGINT,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    id               BIGSERIAL PRIMARY KEY,
+    user_id          BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    delta            NUMERIC(10,2) NOT NULL,
+    reason           VARCHAR(50) NOT NULL,
+    reference_id     BIGINT,
+    idempotency_key  VARCHAR(100),
+    -- admin_note: the Admin's own typed justification for an ad-hoc
+    -- grant/debit (/financeiro/conceder, P6, 19/09/2026) — `reason`
+    -- itself stays a short machine label, this is the free text.
+    -- NULL for every other kind of credit_ledger row.
+    admin_note       TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_credit_ledger_user ON credit_ledger(user_id);
+CREATE UNIQUE INDEX idx_credit_ledger_user_idempotency
+    ON credit_ledger (user_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
+
+-- urgency_weekly_usage: controla o token de urgência grátis semanal —
+-- P5 Etapa 2 (18/09/2026). "Não acumula": cada semana é sua própria
+-- linha, free_used nunca passa de 1 (ver app/urgency.py).
+CREATE TABLE urgency_weekly_usage (
+    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    usage_week DATE NOT NULL,
+    free_used  INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, usage_week)
+);
+
+-- shop_catalog_items: preço e ativo/inativo de cada item da loja,
+-- controláveis pelo Admin (/admin/loja) sem precisar de deploy —
+-- P5 Loja - painel de Admin (18/09/2026). O EFEITO de cada item
+-- continua no Python (ver app/shop_catalog.py, ITEM_EFFECTS).
+-- title/description NULL = item usa o texto de app/i18n.py (só o
+-- item que já existia de início, profile_highlight_7d, cai nesse
+-- caso — item novo criado pelo Admin sempre preenche os dois, já que
+-- não tem entrada no i18n pra usar de fallback). icon: lista fechada
+-- validada no servidor (ver ALLOWED_ICONS em app/shop_catalog.py).
+CREATE TABLE shop_catalog_items (
+    id          BIGSERIAL PRIMARY KEY,
+    item_key    VARCHAR(50) NOT NULL UNIQUE,
+    cost        NUMERIC(10,2) NOT NULL,
+    active      BOOLEAN NOT NULL DEFAULT TRUE,
+    title       VARCHAR(150),
+    description VARCHAR(500),
+    icon        VARCHAR(50) NOT NULL DEFAULT 'icon-gift',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- ------------------------------------------------------------
 -- Dados iniciais (seed) — categorias de voz simplificadas (SATB)
@@ -905,6 +1181,12 @@ INSERT INTO voice_types (name, sort_order) VALUES
     ('Alto', 2),
     ('Tenor', 3),
     ('Bass', 4);
+
+-- Único item de loja existente até agora (ver app/shop_catalog.py).
+-- title/description ficam NULL de propósito — usa o texto de
+-- app/i18n.py até o Admin sobrescrever pela tela /admin/loja.
+INSERT INTO shop_catalog_items (item_key, cost, active, icon) VALUES
+    ('profile_highlight_7d', 3, TRUE, 'icon-sparkle');
 
 -- ------------------------------------------------------------
 -- Seed data — cities of Germany, Austria and Switzerland
@@ -2183,3 +2465,148 @@ INSERT INTO cities (name, state, country_code, population) VALUES
     ('Dübendorf', 'Zürich', 'CH', 19882),
     ('Kloten', 'Zürich', 'CH', 16289),
     ('Adliswil', 'Zürich', 'CH', 15230);
+-- Apply transactionally before deploying the corresponding application code.
+BEGIN;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS available_from date;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS available_until date;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE listings ALTER COLUMN country DROP NOT NULL;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS activity_at timestamptz;
+UPDATE messages SET activity_at=created_at WHERE activity_at IS NULL;
+-- A conversation is the pair of participants, irrespective of listing.
+WITH activity AS (
+ SELECT least(sender_id,recipient_id) a, greatest(sender_id,recipient_id) b, max(created_at) latest
+ FROM messages WHERE archived_at IS NULL GROUP BY 1,2
+)
+UPDATE messages m SET activity_at=a.latest FROM activity a
+WHERE least(m.sender_id,m.recipient_id)=a.a AND greatest(m.sender_id,m.recipient_id)=a.b
+  AND m.archived_at IS NULL;
+ALTER TABLE messages ALTER COLUMN activity_at SET DEFAULT now();
+ALTER TABLE messages ALTER COLUMN activity_at SET NOT NULL;
+
+CREATE TABLE IF NOT EXISTS content_lifecycle_log (
+ id bigserial PRIMARY KEY, entity_type text NOT NULL, entity_id bigint NOT NULL,
+ action text NOT NULL, actor_id bigint, occurred_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_entity ON content_lifecycle_log(entity_type,entity_id);
+CREATE INDEX IF NOT EXISTS idx_messages_pair_activity ON messages(least(sender_id,recipient_id),greatest(sender_id,recipient_id),activity_at);
+
+ALTER TABLE job_matches ADD COLUMN IF NOT EXISTS listing_snapshot jsonb;
+UPDATE job_matches m SET listing_snapshot=jsonb_build_object('title',l.title,'event_date',l.event_date,'fee',l.fee)
+FROM listings l WHERE l.id=m.listing_id AND m.listing_snapshot IS NULL;
+ALTER TABLE job_matches ALTER COLUMN listing_id DROP NOT NULL;
+ALTER TABLE job_matches ALTER COLUMN vacancy_id DROP NOT NULL;
+ALTER TABLE job_matches DROP CONSTRAINT IF EXISTS job_matches_listing_id_fkey;
+ALTER TABLE job_matches ADD CONSTRAINT job_matches_listing_id_fkey FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE SET NULL;
+ALTER TABLE job_matches DROP CONSTRAINT IF EXISTS job_matches_vacancy_id_fkey;
+ALTER TABLE job_matches ADD CONSTRAINT job_matches_vacancy_id_fkey FOREIGN KEY(vacancy_id) REFERENCES listing_vacancies(id) ON DELETE SET NULL;
+
+CREATE OR REPLACE FUNCTION snapshot_match_listing() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ SELECT jsonb_build_object('title',title,'event_date',event_date,'fee',fee)
+ INTO NEW.listing_snapshot FROM listings WHERE id=NEW.listing_id;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS match_snapshot ON job_matches;
+CREATE TRIGGER match_snapshot BEFORE INSERT ON job_matches FOR EACH ROW EXECUTE FUNCTION snapshot_match_listing();
+
+CREATE OR REPLACE VIEW visible_listings AS
+ SELECT * FROM listings WHERE archived_at IS NULL AND deleted_at IS NULL
+ AND (COALESCE(available_until,event_date) IS NULL OR COALESCE(available_until,event_date)+30 > CURRENT_DATE);
+CREATE OR REPLACE VIEW visible_messages AS
+ SELECT * FROM messages WHERE archived_at IS NULL AND activity_at+interval '30 days' > now();
+
+CREATE OR REPLACE FUNCTION validate_availability() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF NEW.archived_at IS NOT NULL OR NEW.deleted_at IS NOT NULL THEN RETURN NEW; END IF;
+ IF NEW.listing_type='singer_available' THEN
+   IF NEW.available_from IS NULL OR NEW.available_until IS NULL OR
+      NEW.available_until < NEW.available_from OR NEW.available_until-NEW.available_from > 29 THEN
+     RAISE EXCEPTION 'availability_invalid' USING ERRCODE='23514';
+   END IF;
+   -- Per-owner transaction lock protects the quota even under concurrent requests.
+   PERFORM pg_advisory_xact_lock(8201, (NEW.author_id % 2147483647)::integer);
+   IF NEW.is_active AND NEW.available_until >= CURRENT_DATE AND
+      (SELECT count(*) FROM listings WHERE author_id=NEW.author_id AND id<>NEW.id
+        AND listing_type='singer_available' AND is_active AND archived_at IS NULL
+        AND deleted_at IS NULL AND available_until>=CURRENT_DATE) >= 2 THEN
+     RAISE EXCEPTION 'availability_limit' USING ERRCODE='23514';
+   END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS availability_guard ON listings;
+CREATE TRIGGER availability_guard BEFORE INSERT OR UPDATE ON listings FOR EACH ROW EXECUTE FUNCTION validate_availability();
+
+CREATE OR REPLACE FUNCTION message_activity() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ PERFORM pg_advisory_xact_lock((least(NEW.sender_id,NEW.recipient_id)%2147483647)::integer,
+                              (greatest(NEW.sender_id,NEW.recipient_id)%2147483647)::integer);
+ -- Expired history never returns when a new conversation starts.
+ UPDATE messages SET archived_at=activity_at+interval '30 days'
+ WHERE archived_at IS NULL AND activity_at+interval '30 days'<=now()
+ AND least(sender_id,recipient_id)=least(NEW.sender_id,NEW.recipient_id)
+ AND greatest(sender_id,recipient_id)=greatest(NEW.sender_id,NEW.recipient_id);
+ UPDATE messages SET activity_at=NEW.created_at
+ WHERE archived_at IS NULL AND least(sender_id,recipient_id)=least(NEW.sender_id,NEW.recipient_id)
+ AND greatest(sender_id,recipient_id)=greatest(NEW.sender_id,NEW.recipient_id);
+ NEW.activity_at=NEW.created_at;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS conversation_activity ON messages;
+CREATE TRIGGER conversation_activity BEFORE INSERT ON messages FOR EACH ROW EXECUTE FUNCTION message_activity();
+
+CREATE OR REPLACE FUNCTION audit_content_lifecycle() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE actor bigint; event text;
+BEGIN
+ IF TG_OP='DELETE' THEN
+   INSERT INTO content_lifecycle_log(entity_type,entity_id,action) VALUES(TG_TABLE_NAME,OLD.id,'purged');
+   RETURN OLD;
+ END IF;
+ actor=COALESCE((to_jsonb(NEW)->>'author_id')::bigint,(to_jsonb(NEW)->>'sender_id')::bigint);
+ IF TG_OP='INSERT' THEN event='posted';
+ ELSIF OLD.deleted_at IS DISTINCT FROM NEW.deleted_at THEN event='deleted';
+ ELSE RETURN NEW;
+ END IF;
+ INSERT INTO content_lifecycle_log(entity_type,entity_id,action,actor_id) VALUES(TG_TABLE_NAME,NEW.id,event,actor);
+ RETURN NEW;
+END $$;
+-- Separate UPDATE logic works for messages (which have no deleted_at).
+CREATE OR REPLACE FUNCTION audit_content_change() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF (to_jsonb(OLD)->>'deleted_at') IS NULL AND (to_jsonb(NEW)->>'deleted_at') IS NOT NULL THEN
+   INSERT INTO content_lifecycle_log(entity_type,entity_id,action) VALUES(TG_TABLE_NAME,NEW.id,'deleted');
+ END IF;
+ IF OLD.archived_at IS NULL AND NEW.archived_at IS NOT NULL THEN
+   INSERT INTO content_lifecycle_log(entity_type,entity_id,action) VALUES(TG_TABLE_NAME,NEW.id,'archived');
+ END IF;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS listing_audit ON listings;
+CREATE TRIGGER listing_audit AFTER INSERT OR DELETE ON listings FOR EACH ROW EXECUTE FUNCTION audit_content_lifecycle();
+DROP TRIGGER IF EXISTS listing_change_audit ON listings;
+CREATE TRIGGER listing_change_audit AFTER UPDATE ON listings FOR EACH ROW EXECUTE FUNCTION audit_content_change();
+DROP TRIGGER IF EXISTS message_audit ON messages;
+CREATE TRIGGER message_audit AFTER INSERT OR DELETE ON messages FOR EACH ROW EXECUTE FUNCTION audit_content_lifecycle();
+DROP TRIGGER IF EXISTS message_change_audit ON messages;
+CREATE TRIGGER message_change_audit AFTER UPDATE ON messages FOR EACH ROW EXECUTE FUNCTION audit_content_change();
+
+-- ------------------------------------------------------------
+-- P2.B: idiomas falados no perfil (qualquer role). Lista fixa +
+-- "Outra" com nome livre + até 3 campos extras + remoção — controlado
+-- na aplicação (app/languages.py), aqui só a tabela.
+-- ------------------------------------------------------------
+CREATE TABLE user_spoken_languages (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    language_code VARCHAR(20) NOT NULL,
+    custom_name VARCHAR(100),
+    sort_order SMALLINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_user_spoken_languages_user ON user_spoken_languages (user_id);
+CREATE UNIQUE INDEX uq_user_spoken_language_fixed ON user_spoken_languages (user_id, language_code) WHERE language_code <> 'other';
+
+COMMIT;

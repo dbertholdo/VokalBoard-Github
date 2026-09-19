@@ -10,3 +10,7 @@
 pytest==8.3.3
 bandit==1.7.10
 pip-audit==2.7.3
+# pypdf: só usado em tests/test_invoice_pdf.py para extrair o texto do PDF
+# gerado (confirmar o rodapé de assinatura, P4 18/09/2026) — nunca importado
+# fora dos testes, então não entra em requirements.txt.
+pypdf==6.19.0

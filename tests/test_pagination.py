@@ -33,6 +33,7 @@ class ResultsParser(HTMLParser):
 
 def test_board_pages_filters_bounds_and_container(client):
     uid, _, _ = register_test_user(client)
+    execute('UPDATE users SET email_verified=TRUE WHERE id=:u', {'u': uid})
     marker = 'pagination_' + uuid.uuid4().hex
     for i in range(21):
         execute("""INSERT INTO listings (author_id, listing_type, title, description, city, country, event_date, created_at)
@@ -41,8 +42,11 @@ def test_board_pages_filters_bounds_and_container(client):
     try:
         first = client.get('/board', params={'q': marker, 'page': 1})
         second = client.get('/board', params={'q': marker, 'page': 2})
+        assert first.status_code == 200, (first.status_code, str(first.url))
+        assert first.url.path == '/board'
+        assert marker in first.text, 'Search failed to render the inserted listing title'
         a, b = ResultsParser(first.text, 'board-results'), ResultsParser(second.text, 'board-results')
-        assert len(a.cards) == 20 and len(b.cards) == 1
+        assert len(a.cards) == 20 and len(b.cards) == 1, first.text[first.text.find('<section id="board-results"'):][:1800]
         assert not set(a.cards) & set(b.cards)
         assert all(marker in href for href in a.pages + b.pages)
         for page, expected in [(-5, a.cards), (99999, b.cards)]:

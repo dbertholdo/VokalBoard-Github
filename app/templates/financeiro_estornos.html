@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Financeiro — Estornos{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/financeiro">&larr; Red Zone</a>
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Estornos</h1>
+<p class="field-help">
+    Reverter uma compra — da Loja (Notas) ou de uma Assinatura paga em
+    dinheiro. O lado Notas credita o valor de volta na hora. O lado
+    dinheiro ainda não tem gateway conectado — "estornar" aqui só marca
+    o registro interno (tira da receita de um fechamento futuro);
+    devolver o dinheiro de verdade, quando aplicável, é feito por fora.
+</p>
+
+{% if refund_done == '1' %}
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Estornado.</p>
+{% endif %}
+{% if error == 'notas_invalido' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Não deu pra estornar essa linha (já foi estornada, ou não é um débito).</p>
+{% endif %}
+{% if error == 'assinatura_invalida' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Essa assinatura não existe ou já foi estornada.</p>
+{% endif %}
+{% if error == 'senha_incorreta' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> Senha incorreta — nada foi estornado.</p>
+{% endif %}
+
+<form method="get" action="/financeiro/estornos" class="inline-form period-filter">
+    <label>De <input type="date" name="start" value="{{ period_start }}"></label>
+    <label>Até <input type="date" name="end" value="{{ period_end }}"></label>
+    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Filtrar por período</button>
+    {% if period_start or period_end %}<a class="button-link" href="/financeiro/estornos">Limpar</a>{% endif %}
+</form>
+
+<div class="red-zone-box">
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> Loja (Notas)</h2>
+    <p class="field-help">Últimos 50 débitos de Notas de todos os usuários (resgates da Loja, urgências pagas com Notas, etc.).</p>
+    {% if notas_debits|length == 0 %}
+        <p class="empty-state">Nenhum débito registrado ainda.</p>
+    {% else %}
+        <table class="admin-users-table">
+            <thead>
+                <tr>
+                    <th>Usuário</th>
+                    <th>Motivo</th>
+                    <th>Valor</th>
+                    <th>Data</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in notas_debits %}
+                    <tr>
+                        <td><a href="/admin/users/{{ d.user_id }}">{{ d.user_name }}</a></td>
+                        <td><code>{{ d.reason }}</code></td>
+                        <td>{{ format_notas(d.delta) }}</td>
+                        <td>{{ d.created_at }}</td>
+                        <td>
+                            {% if d.already_refunded %}
+                                <span class="field-help">Estornado</span>
+                            {% else %}
+                                <form method="post" action="/financeiro/estornos/notas/{{ d.id }}" data-confirm="Estornar {{ format_notas(-d.delta) }} Notas pra {{ d.user_name }}?">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="button-link">Estornar</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</div>
+
+<div class="red-zone-box">
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> Assinaturas (dinheiro)</h2>
+    <p class="field-help">
+        Ainda sem nenhuma compra real (Capitalism Mode desligado, sem
+        gateway de pagamento conectado) — essa lista fica pronta pro
+        dia que existir.
+    </p>
+    {% if subscriptions_to_refund|length == 0 %}
+        <p class="empty-state">Nenhuma assinatura ativa pra estornar.</p>
+    {% else %}
+        <table class="admin-users-table">
+            <thead>
+                <tr>
+                    <th>Usuário</th>
+                    <th>Valor pago</th>
+                    <th>País</th>
+                    <th>Data</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in subscriptions_to_refund %}
+                    <tr>
+                        <td>{{ s.user_name }}</td>
+                        <td>{{ format_amount_cents(s.price_paid_cents) }} {{ s.currency }}</td>
+                        <td>{{ s.country }}</td>
+                        <td>{{ s.started_at }}</td>
+                        <td>
+                            <details>
+                                <summary class="block-user-summary">Estornar</summary>
+                                <form method="post" action="/financeiro/estornos/assinatura/{{ s.id }}" class="stacked-form narrow" data-confirm="Estornar essa assinatura? Isso tira da receita de fechamentos futuros — não devolve dinheiro de verdade sozinho.">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <label>Confirme sua senha atual
+                                        <input type="password" name="current_password" required autocomplete="current-password">
+                                    </label>
+                                    <button type="submit" class="danger">Confirmar estorno</button>
+                                </form>
+                            </details>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</div>
+{% endblock %}

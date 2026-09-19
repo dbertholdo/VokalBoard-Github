@@ -10,9 +10,23 @@ from datetime import date
 from sqlalchemy import text
 
 from app.database import engine, fetch_one
+from app.feature_usage import record_feature_usage
 
 FREE_INVOICES_PER_MONTH = 5
 _INVOICE_NUMBER_RE = re.compile(r"^(?P<year>\d{4})-(?P<sequence>\d{4,})$")
+
+# Etapa 3 do P4 (18/09/2026): selo pessoal e PRIVADO (só o próprio dono
+# vê, nunca o perfil público nem o Admin agindo por outra pessoa) —
+# bronze/prata/ouro/platina em 1/10/50/100 Rechnungen emitidas NA VIDA
+# (Avulso + Match somados — o Daniel disse "tanto faz" se junta ou
+# separa, e os dois fluxos já passam por consume_invoice_generation()
+# abaixo, então somar é o caminho natural, sem duplicar contabilidade
+# numa tabela nova). Ao contrário do selo "estilo Uber" do P3.F
+# (app/match_evaluations.py), este é um MARCO — só sobe, nunca desce,
+# igual aos badges de app/badges.py; fica fora daquele módulo só porque
+# é privado, não público. Do mais alto pro mais baixo, primeiro que
+# bater vale.
+INVOICE_COUNT_MILESTONES = [(100, "platinum"), (50, "gold"), (10, "silver"), (1, "bronze")]
 
 
 class InvoiceCreditUnavailable(ValueError):
@@ -87,22 +101,61 @@ def consume_invoice_generation(user_id: int, generated_on: date) -> str:
             {"user_id": user_id, "usage_month": usage_month, "free_limit": FREE_INVOICES_PER_MONTH},
         ).scalar_one_or_none()
         if free is not None:
-            return "free"
+            result = "free"
+        else:
+            purchased_balance = conn.execute(
+                text("SELECT COALESCE(SUM(delta), 0) FROM purchased_invoice_credits WHERE user_id = :user_id"),
+                {"user_id": user_id},
+            ).scalar_one()
+            if purchased_balance <= 0:
+                raise InvoiceCreditUnavailable("No free or purchased invoice generation is available")
 
-        purchased_balance = conn.execute(
-            text("SELECT COALESCE(SUM(delta), 0) FROM purchased_invoice_credits WHERE user_id = :user_id"),
-            {"user_id": user_id},
-        ).scalar_one()
-        if purchased_balance <= 0:
-            raise InvoiceCreditUnavailable("No free or purchased invoice generation is available")
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO purchased_invoice_credits (user_id, delta, reason)
+                    VALUES (:user_id, -1, 'invoice_generation')
+                    """
+                ),
+                {"user_id": user_id},
+            )
+            result = "purchased"
 
-        conn.execute(
-            text(
-                """
-                INSERT INTO purchased_invoice_credits (user_id, delta, reason)
-                VALUES (:user_id, -1, 'invoice_generation')
-                """
-            ),
-            {"user_id": user_id},
-        )
-        return "purchased"
+    # Etapa 3 do P4: conta como 1 uso do Rechnungmaker pro contador de
+    # "ferramentas mais usadas" do Admin — só depois que a transação
+    # acima já commitou (uma Rechnung de verdade foi consumida), numa
+    # transação própria e curta (mesmo padrão de record_invoice_number()
+    # em app/invoice_match_drafts.py).
+    record_feature_usage("rechnungmaker", generated_on)
+    return result
+
+
+def get_lifetime_invoice_count(user_id: int) -> int:
+    """Quantas Rechnungen esta conta já emitiu de verdade na vida —
+    Avulso + Match somados (os dois passam por consume_invoice_generation
+    acima). Cada linha contada aqui já é uma Rechnung entregue, nunca um
+    rascunho/tentativa."""
+    free_total = fetch_one(
+        "SELECT COALESCE(SUM(free_used), 0) AS n FROM invoice_monthly_usage WHERE user_id = :user_id",
+        {"user_id": user_id},
+    )["n"]
+    purchased_total = fetch_one(
+        """
+        SELECT COUNT(*) AS n FROM purchased_invoice_credits
+        WHERE user_id = :user_id AND delta = -1 AND reason = 'invoice_generation'
+        """,
+        {"user_id": user_id},
+    )["n"]
+    return int(free_total) + int(purchased_total)
+
+
+def get_personal_invoice_badge(user_id: int) -> dict:
+    """Selo pessoal e privado (ver INVOICE_COUNT_MILESTONES acima) —
+    {"count": int, "tier": "bronze"|"silver"|"gold"|"platinum"|None}."""
+    count = get_lifetime_invoice_count(user_id)
+    tier = None
+    for threshold, name in INVOICE_COUNT_MILESTONES:
+        if count >= threshold:
+            tier = name
+            break
+    return {"count": count, "tier": tier}

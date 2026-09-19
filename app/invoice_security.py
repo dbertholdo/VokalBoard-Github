@@ -37,9 +37,12 @@ def encrypt_invoice_draft(payload: dict[str, Any]) -> bytes:
 
 
 def decrypt_invoice_draft(encrypted_payload: bytes) -> dict[str, Any]:
-    """Decrypt a draft only after the Match authorization check in the route."""
+    """Decrypt a draft only after the Match authorization check in the route.
+
+    Accepts a `memoryview` too: psycopg2/SQLAlchemy return BYTEA columns as
+    `memoryview`, which `Fernet.decrypt` doesn't accept directly."""
     try:
-        decoded = _fernet().decrypt(encrypted_payload)
+        decoded = _fernet().decrypt(bytes(encrypted_payload))
         payload = json.loads(decoded.decode("utf-8"))
     except (InvalidToken, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise InvoiceDraftSecurityError("Invoice draft cannot be decrypted") from exc

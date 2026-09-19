@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav_match_history') }}{% endblock %}
+{% block content %}
+<h1>{{ t('nav_match_history') }}</h1>
+<p class="field-help">{{ t('match_history_privacy') }}</p>
+{% if request.query_params.get('evaluated') == '1' %}<p class="success">{{ t('eval_success') }}</p>{% endif %}
+{% if request.query_params.get('eval_error') == '1' %}<p class="error">{{ t('eval_error') }}</p>{% endif %}
+{% for match in matches %}
+<article class="profile-edit-card">
+    <h2>{{ match.title }}</h2>
+    <p>{{ match.artist_name }} · {{ match.contractor_name }}</p>
+    <p>{{ t('match_status_' ~ match.status) }}</p>
+    {% if match.event_date %}<p>{{ t('match_event_date') }}: {{ match.event_date }}</p>{% endif %}
+    {% if match.fee %}<p>{{ t('match_fee') }}: {{ match.fee }}</p>{% endif %}
+    {% if match.reveal_contact %}
+        <div class="contact-list">
+            <p class="field-help">{{ t('match_contact_revealed_help') }}</p>
+            {% if match.counterpart_email %}<p class="row"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ match.counterpart_email }}</p>{% endif %}
+            {% if match.counterpart_phone %}<p class="row"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-phone"></use></svg> {{ match.counterpart_phone }}</p>{% endif %}
+        </div>
+    {% endif %}
+    {% if match.can_evaluate %}
+        <details class="eval-box" {% if not match.my_evaluation %}open{% endif %}>
+            <summary>{{ t('eval_section_title') }}</summary>
+            <p class="field-help">{{ t('eval_privacy_help') }}</p>
+            <p class="field-help">{{ t('eval_window_help') }}</p>
+            {% if match.my_evaluation %}<p class="field-help">{{ t('eval_already_submitted') }}</p>{% endif %}
+            <form method="post" action="/profile/matches/{{ match.id }}/evaluate" class="stacked-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                {% for cat in eval_categories %}
+                    <label>{{ t('eval_category_' ~ cat) }}
+                        <select name="{{ cat }}" required>
+                            {% for n in range(1, 6) %}
+                                <option value="{{ n }}" {% if match.my_evaluation and match.my_evaluation[cat] == n %}selected{% elif not match.my_evaluation and n == 5 %}selected{% endif %}>{{ n }} ★</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                {% endfor %}
+                <button type="submit">{{ t('eval_submit') }}</button>
+            </form>
+        </details>
+    {% endif %}
+    {% if match.invoice_sent_at %}
+        <p class="field-help">{{ t('invoice_already_sent') }}</p>
+    {% elif match.invoice_draft %}
+        <p class="field-help">{{ t('invoice_status_draft_open') }} <a href="/rechnungmaker?tab=match">{{ t('invoice_go_to_rechnungmaker') }}</a></p>
+    {% elif match.can_request_invoice %}
+        <p class="field-help">{{ t('invoice_status_available') }} <a href="/rechnungmaker?tab=match">{{ t('invoice_go_to_rechnungmaker') }}</a></p>
+    {% endif %}
+</article>
+{% else %}
+<p class="empty-state">{{ t('match_history_empty') }}</p>
+{% endfor %}
+<nav class="pagination">
+{% if page > 1 %}<a href="{{ request.url.include_query_params(page=page - 1) }}">{{ t('pagination_prev') }}</a>{% endif %}
+<span>{{ t('pagination_page') }} {{ page }}</span>
+{% if has_next %}<a href="{{ request.url.include_query_params(page=page + 1) }}">{{ t('pagination_next') }}</a>{% endif %}
+</nav>
+{% endblock %}

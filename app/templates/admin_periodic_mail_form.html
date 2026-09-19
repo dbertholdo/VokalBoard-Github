@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Admin — {% if mail %}Editar{% else %}Novo{% endif %} e-mail periódico{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/admin/emails?tab=periodic">&larr; E-mails periódicos</a>
+<h1>{% if mail %}Editar e-mail periódico{% else %}Novo e-mail periódico{% endif %}</h1>
+<p class="field-help">
+    Só o corpo deste e-mail é editado aqui — o envelope ao redor
+    (logo/cor de destaque/assinatura/rodapé) é o mesmo de todos os
+    outros e-mails automáticos do site, editado na aba "Formulário".
+    Vai pro time Admin (nível 2+) na frequência escolhida.
+</p>
+
+{% if error == 'dados_invalidos' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Não salvei — confira nome, assunto e corpo (nenhum pode ficar em branco).</p>
+{% endif %}
+
+<form method="post" action="{% if mail %}/admin/emails/periodic/{{ mail.id }}/edit{% else %}/admin/emails/periodic/new{% endif %}" class="stacked-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <label>Nome (só pra identificar na lista, não aparece no e-mail)
+        <input type="text" name="name" maxlength="200" required value="{{ mail.name if mail else '' }}" placeholder="Ex.: Relatório semanal de cadastros">
+    </label>
+
+    <label>Assunto do e-mail
+        <input type="text" name="subject" maxlength="300" required value="{{ mail.subject if mail else '' }}">
+    </label>
+
+    <label>Frequência
+        <select name="frequency" required>
+            {% for freq in frequencies %}
+                <option value="{{ freq }}" {% if mail and mail.frequency == freq %}selected{% endif %}>
+                    {% if freq == 'daily' %}Diário{% elif freq == 'weekly' %}Semanal{% else %}Mensal{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+        {% if mail %}
+            <span class="field-help">Mudar a frequência reagenda o próximo envio a partir de agora, usando o novo intervalo.</span>
+        {% else %}
+            <span class="field-help">O primeiro envio acontece no próximo ciclo natural (ex.: semanal → daqui a 7 dias), não imediatamente ao salvar.</span>
+        {% endif %}
+    </label>
+
+    <label>Corpo do e-mail (HTML)
+        <textarea name="body_html" rows="16" maxlength="20000" required
+                  style="font-family: 'SF Mono', Consolas, Menlo, monospace; font-size:13px; white-space:pre;">{{ mail.body_html if mail else '' }}</textarea>
+        <span class="field-help">HTML cru, mesmo nível de confiança da aba "Código" do layout — sem passar pelo filtro do editor de posts (não suporta tabela/estilo embutido). Só quem é Admin chega aqui.</span>
+    </label>
+
+    <button type="submit" class="button-link button-primary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-save"></use></svg> {% if mail %}Salvar{% else %}Criar{% endif %}</button>
+</form>
+
+{% if mail %}
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-eye"></use></svg> Pré-visualização</h2>
+    <p class="field-help">Como este e-mail fica com o layout compartilhado atual.</p>
+    <iframe srcdoc="{{ preview_html | e }}" style="width:100%; max-width:640px; height:420px; border:1px solid var(--border); border-radius:8px; background:#fff;"></iframe>
+{% endif %}
+{% endblock %}

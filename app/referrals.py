@@ -10,6 +10,7 @@ import secrets
 import string
 
 from app.database import fetch_one, fetch_all, execute, execute_returning
+from app.notas_wallet import credit_notas
 
 # How many verified referrals earn one "nota" (credit). Kept as a
 # constant instead of a config value since changing the ratio later
@@ -74,6 +75,20 @@ def resolve_referrer(ref_code: str) -> int | None:
     return row["id"] if row else None
 
 
+def get_referrer_preview(ref_code: str) -> dict | None:
+    """Public-safe preview of who's inviting — name + avatar only, nothing
+    private — shown as social proof on /register?ref=CODE ("Fulano convidou
+    você"). Added 19/09/2026 (Hall da Fama polish). Deleted accounts don't
+    match, same as resolve_referrer effectively treats them (a soft-deleted
+    referral_code can't earn a fresh signup an inviter credit either way)."""
+    if not ref_code:
+        return None
+    return fetch_one(
+        "SELECT full_name, avatar_url FROM users WHERE referral_code = :code AND deleted_at IS NULL",
+        {"code": ref_code.strip().upper()},
+    )
+
+
 def _hash_email(email: str) -> str:
     """
     One-way (irreversible) fingerprint of an e-mail address. We never
@@ -131,27 +146,26 @@ def record_referral_verification(user_id: int) -> None:
     )["n"]
 
     if credited_count % CREDIT_REFERRALS_PER_CREDIT == 0:
-        execute(
-            """
-            INSERT INTO credit_ledger (user_id, delta, reason, reference_id)
-            VALUES (:uid, 1, 'referral_bonus', :ref_id)
-            """,
-            {"uid": user["referred_by_user_id"], "ref_id": inserted["id"]},
+        # P5 Etapa 1 (18/09/2026): passou a usar o módulo central de
+        # crédito de Notas em vez de um INSERT solto aqui — mesmo
+        # efeito de antes, só centralizado (ver app/notas_wallet.py).
+        # idempotency_key usa o id do referral_events, que já é único
+        # por e-mail (ver antifraude documentado acima) — redundante
+        # com aquela proteção, mas não custa nada ter as duas.
+        credit_notas(
+            user["referred_by_user_id"], 1, "referral_bonus",
+            reference_id=inserted["id"], idempotency_key=f"referral_bonus:{inserted['id']}",
         )
 
 
-def get_credit_balance(user_id: int) -> int:
-    row = fetch_one(
-        "SELECT COALESCE(SUM(delta), 0) AS balance FROM credit_ledger WHERE user_id = :id",
-        {"id": user_id},
-    )
-    return row["balance"] if row else 0
-
-
 def get_credit_ledger(user_id: int, limit: int = 50) -> list[dict]:
+    # `id` incluído (18/09/2026, painel de Admin) pra permitir reembolso
+    # de uma linha específica (ver POST /admin/users/{id}/refund-notas em
+    # app/routers/admin_routes.py) — não muda nada pra quem só lê o
+    # extrato (ex.: /profile), que continua ignorando o campo.
     return fetch_all(
         """
-        SELECT delta, reason, created_at FROM credit_ledger
+        SELECT id, delta, reason, created_at FROM credit_ledger
         WHERE user_id = :id ORDER BY created_at DESC LIMIT :limit
         """,
         {"id": user_id, "limit": limit},

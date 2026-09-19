@@ -64,35 +64,72 @@
         {{ t('filter_show_past') }}
     </label>
 
+    <label class="show-past-toggle urgent-toggle">
+        <input type="checkbox" name="urgent" value="1" {% if filters.urgent %}checked{% endif %}>
+        <svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-bolt"></use></svg>
+        {{ t('filter_urgent_only') }}
+    </label>
+
     <button type="submit">{{ t('filter_button') }}</button>
     <a class="clear-link" href="/board">{{ t('filter_clear') }}</a>
 </form>
 
 {% include '_search_error.html' %}
 <section id="board-results" aria-live="polite" tabindex="-1">
+{% if filters.urgent %}
+    {# Zona de Alerta (19/09/2026), per MANUAL_VISUAL_VOKALBOARD_V1.md
+       §7/§8/§10 — this is the "área de oportunidades urgentes", NOT
+       the admin Red Zone (zona_vermelha.html) — a small, non-repeating
+       mascot badge shown only while the "urgent only" filter is
+       active, never per-card ("Mural: sem mascote em cada card").
+       Decorative image (alt="") — the "Urgent" label and the results
+       below already say what this is. #}
+    <div class="alert-zone-banner">
+        <img class="mascot-inline mascot-inline-alert" src="/static/img/mascot/mascot-alert-zone.png" alt="">
+        <strong>{{ t('urgent_badge') }}</strong>
+    </div>
+{% endif %}
 {% if total is defined and total > 0 %}
     <p class="results-count">{{ total }} {{ t('board_results_label') }}</p>
 {% endif %}
 
 {% if listings|length == 0 %}
-    <p class="empty-state">{{ t('empty_state') }}</p>
+    {# "Solidário" (19/09/2026) — no results / difficulty, per the
+       manual's own pairing of this pose with that situation. #}
+    <div class="empty-state-block">
+        <img class="mascot-inline mascot-inline-empty" src="/static/img/mascot/mascot-supportive.png" alt="">
+        <p class="empty-state">{{ t('empty_state') }}</p>
+    </div>
 {% endif %}
 
 <ul class="listing-grid">
     {% for l in listings %}
-    <li class="listing-card">
+    <li class="listing-card {% if l.is_urgent %}listing-card-urgent{% endif %}">
             <a href="/listings/{{ l.id }}" target="_blank" rel="noopener noreferrer">
+            {% if l.is_urgent %}<span class="badge badge-urgent"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-bolt"></use></svg> {{ t('urgent_badge') }}</span>{% endif %}
             <span class="badge badge-{{ l.listing_type }}">{{ t('listing_type_' ~ l.listing_type) }}</span>
             {% if l.event_status %}
                 <span class="event-dot event-dot-{{ l.event_status }}" title="{{ t('event_status_' ~ l.event_status) }}"></span>
             {% endif %}
             {% if l.is_saved %}<span class="favorite-star" title="{{ t('favorite_marker') }}"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg></span>{% endif %}
             <h3>{{ l.title }}</h3>
+            {% if l.available_from %}<p>{{ t('availability_period') }}: {{ l.available_from }} – {{ l.available_until }}</p>{% endif %}
             <p class="meta">
                 {% if l.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ l.city }}{% if l.country and l.country != "DE" %} ({{ l.country }}){% endif %}{% endif %}
+                {# P99.10 (19/09/2026): same lightweight hide as before on
+                   the detail page (anon_teaser) — a logged-out visitor on
+                   a vaga card (seeking_singer/seeking_conductor) doesn't
+                   see the voice type or the fee here either. Just an
+                   omission, no per-card overlay — repertoire stays
+                   visible, it was never in the masked-field list. #}
+                {% if user or l.listing_type not in ('seeking_singer', 'seeking_conductor') %}
                 {% if l.voice_type_name %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ l.voice_type_name }}{% endif %}
+                {% endif %}
                 {% if l.repertoire %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ l.repertoire }}{% endif %}
-                {% if l.fee %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ l.fee }}{% endif %}
+                {% if user or l.listing_type not in ('seeking_singer', 'seeking_conductor') %}
+                {% set l_fee_display = format_fee(l.fee_amount, l.fee_currency, l.fee_negotiable) %}
+                {% if l_fee_display %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ l_fee_display }}{% endif %}
+                {% endif %}
             </p>
             {% if user %}
                 <p class="excerpt">{{ l.description[:160] }}{% if l.description|length > 160 %}…{% endif %}</p>

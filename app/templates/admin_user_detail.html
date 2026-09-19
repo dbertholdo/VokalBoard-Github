@@ -14,7 +14,8 @@
     {% if target.city %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ target.city }}{% if target.state %}, {{ target.state }}{% endif %}{% endif %}
     · {{ "Singer" if target.role == "singer" else "Conductor" }}
     · since {{ target.created_at }}
-    {% if target.deleted_at %} · <span class="badge-danger">account deactivated on {{ target.deleted_at }}</span>{% endif %}
+    {% if target.banned_at %} · <span class="badge-danger">banned on {{ target.banned_at }}</span>
+    {% elif target.deleted_at %} · <span class="badge-danger">account deactivated on {{ target.deleted_at }}</span>{% endif %}
 </p>
 
 {% if request.query_params.get('self_demote_blocked') == '1' %}
@@ -23,6 +24,39 @@
 {% if request.query_params.get('reset_sent') == '1' %}
     <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Password reset email sent.</p>
 {% endif %}
+{% if request.query_params.get('highlight_updated') == '1' %}
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Highlight days updated.</p>
+{% endif %}
+{% if request.query_params.get('highlight_error') == '1' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> That's too many days at once (max {{ max_highlight_days_adjustment }}/-{{ max_highlight_days_adjustment }}).</p>
+{% endif %}
+{% if request.query_params.get('refund_done') == '1' %}
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Refunded.</p>
+{% endif %}
+{% if request.query_params.get('refund_error') == '1' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Couldn't refund that line (not a debit, or it isn't this user's).</p>
+{% endif %}
+{% if request.query_params.get('unban_done') == '1' %}
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Account unbanned and reactivated.</p>
+{% endif %}
+
+<!-- Mini card: resumo rápido pra quem tá gerenciando o perfil (pedido
+     do Daniel, painel de Admin, P6) — status/verificação/plano/saldo
+     de um olhar só, sem precisar ler as seções de baixo. -->
+<div class="admin-mini-card">
+    {% if target.banned_at %}
+        <span class="badge badge-danger">Banned</span>
+    {% else %}
+        <span class="badge {{ 'badge-danger' if target.deleted_at else '' }}">{{ 'Deactivated' if target.deleted_at else 'Active' }}</span>
+    {% endif %}
+    <span class="badge {{ '' if target.email_verified else 'badge-danger' }}">{{ 'Email verified' if target.email_verified else 'Email not verified' }}</span>
+    <span class="badge"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ format_notas(notas_balance) }} Notas</span>
+    {% if target.profile_highlighted_until %}
+        <span class="badge"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-sparkle"></use></svg> Highlighted until {{ target.profile_highlighted_until }}</span>
+    {% else %}
+        <span class="badge">No active highlight</span>
+    {% endif %}
+</div>
 
 <div class="admin-stats">
     <div class="admin-stat"><strong>{% if stats.avg_rating %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ stats.avg_rating }}{% else %}—{% endif %}</strong><span>Average rating ({{ stats.rating_count }} reviews)</span></div>
@@ -42,6 +76,89 @@
                 <p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ r.stars }} — {{ r.rater_name }}</p>
                 {% if r.comment %}<p class="field-help">"{{ r.comment }}" — {{ r.created_at }}</p>{% else %}<p class="field-help">{{ r.created_at }}</p>{% endif %}
             </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<h2>{{ t('eval_quality_section_title') }}</h2>
+<p class="field-help">{{ t('eval_quality_section_help') }}</p>
+<ul class="admin-list">
+    {% for cat, data in quality_tiers.items() %}
+        <li>
+            <p>{{ t('eval_category_' ~ cat) }} —
+                {% if data.tier %}
+                    {{ t('eval_tier_' ~ data.tier) }} ({{ data.average }} ★, {{ data.count }})
+                {% else %}
+                    {{ t('eval_quality_not_enough') }}
+                {% endif %}
+            </p>
+        </li>
+    {% endfor %}
+</ul>
+
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> Notas — extrato</h2>
+<p class="field-help">Saldo atual: <strong>{{ format_notas(notas_balance) }} Notas</strong>. Últimas {{ notas_ledger|length }} transação(ões) (qualquer origem — loja, indicação, recompensa por vaga postada, urgência).</p>
+{% if user.role_level == 3 %}
+<p><a class="button-link" href="/financeiro/conceder?user_id={{ target.id }}">Grant/debit Notas or a shop item to this user →</a></p>
+{% endif %}
+{% if notas_ledger|length == 0 %}
+    <p class="empty-state">Nenhuma transação de Notas ainda.</p>
+{% else %}
+    <table class="admin-users-table">
+        <thead>
+            <tr>
+                <th>Motivo</th>
+                <th>Valor</th>
+                <th>Data</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in notas_ledger %}
+                <tr>
+                    <td><code>{{ entry.reason }}</code></td>
+                    <td>{{ format_notas(entry.delta) }}</td>
+                    <td>{{ entry.created_at }}</td>
+                    <td>
+                        {% if entry.delta < 0 and entry.reason != 'admin_refund' %}
+                            {% if entry.id in refunded_ledger_ids %}
+                                <span class="field-help">Refunded</span>
+                            {% else %}
+                                <form method="post" action="/admin/users/{{ target.id }}/refund-notas/{{ entry.id }}" data-confirm="Refund {{ format_notas(-entry.delta) }} Notas to this user?">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="button-link">Refund</button>
+                                </form>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-sparkle"></use></svg> Destaque de perfil</h2>
+<p class="field-help">
+    {% if target.profile_highlighted_until %}
+        Destaque ativo até <strong>{{ target.profile_highlighted_until }}</strong>.
+    {% else %}
+        Sem destaque ativo no momento.
+    {% endif %}
+    Adicione (ou remova, com um número negativo) dias manualmente — sem passar pela Loja/Notas.
+</p>
+<form method="post" action="/admin/users/{{ target.id }}/highlight-days" class="stacked-form narrow">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Dias (positivo pra adicionar, negativo pra remover)
+        <input type="number" name="days" step="1" min="-{{ max_highlight_days_adjustment }}" max="{{ max_highlight_days_adjustment }}" required>
+    </label>
+    <button type="submit" class="button-link">Aplicar</button>
+</form>
+
+{% if moderation_history|length > 0 %}
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-flag"></use></svg> Moderation history</h2>
+    <ul class="admin-list">
+        {% for m in moderation_history %}
+            <li><p>{{ m.action_type|capitalize }} — {{ m.admin_name or 'Unknown admin' }} — {{ m.created_at }}</p></li>
         {% endfor %}
     </ul>
 {% endif %}
@@ -75,7 +192,16 @@
         </form>
         {% endif %}
 
-        {% if target.deleted_at %}
+        {% if target.banned_at %}
+            {% if user.role_level == 3 %}
+                <form method="post" action="/admin/users/{{ target.id }}/unban" data-confirm="Unban this account? It reactivates immediately and the person can log in again.">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Unban account</button>
+                </form>
+            {% else %}
+                <p class="field-help">This account is banned — only God Mode can unban it.</p>
+            {% endif %}
+        {% elif target.deleted_at %}
             <form method="post" action="/admin/users/{{ target.id }}/reactivate">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Reactivate account</button>

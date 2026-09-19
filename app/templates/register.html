@@ -6,7 +6,18 @@
 
 {% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
 
-{% if ref %}<p class="success">{{ t('register_referred_notice') }}</p>{% endif %}
+{% if referrer %}
+    <div class="referrer-preview">
+        {% if referrer.avatar_url %}
+            <img class="referrer-preview-avatar" src="{{ referrer.avatar_url }}" alt="">
+        {% else %}
+            <div class="referrer-preview-avatar avatar-placeholder">{{ referrer.full_name[0] | upper }}</div>
+        {% endif %}
+        <p class="success">{{ t('register_referred_by_notice').replace('{name}', referrer.full_name) }}</p>
+    </div>
+{% elif ref %}
+    <p class="success">{{ t('register_referred_notice') }}</p>
+{% endif %}
 
 <form method="post" action="/register" class="stacked-form narrow" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

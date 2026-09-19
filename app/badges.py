@@ -68,11 +68,11 @@ def _referral_count(user_id: int) -> int:
 
 
 def _listing_count(user_id: int) -> int:
-    return fetch_one("SELECT COUNT(*) AS n FROM listings WHERE author_id = :id", {"id": user_id})["n"]
+    return fetch_one("SELECT COUNT(*) AS n FROM visible_listings WHERE author_id = :id", {"id": user_id})["n"]
 
 
 def _message_sent_count(user_id: int) -> int:
-    return fetch_one("SELECT COUNT(*) AS n FROM messages WHERE sender_id = :id", {"id": user_id})["n"]
+    return fetch_one("SELECT COUNT(*) AS n FROM visible_messages WHERE sender_id = :id", {"id": user_id})["n"]
 
 
 def _view_count(user_id: int) -> int:
@@ -88,8 +88,8 @@ def _has_fast_response(user_id: int) -> bool:
     row = fetch_one(
         """
         SELECT 1
-        FROM messages m1
-        JOIN messages m2
+        FROM visible_messages m1
+        JOIN visible_messages m2
             ON m2.sender_id = m1.recipient_id
            AND m2.recipient_id = m1.sender_id
            AND m2.created_at > m1.created_at

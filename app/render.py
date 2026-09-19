@@ -17,6 +17,11 @@ from app.database import fetch_one, execute
 from app.captcha import HONEYPOT_FIELD, TURNSTILE_SITE_KEY, captcha_enabled
 from app.financial_settings import is_capitalismo_mode_enabled, get_subscription_prices_cents
 from app.banners import visible_banners
+from app.fees import format_fee as _format_fee
+from app.match_evaluations import get_pending_evaluations
+from app.invoice_match_drafts import count_pending_actions
+from app.notas_wallet import format_notas as _format_notas
+from app.mascot_moments import pending_reminder_key
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -37,6 +42,17 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     context["request"] = request
     context["lang"] = lang
     context["t"] = lambda key: translate(key, lang)
+    # P3.E: templates call format_fee(amount, currency, negotiable) —
+    # the "A negociar" label is already resolved to the current
+    # language here, so app/fees.py itself never has to import i18n.
+    context["format_fee"] = lambda amount, currency, negotiable: _format_fee(
+        amount, currency, negotiable, translate("fee_negotiable_label", lang)
+    )
+    # P5 Etapa 1 (18/09/2026): Notas agora suportam fração (0,50 Nota
+    # por vaga postada) — format_notas() mostra inteiro sem decimais
+    # ("3") e fração com vírgula ("0,50"), disponível em qualquer
+    # template que precise exibir um valor de Notas.
+    context["format_notas"] = _format_notas
     context["lang_urls"] = {
         code: str(request.url.include_query_params(lang=code)) for code in SUPPORTED_LANGUAGES
     }
@@ -74,15 +90,70 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     context["is_admin_area"] = path.startswith("/admin") or path.startswith("/financeiro")
     context["site_banners"] = [] if context["is_admin_area"] else visible_banners(context.get("user"))
 
+    # Part 2 backlog item 4 (19/09/2026) — Acolhedor mascot toast: a
+    # one-shot flag set by app/routers/auth_routes.py right after a
+    # successful login, popped (read + cleared) here so it fires
+    # exactly once, on the very next page render, wherever the login
+    # redirect lands — never again until the next login. See
+    # app/mascot_moments.py for the full mascot-moments writeup.
+    context["mascot_welcome_name"] = None
+    if request.session.pop("show_welcome_toast", False):
+        welcome_user = context.get("user")
+        context["mascot_welcome_name"] = welcome_user["full_name"] if welcome_user else None
+
     user_id = request.session.get("user_id")
     context["unread_count"] = 0
+    context["pending_invitations_count"] = 0
     context["has_active_subscription"] = False
+    context["mascot_reminder_key"] = None
     if user_id:
         row = fetch_one(
-            "SELECT count(*) AS n FROM messages WHERE recipient_id = :id AND recipient_status = 'active' AND read_at IS NULL",
+            "SELECT count(*) AS n FROM visible_messages WHERE recipient_id = :id AND recipient_status = 'active' AND read_at IS NULL",
             {"id": user_id},
         )
         context["unread_count"] = row["n"] if row else 0
+
+        # P3.B nav badge: convites recebidos (I'm the artist, someone
+        # else started it) + candidaturas recebidas (I'm the
+        # contractor of the vacancy's listing, and the artist started
+        # it) — the two cases where I'M the one who owes a response.
+        invitations_row = fetch_one(
+            """
+            SELECT count(*) AS n
+            FROM job_invitations ji
+            JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
+            JOIN listings l ON l.id = lv.listing_id
+            WHERE ji.status = 'pending' AND ji.expires_at > now()
+              AND (
+                (ji.artist_user_id = :id AND ji.initiated_by_user_id <> :id)
+                OR (l.author_id = :id AND ji.initiated_by_user_id = ji.artist_user_id)
+              )
+            """,
+            {"id": user_id},
+        )
+        context["pending_invitations_count"] = invitations_row["n"] if invitations_row else 0
+
+        # P3.F nav badge: quantos Matches dentro da janela de 14 dias eu
+        # ainda não avaliei (ver app/match_evaluations.py). Não faz
+        # SELECT nenhum em match_evaluations além disso — nunca expõe
+        # nota/avaliador de ninguém, só uma contagem.
+        context["pending_evaluations_count"] = len(get_pending_evaluations(user_id))
+
+        # P4 Etapa 3 nav badge: rascunhos de Rechnung de Match onde é a
+        # vez desta pessoa agir (ver app/invoice_match_drafts.py).
+        context["pending_invoice_actions_count"] = count_pending_actions(user_id)
+
+        # Atento mascot toast (Part 2 backlog item 4, 19/09/2026): shown
+        # once per session, reusing the two counts above (no extra
+        # query for those) — only runs the (cheap) profile-completeness
+        # check when both are already zero. See app/mascot_moments.py.
+        if not request.session.get("mascot_reminder_shown") and context.get("user"):
+            reminder_key = pending_reminder_key(
+                context["user"], context["pending_evaluations_count"], context["pending_invitations_count"]
+            )
+            if reminder_key:
+                context["mascot_reminder_key"] = reminder_key
+                request.session["mascot_reminder_shown"] = True
 
         if context["capitalismo_mode_enabled"]:
             sub = fetch_one(

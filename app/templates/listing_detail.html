@@ -1,7 +1,22 @@
 {% extends "base.html" %}
 {% block title %}{{ listing.title if listing else t('listing_not_found') }}{% endblock %}
 
+{# P3.D "convite express": when this listing is a vaga (seeking_singer/
+   seeking_conductor) — the only types that require repertoire+city to be
+   filled in, see _job_fields_valid() — the link's PREVIEW card (WhatsApp/
+   Telegram/etc.) shows only Obra+Cidade as a teaser, never fee/date/the
+   rest. Option 2, confirmed with Daniel on 2026-09-18: the page itself,
+   when someone actually clicks through, is unchanged — still open to
+   everyone as it already was. Self-ad listings (singer_available/
+   conductor_available) keep the generic "VokalBoard" og:title/description
+   from base.html, since they're not what convite express is about. #}
+{% block og_title %}{% if listing and listing.listing_type in ('seeking_singer', 'seeking_conductor') %}{{ t('og_listing_teaser_prefix') }} {{ listing.repertoire }}, {{ listing.city }}. {{ t('og_listing_teaser_suffix') }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block og_description %}{% if listing and listing.listing_type in ('seeking_singer', 'seeking_conductor') %}{{ t('og_listing_teaser_description') }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block twitter_title %}{{ self.og_title() }}{% endblock %}
+{% block twitter_description %}{{ self.og_description() }}{% endblock %}
+
 {% block content %}
+{% if listing and listing.available_from %}<p>{{ t('availability_period') }}: {{ listing.available_from }} – {{ listing.available_until }}</p>{% endif %}
 {% if not listing %}
     <p>{{ t('listing_not_found') }} <a href="/board">{{ t('back_to_board') }}</a></p>
 {% else %}
@@ -12,16 +27,104 @@
     {% endif %}
     <h1 class="listing-detail-title">{{ listing.title }}</h1>
     <p class="meta listing-detail-meta">
-        {% if listing.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ listing.city }}{% if listing.state %}, {{ listing.state }}{% endif %}{% endif %}
+        {# P3.D follow-up: an anonymous visitor on a vaga listing
+           (anon_teaser) sees only Nome (the <h1> above)/Obra/Cidade —
+           city and repertoire below — never state, voice type,
+           ensemble type, venue, Cachê or the event date; those five
+           are the ones that most "give away" the opportunity for
+           free, per Daniel's call on 2026-09-18. #}
+        {% if listing.city %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ listing.city }}{% if listing.state and not anon_teaser %}, {{ listing.state }}{% endif %}{% endif %}
+        {% if not anon_teaser %}
         {% if listing.ensemble_type %} · {{ t('ensemble_type_' ~ listing.ensemble_type) }}{% endif %}
         {% if listing.voice_type_name %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ listing.voice_type_name }}{% elif listing.listing_type == "seeking_singer" %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ t('voice_type_all') }}{% endif %}
+        {% endif %}
         {% if listing.repertoire %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-music"></use></svg> {{ listing.repertoire }}{% endif %}
+        {% if not anon_teaser %}
         {% if listing.venue %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-building"></use></svg> {{ listing.venue }}{% endif %}
-        {% if listing.fee %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ listing.fee }}{% endif %}
+        {% set listing_fee_display = format_fee(listing.fee_amount, listing.fee_currency, listing.fee_negotiable) %}
+        {% if listing_fee_display %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ listing_fee_display }}{% endif %}
         {% if listing.event_date %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> {{ listing.event_date }}{% endif %}
+        {% endif %}
     </p>
+    {% if not lock_reason and (listing.travel_cost_covered or listing.rehearsal_schedule_available or listing.sheet_music_available) %}
+        <p class="listing-logistics-flags">
+            {% if listing.travel_cost_covered %}<span class="logistics-flag"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> {{ t('listing_form_travel_cost_label') }}</span>{% endif %}
+            {% if listing.rehearsal_schedule_available %}<span class="logistics-flag"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> {{ t('listing_form_rehearsal_schedule_label') }}</span>{% endif %}
+            {% if listing.sheet_music_available %}
+                <span class="logistics-flag">
+                    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-music"></use></svg>
+                    {% if sheet_music_url %}<a href="{{ sheet_music_url }}" target="_blank" rel="noopener noreferrer">{{ t('listing_form_sheet_music_label') }}</a>{% else %}{{ t('listing_form_sheet_music_label') }}{% endif %}
+                </span>
+            {% endif %}
+        </p>
+        {% if listing.sheet_music_available and not sheet_music_url %}
+            <p class="field-help">{{ t('listing_form_sheet_music_url_help') }}</p>
+        {% endif %}
+    {% endif %}
+
+    {% if not lock_reason and vacancies %}
+        {% set can_apply = user and user.role == 'singer' and user.id != listing.author_id %}
+        {% if applied %}<p class="success">{{ t('invitation_applied_success') }}</p>{% endif %}
+        {% if invite_error %}<p class="error">{{ t(invite_error) }}</p>{% endif %}
+        <div class="listing-vacancies-box">
+            <h3>{{ t('listing_form_vacancies_section') }}</h3>
+            <ul class="vacancy-list">
+                {% for v in vacancies %}
+                    {% set my_status = my_invitation_by_vacancy.get(v.id) %}
+                    <li class="vacancy-list-item">
+                        <span class="vacancy-voice-name">{{ v.voice_type_name }}</span>
+                        {% set v_fee_display = format_fee(v.fee_amount, v.fee_currency, v.fee_negotiable) %}
+                        {% if v_fee_display %}<span class="vacancy-fee">{{ v_fee_display }}</span>{% endif %}
+                        <span class="vacancy-slots">{{ v.filled_slots }}/{{ v.total_slots }} {{ t('listing_form_vacancy_filled_label') }}</span>
+                        {% if can_apply %}
+                            {% if my_status == 'accepted' %}
+                                <span class="vacancy-apply-status">{{ t('invitation_status_accepted') }}</span>
+                            {% elif my_status == 'pending' %}
+                                <span class="vacancy-apply-status">{{ t('invitation_status_pending') }}</span>
+                            {% elif v.filled_slots < v.total_slots %}
+                                <form method="post" action="/vacancies/{{ v.id }}/apply" class="vacancy-apply-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="button-link button-primary">{{ t('invitation_apply_button') }}</button>
+                                </form>
+                            {% endif %}
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
 
     {% if lock_reason %}
+        {% if anon_teaser %}
+            {# P99.10 (19/09/2026): unified blur + login-popup gate for a
+               logged-out visitor on a vaga listing (seeking_singer/
+               seeking_conductor) — replaces the old pair of separate
+               treatments (a plain hint line above the meta, and a plain
+               .locked-box below the description) with one gate covering
+               everything this viewer can't see. Self-ad listings and the
+               "unverified" case (logged in, e-mail not confirmed yet, any
+               listing type) are untouched below, in the {% else %} branch.
+               The blurred lines are decorative only (a truncated, already-
+               public excerpt plus two fake placeholder bars) — no
+               description/contact data beyond what was already sent to an
+               anonymous visitor before this change. #}
+            <div class="anon-gate">
+                <div class="anon-gate-blur" aria-hidden="true">
+                    <p class="description listing-detail-description">{{ listing.description[:120] }}{% if listing.description|length > 120 %}…{% endif %}</p>
+                    <div class="anon-gate-fake-line"></div>
+                    <div class="anon-gate-fake-line anon-gate-fake-line-short"></div>
+                </div>
+                <div class="anon-gate-card">
+                    <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-lock"></use></svg> {{ t('locked_listing_title') }}</h3>
+                    <p>{{ t('locked_listing_text') }}</p>
+                    <p class="field-help">{{ t('listing_anon_teaser_hint') }}</p>
+                    <p class="hero-actions">
+                        <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
+                        <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
+                    </p>
+                </div>
+            </div>
+        {% else %}
         <p class="description listing-detail-description">{{ listing.description[:120] }}{% if listing.description|length > 120 %}…{% endif %}</p>
         <div class="locked-box">
             {% if lock_reason == "unverified" %}
@@ -40,6 +143,7 @@
                 </p>
             {% endif %}
         </div>
+        {% endif %}
     {% else %}
         <p class="description listing-detail-description">{{ listing.description }}</p>
 

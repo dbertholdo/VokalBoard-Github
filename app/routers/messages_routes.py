@@ -7,6 +7,8 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.notifications import notify_new_message
 from app.badges import check_and_notify_new_badges
+from datetime import datetime, timezone
+from app.retention_rules import warning_days
 
 router = APIRouter()
 
@@ -32,17 +34,19 @@ def inbox(request: Request):
 
     messages = fetch_all(
         """
-        SELECT m.id, m.body, m.created_at, m.read_at, m.listing_id,
+        SELECT m.id, m.body, m.created_at, m.read_at, m.listing_id, m.activity_at,
                u.id AS other_id, u.full_name AS other_name,
                l.title AS listing_title
-        FROM messages m
+        FROM visible_messages m
         JOIN users u ON u.id = m.sender_id
-        LEFT JOIN listings l ON l.id = m.listing_id
+        LEFT JOIN visible_listings l ON l.id = m.listing_id
         WHERE m.recipient_id = :id AND m.recipient_status = 'active'
         ORDER BY m.created_at DESC
         """,
         {"id": user["id"]},
     )
+    for message in messages:
+        message['retention_days'] = warning_days(message['activity_at'], datetime.now(timezone.utc))
     return render(request, "messages.html", {"user": user, "messages": messages, "folder": "inbox"})
 
 
@@ -54,17 +58,19 @@ def sent(request: Request):
 
     messages = fetch_all(
         """
-        SELECT m.id, m.body, m.created_at, m.read_at, m.listing_id,
+        SELECT m.id, m.body, m.created_at, m.read_at, m.listing_id, m.activity_at,
                u.id AS other_id, u.full_name AS other_name,
                l.title AS listing_title
-        FROM messages m
+        FROM visible_messages m
         JOIN users u ON u.id = m.recipient_id
-        LEFT JOIN listings l ON l.id = m.listing_id
+        LEFT JOIN visible_listings l ON l.id = m.listing_id
         WHERE m.sender_id = :id AND m.sender_status = 'active'
         ORDER BY m.created_at DESC
         """,
         {"id": user["id"]},
     )
+    for message in messages:
+        message['retention_days'] = warning_days(message['activity_at'], datetime.now(timezone.utc))
     return render(request, "messages.html", {"user": user, "messages": messages, "folder": "sent"})
 
 
@@ -76,19 +82,21 @@ def trash(request: Request):
 
     messages = fetch_all(
         """
-        SELECT m.id, m.body, m.created_at, m.read_at, m.listing_id, m.sender_id, m.recipient_id,
+        SELECT m.id, m.body, m.created_at, m.read_at, m.listing_id, m.sender_id, m.recipient_id, m.activity_at,
                CASE WHEN m.sender_id = :id THEN ru.full_name ELSE su.full_name END AS other_name,
                l.title AS listing_title
-        FROM messages m
+        FROM visible_messages m
         JOIN users su ON su.id = m.sender_id
         JOIN users ru ON ru.id = m.recipient_id
-        LEFT JOIN listings l ON l.id = m.listing_id
+        LEFT JOIN visible_listings l ON l.id = m.listing_id
         WHERE (m.sender_id = :id AND m.sender_status = 'trashed')
            OR (m.recipient_id = :id AND m.recipient_status = 'trashed')
         ORDER BY m.created_at DESC
         """,
         {"id": user["id"]},
     )
+    for message in messages:
+        message['retention_days'] = warning_days(message['activity_at'], datetime.now(timezone.utc))
     return render(request, "messages.html", {"user": user, "messages": messages, "folder": "trash"})
 
 
@@ -99,7 +107,7 @@ def compose_form(request: Request, to: int = 0, listing_id: int = 0):
         return RedirectResponse(url="/login", status_code=303)
 
     recipient = fetch_one("SELECT id, full_name FROM users WHERE id = :id", {"id": to}) if to else None
-    listing = fetch_one("SELECT id, title FROM listings WHERE id = :id", {"id": listing_id}) if listing_id else None
+    listing = fetch_one("SELECT id, title FROM visible_listings WHERE id = :id", {"id": listing_id}) if listing_id else None
 
     context = {
         "user": user,
@@ -138,11 +146,11 @@ def send_message(
     # It's not permanent: once 1 hour has passed since the oldest
     # counted message, the limit clears on its own.
     sent_last_hour = fetch_one(
-        "SELECT count(*) AS n FROM messages WHERE sender_id = :id AND created_at > now() - interval '1 hour'",
+        "SELECT count(*) AS n FROM visible_messages WHERE sender_id = :id AND created_at > now() - interval '1 hour'",
         {"id": user["id"]},
     )["n"]
     if sent_last_hour >= MAX_MESSAGES_PER_HOUR:
-        listing = fetch_one("SELECT id, title FROM listings WHERE id = :id", {"id": int(listing_id)}) if listing_id else None
+        listing = fetch_one("SELECT id, title FROM visible_listings WHERE id = :id", {"id": int(listing_id)}) if listing_id else None
         recipient_for_error = fetch_one("SELECT id, full_name FROM users WHERE id = :id", {"id": recipient_id})
         context = {
             "user": user,
@@ -155,13 +163,13 @@ def send_message(
 
     sent_to_recipient_last_hour = fetch_one(
         """
-        SELECT count(*) AS n FROM messages
+        SELECT count(*) AS n FROM visible_messages
         WHERE sender_id = :sender_id AND recipient_id = :recipient_id AND created_at > now() - interval '1 hour'
         """,
         {"sender_id": user["id"], "recipient_id": recipient_id},
     )["n"]
     if sent_to_recipient_last_hour >= MAX_MESSAGES_PER_RECIPIENT_PER_HOUR:
-        listing = fetch_one("SELECT id, title FROM listings WHERE id = :id", {"id": int(listing_id)}) if listing_id else None
+        listing = fetch_one("SELECT id, title FROM visible_listings WHERE id = :id", {"id": int(listing_id)}) if listing_id else None
         recipient_for_error = fetch_one("SELECT id, full_name FROM users WHERE id = :id", {"id": recipient_id})
         context = {
             "user": user,
@@ -234,13 +242,13 @@ def message_detail(request: Request, message_id: int):
 
     message = fetch_one(
         """
-        SELECT m.id, m.body, m.created_at, m.read_at, m.sender_id, m.recipient_id, m.listing_id,
+        SELECT m.id, m.body, m.created_at, m.read_at, m.sender_id, m.recipient_id, m.listing_id, m.activity_at,
                su.full_name AS sender_name, ru.full_name AS recipient_name,
                l.title AS listing_title
-        FROM messages m
+        FROM visible_messages m
         JOIN users su ON su.id = m.sender_id
         JOIN users ru ON ru.id = m.recipient_id
-        LEFT JOIN listings l ON l.id = m.listing_id
+        LEFT JOIN visible_listings l ON l.id = m.listing_id
         WHERE m.id = :id
         """,
         {"id": message_id},
@@ -256,6 +264,7 @@ def message_detail(request: Request, message_id: int):
     other_id = message["recipient_id"] if message["sender_id"] == user["id"] else message["sender_id"]
     other_name = message["recipient_name"] if message["sender_id"] == user["id"] else message["sender_name"]
 
+    message['retention_days'] = warning_days(message['activity_at'], datetime.now(timezone.utc))
     context = {
         "user": user,
         "message": message,
@@ -273,7 +282,7 @@ def trash_message(request: Request, message_id: int, csrf_token: str = Form(""))
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    message = fetch_one("SELECT sender_id, recipient_id FROM messages WHERE id = :id", {"id": message_id})
+    message = fetch_one("SELECT sender_id, recipient_id FROM visible_messages WHERE id = :id", {"id": message_id})
     if message:
         if message["sender_id"] == user["id"]:
             execute("UPDATE messages SET sender_status = 'trashed' WHERE id = :id", {"id": message_id})
@@ -290,7 +299,7 @@ def restore_message(request: Request, message_id: int, csrf_token: str = Form(""
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    message = fetch_one("SELECT sender_id, recipient_id FROM messages WHERE id = :id", {"id": message_id})
+    message = fetch_one("SELECT sender_id, recipient_id FROM visible_messages WHERE id = :id", {"id": message_id})
     if message:
         if message["sender_id"] == user["id"]:
             execute("UPDATE messages SET sender_status = 'active' WHERE id = :id", {"id": message_id})
@@ -307,15 +316,13 @@ def empty_trash(request: Request, csrf_token: str = Form("")):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Didactic simplification: emptying the trash deletes the row for
-    # good, which also removes the message from the other person's
-    # side (even if they haven't thrown theirs away). See the note in
-    # db/schema.sql.
+    # Preserve the existing shared-removal behavior, but keep the row archived
+    # for 60 days. Repeated requests must not postpone its purge deadline.
     execute(
         """
-        DELETE FROM messages
-        WHERE (sender_id = :id AND sender_status = 'trashed')
-           OR (recipient_id = :id AND recipient_status = 'trashed')
+        UPDATE messages SET archived_at=now()
+        WHERE archived_at IS NULL AND ((sender_id = :id AND sender_status = 'trashed')
+           OR (recipient_id = :id AND recipient_status = 'trashed'))
         """,
         {"id": user["id"]},
     )

@@ -67,10 +67,10 @@ SELECT id, 'seeking_singer', 'Looking for a soprano for Mozart''s Requiem',
        'St. Michaelis Kirche', '250€', 'solo', '2026-12-05'
 FROM users WHERE email = 'anna.dirigentin@example.com';
 
-INSERT INTO listings (author_id, listing_type, title, description, city, state, voice_type_id, repertoire, event_date)
+INSERT INTO listings (author_id, listing_type, title, description, city, state, voice_type_id, repertoire, event_date, available_from, available_until)
 SELECT id, 'singer_available', 'Tenor available for auditions in Berlin/München',
        'Tenor with baroque and romantic repertoire available for auditions and substitutions.',
-       'Berlin', 'Berlin', (SELECT id FROM voice_types WHERE name = 'Tenor'), 'Baroque, Romantic', NULL
+       'Berlin', 'Berlin', (SELECT id FROM voice_types WHERE name = 'Tenor'), 'Baroque, Romantic', NULL, CURRENT_DATE, CURRENT_DATE+29
 FROM users WHERE email = 'tobias.tenor@example.com';
 
 INSERT INTO listings (author_id, listing_type, title, description, city, state, voice_type_id, repertoire, ensemble_type, event_date)

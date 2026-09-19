@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ t('contact_page_title') }}{% endblock %}
+
+{% block content %}
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('contact_page_title') }}</h1>
+<p class="field-help">{{ t('contact_page_help') }}</p>
+
+{% if sent == '1' %}
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('contact_sent') }}</p>
+{% endif %}
+{% if request.query_params.get('error') == 'descricao_curta' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> {{ t('contact_error_short') }}</p>
+{% endif %}
+
+<form method="post" action="/contato" class="stacked-form narrow">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ t('contact_subject_label') }}
+        <input type="text" name="subject" maxlength="200" placeholder="{{ t('contact_subject_placeholder') }}">
+    </label>
+    <label>{{ t('contact_description_label') }}
+        <textarea name="description" rows="6" minlength="10" maxlength="4000" required placeholder="{{ t('contact_description_placeholder') }}"></textarea>
+    </label>
+    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('contact_submit') }}</button>
+</form>
+{% endblock %}

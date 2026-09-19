@@ -40,6 +40,100 @@ services:
     # serviço deixa de importar app.main. Para desenvolver com atualização ao
     # vivo, use uma cópia local fora da pasta sincronizada.
 
+  # Background workers (retention + the 5 added since). Each polls once an
+  # hour in a loop (see the `if __name__ == "__main__"` block at the bottom
+  # of its module) and locks itself against duplicate runs with
+  # pg_try_advisory_xact_lock, so it's safe to have more than one of these
+  # running at once during a deploy. Each sits in its own profile so `docker
+  # compose up` alone does NOT start any of them — either target one
+  # (`docker compose --profile periodic_mail up`) or all six at once
+  # (`docker compose --profile workers up`).
+  #
+  # 19/09/2026: until now only `retention` had a service entry here — the
+  # other 5 workers existed as modules but nothing ran them, in dev or in
+  # Railway. This closes that gap for local dev/testing. It does NOT by
+  # itself make Railway run them: Railway doesn't build from this file, so
+  # each worker still needs its own Railway service — see the "Background
+  # workers" section in README.md for the exact dashboard steps (new
+  # service → same repo → Start Command `python -m app.<worker_name>` → the
+  # same env vars as the `web` service).
+  retention:
+    build: .
+    command: ["python", "-m", "app.retention_worker"]
+    restart: unless-stopped
+    profiles: ["retention", "workers"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://maestro_user:maestro_pass@db:5432/maestro_cantor
+
+  invitation_expiry:
+    build: .
+    command: ["python", "-m", "app.invitation_expiry_worker"]
+    restart: unless-stopped
+    profiles: ["invitation_expiry", "workers"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://maestro_user:maestro_pass@db:5432/maestro_cantor
+
+  match_evaluation_reminder:
+    build: .
+    command: ["python", "-m", "app.match_evaluation_reminder_worker"]
+    restart: unless-stopped
+    profiles: ["match_evaluation_reminder", "workers"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://maestro_user:maestro_pass@db:5432/maestro_cantor
+
+  invoice_match_draft_expiry:
+    build: .
+    command: ["python", "-m", "app.invoice_match_draft_expiry_worker"]
+    restart: unless-stopped
+    profiles: ["invoice_match_draft_expiry", "workers"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://maestro_user:maestro_pass@db:5432/maestro_cantor
+
+  urgent_listing_reminder:
+    build: .
+    command: ["python", "-m", "app.urgent_listing_reminder_worker"]
+    restart: unless-stopped
+    profiles: ["urgent_listing_reminder", "workers"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://maestro_user:maestro_pass@db:5432/maestro_cantor
+
+  periodic_mail:
+    build: .
+    command: ["python", "-m", "app.periodic_mail_worker"]
+    restart: unless-stopped
+    profiles: ["periodic_mail", "workers"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://maestro_user:maestro_pass@db:5432/maestro_cantor
+
+  listing_reward:
+    build: .
+    command: ["python", "-m", "app.listing_reward_worker"]
+    restart: unless-stopped
+    profiles: ["listing_reward", "workers"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://maestro_user:maestro_pass@db:5432/maestro_cantor
+
   # Adminer: web interface to view/edit the database live, without
   # having to write a single line of custom admin code (see the
   # "Administering the site and viewing the database" section in the

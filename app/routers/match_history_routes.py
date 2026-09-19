@@ -1,0 +1,132 @@
+"""Owner/admin-only Match history. Moderation alone does not grant access."""
+from datetime import date
+from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from app.auth import get_current_user
+from app.csrf import verify_csrf
+from app.database import fetch_all, fetch_one
+from app.match_history import can_view_match_history
+from app.match_evaluations import CATEGORIES, can_evaluate, get_my_evaluation, submit_evaluation
+from app.invoice_deadlines import can_request_match_invoice
+from app.invoice_match_drafts import get_draft
+from app.render import render
+
+router = APIRouter()
+
+
+@router.get('/profile/matches')
+def match_history(request: Request, user_id: int | None = None, page: int = 1):
+    viewer = get_current_user(request)
+    if not viewer:
+        return RedirectResponse('/login', status_code=303)
+    owner_id = viewer['id'] if user_id is None else user_id
+    if not can_view_match_history(viewer, owner_id):
+        raise HTTPException(status_code=403)
+    page = max(1, page)
+    rows = fetch_all('''
+        SELECT m.id, m.status, m.created_at, m.completed_at, m.invoice_sent_at,
+               COALESCE(m.listing_snapshot->>'title',l.title) AS title,
+               COALESCE(m.listing_snapshot->>'event_date',l.event_date::text) AS event_date,
+               COALESCE(m.listing_snapshot->>'fee',l.fee) AS fee,
+               artist.full_name AS artist_name, contractor.full_name AS contractor_name,
+               m.artist_user_id, m.contractor_user_id,
+               artist.email AS artist_email, artist.phone AS artist_phone,
+               contractor.email AS contractor_email, contractor.phone AS contractor_phone
+        FROM job_matches m
+        LEFT JOIN listings l ON l.id = m.listing_id
+        JOIN users artist ON artist.id = m.artist_user_id
+        JOIN users contractor ON contractor.id = m.contractor_user_id
+        WHERE m.artist_user_id = :owner OR m.contractor_user_id = :owner
+        ORDER BY m.created_at DESC, m.id DESC
+        LIMIT 21 OFFSET :offset
+    ''', {'owner': owner_id, 'offset': (page - 1) * 20})
+
+    # P2.C: e-mail and phone are only ever shown here, once a Match
+    # exists between the two people — regardless of the phone's own
+    # public-profile visibility setting. "cancelled" matches don't
+    # reveal contact info (the match never actually happened).
+    matches = []
+    for row in rows[:20]:
+        m = dict(row)
+        is_artist = m['artist_user_id'] == owner_id
+        counterpart_email = m['contractor_email'] if is_artist else m['artist_email']
+        counterpart_phone = m['contractor_phone'] if is_artist else m['artist_phone']
+        m['reveal_contact'] = m['status'] in ('confirmed', 'completed') and owner_id == viewer['id']
+        m['counterpart_email'] = counterpart_email if m['reveal_contact'] else None
+        m['counterpart_phone'] = counterpart_phone if m['reveal_contact'] else None
+
+        # P3.F: só o próprio dono desta lista pode avaliar (não faz
+        # sentido o Admin avaliar em nome de alguém) — e só dentro da
+        # janela de 14 dias após o evento. A avaliação em si (se já foi
+        # dada) é secreta mesmo pro próprio avaliador ver de volta aqui
+        # além de "já avaliei" — nunca mostramos a nota do OUTRO lado.
+        m['can_evaluate'] = False
+        m['my_evaluation'] = None
+        event_date = row['event_date']
+        try:
+            event_date = date.fromisoformat(str(event_date)) if event_date else None
+        except ValueError:
+            event_date = None
+        if owner_id == viewer['id']:
+            m['can_evaluate'] = can_evaluate(m['status'], event_date)
+            if m['can_evaluate']:
+                m['my_evaluation'] = get_my_evaluation(m['id'], viewer['id'])
+
+        # P4: botões de Rechnung — só pro próprio dono desta lista (nunca
+        # pro Admin agindo por outra pessoa). O rascunho em si (se
+        # existir) é criptografado — só sabemos o status, nunca o
+        # conteúdo, até alguém abrir o preview (ver invoice_match_drafts.py).
+        m['is_issuer'] = m['artist_user_id'] == owner_id
+        m['invoice_draft'] = None
+        m['can_request_invoice'] = False
+        if owner_id == viewer['id'] and m['status'] != 'cancelled':
+            m['invoice_draft'] = get_draft(m['id'])
+            if not m['invoice_draft'] and not m['invoice_sent_at']:
+                m['can_request_invoice'] = can_request_match_invoice(event_date, date.today())
+        matches.append(m)
+
+    response = render(request, 'match_history.html', {
+        'user': viewer, 'matches': matches, 'has_next': len(rows) > 20, 'page': page,
+        'eval_categories': list(CATEGORIES.keys()),
+    })
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
+
+
+@router.post('/profile/matches/{match_id}/evaluate')
+def submit_match_evaluation(
+    request: Request, match_id: int, csrf_token: str = Form(''),
+    punctuality: int = Form(...), preparation: int = Form(...), musicality: int = Form(...),
+    communication: int = Form(...), collaboration: int = Form(...),
+):
+    """P3.F: só quem participou do Match pode avaliar o OUTRO lado, só
+    dentro da janela de 14 dias. Secreto — o outro lado nunca vê essa
+    nota, em lugar nenhum (ver app/match_evaluations.py)."""
+    verify_csrf(request, csrf_token)
+    viewer = get_current_user(request)
+    if not viewer:
+        return RedirectResponse('/login', status_code=303)
+
+    match = fetch_one(
+        '''
+        SELECT m.status, m.artist_user_id, m.contractor_user_id, l.event_date
+        FROM job_matches m
+        LEFT JOIN listings l ON l.id = m.listing_id
+        WHERE m.id = :id
+        ''',
+        {'id': match_id},
+    )
+    if not match or viewer['id'] not in (match['artist_user_id'], match['contractor_user_id']):
+        raise HTTPException(status_code=404)
+    if not can_evaluate(match['status'], match['event_date']):
+        return RedirectResponse('/profile/matches?eval_error=1', status_code=303)
+
+    rated_id = match['contractor_user_id'] if viewer['id'] == match['artist_user_id'] else match['artist_user_id']
+    try:
+        submit_evaluation(match_id, viewer['id'], rated_id, {
+            'punctuality': punctuality, 'preparation': preparation, 'musicality': musicality,
+            'communication': communication, 'collaboration': collaboration,
+        })
+    except ValueError:
+        raise HTTPException(status_code=400, detail='invalid score')
+    return RedirectResponse('/profile/matches?evaluated=1', status_code=303)

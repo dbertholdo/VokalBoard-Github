@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}{{ t('wizard_title') }}{% endblock %}
+
+{# P2 cluster, Profile Wizard (19/09/2026) — decided with Daniel via
+   AskUserQuestion ("1 and 2"): shown once automatically right after
+   signup (see app/routers/listings_routes.py home()) AND reachable
+   anytime afterward from the Atento mascot nudge. Deliberately reuses
+   the EXACT SAME field names as profile.html's form, submitting to
+   the same POST /profile — no duplicated validation/save logic (see
+   CLAUDE.md section 4). This template is only a guided, step-by-step
+   presentation of that same form, with a progress bar and Skip. #}
+
+{% block content %}
+<div class="wizard-shell">
+    <h1>{{ t('wizard_title') }}</h1>
+    <p class="field-help">{{ t('wizard_intro') }}</p>
+
+    <div class="completeness-box">
+        <div class="completeness-bar-track">
+            <div class="completeness-bar-fill" style="width: {{ completeness.percent }}%;"></div>
+        </div>
+        <p class="completeness-label">{{ completeness.percent }}% ({{ completeness.done }}/{{ completeness.total }})</p>
+    </div>
+
+    {% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
+
+    <form method="post" action="/profile" class="stacked-form wizard-form" enctype="multipart/form-data" id="wizard-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <fieldset class="profile-edit-card wizard-step" data-step="1">
+            <legend>{{ t('wizard_step_photo_location') }}</legend>
+            {% if user.avatar_url %}
+                <img class="avatar-preview" src="{{ user.avatar_url }}" alt="">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="remove_avatar" value="1">
+                    {{ t('profile_avatar_remove') }}
+                </label>
+            {% else %}
+                <div class="avatar-preview avatar-placeholder">{{ user.full_name[0] | upper }}</div>
+            {% endif %}
+            <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp">
+            <p class="field-help">{{ t('register_avatar_help') }}</p>
+
+            {% set loc_country = user.country if user.country else 'DE' %}
+            {% set loc_state = user.state if user.state else '' %}
+            {% set loc_city = user.city if user.city else '' %}
+            {% include "_location_fields.html" %}
+        </fieldset>
+
+        <fieldset class="profile-edit-card wizard-step" data-step="2">
+            <legend>{{ t('profile_phone_card') }}</legend>
+            <p class="field-help">{{ t('profile_phone_help') }}</p>
+            <label>{{ t('profile_phone_label') }}
+                <input type="tel" name="phone" value="{{ user.phone or '' }}" maxlength="50" placeholder="+49 151 23456789">
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" name="phone_visibility_public" value="1" {% if user.phone_visibility == 'public' %}checked{% endif %}>
+                {{ t('profile_phone_visibility_label') }}
+            </label>
+            <p class="field-help">{{ t('profile_phone_visibility_help') }}</p>
+
+            <input type="hidden" name="notify_matches" value="{{ '1' if user.notify_matches else '' }}">
+            <input type="hidden" name="notify_messages" value="{{ '1' if user.notify_messages else '' }}">
+            <input type="hidden" name="preferred_language" value="{{ user.preferred_language }}">
+            <input type="hidden" name="appear_in_search" value="{{ '1' if user.appear_in_search else '' }}">
+            <input type="hidden" name="profile_slug" value="{{ user.profile_slug or '' }}">
+        </fieldset>
+
+        <fieldset class="profile-edit-card wizard-step" data-step="3">
+            <legend>{{ t('profile_professional_card') }}</legend>
+            {% if user.role == "singer" %}
+                <label>{{ t('profile_voice_type_label') }}
+                    <select name="voice_type_id">
+                        <option value="">—</option>
+                        {% for vt in voice_types %}
+                            <option value="{{ vt.id }}" {% if singer_profile and singer_profile.voice_type_id == vt.id %}selected{% endif %}>{{ vt.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <fieldset class="extra-voice-types">
+                    <legend>{{ t('profile_extra_voice_types_label') }}</legend>
+                    {% for vt in voice_types %}
+                        <label class="checkbox-inline">
+                            <input type="checkbox" name="extra_voice_type_ids" value="{{ vt.id }}" {% if vt.id in extra_voice_type_ids %}checked{% endif %}>
+                            {{ vt.name }}
+                        </label>
+                    {% endfor %}
+                </fieldset>
+
+                <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ t('chars_max_suffix') }})
+                    <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ singer_profile.bio if singer_profile and singer_profile.bio else "" }}</textarea>
+                </label>
+
+                <label>{{ t('profile_hashtags_label') }}
+                    <input type="text" name="composer_hashtags" value="{{ composer_tags | join(', ') }}" placeholder="Mozart, Verdi, Puccini">
+                </label>
+
+                <label>{{ t('audio_links_label') }}
+                    <textarea name="audio_links" rows="3" placeholder="https://www.youtube.com/watch?v=...">{{ audio_links | join('\n') }}</textarea>
+                </label>
+                <p class="field-help">{{ t('audio_links_help') }}</p>
+            {% else %}
+                <input type="hidden" name="voice_type_id" value="">
+                <label>{{ t('profile_ensemble_label') }}
+                    <input type="text" name="ensemble_name" value="{{ conductor_profile.ensemble_name if conductor_profile and conductor_profile.ensemble_name else "" }}">
+                </label>
+
+                <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ t('chars_max_suffix') }})
+                    <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ conductor_profile.bio if conductor_profile and conductor_profile.bio else "" }}</textarea>
+                </label>
+            {% endif %}
+        </fieldset>
+
+        <fieldset class="profile-edit-card wizard-step" data-step="4">
+            <legend>{{ t('social_links_title') }}</legend>
+            <p class="field-help">{{ t('social_links_help') }}</p>
+            {% for platform in social_platforms %}
+                <label>{{ t('social_platform_' ~ platform) }}
+                    <input type="url" name="social_{{ platform }}" maxlength="500"
+                           placeholder="https://..."
+                           value="{{ social_links[platform] if platform in social_links else '' }}">
+                </label>
+            {% endfor %}
+        </fieldset>
+
+        <div class="wizard-nav">
+            <button type="button" id="wizard-back" class="button-link button-secondary" disabled>{{ t('wizard_back') }}</button>
+            <a href="/profile" class="button-link">{{ t('wizard_skip') }}</a>
+            <button type="button" id="wizard-next" class="button-link button-primary">{{ t('wizard_next') }}</button>
+            <button type="submit" id="wizard-finish" class="button-link button-primary" style="display:none;">{{ t('wizard_finish') }}</button>
+        </div>
+    </form>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+    (function () {
+        var steps = Array.prototype.slice.call(document.querySelectorAll('.wizard-step'));
+        var backBtn = document.getElementById('wizard-back');
+        var nextBtn = document.getElementById('wizard-next');
+        var finishBtn = document.getElementById('wizard-finish');
+        if (!steps.length) return;
+        var current = 0;
+
+        function show(index) {
+            steps.forEach(function (el, i) { el.style.display = (i === index) ? '' : 'none'; });
+            backBtn.disabled = (index === 0);
+            var isLast = index === steps.length - 1;
+            nextBtn.style.display = isLast ? 'none' : '';
+            finishBtn.style.display = isLast ? '' : 'none';
+        }
+        backBtn.addEventListener('click', function () { if (current > 0) { current -= 1; show(current); } });
+        nextBtn.addEventListener('click', function () { if (current < steps.length - 1) { current += 1; show(current); } });
+        show(current);
+    })();
+</script>
+{% endblock %}

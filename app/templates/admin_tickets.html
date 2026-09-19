@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Admin — Tickets{% endblock %}
+
+{% block content %}
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-flag"></use></svg> Support tickets</h1>
+<p class="field-help">"Fale conosco" and "Reportar erro" submissions, in one inbox.</p>
+
+{% if responded %}
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Response saved.</p>
+{% endif %}
+{% if request.query_params.get('error') == 'resposta_vazia' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Write a response before saving.</p>
+{% endif %}
+
+<form method="get" action="/admin/tickets" class="inline-form">
+    <label>Status
+        <select name="status">
+            <option value="open" {{ 'selected' if status == 'open' }}>Open</option>
+            <option value="answered" {{ 'selected' if status == 'answered' }}>Answered</option>
+            <option value="resolved" {{ 'selected' if status == 'resolved' }}>Resolved</option>
+            <option value="" {{ 'selected' if status == '' }}>All</option>
+        </select>
+    </label>
+    <label>Type
+        <select name="type">
+            <option value="" {{ 'selected' if type == '' }}>All</option>
+            <option value="contact" {{ 'selected' if type == 'contact' }}>Contact</option>
+            <option value="bug_report" {{ 'selected' if type == 'bug_report' }}>Bug report</option>
+        </select>
+    </label>
+    <button type="submit">Filter</button>
+</form>
+
+{% if tickets|length == 0 %}
+    <p class="empty-state">No tickets here.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for ticket in tickets %}
+            <li>
+                <p>
+                    <span class="badge {{ 'badge-danger' if ticket.type == 'bug_report' else '' }}">{{ 'Bug report' if ticket.type == 'bug_report' else 'Contact' }}</span>
+                    <span class="badge {{ 'badge-success' if ticket.status == 'resolved' else '' }}">{{ ticket.status }}</span>
+                    {% if ticket.subject %}<strong>{{ ticket.subject }}</strong>{% endif %}
+                </p>
+                <p>
+                    {% if ticket.user_name %}
+                        <a href="/admin/users/{{ ticket.user_id }}">{{ ticket.user_name }}</a> ({{ ticket.user_email }})
+                    {% elif ticket.email %}
+                        {{ ticket.email }}
+                    {% else %}
+                        <span class="field-help">Anonymous</span>
+                    {% endif %}
+                    · {{ ticket.created_at }}
+                </p>
+                {% if ticket.page_url %}
+                    <p class="field-help">Page: {{ ticket.page_name or ticket.page_url }} — <code>{{ ticket.page_url }}</code></p>
+                {% endif %}
+                <p>{{ ticket.description }}</p>
+                {% if ticket.admin_response %}
+                    <p class="field-help"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-reply"></use></svg> {{ ticket.admin_response }} — {{ ticket.resolved_by_name }} ({{ ticket.resolved_at }})</p>
+                {% endif %}
+                {% if ticket.status != 'resolved' %}
+                    <details>
+                        <summary class="block-user-summary">Respond</summary>
+                        <form method="post" action="/admin/tickets/{{ ticket.id }}/respond" class="stacked-form narrow">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <label>Response
+                                <textarea name="admin_response" rows="3" required minlength="2" maxlength="2000"></textarea>
+                            </label>
+                            <label><input type="checkbox" name="resolve" value="1"> Mark as resolved</label>
+                            <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-reply"></use></svg> Send response</button>
+                        </form>
+                    </details>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+    <div class="pagination">
+        {% if has_prev %}<a class="button-link" href="/admin/tickets?status={{ status }}&type={{ type }}&page={{ page - 1 }}">&larr; Previous</a>{% endif %}
+        {% if has_next %}<a class="button-link" href="/admin/tickets?status={{ status }}&type={{ type }}&page={{ page + 1 }}">Next &rarr;</a>{% endif %}
+    </div>
+{% endif %}
+{% endblock %}

@@ -85,6 +85,13 @@
 </form>
 
 <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-receipt"></use></svg> Logged expenses</h2>
+<form method="get" action="/financeiro/painel" class="inline-form period-filter">
+    <label>From <input type="date" name="start" value="{{ period_start }}"></label>
+    <label>To <input type="date" name="end" value="{{ period_end }}"></label>
+    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Filter by period</button>
+    {% if period_start or period_end %}<a class="button-link" href="/financeiro/painel">Clear</a>{% endif %}
+</form>
+<p class="field-help">The period filter above applies to this list, the total and the "Expenses by category" chart. "Expenses by month" and "Paid plan adoption by country" always show the full history.</p>
 {% if expenses|length == 0 %}
     <p class="empty-state">No expenses logged yet.</p>
 {% else %}

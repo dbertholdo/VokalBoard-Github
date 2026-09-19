@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Financeiro — Conceder{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/financeiro">&larr; Red Zone</a>
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-gift"></use></svg> Ad-hoc grant</h1>
+<p class="field-help">
+    Manually credit or debit a specific user's Notas balance, or issue a shop
+    item to them directly (bypassing self-purchase) — each requires a
+    justification, your password again, and is recorded in the audit log,
+    same care as every other Notas-touching action in the Red Zone.
+</p>
+
+{% if saved %}
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Done.</p>
+{% endif %}
+{% if error == 'senha_incorreta' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> Incorrect password — nothing was changed.</p>
+{% endif %}
+{% if error == 'dados_invalidos' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Fill in a valid amount and a reason of at least 5 characters.</p>
+{% endif %}
+{% if error == 'valor_invalido' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Invalid amount.</p>
+{% endif %}
+{% if error == 'saldo_insuficiente' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> This user doesn't have enough balance for that debit.</p>
+{% endif %}
+{% if error == 'item_invalido' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> That item doesn't exist or is inactive.</p>
+{% endif %}
+{% if error == 'usuario_nao_encontrado' %}
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> User not found.</p>
+{% endif %}
+
+<div class="red-zone-box">
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-users"></use></svg> Find user</h2>
+    <form method="get" action="/financeiro/conceder" class="inline-form">
+        <label>Name or email
+            <input type="text" name="q" value="{{ q }}" placeholder="e.g. Maria Silva">
+        </label>
+        <button type="submit">Search</button>
+    </form>
+    {% if search_results %}
+        <ul class="admin-list">
+            {% for r in search_results %}
+                <li>
+                    <a href="/financeiro/conceder?user_id={{ r.id }}">{{ r.full_name }} — {{ r.email }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% elif q %}
+        <p class="empty-state">No user matches "{{ q }}".</p>
+    {% endif %}
+</div>
+
+{% if target %}
+<div class="red-zone-box">
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-profile"></use></svg> {{ target.full_name }}</h2>
+    <p class="field-help">
+        {{ target.email }} · Current balance: <strong>{{ format_notas(target_balance) }} Notas</strong> ·
+        <a href="/admin/users/{{ target.id }}">Open full admin profile →</a>
+    </p>
+
+    <h3>Credit or debit Notas</h3>
+    <form method="post" action="/financeiro/conceder/notas" class="stacked-form narrow">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="target_user_id" value="{{ target.id }}">
+        <label>Action
+            <select name="acao" required>
+                <option value="credit">Credit (add Notas)</option>
+                <option value="debit">Debit (remove Notas)</option>
+            </select>
+        </label>
+        <label>Amount
+            <input type="number" step="0.01" min="0.01" name="amount" required>
+        </label>
+        <label>Reason (required, at least 5 characters — kept as an audit note)
+            <textarea name="reason" required minlength="5" maxlength="500" rows="3" placeholder="e.g. support compensation for a bug in the referral bonus"></textarea>
+        </label>
+        <label>Confirm your current password
+            <input type="password" name="current_password" required autocomplete="current-password">
+        </label>
+        <button type="submit" class="danger" data-confirm="Apply this Notas grant/debit to {{ target.full_name }}?">
+            <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-save"></use></svg> Apply
+        </button>
+    </form>
+
+    <h3>Grant a shop item</h3>
+    {% if catalog|length == 0 %}
+        <p class="empty-state">No active catalog item — see <a href="/admin/loja">/admin/loja</a>.</p>
+    {% else %}
+        <form method="post" action="/financeiro/conceder/item" class="stacked-form narrow">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="target_user_id" value="{{ target.id }}">
+            <label>Item (granted for free — the user's balance is never touched)
+                <select name="item_key" required>
+                    {% for item in catalog %}
+                        <option value="{{ item.key }}">{{ item.title or item.key }} ({{ format_notas(item.cost) }} Notas)</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Reason (required, at least 5 characters)
+                <textarea name="reason" required minlength="5" maxlength="500" rows="3" placeholder="e.g. compensating a redemption that failed to apply its effect"></textarea>
+            </label>
+            <label>Confirm your current password
+                <input type="password" name="current_password" required autocomplete="current-password">
+            </label>
+            <button type="submit" class="danger" data-confirm="Grant this item to {{ target.full_name }} for free?">
+                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> Grant item
+            </button>
+        </form>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

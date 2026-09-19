@@ -58,7 +58,10 @@ def register_test_user(client, full_name="Security Test User", password=DEFAULT_
         "city": "München",
         "state": "Bayern",
         "country": "DE",
-        "phone": "",
+        # P2.C made phone required to publish a listing — several tests
+        # in this file and elsewhere reuse this helper and then post to
+        # /listings/new, so it needs a real value here.
+        "phone": "+49 151 00000000",
         "bio": "",
         "composer_hashtags": "",
         "audio_links": "",
@@ -433,7 +436,7 @@ class TestAdminPosts:
         token = extract_csrf(r.text)
         data = {
             "csrf_token": token,
-            "listing_type": "singer_available",
+            "listing_type": "conductor_available",
             "title": "Test Listing",
             "description": "Test description.",
             "state": "Bayern",

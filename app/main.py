@@ -21,7 +21,7 @@ from app.auth import get_current_user
 from app.database import engine, fetch_all, execute
 from app.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_META, translate
 from app.render import render, templates
-from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes, invoice_routes
+from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes, invoice_routes, invitations_routes, support_routes
 
 load_dotenv()
 
@@ -362,7 +362,7 @@ def sitemap_xml(request: Request):
     listings = fetch_all(
         """
         SELECT l.id, l.updated_at
-        FROM listings l
+        FROM visible_listings l
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
         WHERE l.is_active = TRUE
         ORDER BY l.updated_at DESC
@@ -395,6 +395,8 @@ def sitemap_xml(request: Request):
 
 from app.routers import banner_routes
 app.include_router(banner_routes.router)
+from app.routers import match_history_routes
+app.include_router(match_history_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(listings_routes.router)
 app.include_router(profile_routes.router)
@@ -405,6 +407,8 @@ app.include_router(financial_routes.router)
 app.include_router(search_people_routes.router)
 app.include_router(notas_routes.router)
 app.include_router(invoice_routes.router)
+app.include_router(invitations_routes.router)
+app.include_router(support_routes.router)
 
 
 # ------------------------------------------------------------
@@ -431,6 +435,16 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             "message_key": "error_404_message",
             "link_url": "/",
             "link_label_key": "error_back_home",
+            # Piscadinha mascot moment (Part 2 backlog item 4,
+            # 19/09/2026) — Daniel's own call: the red-eyed Zona de
+            # Alerta pose on the 404 page, as a "lost bird" joke, not
+            # the wink pose the rest of this backlog item uses.
+            # MANUAL_VISUAL_VOKALBOARD_V1.md §7 otherwise reserves that
+            # pose for urgent listings only — this is a deliberate,
+            # explicitly-approved one-off expansion of its context, not
+            # a new pose and not a silent reinterpretation of the
+            # brand rule. See AI_CHANGELOG.md (2026-09-19).
+            "show_404_mascot": True,
         }
     else:
         lang = getattr(request.state, "lang", DEFAULT_LANGUAGE)

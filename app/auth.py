@@ -30,7 +30,7 @@ def get_current_user(request: Request) -> dict | None:
         """
         SELECT id, email, full_name, role, city, state, country, email_verified, avatar_url,
                notify_matches, notify_messages, preferred_language, referral_code, is_admin, role_level,
-               appear_in_search, profile_slug
+               appear_in_search, profile_slug, phone, phone_visibility, profile_wizard_seen_at
         FROM users WHERE id = :id AND deleted_at IS NULL
         """,
         {"id": user_id},

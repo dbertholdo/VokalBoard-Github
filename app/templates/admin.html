@@ -17,8 +17,36 @@
     <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Active listings</span></div>
     <div class="admin-stat"><strong>{{ stats.messages }}</strong><span>Messages exchanged</span></div>
     <div class="admin-stat"><strong>{{ stats.blocked_pairs }}</strong><span>Blocked pairs</span></div>
-    <div class="admin-stat"><strong>{{ stats.open_reports }}</strong><span>Reports filed</span></div>
+    <div class="admin-stat"><strong>{{ stats.open_reports }}</strong><span>Open reports</span></div>
 </div>
+
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-bolt"></use></svg> Feature toggles</h2>
+<div class="admin-toggle-row">
+    <div>
+        <strong>Compatibility score visible</strong>
+        <p class="field-help">
+            Whether the "% compatibilidade" signal (voice type &gt; city
+            proximity &gt; internal rating) is shown to end users, on
+            top of already being used to sort the Home page. Currently
+            <strong>{{ "ON" if compatibility_score_visible else "OFF" }}</strong>.
+        </p>
+    </div>
+    <form method="post" action="/admin/toggle-compatibility-score-visible">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn-secondary">{{ "Turn off" if compatibility_score_visible else "Turn on" }}</button>
+    </form>
+</div>
+
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-bolt"></use></svg> Most-used tools</h2>
+{% if feature_usage|length == 0 %}
+    <p class="empty-state">No usage recorded yet.</p>
+{% else %}
+    <div class="admin-stats">
+        {% for f in feature_usage %}
+        <div class="admin-stat"><strong>{{ f.total }}</strong><span>{{ f.label }} ({{ f.this_month }} this month)</span></div>
+        {% endfor %}
+    </div>
+{% endif %}
 
 <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-flag"></use></svg> Recent reports</h2>
 {% if reports|length == 0 %}
@@ -31,8 +59,31 @@
                     <a href="/listings/{{ r.listing_id }}">{{ r.listing_title }}</a>
                     ({{ t('by_author') }} {{ r.author_name }})
                     — {{ t('report_listing_button') }}: {{ r.reporter_name }}
+                    {% if r.status == 'accepted' %} <span class="badge">accepted</span>
+                    {% elif r.status == 'rejected' %} <span class="badge badge-danger">rejected</span>
+                    {% endif %}
                 </p>
                 <p class="field-help">"{{ r.reason }}" — {{ r.created_at }}</p>
+                {% if r.status == 'open' %}
+                    <div class="admin-actions">
+                        <form method="post" action="/admin/reports/{{ r.id }}/accept" class="report-accept-form" data-confirm="Accept this report? The person who reported it — and, if you pick a punishment level, the listing's author — will be notified by email.">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <label class="field-help">Punishment for the author (optional)
+                                <select name="punishment">
+                                    <option value="">None — accept only</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="suspend">Suspend (reactivates on next login)</option>
+                                    <option value="ban">Ban (permanent)</option>
+                                </select>
+                            </label>
+                            <button type="submit" class="button-link"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-check"></use></svg> Accept</button>
+                        </form>
+                        <form method="post" action="/admin/reports/{{ r.id }}/reject" data-confirm="Reject this report? The person who reported it will be notified by email.">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn-secondary">Reject</button>
+                        </form>
+                    </div>
+                {% endif %}
             </li>
         {% endfor %}
     </ul>

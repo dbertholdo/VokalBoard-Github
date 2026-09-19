@@ -26,7 +26,7 @@
            placeholder="{{ t('listing_form_state_other_placeholder') }}">
 </label>
 
-<label>{{ t('listing_form_city_label') }}
+<label>{{ t('listing_form_city_label').replace('*', '') }}<span data-required-marker>*</span>
     <select name="city" id="loc-city-select" required>
     </select>
     <input type="text" name="city" id="loc-city-other-input" maxlength="100" hidden disabled

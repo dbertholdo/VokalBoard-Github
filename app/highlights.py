@@ -24,9 +24,20 @@ Respects users.appear_in_search for the (2)/(3) fallback pool (the
 same opt-out used by "Buscar pessoas") — a paid highlight (1) is its
 own explicit opt-in and isn't gated by that flag.
 """
-from app.database import fetch_all, execute
+from datetime import timedelta
+
+from app.database import fetch_all, fetch_one, execute
 
 WEEKLY_HIGHLIGHTS_LIMIT = 6
+
+# Faixa aceita pra "adicionar/remover dias" manual do Admin (item do
+# painel de usuários, P6, 18/09/2026 — Daniel: "adicionar/remover
+# dias") — mesmo destaque que o item da Loja concede, só que dado (ou
+# tirado) à mão pelo Admin, sem passar pela Loja/Notas (ex.: cortesia
+# de suporte, ou corrigir um resgate que deu bug). Limite generoso mas
+# finito pra impedir um clique de campo numérico virar anos de destaque
+# por acidente.
+MAX_HIGHLIGHT_DAYS_ADJUSTMENT = 365
 
 # How many candidates to pull from each fallback source before mixing
 # — wider than the final limit so the fairness sort below has enough
@@ -132,3 +143,35 @@ def get_weekly_highlights(viewer_id: int, limit: int = WEEKLY_HIGHLIGHTS_LIMIT) 
         )
 
     return highlights
+
+
+def adjust_highlight_days(user_id: int, days: int):
+    """Soma (ou subtrai, se `days` for negativo) dias a
+    `users.profile_highlighted_until` — usado pelo Admin em
+    `/admin/users/{id}` pra dar/tirar destaque manualmente, fora do
+    fluxo normal da Loja. Mesma regra de "soma em cima do que já
+    existe" que `redeem_notas()` usa (resgatar duas vezes empilha os
+    dias) — só entra a partir de agora se já tiver vencido ou nunca
+    tiver tido. Se o resultado cair no passado (ou igual a agora),
+    grava `NULL` — "sem destaque" — em vez de uma data no passado, que
+    ficaria escondida de qualquer jeito mas suja o dado. Retorna a nova
+    data (ou None).
+    """
+    row = fetch_one("SELECT profile_highlighted_until FROM users WHERE id = :id", {"id": user_id})
+    if not row:
+        return None
+    if days == 0:
+        return row["profile_highlighted_until"]
+    current_until = row["profile_highlighted_until"]
+
+    now = fetch_one("SELECT now() AS now")["now"]
+    base = current_until if (current_until and current_until > now) else now
+    new_until = base + timedelta(days=days)
+    if new_until <= now:
+        new_until = None
+
+    execute(
+        "UPDATE users SET profile_highlighted_until = :until WHERE id = :id",
+        {"until": new_until, "id": user_id},
+    )
+    return new_until

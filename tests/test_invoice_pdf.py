@@ -1,6 +1,8 @@
 import pytest
+from pypdf import PdfReader
 
 from app.invoice_pdf import InvoiceDocument, InvoiceValidationError, render_invoice_pdf
+from io import BytesIO
 
 
 def invoice(**changes):
@@ -24,3 +26,12 @@ def test_invoice_pdf_is_created_only_in_memory():
 def test_invoice_pdf_rejects_missing_legal_core_fields():
     with pytest.raises(InvoiceValidationError):
         render_invoice_pdf(invoice(issuer_tax_id=""))
+
+
+def test_invoice_pdf_has_signature_footer_p4_todo_18_09_2026():
+    """To-do do P4 (rodapé de assinatura, decisão do Daniel) — vale para
+    os dois fluxos, já que os dois passam por render_invoice_pdf()."""
+    pdf = render_invoice_pdf(invoice())
+    text = "".join(page.extract_text() for page in PdfReader(BytesIO(pdf)).pages)
+    assert "Made with assistance of VokalBoard" in text
+    assert "www.vokalboard.com/rechnungmaker" in text

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav_invitations') }}{% endblock %}
+
+{% block content %}
+<h1>{{ t('nav_invitations') }}</h1>
+
+{% if responded == 'accepted' %}
+    {# Match — pose "celebrando" (19/09/2026), per
+       MANUAL_VISUAL_VOKALBOARD_V1.md §7/§10: only on a real confirmed
+       Match, never before. Decorative image (alt=""), the success
+       message already says it. #}
+    <div class="match-celebrate">
+        <img class="mascot-inline mascot-inline-celebrate" src="/static/img/mascot/mascot-celebrating.png" alt="">
+        <p class="success">{{ t('invitation_responded_accepted') }}</p>
+    </div>
+{% endif %}
+{% if responded == 'declined' %}<p class="success">{{ t('invitation_responded_declined') }}</p>{% endif %}
+{% if invite_error %}<p class="error">{{ t(invite_error) }}</p>{% endif %}
+
+<section class="listing-form-card">
+    <h2>{{ t('invitations_received_title') }}</h2>
+    {% if invites_received|length == 0 %}
+        <p class="empty-state">{{ t('invitations_none') }}</p>
+    {% else %}
+        <ul class="invitation-list">
+            {% for i in invites_received %}
+                <li class="invitation-item">
+                    <div class="invitation-item-main">
+                        <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a>
+                        {% set i_fee_display = format_fee(i.fee_amount, i.fee_currency, i.fee_negotiable) %}
+                        <span class="invitation-meta">{{ i.voice_type_name }}{% if i_fee_display %} · {{ i_fee_display }}{% endif %}{% if i.event_date %} · {{ i.event_date }}{% endif %}</span>
+                        <span class="invitation-meta">{{ t('invitation_from_label') }} <a href="/users/{{ i.contractor_id }}">{{ i.contractor_name }}</a></span>
+                    </div>
+                    {% if i.status == 'pending' %}
+                        <div class="invitation-item-actions">
+                            <form method="post" action="/invitations/{{ i.id }}/respond">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="action" value="accept">
+                                <input type="hidden" name="next" value="/invitations">
+                                <button type="submit" class="button-link button-primary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('invitation_accept_button') }}</button>
+                            </form>
+                            <form method="post" action="/invitations/{{ i.id }}/respond">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="action" value="decline">
+                                <input type="hidden" name="next" value="/invitations">
+                                <button type="submit" class="button-link button-danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> {{ t('invitation_decline_button') }}</button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <span class="invitation-status invitation-status-{{ i.status }}">{{ t('invitation_status_' ~ i.status) }}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</section>
+
+<section class="listing-form-card">
+    <h2>{{ t('invitations_applications_received_title') }}</h2>
+    {% if applications_received|length == 0 %}
+        <p class="empty-state">{{ t('invitations_none') }}</p>
+    {% else %}
+        <ul class="invitation-list">
+            {% for i in applications_received %}
+                <li class="invitation-item">
+                    <div class="invitation-item-main">
+                        <a href="/users/{{ i.artist_id }}">{{ i.artist_name }}</a>
+                        <span class="invitation-meta">{{ t('invitation_applied_for_label') }} <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a> — {{ i.voice_type_name }}</span>
+                    </div>
+                    {% if i.status == 'pending' %}
+                        <div class="invitation-item-actions">
+                            <form method="post" action="/invitations/{{ i.id }}/respond">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="action" value="accept">
+                                <input type="hidden" name="next" value="/invitations">
+                                <button type="submit" class="button-link button-primary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('invitation_accept_button') }}</button>
+                            </form>
+                            <form method="post" action="/invitations/{{ i.id }}/respond">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="action" value="decline">
+                                <input type="hidden" name="next" value="/invitations">
+                                <button type="submit" class="button-link button-danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> {{ t('invitation_decline_button') }}</button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <span class="invitation-status invitation-status-{{ i.status }}">{{ t('invitation_status_' ~ i.status) }}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</section>
+
+<section class="listing-form-card">
+    <h2>{{ t('invitations_applications_sent_title') }}</h2>
+    {% if applications_sent|length == 0 %}
+        <p class="empty-state">{{ t('invitations_none') }}</p>
+    {% else %}
+        <ul class="invitation-list">
+            {% for i in applications_sent %}
+                <li class="invitation-item">
+                    <div class="invitation-item-main">
+                        <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a>
+                        {% set i_fee_display = format_fee(i.fee_amount, i.fee_currency, i.fee_negotiable) %}
+                        <span class="invitation-meta">{{ i.voice_type_name }}{% if i_fee_display %} · {{ i_fee_display }}{% endif %}</span>
+                    </div>
+                    <span class="invitation-status invitation-status-{{ i.status }}">{{ t('invitation_status_' ~ i.status) }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</section>
+
+<section class="listing-form-card">
+    <h2>{{ t('invitations_sent_title') }}</h2>
+    {% if invites_sent|length == 0 %}
+        <p class="empty-state">{{ t('invitations_none') }}</p>
+    {% else %}
+        <ul class="invitation-list">
+            {% for i in invites_sent %}
+                <li class="invitation-item">
+                    <div class="invitation-item-main">
+                        <a href="/users/{{ i.artist_id }}">{{ i.artist_name }}</a>
+                        <span class="invitation-meta">{{ t('invitation_invited_to_label') }} <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a> — {{ i.voice_type_name }}</span>
+                    </div>
+                    <span class="invitation-status invitation-status-{{ i.status }}">{{ t('invitation_status_' ~ i.status) }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</section>
+{% endblock %}
