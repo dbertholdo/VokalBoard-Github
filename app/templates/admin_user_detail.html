@@ -80,16 +80,16 @@
     </ul>
 {% endif %}
 
-<h2>{{ t('eval_quality_section_title') }}</h2>
-<p class="field-help">{{ t('eval_quality_section_help') }}</p>
+<h2>{{ t_en('eval_quality_section_title') }}</h2>
+<p class="field-help">{{ t_en('eval_quality_section_help') }}</p>
 <ul class="admin-list">
     {% for cat, data in quality_tiers.items() %}
         <li>
-            <p>{{ t('eval_category_' ~ cat) }} —
+            <p>{{ t_en('eval_category_' ~ cat) }} —
                 {% if data.tier %}
-                    {{ t('eval_tier_' ~ data.tier) }} ({{ data.average }} ★, {{ data.count }})
+                    {{ t_en('eval_tier_' ~ data.tier) }} ({{ data.average }} ★, {{ data.count }})
                 {% else %}
-                    {{ t('eval_quality_not_enough') }}
+                    {{ t_en('eval_quality_not_enough') }}
                 {% endif %}
             </p>
         </li>

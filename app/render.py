@@ -23,7 +23,13 @@ from app.invoice_match_drafts import count_pending_actions
 from app.notas_wallet import format_notas as _format_notas
 from app.mascot_moments import pending_reminder_key
 from app.notification_center import get_unread_count as _get_notification_unread_count
-from app.notification_center import get_recent_notifications, profile_incomplete_notification, render_notification_title
+from app.notification_center import (
+    get_recent_notifications,
+    profile_incomplete_notification,
+    render_notification_title,
+    notification_style,
+    notification_relative_time,
+)
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -44,6 +50,19 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     context["request"] = request
     context["lang"] = lang
     context["t"] = lambda key: translate(key, lang)
+    # FIX (19/09/2026, Daniel: "a área Admin/God Mode precisa
+    # NECESSARIAMENTE ser em inglês somente") — a handful of admin
+    # templates (admin.html, admin_posts.html, admin_user_detail.html)
+    # were reusing public-facing i18n keys (by_author, eval_category_*,
+    # eval_tier_*, ...) through the normal t() call, which follows the
+    # VIEWER's own site language — so an admin who browses the rest of
+    # the site in Portuguese would see those few admin strings in
+    # Portuguese too. t_en() reuses the exact same TRANSLATIONS dict
+    # (never a duplicated hardcoded string to drift out of sync) but
+    # always resolves to English, independent of `lang` above — admin
+    # templates use this instead of t() for any shared key. See
+    # AI_CHANGELOG.md for the full list of call sites fixed.
+    context["t_en"] = lambda key: translate(key, "en")
     # P3.E: templates call format_fee(amount, currency, negotiable) —
     # the "A negociar" label is already resolved to the current
     # language here, so app/fees.py itself never has to import i18n.
@@ -58,6 +77,11 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     # Central de Notificações (19/09/2026, task #50): lets base.html
     # render a notification's title without importing app.i18n itself.
     context["render_notification_title"] = lambda n: render_notification_title(n, context["t"])
+    # Dropdown redesign (19/09/2026) — per-row icon badge color/icon by
+    # notification type, and a "20m ago"/"1h ago" relative time label.
+    # See app/notification_center.py for both.
+    context["notification_style"] = notification_style
+    context["notification_relative_time"] = lambda n: notification_relative_time(n["created_at"], context["t"])
     context["lang_urls"] = {
         code: str(request.url.include_query_params(lang=code)) for code in SUPPORTED_LANGUAGES
     }

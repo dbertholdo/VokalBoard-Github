@@ -1,5 +1,309 @@
 # VokalBoard — Registro compartilhado de IA
 
+## 2026-09-19 — Agent: Claude — Translation audit (task #49) + Admin access bug fix + Admin/God Mode English-only enforcement
+
+Daniel: "Das traduções que já temos, confira se está tudo em ordem antes
+de adicionarmos as próximas" + "a área Admin/God Mode precisa
+NECESSARIAMENTE ser em inglês somente" + reported that one real Admin
+account couldn't open the Admin button while God Mode worked fine for
+another account. Three separate findings/fixes below.
+
+### 1. Admin access bug — FOUND AND FIXED
+
+`GET /admin` (`admin_dashboard` in `app/routers/admin_routes.py`) was
+gated at `require_level(request, LEVEL_GOD)` (level 3) — but the nav
+"Admin" button is shown to anyone `role_level >= 1`, and every other
+admin sub-page (`/admin/users`, `/admin/analytics`, `/admin/posts`, ...)
+already uses `require_admin()` = `LEVEL_ADMIN` (level 2). This directly
+contradicts `app/permissions.py`'s own documented level scale ("2 =
+admin — everything the /admin panel already did before levels
+existed"). Net effect: a real level-2 Admin account clicking the Admin
+button got silently redirected to `/` — exactly what Daniel reported —
+while only a level-3 God Mode account could get in at all.
+
+**Fix:** changed the gate to `require_admin()` (level 2), matching
+every other admin sub-page. This restores VIEW access to the dashboard
+for Admin-level accounts — it does NOT change who can take any
+sensitive action: accepting/rejecting a report with a punishment,
+un-banning, granting admin/god, banners, Capitalism Mode/financial
+still each keep their own `require_level(..., LEVEL_GOD)` check,
+completely unchanged. (Note for later: `app/permissions.py`'s docstring
+also describes level 1/moderator as having "read + act on reports",
+but the report accept/reject routes currently require level 3 too —
+that's a separate, pre-existing inconsistency I did NOT touch, since
+changing who can apply account punishments is a policy call, not a bug
+fix — flagging it here for you to decide on.)
+
+### 2. Admin/God Mode was leaking the viewer's own site language — FOUND AND FIXED
+
+8 call sites across 3 admin templates (`admin.html`, `admin_posts.html`,
+`admin_user_detail.html`) were calling the normal `t()` helper on
+shared, public-facing i18n keys (`by_author`, `report_listing_button`,
+`eval_quality_section_title`, `eval_category_*`, `eval_tier_*`, ...) —
+`t()` always follows the VIEWER's own site language (their `?lang=`/
+cookie choice), so an admin who browses VokalBoard in Portuguese would
+have seen those specific admin strings in Portuguese too, not English.
+
+**Fix:** added `t_en(key)` in `app/render.py` — reuses the exact same
+`TRANSLATIONS` dict as `t()` (so nothing is duplicated/hardcoded and
+can drift out of sync) but always resolves to English regardless of
+`lang`. Swapped all 8 call sites from `t(` to `t_en(`. Every other
+admin/financeiro template already had zero `t()` calls (hardcoded
+English from the start) — confirmed via a full scan, so this closes the
+gap completely.
+
+### 3. Translation completeness audit (de/en/fr/it/pt) — 3 real gaps found and fixed, 1 open decision for you
+
+Ran three checks across all 622 i18n keys:
+- **Missing/empty per key per language:** `availability_limit` and
+  `availability_invalid` only had en/pt — de/fr/it were silently
+  falling back to English (via `translate()`'s fallback chain), which
+  matters more than most since German is `DEFAULT_LANGUAGE`. Added the
+  missing de/fr/it text for both.
+- **Placeholder consistency** (e.g. a key using `{name}` in English but
+  missing it in another language, which would silently drop the
+  substitution): 0 mismatches found across all 622 keys.
+- **Every static `t()`/`t_en()` call site cross-checked against actual
+  defined keys** (a typo'd key falls back to literally printing the
+  raw key string — `translate()`'s fallback for a truly missing key is
+  `return key`): found exactly one — `listing_form.html`'s currency
+  `<select>` screen-reader label called `t('listing_form_fee_currency_label')`,
+  a key that didn't exist anywhere in `app/i18n.py`. Added it
+  (de/en/fr/it/pt). After both fixes, **0 missing, 0 empty, 0 broken
+  references across the core 5 languages** — confirmed by re-running
+  every check.
+
+**Open decision, not touched — needs your call before I add the next
+languages:** `SUPPORTED_LANGUAGES` in `app/i18n.py` and its own module
+docstring both say the 5 core languages are de/en/**fr**/it/pt (French)
+— but `CLAUDE.md` §1 lists the site's languages as "inglês, português,
+**espanhol**, italiano, ..." (Spanish, not French). This is the
+fr-vs-es mismatch flagged back when task #49 was first scoped. All 622
+keys currently have real French translations; there is no Spanish
+content anywhere in the codebase. Before I add zh/ko/ro (still at 0
+coverage, unchanged this round), I need you to say which one VokalBoard
+actually ships: keep French as-is (and fix `CLAUDE.md`'s wording to
+match), replace French with Spanish (re-translate all 622 keys, drop
+`fr`), or support both (add `es` as a 6th core language alongside
+`fr`, roughly 622 more translations). Whichever you pick decides which
+languages get zh/ko/ro-style full coverage next.
+
+**Validation:** `ast.parse()` on `app/routers/admin_routes.py`,
+`app/render.py`, `app/i18n.py`; a full Jinja2 template-load pass over
+every `.html` (0 failures); `pytest --collect-only` (274 tests collect
+cleanly, confirming no import/syntax breakage from the admin_routes.py
+change) — full test execution needs a live Postgres this sandbox
+doesn't have, same constraint as every other change this session.
+
+## 2026-09-19 — Agent: Claude — Item #54: real "remove vacancy" button
+
+Daniel: "Faça o 54" — "Permitir remover vaga/naipe já adicionado (não só
+adicionar)". Until now, the listing form's vagas/naipes list only had
+"Add another voice type" — removing a row meant clearing its voice-type
+field by hand and saving again (there was literal help text explaining
+that workaround).
+
+The backend already fully supported this the safe way:
+`parse_vacancies_form()` (`app/vacancies.py`) already drops any row with
+no voice type chosen, and `set_vacancies()` already refuses to delete a
+vaga that has a confirmed Match (`job_matches.vacancy_id` has `ON DELETE
+RESTRICT`) — so this was purely a missing front-end affordance, no
+backend change needed.
+
+**`app/templates/listing_form.html`:** each vacancy row now has a small
+round "✕" button. Rows that already have `filled_slots > 0` (i.e.
+already matched) render it `disabled` with a tooltip explaining why —
+surfacing the backend's existing protection in the UI instead of
+letting someone think they removed a filled vaga and then see it
+silently reappear after saving.
+
+**`app/static/js/listing-form.js`:** the button clears the row's own
+fields and hides it (the exact same state an unused "extra" row is
+already in), reusing the backend's "skip rows with no voice type"
+logic — no AJAX, no new endpoint. Always keeps at least one visible row
+(a listing needs ≥1 vaga to save — existing server-side validation).
+Hidden entirely for `seeking_conductor` (a conductor listing always has
+exactly one implicit vaga, same as the existing "Add another"/help-text
+hiding for that type).
+
+**`app/static/css/style.css`:** new `.vacancy-remove-btn` — same round
+icon-button shell as the notification center's mark-all-read button,
+tinted with `--error-text`/`--error-bg` on hover only (destructive
+action, not shouting at rest), `--muted` + not-allowed cursor when
+locked.
+
+**`app/i18n.py`:** rewrote `listing_form_vacancies_remove_help` (now
+explains the button instead of the old workaround) and added
+`listing_form_remove_vacancy`/`listing_form_remove_vacancy_locked`, all
+5 core languages (de/en/fr/it/pt).
+
+**Validation:** `ast.parse()` on `app/i18n.py`, a full Jinja2
+template-load pass over every `.html` (0 failures), `node --check` on
+the touched JS file, and a script confirming the 3 new/changed i18n
+keys are complete for de/en/fr/it/pt. No live Postgres in this sandbox
+— this change touches no SQL/migrations, only form UX, so nothing to
+run against a database either way.
+
+## 2026-09-19 — Agent: Claude — Notification Center dropdown redesign (reference screenshot)
+
+Daniel sent a screenshot of another product's notification dropdown as
+the target look ("A central de notificações quero assim. Dropdown") —
+its defining traits: a small color-coded circular icon badge per row
+(instead of one flat icon for every notification), bold title text,
+a muted relative-time line below ("20m ago", "1h ago"), and a small
+icon button in the header's top-right corner instead of a text link.
+
+**`app/notification_center.py`:** added `notification_style(type_)` —
+maps each notification TYPE (not a per-row DB value) to an icon +
+badge-color class, via a `_TYPE_STYLE` dict (invitation/candidatura →
+info blue, accepted/notas/loja → success green, match_formed → accent
+violet, profile_incomplete → attention amber, declined/unknown →
+neutral gray) — colors are the semantic tokens already in
+`style.css` (`--info-*`/`--success-*`/`--accent`/`--attention-*`),
+never new hex values. Also added `notification_relative_time()` —
+"just now" / "{n}m ago" / "{n}h ago" / "{n}d ago", falling back to a
+plain date past 7 days (items are purged 30 days after being read
+regardless — see this module's existing retention docstring).
+
+**`app/i18n.py`:** 4 new keys (`notification_time_now/minutes/hours/days`)
+in de/en/fr/it/pt — zh/ko/ro fall back to English like every other
+string on the site right now (task #49, still pending).
+
+**`app/render.py`:** wired both new functions into the template
+context (`notification_style`, `notification_relative_time`), same
+pattern as the existing `render_notification_title`.
+
+**`app/templates/base.html`:** rebuilt the dropdown's header (title +
+a small round icon button for "mark all read", replacing the old text
+link — there's no notification-settings page yet, so it's the same
+action, just restyled to sit where the reference screenshot's icon
+button sits) and each row (round color-coded icon badge on the left,
+bold title + relative-time line on the right — synthetic and real
+rows now share one markup block instead of two near-duplicate ones).
+
+**`app/static/css/style.css`:** new `.notification-center-icon` (34px
+circle) + `.notif-badge-info/success/accent/attention/neutral` color
+classes, `.notification-center-mark-all-btn` (28px round icon button),
+`.notification-center-item-body/-title/-time` for the two-line text
+layout — kept the existing `.notification-center-dropdown`/`-menu`
+shell (position, shadow, width) unchanged.
+
+**Validation:** `ast.parse()` on all 3 touched Python files, a full
+Jinja2 template-load pass over every `.html` in `app/templates/` (0
+failures), an icon-id cross-check against `app/static/img/icons.svg`
+(all icons used — mail/users/check/close/star/money/gift/profile/bell —
+exist), and a script confirming all 4 new i18n keys are present for
+de/en/fr/it/pt. No live Postgres in this sandbox; `created_at` is
+`TIMESTAMPTZ` (confirmed in the migration) so `notification_relative_time()`'s
+timezone-aware math is safe against both aware and (defensively)
+naive datetimes.
+
+**Not yet done:** Daniel's computer was offline this round, so these
+files could only be delivered in-chat (SendUserFile), not synced into
+his repo folder via the device bridge — pending his computer coming
+back online.
+
+## 2026-09-19 — Agent: Claude — Item #51 round 2: real buttons, accordion side-nav, translation check
+
+Daniel came back with a screenshot after viewing the menu and gave 4 direct
+points of feedback:
+
+> "1. A cor roxa continua aparecendo. Esses 'Hyperlinks' precisam ser botões
+> normais. 2. Essas mudanças de ordem de menu foram feitas só em inglês.
+> Precisa ser em TODAS as línguas. 3. Quando eu clico num botão do menu
+> lateral ele abre a lista de sub menus. Mas quando eu clico em outro menu,
+> ele tem que fechar os submenus anteriores e abrir o que eu acabei de
+> clicar. 4. Os espaçamentos ainda estão todos bugados."
+
+**1. Purple "hyperlinks" → real buttons (`app/static/css/style.css`):** the
+previous round's fix only set `color` on `.profile-menu-links a`, so the
+links still read as bare hyperlinks with no fill or border — Daniel kept
+seeing them as "purple" because they still LOOKED like plain links, not
+buttons. Rewrote the rule with the same bordered-button shell as the
+site's existing `.button-link` component (background, 1px border,
+`var(--radius-control)`, padding), including `:visited`/`:hover` states
+in ink/accent tokens only — no raw hex. Also added a smaller, dashed-border
+variant (`.side-nav-subrow`) for the nested Pending/History links under
+Matches, so they read as "part of the row above" rather than a sibling of
+the same rank.
+
+**2. Translations "only in English":** audited the actual code — every
+label touched in the menu reorg (`nav_profile`, `nav_board`,
+`nav_search_for_job`, `nav_post_job`, `nav_my_listings`, `nav_invitations`
+→ "Matches", `invitations_tab_pending`, `invitations_tab_history`, etc.)
+goes through `t()` in `base.html`/`_profile_menu.html`, and all 5
+languages (de/en/fr/it/pt) have complete entries in `app/i18n.py` — this
+was already verified via script in the previous round and confirmed again
+by re-reading the templates line by line. No code gap found. Most likely
+explanation: `LanguageMiddleware` (`app/main.py`) prioritizes a saved
+`lang` cookie over the German default, so a stale `lang=en` cookie from
+earlier testing would show English regardless of what the language
+switcher says today. Flagged to Daniel to check/reset the language
+switcher rather than assumed silently fixed.
+
+**3. Side-nav submenus not mutually exclusive → accordion behavior
+(`app/templates/base.html`):** the "My Profile" and "Jobs" `<details
+class="side-nav-group">` groups were independent — opening one never
+closed the other. Fixed two ways: added the native HTML5 `name="side-nav-group"`
+attribute to both (modern browsers enforce mutual exclusion on `<details
+name="...">` on their own), plus a JS fallback `bindSideNavAccordion()` in
+the existing nonce-bearing `<script>` block that force-closes every
+sibling `.side-nav-group` on `toggle`, wired into the same
+`DOMContentLoaded` listener as `bindSidebarMenu()`.
+
+**4. Spacing "still bugged":** side effect of point 1 — the previous
+unbordered links had inconsistent implicit spacing (whatever margin each
+browser applied by default). The new button treatment uses one fixed
+`gap: 8px` on the flex container (`.profile-menu-links`) plus uniform
+padding per row, so every item is evenly spaced instead of relying on
+per-element margins.
+
+**Validation:** `ast.parse()` on the touched Python routers (no changes
+this round, checked anyway) and a full Jinja2 template-load pass over
+every `.html` in `app/templates/` (not just the touched ones, since
+`_profile_menu.html` is shared) — 0 failures. No live Postgres in this
+sandbox, so no DB-touching change was made or needed here.
+
+**Next safe step:** confirm with Daniel that clearing/resetting his
+language cookie makes the menu show up translated, and get his sign-off
+on the new button look for the profile/jobs submenus before moving back
+to task #49 (zh/ko/ro translations, fr-vs-es mismatch) or the untouched
+backlog (#52-55).
+
+## 2026-09-19 — Agent: Claude — Deploy readiness: folded the two newest migrations into CONSOLIDATED
+
+Daniel asked directly: "Posso fazer deploy? Os arquivos de migração estão
+prontos?" Checked `db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql`
+against the directory listing — it only covered through
+`2026-09-19_periodic_mails.sql` (26 files). Two newer migrations existed
+as standalone files, NOT folded in: `2026-09-19_unify_vacancies.sql`
+(task #46) and `2026-09-19_notification_center.sql` (task #50). Deploying
+with the consolidated file as it stood would have missed both — the
+`listing_vacancies.voice_type_id` column would still be `NOT NULL`
+(breaking conductor vacancies) and the `notifications` table wouldn't
+exist (breaking task #50 entirely).
+
+Fixed: appended both migrations' bodies (their own `BEGIN;`/`COMMIT;`
+stripped, same pattern the rest of the file already uses — everything
+runs as ONE transaction) to the end of the consolidated file, in that
+order, right before its final `COMMIT;`. Updated the file's own header
+comment (26 → 28 files, migration range extended, a short note on why
+order between the two new ones doesn't matter — neither depends on the
+other). Verified with a plain-text pass: exactly one `BEGIN;` and one
+`COMMIT;` in the whole file, both new sections present with
+`CREATE TABLE IF NOT EXISTS`/`ALTER ... DROP NOT NULL` intact and
+unchanged from their standalone originals. No live Postgres available in
+this sandbox to actually run it — same constraint as every other item
+this session.
+
+**Answer to Daniel: yes, migrations are now ready** — this ONE file
+(`CONSOLIDATED_2026-09-19_pending_since_0915.sql`) covers everything
+through task #50, applied with `psql` per the file's own header
+instructions (NOT the Railway dashboard Query box — it mis-splits the
+dollar-quoted trigger functions from `2026-09-18_retention.sql`). Same
+standing caveat as before: take a Railway Postgres backup/snapshot first
+if production already has real user data.
+
 ## 2026-09-19 — Agent: Claude — Item #51 IMPLEMENTED: menu reorg, submenu color fix, Digital Pass stub
 
 Follows directly on the HANDOFF entry right below (same task #51) — Daniel

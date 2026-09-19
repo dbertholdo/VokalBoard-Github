@@ -41,8 +41,24 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "availability_help": {"en": "Up to 30 days including both dates. Maximum two active periods.", "pt": "Até 30 dias contando as duas datas. Máximo de dois períodos ativos.", "de": "Bis zu 30 Tage einschließlich beider Daten. Höchstens zwei aktive Zeiträume.", "fr": "Jusqu’à 30 jours, dates incluses. Deux périodes actives au maximum.", "it": "Fino a 30 giorni, date incluse. Massimo due periodi attivi."},
     "listing_location_scope": {"en": "Location", "pt": "Localidade", "de": "Ort", "fr": "Localité", "it": "Località"},
     "availability_location_help": {"en": "For singer availability, leave state and city empty if you have no location restriction.", "pt": "Na disponibilidade de cantor, deixe estado e cidade em branco se não houver restrição de localidade.", "de": "Bei Verfügbarkeit Bundesland und Stadt leer lassen, wenn es keine örtliche Einschränkung gibt.", "fr": "Pour une disponibilité, laissez région et ville vides sans restriction de lieu.", "it": "Per la disponibilità, lascia regione e città vuote se non ci sono restrizioni di luogo."},
-    "availability_limit": {"en": "You already have two active availability periods.", "pt": "Você já tem dois períodos de disponibilidade ativos."},
-    "availability_invalid": {"en": "Choose a valid period of at most 30 days, including both dates.", "pt": "Escolha um período válido de até 30 dias, contando as duas datas."},
+    # FIX (19/09/2026, translation audit for task #49): these two keys
+    # had only en/pt — de/fr/it were silently falling back to English
+    # via translate()'s fallback chain (see app/i18n.py's translate()),
+    # which matters more than most since German is DEFAULT_LANGUAGE.
+    "availability_limit": {
+        "en": "You already have two active availability periods.",
+        "pt": "Você já tem dois períodos de disponibilidade ativos.",
+        "de": "Sie haben bereits zwei aktive Verfügbarkeitszeiträume.",
+        "fr": "Vous avez déjà deux périodes de disponibilité actives.",
+        "it": "Hai già due periodi di disponibilità attivi.",
+    },
+    "availability_invalid": {
+        "en": "Choose a valid period of at most 30 days, including both dates.",
+        "pt": "Escolha um período válido de até 30 dias, contando as duas datas.",
+        "de": "Wählen Sie einen gültigen Zeitraum von höchstens 30 Tagen, beide Daten eingeschlossen.",
+        "fr": "Choisissez une période valide d'au plus 30 jours, dates incluses.",
+        "it": "Scegli un periodo valido di massimo 30 giorni, date incluse.",
+    },
     "message_retention_warning": {"en": "This conversation will be removed after 30 days of inactivity. {days} days remaining.", "pt": "Esta mensagem será apagada por inatividade após 30 dias. Faltam {days} dias para ser apagada.", "de": "Diese Unterhaltung wird nach 30 Tagen Inaktivität entfernt. Noch {days} Tage.", "fr": "Cette conversation sera supprimée après 30 jours d’inactivité. Il reste {days} jours.", "it": "Questa conversazione verrà rimossa dopo 30 giorni di inattività. Mancano {days} giorni."},
     "nav_view_my_profile": {"de": "Mein Profil ansehen", "en": "View My Profile", "fr": "Voir mon profil", "it": "Visualizza il mio profilo", "pt": "Ver meu perfil"},
     "nav_edit_profile": {"de": "Profil bearbeiten", "en": "Edit Profile", "fr": "Modifier le profil", "it": "Modifica profilo", "pt": "Editar perfil"},
@@ -86,6 +102,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "match_status_cancelled": {"de": "Abgesagt", "en": "Cancelled", "fr": "Annulé", "it": "Annullato", "pt": "Cancelado"},
     "match_event_date": {"de": "Veranstaltungsdatum", "en": "Event date", "fr": "Date de l’événement", "it": "Data dell’evento", "pt": "Data do evento"},
     "match_fee": {"de": "Honorar", "en": "Fee", "fr": "Cachet", "it": "Compenso", "pt": "Cachê"},
+    # FIX (19/09/2026, translation audit for task #49): referenced by
+    # listing_form.html's currency <select> (a screen-reader-only
+    # label) but never actually defined — translate()'s fallback for a
+    # missing key returns the raw key string itself, so this was
+    # rendering the literal text "listing_form_fee_currency_label" to
+    # screen readers in every language.
+    "listing_form_fee_currency_label": {
+        "de": "Währung", "en": "Currency", "fr": "Devise",
+        "it": "Valuta", "pt": "Moeda",
+    },
     "match_contact_revealed_help": {"de": "Kontaktdaten wurden freigegeben, weil dieses Match bestätigt ist.", "en": "Contact details were revealed because this Match is confirmed.", "fr": "Les coordonnées ont été révélées car ce Match est confirmé.", "it": "I contatti sono stati rivelati perché questo Match è confermato.", "pt": "O contato foi liberado porque este Match está confirmado."},
     "eval_section_title": {"de": "Bewertung (privat)", "en": "Evaluation (private)", "fr": "Évaluation (privée)", "it": "Valutazione (privata)", "pt": "Avaliação (privada)"},
     "eval_privacy_help": {"de": "Deine Bewertung ist geheim — niemand sieht, wer wie bewertet hat, auch nicht die bewertete Person.", "en": "Your evaluation is secret — nobody sees who rated what, not even the person being rated.", "fr": "Votre évaluation est secrète — personne ne voit qui a évalué quoi, pas même la personne évaluée.", "it": "La tua valutazione è segreta — nessuno vede chi ha valutato cosa, nemmeno la persona valutata.", "pt": "Sua avaliação é secreta — ninguém vê quem avaliou o quê, nem a pessoa avaliada."},
@@ -326,12 +352,29 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "listing_form_vacancy_slots_placeholder": {"de": "Plätze", "en": "Slots", "fr": "Places", "it": "Posti", "pt": "Vagas"},
     "listing_form_vacancy_filled_label": {"de": "besetzt", "en": "filled", "fr": "pourvu(s)", "it": "occupati", "pt": "preenchidas"},
     "listing_form_add_vacancy": {"de": "Weitere Stimmlage hinzufügen", "en": "Add another voice type", "fr": "Ajouter une autre tessiture", "it": "Aggiungi un'altra tessitura", "pt": "Adicionar outro tipo de voz"},
+    # FIX (19/09/2026, task #54, Daniel: "permitir remover vaga/naipe já
+    # adicionado, não só adicionar") — replaces the old "leave the field
+    # empty and save again" workaround with a real X button per row (see
+    # .vacancy-remove-btn in listing_form.html/listing-form.js). The
+    # help text now explains the button instead of the workaround.
     "listing_form_vacancies_remove_help": {
-        "de": "Um eine Zeile zu entfernen, lassen Sie das Stimmlage-Feld leer und speichern Sie erneut.",
-        "en": "To remove a row, leave its voice type field empty and save again.",
-        "fr": "Pour supprimer une ligne, laissez son champ de tessiture vide et enregistrez à nouveau.",
-        "it": "Per rimuovere una riga, lascia vuoto il campo della tessitura e salva di nuovo.",
-        "pt": "Para remover uma linha, deixe o campo de tipo de voz vazio e salve novamente.",
+        "de": "Klicken Sie auf das X einer Zeile, um sie zu entfernen. Zeilen mit bereits bestätigten Matches können nicht entfernt werden.",
+        "en": "Click the X on a row to remove it. Rows with an already-confirmed match can't be removed.",
+        "fr": "Cliquez sur le X d'une ligne pour la supprimer. Les lignes avec un match déjà confirmé ne peuvent pas être supprimées.",
+        "it": "Clicca sulla X di una riga per rimuoverla. Le righe con un match già confermato non possono essere rimosse.",
+        "pt": "Clique no X de uma linha para removê-la. Linhas com Match já confirmado não podem ser removidas.",
+    },
+    "listing_form_remove_vacancy": {
+        "de": "Diese Stelle entfernen", "en": "Remove this vacancy",
+        "fr": "Supprimer ce poste", "it": "Rimuovi questo posto",
+        "pt": "Remover esta vaga",
+    },
+    "listing_form_remove_vacancy_locked": {
+        "de": "Kann nicht entfernt werden — hat bereits ein bestätigtes Match.",
+        "en": "Can't be removed — already has a confirmed match.",
+        "fr": "Impossible à supprimer — a déjà un match confirmé.",
+        "it": "Non può essere rimossa — ha già un match confermato.",
+        "pt": "Não pode ser removida — já tem um Match confirmado.",
     },
     "listing_form_repertoire_label": {"de": "Repertoire", "en": "Repertoire", "fr": "Répertoire", "it": "Repertorio", "pt": "Repertório"},
     "listing_form_work_label": {"de": "Werk*", "en": "Work/Piece*", "fr": "Œuvre*", "it": "Opera*", "pt": "Obra*"},
@@ -1387,6 +1430,25 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "Nouveau message de {name}.",
         "it": "Nuovo messaggio da {name}.",
         "pt": "Nova mensagem de {name}.",
+    },
+    # Relative-time labels for the dropdown (19/09/2026, matches
+    # Daniel's reference screenshot's "20m ago"/"1h ago" style) — see
+    # notification_relative_time() in app/notification_center.py.
+    "notification_time_now": {
+        "de": "gerade eben", "en": "just now", "fr": "à l'instant",
+        "it": "proprio ora", "pt": "agora mesmo",
+    },
+    "notification_time_minutes": {
+        "de": "vor {n} Min.", "en": "{n}m ago", "fr": "il y a {n} min",
+        "it": "{n} min fa", "pt": "há {n} min",
+    },
+    "notification_time_hours": {
+        "de": "vor {n} Std.", "en": "{n}h ago", "fr": "il y a {n} h",
+        "it": "{n} ore fa", "pt": "há {n} h",
+    },
+    "notification_time_days": {
+        "de": "vor {n} Tagen", "en": "{n}d ago", "fr": "il y a {n} j",
+        "it": "{n} giorni fa", "pt": "há {n} d",
     },
 
     # Hall da Fama's rotating incentive line (Piscadinha, wink pose) —

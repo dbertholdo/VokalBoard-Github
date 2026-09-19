@@ -177,10 +177,34 @@
                 if (e.key === 'Escape') closeSidebar();
             });
         }
+
+        // Menu reorg (19/09/2026, task #51 — Daniel: "quando eu clico
+        // em outro menu, ele tem que fechar os submenus anteriores e
+        // abrir o que eu acabei de clicar"): the side-nav's "My
+        // Profile"/"Jobs" groups are plain <details>, independent of
+        // each other by default — opening one never closes the other.
+        // The HTML5 `name` attribute (see their markup) already makes
+        // modern browsers do this natively; this listener is the
+        // fallback/guarantee for the rest, closing every sibling
+        // .side-nav-group the instant one opens.
+        function bindSideNavAccordion() {
+            var groups = document.querySelectorAll('.side-nav-group');
+            groups.forEach(function (group) {
+                group.addEventListener('toggle', function () {
+                    if (!group.open) return;
+                    groups.forEach(function (other) {
+                        if (other !== group) other.open = false;
+                    });
+                });
+            });
+        }
         // The header and sidebar are rendered after this nonce-bearing script.
         // Bind only after their elements exist, otherwise mobile navigation has
         // no click listener at all.
-        document.addEventListener('DOMContentLoaded', bindSidebarMenu);
+        document.addEventListener('DOMContentLoaded', function () {
+            bindSidebarMenu();
+            bindSideNavAccordion();
+        });
     </script>
 
     <header class="site-header">
@@ -217,28 +241,41 @@
                         {% if notification_unread_count and notification_unread_count > 0 %}<span class="badge-count">{{ notification_unread_count }}</span>{% endif %}
                     </summary>
                     <div class="notification-center-menu">
+                        {# Header redesign (19/09/2026, Daniel's reference screenshot:
+                           "A central de notificações quero assim") — title on the
+                           left, a small round icon button on the right instead of
+                           a text link (there's no notification-settings page yet,
+                           so this button keeps doing exactly what it did before —
+                           mark all read — just restyled to match the reference's
+                           top-right icon button spot). #}
                         <div class="notification-center-menu-header">
                             <span>{{ t('notification_center_title') }}</span>
                             {% if notification_unread_count and notification_unread_count > 0 %}
                             <form action="/notifications/mark-all-read" method="post">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <button type="submit" class="link-button">{{ t('notification_center_mark_all_read') }}</button>
+                                <button type="submit" class="notification-center-mark-all-btn" aria-label="{{ t('notification_center_mark_all_read') }}" title="{{ t('notification_center_mark_all_read') }}">
+                                    <svg class="icon" width="15" height="15"><use href="/static/img/icons.svg#icon-check"></use></svg>
+                                </button>
                             </form>
                             {% endif %}
                         </div>
                         {% if notifications %}
                             {% for n in notifications %}
-                            {% if n.synthetic %}
-                            <a href="{{ n.link_url }}" class="notification-center-item unread">
-                                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#{{ n.icon }}"></use></svg>
-                                <span>{{ render_notification_title(n) }}</span>
+                            {# One color-coded icon badge per TYPE (app/notification_center.py's
+                               notification_style()) instead of one flat gray icon for every
+                               row, plus a relative "Xm/Xh/Xd ago" label — both per Daniel's
+                               reference screenshot. Synthetic (profile-incomplete) and real
+                               rows share the same markup; only the link target differs. #}
+                            {% set style = notification_style(n.type) %}
+                            <a href="{{ n.link_url if n.synthetic else '/notifications/' ~ n.id ~ '/open' }}" class="notification-center-item {{ 'unread' if (n.synthetic or not n.read_at) else '' }}">
+                                <span class="notification-center-icon {{ style.badge_class }}">
+                                    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#{{ style.icon }}"></use></svg>
+                                </span>
+                                <span class="notification-center-item-body">
+                                    <span class="notification-center-item-title">{{ render_notification_title(n) }}</span>
+                                    {% if not n.synthetic %}<span class="notification-center-item-time">{{ notification_relative_time(n) }}</span>{% endif %}
+                                </span>
                             </a>
-                            {% else %}
-                            <a href="/notifications/{{ n.id }}/open" class="notification-center-item {{ 'unread' if not n.read_at else '' }}">
-                                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#{{ n.icon }}"></use></svg>
-                                <span>{{ render_notification_title(n) }}</span>
-                            </a>
-                            {% endif %}
                             {% endfor %}
                         {% else %}
                             <p class="notification-center-empty">{{ t('notification_center_empty') }}</p>
@@ -365,12 +402,12 @@
                    dropdown (Anti-Spaghetti — one partial, not two lists to
                    keep in sync), now including Digital Pass/Favorites/
                    Messages alongside the items that were already there. #}
-                <details class="side-nav-group" {% if request.url.path.startswith('/profile') or request.url.path.startswith('/users/') or request.url.path.startswith('/my-favorites') or request.url.path.startswith('/messages') or request.url.path.startswith('/rechnungmaker') %}open{% endif %}>
+                <details class="side-nav-group" name="side-nav-group" {% if request.url.path.startswith('/profile') or request.url.path.startswith('/users/') or request.url.path.startswith('/my-favorites') or request.url.path.startswith('/messages') or request.url.path.startswith('/rechnungmaker') %}open{% endif %}>
                     <summary class="side-nav-row side-nav-tone-1"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}</summary>
                     <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
                 </details>
 
-                <details class="side-nav-group" {% if request.url.path.startswith('/board') or request.url.path.startswith('/listings') or request.url.path.startswith('/my-listings') or request.url.path.startswith('/invitations') %}open{% endif %}>
+                <details class="side-nav-group" name="side-nav-group" {% if request.url.path.startswith('/board') or request.url.path.startswith('/listings') or request.url.path.startswith('/my-listings') or request.url.path.startswith('/invitations') %}open{% endif %}>
                     <summary class="side-nav-row side-nav-tone-2"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-board"></use></svg>{{ t('nav_board') }}</summary>
                     <div class="profile-menu-links">
                         <a href="/board">{{ t('nav_search_for_job') }}</a>

@@ -57,8 +57,8 @@
             <li>
                 <p>
                     <a href="/listings/{{ r.listing_id }}">{{ r.listing_title }}</a>
-                    ({{ t('by_author') }} {{ r.author_name }})
-                    — {{ t('report_listing_button') }}: {{ r.reporter_name }}
+                    ({{ t_en('by_author') }} {{ r.author_name }})
+                    — {{ t_en('report_listing_button') }}: {{ r.reporter_name }}
                     {% if r.status == 'accepted' %} <span class="badge">accepted</span>
                     {% elif r.status == 'rejected' %} <span class="badge badge-danger">rejected</span>
                     {% endif %}

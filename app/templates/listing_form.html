@@ -192,6 +192,18 @@
                 {{ t('fee_negotiable_checkbox') }}
             </label>
             {% if v %}<span class="field-help">{{ v.filled_slots }}/{{ v.total_slots }} {{ t('listing_form_vacancy_filled_label') }}</span>{% endif %}
+            {# FIX (19/09/2026, task #54): real remove button per row —
+               see listing-form.js. Locked (disabled) when the vaga
+               already has confirmed matches (filled_slots > 0), same
+               protection set_vacancies() already applies server-side
+               (ON DELETE RESTRICT on job_matches.vacancy_id) — this
+               just surfaces that constraint in the UI instead of
+               letting the person think they removed it and then see
+               it silently reappear after saving. #}
+            {% set locked = v and v.filled_slots and v.filled_slots > 0 %}
+            <button type="button" class="vacancy-remove-btn" aria-label="{{ t('listing_form_remove_vacancy') }}" title="{{ t('listing_form_remove_vacancy_locked') if locked else t('listing_form_remove_vacancy') }}" {% if locked %}disabled{% endif %}>
+                <svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-close"></use></svg>
+            </button>
         </div>
     {% endfor %}
     <button type="button" id="add-vacancy-row" class="btn-secondary">{{ t('listing_form_add_vacancy') }}</button>

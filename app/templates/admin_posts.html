@@ -84,7 +84,7 @@
                     {% if not p.is_published %}<span class="badge">draft / unpublished</span>{% endif %}
                 </p>
                 <div class="post-body-full">{{ p.body | safe }}</div>
-                <p class="field-help">{{ t('by_author') }} {{ p.author_name }} — {{ p.created_at }}</p>
+                <p class="field-help">{{ t_en('by_author') }} {{ p.author_name }} — {{ p.created_at }}</p>
                 <form method="post" action="/admin/posts/{{ p.id }}/toggle-publish" style="display:inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="button-link">

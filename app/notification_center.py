@@ -25,11 +25,76 @@ notifications older than 30 days are purged by app/retention_worker.py.
 Unread notifications are NEVER auto-deleted, no matter how old.
 """
 import json
+from datetime import datetime, timezone
 
 from app.database import fetch_all, fetch_one, execute, execute_returning
 from app.mascot_moments import profile_incomplete
 
 NOTIFICATIONS_PAGE_SIZE = 20
+
+# Dropdown redesign (19/09/2026) — Daniel sent a reference screenshot of
+# another product's notification dropdown ("A central de notificações
+# quero assim") whose defining trait is a small color-coded icon badge
+# per row instead of one flat gray icon for everything, so the list
+# reads at a glance (a social action looks different from a money
+# event). Colors reuse the semantic tokens already in style.css
+# (--info-*/--success-*/--accent/--attention-*) via these class names —
+# never a new hex value, and never chosen per notification instance,
+# only per TYPE, so the same kind of event always looks the same.
+# Falls back to a neutral badge for any type not listed here (e.g. a
+# future notification type added without updating this map).
+_TYPE_STYLE = {
+    "invitation_received": ("icon-mail", "notif-badge-info"),
+    "candidatura_received": ("icon-users", "notif-badge-info"),
+    "invitation_accepted": ("icon-check", "notif-badge-success"),
+    "invitation_declined": ("icon-close", "notif-badge-neutral"),
+    "match_formed": ("icon-star", "notif-badge-accent"),
+    "notas_credited": ("icon-money", "notif-badge-success"),
+    "loja_redeemed": ("icon-gift", "notif-badge-success"),
+    "new_message": ("icon-mail", "notif-badge-info"),
+    "profile_incomplete": ("icon-profile", "notif-badge-attention"),
+}
+_DEFAULT_TYPE_STYLE = ("icon-bell", "notif-badge-neutral")
+
+
+def notification_style(type_: str) -> dict:
+    """
+    Icon + badge color class for one notification TYPE (not the
+    per-row `icon` column, which is now only a legacy/unused default —
+    see the class docstring above). Used by base.html to draw the
+    round color-coded icon in each dropdown row.
+    """
+    icon, badge_class = _TYPE_STYLE.get(type_, _DEFAULT_TYPE_STYLE)
+    return {"icon": icon, "badge_class": badge_class}
+
+
+def notification_relative_time(created_at, translate_fn) -> str:
+    """
+    "just now" / "20m ago" / "1h ago" / "3d ago" — same spirit as
+    Daniel's reference screenshot, instead of a raw timestamp. Falls
+    back to a plain date once an item is more than a week old (items
+    are purged 30 days after being read anyway — see this module's
+    docstring — so a relative label isn't useful much past that
+    window). Returns "" for the synthetic profile-incomplete item,
+    which has no created_at (see profile_incomplete_notification()
+    below) — the template simply omits the time line for it.
+    """
+    if not created_at:
+        return ""
+    ts = created_at if created_at.tzinfo else created_at.replace(tzinfo=timezone.utc)
+    seconds = max(0, int((datetime.now(timezone.utc) - ts).total_seconds()))
+    if seconds < 60:
+        return translate_fn("notification_time_now")
+    minutes = seconds // 60
+    if minutes < 60:
+        return translate_fn("notification_time_minutes").replace("{n}", str(minutes))
+    hours = minutes // 60
+    if hours < 24:
+        return translate_fn("notification_time_hours").replace("{n}", str(hours))
+    days = hours // 24
+    if days < 7:
+        return translate_fn("notification_time_days").replace("{n}", str(days))
+    return ts.strftime("%d/%m/%Y")
 
 
 def create_notification(

@@ -146,30 +146,48 @@
     border: 1px solid var(--border);
     border-radius: 10px;
 }
-/* FIX (19/09/2026, Daniel: "fonte estranha... roxa depois de visitar")
-   — no color was ever set here, so the browser's default link/visited
-   purple leaked through instead of the site's own palette. Explicit
-   :visited rule so a clicked link never reverts to browser default. */
+/* FIX (19/09/2026, Daniel — round 2: "a cor roxa continua aparecendo.
+   Esses 'Hyperlinks' precisam ser botões normais.") — round 1 only set
+   `color`, which still LOOKED like a bare link (no fill, no border), so
+   the browser's own affordances kept bleeding through. Now each row is
+   a real bordered button — same shell as the site's own .button-link —
+   stacked with a fixed `gap` on the flex container (`.profile-menu-links`
+   right above) instead of relying on each link's own spacing, which is
+   also what was producing the uneven "bugged" spacing Daniel flagged:
+   one `gap` value, applied once, is what makes every row equally
+   spaced instead of whatever margin each browser default happened to add. */
 .profile-menu-links a {
     display: block;
-    padding: 6px;
+    padding: 10px 14px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
     color: var(--ink);
     text-decoration: none;
     font-family: inherit;
-    border-radius: var(--radius-tag);
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 .profile-menu-links a:visited { color: var(--ink); }
-.profile-menu-links a:hover { color: var(--accent); background: var(--accent2-light); }
+.profile-menu-links a:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-light); }
 .profile-menu-pending { color: var(--muted); font-size: .85rem; padding: 6px; }
 
 /* Side-nav sub-item (19/09/2026, task #51 menu reorg) — e.g. "Pending"/
    "History" nested one level under "Matches" inside the Jobs group.
-   Same shell as .profile-menu-links a, just indented and a touch
-   smaller so the hierarchy reads at a glance. */
-.profile-menu-links a.side-nav-subrow { padding-left: 22px; font-size: 0.85rem; color: var(--muted); }
+   Same button shell as .profile-menu-links a, just indented, smaller,
+   and a dashed border so it visibly reads as "part of the row above"
+   rather than a sibling of the same rank. */
+.profile-menu-links a.side-nav-subrow {
+    padding: 8px 14px 8px 26px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+    background: transparent;
+    border-style: dashed;
+}
 .profile-menu-links a.side-nav-subrow:visited { color: var(--muted); }
-.profile-menu-links a.side-nav-subrow:hover { color: var(--accent); }
-.profile-menu-links a.side-nav-subrow.active { color: var(--accent); font-weight: 700; }
+.profile-menu-links a.side-nav-subrow:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-light); }
+.profile-menu-links a.side-nav-subrow.active { color: var(--accent); font-weight: 700; border-color: var(--accent); border-style: solid; }
 .stacked-form.profile-editor-form { max-width: none; }
 .profile-edit-grid {
     display: grid;
@@ -487,21 +505,82 @@ button, .button-primary, .button-secondary, .button-danger, .button-link {
     background: var(--card-bg);
 }
 
+/* Dropdown redesign (19/09/2026, Daniel's reference screenshot: "A
+   central de notificações quero assim") — a small round icon button
+   in the header's top-right corner in place of the old text link,
+   same shell as the badge-count/icon buttons used elsewhere on the
+   site (border + radius-pill), just sized for one icon. */
+.notification-center-mark-all-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    color: var(--muted);
+    cursor: pointer;
+}
+.notification-center-mark-all-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-light);
+}
+
 .notification-center-item {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
     padding: 10px 12px;
     color: var(--ink);
     border-bottom: 1px solid var(--border);
     font-size: 0.85rem;
     line-height: 1.35;
+    text-decoration: none;
 }
 .notification-center-item:last-child { border-bottom: none; }
 .notification-center-item:hover { background: var(--accent2-light); }
-.notification-center-item .icon { flex-shrink: 0; margin-top: 1px; color: var(--muted); }
 .notification-center-item.unread { background: var(--accent-light); }
-.notification-center-item.unread .icon { color: var(--accent); }
+
+/* Round color-coded icon per notification TYPE (see
+   notification_style() in app/notification_center.py) — same "medal"
+   visual language as .badge-tile-icon (badges shelf): a tinted circle
+   at rest, the icon in that type's own color, never one flat gray
+   icon for every kind of event. The .notif-badge-* classes right
+   below map each semantic color already in :root (info/success/
+   accent/attention) to a badge — never a new hex value. */
+.notification-center-icon {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.notif-badge-info { background: var(--info-bg); color: var(--info-text); }
+.notif-badge-success { background: var(--success-bg); color: var(--success-text); }
+.notif-badge-accent { background: var(--accent-light); color: var(--accent); }
+.notif-badge-attention { background: var(--attention-bg); color: var(--attention-text); }
+.notif-badge-neutral { background: var(--disabled-surface); color: var(--muted); }
+
+.notification-center-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.notification-center-item-title {
+    color: var(--ink);
+    font-weight: 600;
+}
+.notification-center-item.unread .notification-center-item-title { font-weight: 700; }
+.notification-center-item-time {
+    color: var(--muted);
+    font-size: 0.78rem;
+}
 
 .notification-center-empty {
     padding: 16px 12px;
@@ -1396,6 +1475,37 @@ form button.link-button:hover { color: var(--accent-dark); }
     min-width: 100px;
 }
 .vacancy-row .field-help { flex: 0 0 100%; margin: 0; }
+
+/* Remove-vacancy button (19/09/2026, task #54) — small round icon
+   button, same shell as .notification-center-mark-all-btn, tinted red
+   on hover to read as destructive without shouting (no fill until
+   hovered). Locked/disabled rows (already has a confirmed Match) stay
+   flat and get a "not-allowed" cursor instead of the hover color, so
+   it's visually obvious before the person even reads the tooltip. */
+.vacancy-remove-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin-left: auto;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    color: var(--muted);
+    cursor: pointer;
+}
+.vacancy-remove-btn:hover:not(:disabled) {
+    color: var(--error-text);
+    border-color: var(--error-text);
+    background: var(--error-bg);
+}
+.vacancy-remove-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
 .listing-logistics-flags {
     display: flex;

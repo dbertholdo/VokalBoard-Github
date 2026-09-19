@@ -111,6 +111,10 @@
             const isFirstRow = row && !row.classList.contains('vacancy-row-conductor-hide');
             select.hidden = isConductor && isFirstRow;
         });
+        // A conductor listing always has exactly one implicit vaga —
+        // there's nothing to remove (mirrors add-vacancy-button/
+        // vacanciesRemoveHelp being hidden for the same reason above).
+        document.querySelectorAll('.vacancy-remove-btn').forEach(btn => { btn.hidden = isConductor; });
     }
     typeSelect.addEventListener('change', updateVacanciesVisible);
     updateVacanciesVisible();
@@ -129,6 +133,34 @@
             }
         });
     }
+
+    // Remove-vacancy button (19/09/2026, task #54, Daniel: "permitir
+    // remover vaga/naipe já adicionado, não só adicionar") — replaces
+    // the old "leave the field empty and save again" workaround.
+    // Clears the row's own fields and hides it again (exactly the
+    // "unused extra row" state "Add another voice" reveals), reusing
+    // the backend's existing "rows with no voice type chosen are
+    // skipped" logic (see parse_vacancies_form in app/vacancies.py) —
+    // no new backend code needed, this button just does client-side
+    // what the person used to have to do by hand. Always keeps at
+    // least one visible row (a listing needs at least one vaga to
+    // save at all — see _job_fields_valid in listings_routes.py), and
+    // a row already locked (disabled — see listing_form.html: it has
+    // a confirmed Match) never reaches this handler.
+    document.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.vacancy-remove-btn');
+        if (!removeBtn || removeBtn.disabled) return;
+        const row = removeBtn.closest('.vacancy-row');
+        if (!row) return;
+        const visibleRows = Array.from(document.querySelectorAll('.vacancy-row')).filter(r => !r.hidden);
+        if (visibleRows.length <= 1) return;
+        row.querySelectorAll('select').forEach(select => { select.selectedIndex = 0; select.disabled = false; });
+        row.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => { input.value = ''; input.disabled = false; });
+        row.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+        row.hidden = true;
+        row.classList.add('vacancy-row-extra');
+        if (addVacancyButton) addVacancyButton.disabled = false;
+    });
 
     // P3.E: each vacancy row has its own "a negociar" checkbox — same
     // disable-the-amount-field behavior as the top-level fee, just

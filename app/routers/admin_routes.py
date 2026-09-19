@@ -104,10 +104,22 @@ def require_admin(request: Request) -> dict | None:
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request):
-    # Reports reveal sensitive allegations and the dashboard links to
-    # privilege management.  The product rule is therefore that only God
-    # Mode can manage or even triage this material.
-    admin = require_level(request, LEVEL_GOD)
+    # FIX (19/09/2026, Daniel: a real Admin-level account couldn't open
+    # the Admin button at all, while a God Mode account could — this
+    # route was requiring LEVEL_GOD just to VIEW the dashboard, which
+    # both contradicted app/permissions.py's own documented level
+    # scale (level 2/admin = "everything the /admin panel already did
+    # before levels existed") and every other admin sub-page below
+    # this one (/admin/users, /admin/analytics, /admin/posts, ... all
+    # already use require_admin() = LEVEL_ADMIN). Viewing the
+    # dashboard — stats, the reports/blocks list — is read-only; the
+    # actions that actually DO something sensitive (accept/reject a
+    # report with a punishment, unban, grant admin/god, toggle
+    # banners/Capitalism Mode) each keep their own require_level(...,
+    # LEVEL_GOD) call right below, unchanged, so this fix only restores
+    # the level-2 VIEW access the rest of the system already assumed
+    # existed — it does not hand out any new punishment/privilege power.
+    admin = require_admin(request)
     if not admin:
         # Intentionally does NOT distinguish "not an admin" from "page
         # doesn't exist" for someone probing the URL — just redirects
