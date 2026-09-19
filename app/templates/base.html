@@ -3,7 +3,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Vokal Board — {{ t('site_tagline') }}{% block title_suffix %}{% endblock %}</title>
+    {# FIX (19/09/2026, Daniel: "Padronizar rodapé") — was "Vokal Board"
+       (two words), the only spot on the site that didn't match the
+       brand's actual one-word name used everywhere else (og:site_name,
+       nav brand link, listing_pdf.py). #}
+    <title>VokalBoard — {{ t('site_tagline') }}{% block title_suffix %}{% endblock %}</title>
     <meta name="description" content="{{ t('og_site_description') }}">
 
     {# ------------------------------------------------------------
@@ -202,6 +206,46 @@
                 <a href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
                 {% if user.role_level and user.role_level >= 1 %}<span class="nav-sep" aria-hidden="true">|</span><a href="/admin">Admin</a>{% endif %}
                 <span class="nav-sep" aria-hidden="true">|</span>
+                {# Central de Notificações (task #50) — bell dropdown.
+                   Menu reorg (task #51, Daniel's own top-bar sketch):
+                   Start | Jobs | My Profile | Messages | Matches |
+                   bell | Abmelden | photo+name | Language — this is
+                   the bell's spot, right before Abmelden. #}
+                <details class="notification-center-dropdown">
+                    <summary aria-label="{{ t('notification_center_title') }}">
+                        <svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-bell"></use></svg>
+                        {% if notification_unread_count and notification_unread_count > 0 %}<span class="badge-count">{{ notification_unread_count }}</span>{% endif %}
+                    </summary>
+                    <div class="notification-center-menu">
+                        <div class="notification-center-menu-header">
+                            <span>{{ t('notification_center_title') }}</span>
+                            {% if notification_unread_count and notification_unread_count > 0 %}
+                            <form action="/notifications/mark-all-read" method="post">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="link-button">{{ t('notification_center_mark_all_read') }}</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% if notifications %}
+                            {% for n in notifications %}
+                            {% if n.synthetic %}
+                            <a href="{{ n.link_url }}" class="notification-center-item unread">
+                                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#{{ n.icon }}"></use></svg>
+                                <span>{{ render_notification_title(n) }}</span>
+                            </a>
+                            {% else %}
+                            <a href="/notifications/{{ n.id }}/open" class="notification-center-item {{ 'unread' if not n.read_at else '' }}">
+                                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#{{ n.icon }}"></use></svg>
+                                <span>{{ render_notification_title(n) }}</span>
+                            </a>
+                            {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <p class="notification-center-empty">{{ t('notification_center_empty') }}</p>
+                        {% endif %}
+                    </div>
+                </details>
+                <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/logout">{{ t('nav_logout') }}</a>
                 <span class="whoami">
                     {% if user.avatar_url %}<img class="nav-avatar" src="{{ user.avatar_url }}" alt="">{% endif %}
@@ -310,27 +354,39 @@
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path == '/' else '' }}" href="/">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-home"></use></svg>{{ t('nav_home') }}
                 </a>
-                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/board') or request.url.path.startswith('/listings') else '' }}" href="/board">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-board"></use></svg>{{ t('nav_board') }}
-                </a>
-                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/people') else '' }}" href="/people">
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/people') else '' }}" href="/people">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-users"></use></svg>{{ t('nav_search_people') }}
                 </a>
-                <details class="profile-side-menu" {% if request.url.path.startswith('/profile') %}open{% endif %}>
-                    <summary class="side-nav-row side-nav-tone-2"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}</summary>
+
+                {# Menu reorg (19/09/2026, task #51 — Daniel's own side-menu
+                   sketch, see AI_CHANGELOG.md): Start / My Profile / Jobs /
+                   Hall of Fame / Notas, in that order. "My Profile" reuses
+                   the exact same _profile_menu.html partial as the top-nav
+                   dropdown (Anti-Spaghetti — one partial, not two lists to
+                   keep in sync), now including Digital Pass/Favorites/
+                   Messages alongside the items that were already there. #}
+                <details class="side-nav-group" {% if request.url.path.startswith('/profile') or request.url.path.startswith('/users/') or request.url.path.startswith('/my-favorites') or request.url.path.startswith('/messages') or request.url.path.startswith('/rechnungmaker') %}open{% endif %}>
+                    <summary class="side-nav-row side-nav-tone-1"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}</summary>
                     <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
                 </details>
-                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/my-listings') else '' }}" href="/my-listings">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-listings"></use></svg>{{ t('nav_my_listings') }}
-                </a>
-                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/my-favorites') else '' }}" href="/my-favorites">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-star"></use></svg>{{ t('nav_favorites') }}
-                </a>
-                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/notas') else '' }}" href="/notas">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-bank"></use></svg>{{ t('nav_notas') }}
-                </a>
-                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/hall-da-fama') else '' }}" href="/hall-da-fama">
+
+                <details class="side-nav-group" {% if request.url.path.startswith('/board') or request.url.path.startswith('/listings') or request.url.path.startswith('/my-listings') or request.url.path.startswith('/invitations') %}open{% endif %}>
+                    <summary class="side-nav-row side-nav-tone-2"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-board"></use></svg>{{ t('nav_board') }}</summary>
+                    <div class="profile-menu-links">
+                        <a href="/board">{{ t('nav_search_for_job') }}</a>
+                        <a href="/listings/new">{{ t('nav_post_job') }}</a>
+                        <a href="/my-listings">{{ t('nav_my_listings') }}</a>
+                        <a href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
+                        <a class="side-nav-subrow {{ 'active' if request.url.path.startswith('/invitations') and request.query_params.get('tab') == 'pending' else '' }}" href="/invitations?tab=pending">{{ t('invitations_tab_pending') }}</a>
+                        <a class="side-nav-subrow {{ 'active' if request.url.path.startswith('/invitations') and request.query_params.get('tab') == 'history' else '' }}" href="/invitations?tab=history">{{ t('invitations_tab_history') }}</a>
+                    </div>
+                </details>
+
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/hall-da-fama') else '' }}" href="/hall-da-fama">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-crown"></use></svg>{{ t('nav_hall_da_fama') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/notas') else '' }}" href="/notas">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-bank"></use></svg>{{ t('nav_notas') }}
                 </a>
             {% endif %}
         </aside>

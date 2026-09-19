@@ -5,6 +5,14 @@
 <h1>{{ t('search_people_title') }}</h1>
 <p class="subtitle">{{ t('search_people_subtitle') }}</p>
 
+{% if has_active_listing %}
+    {# "Buscar para meu anúncio" (19/09/2026, Daniel) — only shown when
+       the viewer has an active seeking_* listing; takes them to My
+       Listings, where each listing card has its own "Buscar para este
+       anúncio" button pre-filtered for that specific ad. #}
+    <p><a class="button-link" href="/my-listings"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-listings"></use></svg> {{ t('search_people_for_my_listing_link') }}</a></p>
+{% endif %}
+
 <form class="filters" method="get" action="/people" data-search-results="people-results">
     <select name="country" id="filter-country-select">
         <option value="">{{ t('filter_all_countries') }}</option>

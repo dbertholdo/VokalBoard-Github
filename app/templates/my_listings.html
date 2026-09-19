@@ -33,11 +33,31 @@
             </p>
         </a>
         <a href="/listings/{{ l.id }}/edit" class="author"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-edit"></use></svg> {{ t('edit_button') }}</a>
-        {% if l.listing_type == 'seeking_singer' %}
+        {# Printable flyer w/ QR Code (19/09/2026, Daniel: "a pessoa pode
+           imprimir e colar em algum lugar, as pessoas só escaneiam o QR
+           code e pronto") — see app/listing_pdf.py. #}
+        <a href="/listings/{{ l.id }}/flyer.pdf" class="author"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> {{ t('listing_flyer_download_button') }}</a>
+        {# "Buscar para este anúncio" (19/09/2026, Daniel) — jumps to
+           /people pre-filtered by this listing's naipe (when it has a
+           single unambiguous one — see search_voice_type_id in
+           listings_routes.py:my_listings()) and role/city. #}
+        {% if l.listing_type in ('seeking_singer', 'seeking_conductor') and l.is_active %}
+            {% set search_role = 'singer' if l.listing_type == 'seeking_singer' else 'conductor' %}
+            <a href="/people?role={{ search_role }}{% if l.search_voice_type_id %}&voice_type_id={{ l.search_voice_type_id }}{% endif %}{% if l.city %}&city={{ l.city }}{% endif %}{% if l.state %}&state={{ l.state }}{% endif %}{% if l.country %}&country={{ l.country }}{% endif %}" class="author">
+                <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-users"></use></svg> {{ t('listing_search_for_this_button') }}
+            </a>
+        {% endif %}
+        {# FIX (19/09/2026): candidatos/convites agora existe pra
+           seeking_conductor também, não só seeking_singer. #}
+        {% if l.listing_type in ('seeking_singer', 'seeking_conductor') %}
             <a href="/listings/{{ l.id }}/candidates" class="author"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('listing_candidates_link') }}</a>
         {% endif %}
         {% if l.listing_type in urgency_eligible_types and not l.is_urgent and l.is_active %}
-        <form method="post" action="/listings/{{ l.id }}/mark-urgent" class="inline-form">
+        {# FIX (19/09/2026, same as notas.html's redeem form): the paid
+           path spends Notas on a single click with no confirmation —
+           the free-token path costs nothing, so it's left alone. #}
+        <form method="post" action="/listings/{{ l.id }}/mark-urgent" class="inline-form"
+              {% if urgency_status.free_tokens_left <= 0 %}data-confirm="{{ t('mark_urgent_confirm_paid').replace('{cost}', format_notas(urgency_status.purchase_cost_notas)) }}"{% endif %}>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="button-link">
                 <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-bolt"></use></svg>

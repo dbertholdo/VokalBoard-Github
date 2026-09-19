@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Form, BackgroundTasks, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 
 from app.database import fetch_all, fetch_one, execute, execute_returning
 from app.auth import get_current_user
@@ -13,9 +13,11 @@ from app.richtext import html_to_excerpt
 from app.highlights import get_weekly_highlights
 from app.retention_rules import availability_valid
 from app.vacancies import get_vacancies, parse_vacancies_form, set_vacancies
-from app.fees import fee_valid, CURRENCIES, DEFAULT_CURRENCY
+from app.fees import fee_valid, format_fee, CURRENCIES, DEFAULT_CURRENCY
 from app.compatibility import FEE_COMPATIBILITY_ORDER_SQL, RATING_JOIN_SQL, viewer_location_params
-from app.mascot_moments import _profile_incomplete
+from app.mascot_moments import profile_incomplete
+from app.i18n import translate
+from app.listing_pdf import ListingFlyerDocument, render_listing_flyer_pdf
 from datetime import date
 from sqlalchemy.exc import IntegrityError
 
@@ -98,19 +100,58 @@ def _listing_creation_throttled(author_id: int) -> bool:
     return bool(row and row["n"] >= MAX_LISTINGS_PER_WINDOW)
 
 
-def _job_fields_valid(listing_type: str, city: str, repertoire: str, fee_ok: bool) -> bool:
+def _job_fields_valid(listing_type: str, city: str, repertoire: str, has_vacancy: bool) -> bool:
     """
-    Hiring a singer or conductor requires Repertoire, City and Fee.
-    Voice type doesn't enter the validation because "blank" already
-    means "all voices", a valid choice. `fee_ok` is computed by the
-    caller via app.fees.fee_valid() — P3.E: "Fee" is no longer a plain
-    non-empty string, it's "exactly one of fee_amount/fee_negotiable",
-    which needs its own parsing (comma/dot decimal, currency), so that
-    lives in app/fees.py instead of being re-implemented here.
+    Hiring a singer or conductor requires Repertoire, City, and at
+    least one vacancy.
+
+    FIX (19/09/2026, Daniel: "duas formas de adicionar vagas, fica
+    confuso, inclusive para o código e db") — supersedes the previous
+    same-day fix that made a standalone `voice_type_id` field required.
+    That standalone field is GONE now for seeking_singer/
+    seeking_conductor: the vacancy list (app/vacancies.py) is the only
+    place voice type and fee are entered for these two types, so "at
+    least one voice" and "at least one vacancy" are now the same
+    requirement. Fee is intentionally NOT required here anymore either
+    — it moved to being a per-vacancy field, same leniency vacancies
+    already had (see parse_vacancies_form's docstring: a vaga's fee
+    isn't strictly validated, it can be added/edited later).
+
+    `has_vacancy` is computed by the caller from the already-parsed
+    vacancies list: for seeking_singer, at least one row with a real
+    voice type; for seeking_conductor, always True — a conductor
+    listing always gets exactly one implicit vacancy synthesized by
+    parse_vacancies_form(), since conductors have no naipe to choose.
     """
     if listing_type not in ("seeking_singer", "seeking_conductor"):
         return True
-    return bool(city.strip()) and bool(repertoire.strip()) and fee_ok
+    return bool(city.strip()) and bool(repertoire.strip()) and has_vacancy
+
+
+def _derive_listing_fields_from_vacancies(vacancies: list[dict], fallback_currency: str) -> tuple:
+    """
+    (19/09/2026) seeking_singer/seeking_conductor no longer collect
+    voice_type_id/fee_amount/fee_currency/fee_negotiable directly —
+    those live only in the vacancy list now (app/vacancies.py). This
+    mirrors the vacancy data back onto `listings`' own columns so every
+    OTHER piece of code that still reads `listings.voice_type_id`/fee
+    directly — home page matching, board filtering, e-mail alerts in
+    app/notifications.py, banner targeting in app/banners.py, the
+    "Buscar pessoas" directory — keeps working unchanged, without
+    having to be rewritten against listing_vacancies. Deliberately
+    approximate for a multi-vacancy listing (several different voices):
+    voice_type_id falls back to NULL ("all voices", an already-valid
+    meaning) and fee falls back to unset, since there's no single
+    correct answer to mirror in that case — the vacancy list itself
+    (shown on listing_detail.html) is what shows the real breakdown.
+    """
+    if len(vacancies) == 1:
+        v = vacancies[0]
+        return v["voice_type_id"], v["fee_amount"], v["fee_currency"], v["fee_negotiable"]
+    distinct_voice_ids = {v["voice_type_id"] for v in vacancies if v["voice_type_id"]}
+    voice_type_id = next(iter(distinct_voice_ids)) if len(distinct_voice_ids) == 1 else None
+    currency = fallback_currency if fallback_currency in CURRENCIES else DEFAULT_CURRENCY
+    return voice_type_id, None, currency, False
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -143,7 +184,7 @@ def home(request: Request):
     # again later (e.g. they clear their bio) — it's a first-time
     # onboarding nudge, not a recurring interruption; the Atento toast
     # already covers "incomplete profile" as an ongoing nudge.
-    if user and not user.get("profile_wizard_seen_at") and _profile_incomplete(user):
+    if user and not user.get("profile_wizard_seen_at") and profile_incomplete(user):
         return RedirectResponse(url="/profile/wizard", status_code=303)
 
     if user:
@@ -591,17 +632,20 @@ async def create_listing(
         return RedirectResponse(url="/?verify_required=1", status_code=303)
 
     # P3.E: valor numérico + moeda + "a negociar" — ver app/fees.py.
-    # fee_ok já valida "exatamente um dos dois" (quando aplicável, ver
-    # _job_fields_valid); fee_amount_parsed é o Decimal já pronto pro
-    # INSERT (None quando negociável ou quando o cachê não é obrigatório
-    # pro listing_type e o campo ficou em branco).
+    # fee_amount_parsed é o Decimal já pronto pro INSERT — só é
+    # realmente usado quando listing_type NÃO é seeking_singer/
+    # seeking_conductor (esses dois passaram a derivar cachê da lista
+    # de vagas, ver _derive_listing_fields_from_vacancies abaixo).
+    # fee_ok fica sem uso pra esses dois tipos desde a mudança de
+    # 19/09/2026 (fee deixou de ser obrigatório no nível do anúncio).
     fee_negotiable_bool = bool(fee_negotiable)
     if fee_currency not in CURRENCIES:
         fee_currency = DEFAULT_CURRENCY
     fee_ok, fee_amount_parsed = fee_valid(fee_amount, fee_negotiable_bool)
 
-    # P3.A: multiple vacancies (naipe + cotas + cachê), additive on top
-    # of the single voice_type_id/fee above — see app/vacancies.py.
+    # P3.A / FIX 19/09/2026: vacancies (naipe + cotas + cachê) are now
+    # the ONLY way to enter voice type/fee for seeking_singer/
+    # seeking_conductor — see app/vacancies.py's module docstring.
     form = await request.form()
     vacancies = parse_vacancies_form(
         form.getlist("vacancy_voice_type_id"),
@@ -609,6 +653,7 @@ async def create_listing(
         form.getlist("vacancy_fee_currency"),
         lambda i: form.get(f"vacancy_fee_negotiable_{i}"),
         form.getlist("vacancy_total_slots"),
+        listing_type,
     )
 
     # P2.C: e-mail (já garantido acima, precisa estar verificado) e
@@ -637,9 +682,12 @@ async def create_listing(
         return render(request, "listing_form.html", context, status_code=429)
 
     # "State" is required for any listing (not just openings) —
-    # together with Repertoire/City/Fee in the specific case of seeking_singer.
+    # together with Repertoire/City/at-least-one-vacancy in the
+    # specific case of seeking_singer/seeking_conductor (see
+    # _job_fields_valid's FIX note).
     available = listing_type == 'singer_available'
-    if (available and not availability_valid(available_from, available_until)) or (not available and (not state.strip() or not _job_fields_valid(listing_type, city, repertoire, fee_ok))):
+    has_vacancy = bool(vacancies)
+    if (available and not availability_valid(available_from, available_until)) or (not available and (not state.strip() or not _job_fields_valid(listing_type, city, repertoire, has_vacancy))):
         context = _listing_form_error_context(
             user, listing_type, title, description, city, state, country,
             voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, False, None, available_from, available_until,
@@ -652,6 +700,18 @@ async def create_listing(
         event_date = ''
         if not state.strip() and not city.strip():
             country = None
+
+    # FIX 19/09/2026: for seeking_singer/seeking_conductor, the
+    # top-level voice_type_id/fee_* columns are no longer filled from
+    # the (now-removed) standalone form fields — they're derived from
+    # the vacancy rows instead, see _derive_listing_fields_from_vacancies.
+    if listing_type in ('seeking_singer', 'seeking_conductor'):
+        derived_voice_type_id, derived_fee_amount, derived_fee_currency, derived_fee_negotiable = \
+            _derive_listing_fields_from_vacancies(vacancies, fee_currency)
+    else:
+        derived_voice_type_id = int(voice_type_id) if voice_type_id else None
+        derived_fee_amount, derived_fee_currency, derived_fee_negotiable = fee_amount_parsed, fee_currency, fee_negotiable_bool
+
     new_listing = _persist_listing(
         """
         INSERT INTO listings (author_id, listing_type, title, description, city, state, country, voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable, ensemble_type, event_date, available_from, available_until,
@@ -668,12 +728,12 @@ async def create_listing(
             "city": city or None,
             "state": state.strip() or None,
             "country": country,
-            "voice_type_id": int(voice_type_id) if voice_type_id else None,
+            "voice_type_id": derived_voice_type_id,
             "repertoire": repertoire or None,
             "venue": venue or None,
-            "fee_amount": fee_amount_parsed,
-            "fee_currency": fee_currency,
-            "fee_negotiable": fee_negotiable_bool,
+            "fee_amount": derived_fee_amount,
+            "fee_currency": derived_fee_currency,
+            "fee_negotiable": derived_fee_negotiable,
             "ensemble_type": ensemble_type,
             "event_date": event_date or None,
             "available_from": available_from if available else None,
@@ -687,7 +747,7 @@ async def create_listing(
         }, returning=True,
     )
 
-    if listing_type == 'seeking_singer' and vacancies:
+    if listing_type in ('seeking_singer', 'seeking_conductor') and vacancies:
         set_vacancies(new_listing["id"], vacancies)
 
     # P5 Etapa 2 (18/09/2026): checkbox "marcar como urgente" já na
@@ -782,17 +842,17 @@ def listing_detail(request: Request, listing_id: int):
         )
         already_messaged = existing_message is not None
 
-    # P3.A: vacancies (one row per naipe/voice type) — only meaningful
-    # for seeking_singer listings; an empty list means the listing
-    # still uses the legacy single voice_type_id/fee fields.
-    vacancies = get_vacancies(listing_id) if listing and listing["listing_type"] == "seeking_singer" else []
+    # P3.A / FIX 19/09/2026: vacancies (one row per naipe, or one plain
+    # row with no naipe for a conductor) — the only way a seeking_singer/
+    # seeking_conductor listing has a voice/fee/candidate path at all now.
+    vacancies = get_vacancies(listing_id) if listing and listing["listing_type"] in ("seeking_singer", "seeking_conductor") else []
 
-    # P3.B: does the viewer (a singer) already have a pending/accepted
-    # row for each vacancy? Avoids an N+1 by fetching once and mapping
-    # by vacancy_id, and lets the template show "already applied"
-    # instead of an Apply button for those rows.
+    # P3.B: does the viewer (a singer or conductor) already have a
+    # pending/accepted row for each vacancy? Avoids an N+1 by fetching
+    # once and mapping by vacancy_id, and lets the template show
+    # "already applied" instead of an Apply button for those rows.
     my_invitation_by_vacancy = {}
-    if user and listing and user["role"] == "singer" and user["id"] != listing["author_id"] and vacancies:
+    if user and listing and user["role"] in ("singer", "conductor") and user["id"] != listing["author_id"] and vacancies:
         vacancy_ids = [v["id"] for v in vacancies]
         my_rows = fetch_all(
             "SELECT vacancy_id, status FROM job_invitations WHERE artist_user_id = :artist_id AND vacancy_id = ANY(:vacancy_ids) AND status IN ('pending', 'accepted') ORDER BY created_at DESC",
@@ -860,6 +920,60 @@ def listing_detail(request: Request, listing_id: int):
     return render(request, "listing_detail.html", context)
 
 
+@router.get("/listings/{listing_id}/flyer.pdf")
+def download_listing_flyer(request: Request, listing_id: int):
+    """Printable flyer PDF (19/09/2026, Daniel: "a pessoa pode imprimir
+    e colar em algum lugar, as pessoas só escaneiam o QR code e pronto")
+    — a poster-style page with a big QR Code linking back to the
+    listing. Same stateless shape as invoice_pdf.py/cv_pdf.py.
+
+    Restricted to the listing's own author, same as edit/mark-urgent —
+    this is a tool for the person who posted the ad to go print it, not
+    a public download link on every listing page.
+    """
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    listing = fetch_one(
+        f"""
+        SELECT {LISTING_COLUMNS}, l.author_id, vt.name AS voice_type_name
+        FROM visible_listings l
+        LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+        WHERE l.id = :id
+        """,  # nosec B608 - only LISTING_COLUMNS (fixed constant); the id goes by parameter.
+        {"id": listing_id},
+    )
+    if not listing or listing["author_id"] != user["id"]:
+        return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
+
+    lang = getattr(request.state, "lang", "de")
+    listing_url = f"{str(request.base_url).rstrip('/')}/listings/{listing_id}"
+    fee_text = format_fee(
+        listing["fee_amount"], listing["fee_currency"], listing["fee_negotiable"],
+        translate("fee_negotiable_label", lang),
+    )
+    event_date = listing["event_date"].strftime("%d.%m.%Y") if listing.get("event_date") else ""
+
+    flyer = ListingFlyerDocument(
+        title=listing["title"],
+        type_label=translate(f"listing_type_{listing['listing_type']}", lang),
+        listing_url=listing_url,
+        voice_type=listing.get("voice_type_name") or "",
+        city=listing.get("city") or "",
+        country=listing.get("country") or "",
+        event_date=event_date,
+        fee_text=fee_text or "",
+        venue=listing.get("venue") or "",
+        scan_caption=translate("listing_flyer_scan_caption", lang),
+    )
+    pdf_bytes = render_listing_flyer_pdf(flyer)
+    return StreamingResponse(
+        iter([pdf_bytes]), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="vokalboard-anuncio-{listing_id}.pdf"'},
+    )
+
+
 @router.post("/listings/{listing_id}/report")
 def report_listing(request: Request, listing_id: int, csrf_token: str = Form(""), reason: str = Form("")):
     """
@@ -911,7 +1025,7 @@ def edit_listing_form(request: Request, listing_id: int):
         "is_edit": True,
         "listing_id": listing_id,
         "error": None,
-        "vacancies": get_vacancies(listing_id) if listing["listing_type"] == "seeking_singer" else [],
+        "vacancies": get_vacancies(listing_id) if listing["listing_type"] in ("seeking_singer", "seeking_conductor") else [],
     }
     return render(request, "listing_form.html", context)
 
@@ -964,6 +1078,7 @@ async def update_listing(
         form.getlist("vacancy_fee_currency"),
         lambda i: form.get(f"vacancy_fee_negotiable_{i}"),
         form.getlist("vacancy_total_slots"),
+        listing_type,
     )
 
     if country not in COUNTRY_OPTIONS:
@@ -972,7 +1087,8 @@ async def update_listing(
         ensemble_type = None
 
     available = listing_type == 'singer_available'
-    if (available and not availability_valid(available_from, available_until)) or (not available and (not state.strip() or not _job_fields_valid(listing_type, city, repertoire, fee_ok))):
+    has_vacancy = bool(vacancies)
+    if (available and not availability_valid(available_from, available_until)) or (not available and (not state.strip() or not _job_fields_valid(listing_type, city, repertoire, has_vacancy))):
         context = _listing_form_error_context(
             user, listing_type, title, description, city, state, country,
             voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, True, listing_id, available_from, available_until,
@@ -985,6 +1101,15 @@ async def update_listing(
         event_date = ''
         if not state.strip() and not city.strip():
             country = None
+
+    # FIX 19/09/2026 — see the matching comment in create_listing().
+    if listing_type in ('seeking_singer', 'seeking_conductor'):
+        derived_voice_type_id, derived_fee_amount, derived_fee_currency, derived_fee_negotiable = \
+            _derive_listing_fields_from_vacancies(vacancies, fee_currency)
+    else:
+        derived_voice_type_id = int(voice_type_id) if voice_type_id else None
+        derived_fee_amount, derived_fee_currency, derived_fee_negotiable = fee_amount_parsed, fee_currency, fee_negotiable_bool
+
     _persist_listing(
         """
         UPDATE listings
@@ -1006,12 +1131,12 @@ async def update_listing(
             "city": city or None,
             "state": state.strip() or None,
             "country": country,
-            "voice_type_id": int(voice_type_id) if voice_type_id else None,
+            "voice_type_id": derived_voice_type_id,
             "repertoire": repertoire or None,
             "venue": venue or None,
-            "fee_amount": fee_amount_parsed,
-            "fee_currency": fee_currency,
-            "fee_negotiable": fee_negotiable_bool,
+            "fee_amount": derived_fee_amount,
+            "fee_currency": derived_fee_currency,
+            "fee_negotiable": derived_fee_negotiable,
             "ensemble_type": ensemble_type,
             "event_date": event_date or None,
             "available_from": available_from if available else None,
@@ -1022,7 +1147,7 @@ async def update_listing(
             "rehearsal_schedule_available": bool(rehearsal_schedule_available),
         },
     )
-    if listing_type == 'seeking_singer':
+    if listing_type in ('seeking_singer', 'seeking_conductor'):
         set_vacancies(listing_id, vacancies)
     return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
 
@@ -1049,8 +1174,23 @@ def my_listings(request: Request, urgent_error: str = "", urgent_marked: str = "
 
     listings = fetch_all(
         f"""
-        SELECT l.id, l.title, l.listing_type, l.city, l.is_active, l.created_at,
-               l.is_urgent, {EVENT_STATUS_SQL}
+        SELECT l.id, l.title, l.listing_type, l.city, l.state, l.country, l.is_active, l.created_at,
+               l.is_urgent, {EVENT_STATUS_SQL},
+               -- "Buscar para este anúncio" (19/09/2026, Daniel): the
+               -- voice type to pre-fill on /people, when there's one
+               -- unambiguous answer — the listing's own single
+               -- voice_type_id (legacy path), or, for a vacancy-based
+               -- listing, its voice type ONLY when every vacancy
+               -- shares the same one (a listing with several naipes
+               -- has no single answer, so the button just searches
+               -- broadly with no voice filter instead of guessing).
+               COALESCE(
+                   l.voice_type_id,
+                   (SELECT MIN(lv.voice_type_id) FROM listing_vacancies lv
+                    WHERE lv.listing_id = l.id
+                    GROUP BY lv.listing_id
+                    HAVING COUNT(DISTINCT lv.voice_type_id) = 1)
+               ) AS search_voice_type_id
         FROM visible_listings l
         WHERE l.author_id = :author_id
         ORDER BY l.created_at DESC

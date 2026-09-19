@@ -7,6 +7,7 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.notifications import notify_new_message
 from app.badges import check_and_notify_new_badges
+from app.notification_center import create_notification
 from datetime import datetime, timezone
 from app.retention_rules import warning_days
 
@@ -211,6 +212,14 @@ def send_message(
             "listing_id": int(listing_id) if listing_id else None,
             "body": body,
         },
+    )
+
+    # Central de Notificações (task #50) — bell notification for the
+    # recipient, independent of their e-mail preference below (this
+    # one's never opt-out, same as the existing unread-count badge).
+    create_notification(
+        recipient_id, "new_message", "notification_new_message",
+        {"name": user["full_name"]}, link_url="/messages",
     )
 
     # "Get an e-mail every time you receive a message" — in the

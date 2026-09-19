@@ -1,12 +1,14 @@
 {% extends "base.html" %}
+{% import "_invoice_preview.html" as invoice_preview with context %}
 {% block title %}Rechnung — {{ match.title }}{% endblock %}
 {% block content %}
 <a class="back-link" href="/rechnungmaker?tab=match">&larr; {{ t('nav_rechnungmaker') }}</a>
-<section class="card">
 <h1>Rechnung — {{ match.title }}</h1>
 <p class="field-help">Match-Rechnung: os dados ficam criptografados até {{ match.contractor_name }} confirmar. Nada fica salvo em texto aberto.</p>
 {% if error %}<p class="form-error">Confira os campos obrigatórios.</p>{% endif %}
-<form method="post" action="/profile/matches/{{ match.id }}/invoice" class="form-grid">
+<div class="invoice-layout">
+<section class="card">
+<form id="invoiceFormMatch" method="post" action="/profile/matches/{{ match.id }}/invoice" class="form-grid">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <label>Rechnungsnummer<input name="number" value="{{ existing.number or suggested_number }}" required></label>
 <label>Ausstellungsdatum<input type="date" name="issue_date" value="{{ existing.issue_date or today }}" required></label>
@@ -20,7 +22,7 @@
 <label>Valor líquido<input name="net_amount" inputmode="decimal" value="{{ existing.net_amount or '' }}" required></label>
 <label>Moeda<select name="currency"><option {% if existing.currency == 'CHF' %}selected{% endif %}>EUR</option><option {% if existing.currency == 'CHF' %}selected{% endif %}>CHF</option></select></label>
 <label>País e tributação (USt/MWST)
-<select id="tax_preset_match" onchange="(function(v){var p=v.split(':');document.getElementById('tax_country_match').value=p[0];document.getElementById('tax_status_match').value=p[1];})(this.value)">
+<select id="tax_preset_match" onchange="(function(v){var p=v.split(':');document.getElementById('tax_country_match').value=p[0];document.getElementById('tax_status_match').value=p[1];document.getElementById('tax_country_match').dispatchEvent(new Event('change'));})(this.value)">
     {% for value, label in tax_preset_options %}<option value="{{ value }}" {% if value == 'DE:standard' %}selected{% endif %}>{{ label }}</option>{% endfor %}
 </select>
 </label>
@@ -36,4 +38,7 @@
 <button class="button-primary" type="submit">Salvar e enviar para revisão</button>
 </form>
 </section>
+{{ invoice_preview.invoice_preview_pane("invoiceFormMatch") }}
+</div>
+<script src="/static/js/invoice_preview.js" defer></script>
 {% endblock %}

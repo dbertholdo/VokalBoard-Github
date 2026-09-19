@@ -48,6 +48,36 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "nav_edit_profile": {"de": "Profil bearbeiten", "en": "Edit Profile", "fr": "Modifier le profil", "it": "Modifica profilo", "pt": "Editar perfil"},
     "nav_match_history": {"de": "Match-Verlauf", "en": "Match History", "fr": "Historique des Matches", "it": "Cronologia dei Match", "pt": "Histórico de Matches"},
     "nav_profile_download": {"de": "Lebenslauf/Digital Pass herunterladen", "en": "Download CV/Digital Pass", "fr": "Télécharger CV/Digital Pass", "it": "Scarica CV/Digital Pass", "pt": "Baixar CV/Digital Pass"},
+    # Digital Pass (19/09/2026, task #51): its own menu entry + stub
+    # page now (see app/templates/digital_pass_stub.html), replacing
+    # the disabled placeholder line above used to be the only mention
+    # of it — kept "Digital Pass" untranslated, same term Daniel used
+    # himself and the one already embedded in nav_profile_download above.
+    "nav_digital_pass": {"de": "Digital Pass", "en": "Digital Pass", "fr": "Digital Pass", "it": "Digital Pass", "pt": "Digital Pass"},
+    "digital_pass_intro": {
+        "de": "Dein Lebenslauf und deine Visitenkarte, in einem Ort.",
+        "en": "Your CV and your business card, in one place.",
+        "fr": "Votre CV et votre carte de visite, au même endroit.",
+        "it": "Il tuo CV e il tuo biglietto da visita, in un unico posto.",
+        "pt": "Seu currículo e seu cartão de visita, em um só lugar.",
+    },
+    "digital_pass_cv_tab": {"de": "Lebenslauf", "en": "CV", "fr": "CV", "it": "CV", "pt": "Currículo"},
+    "digital_pass_cv_body": {
+        "de": "Dein Lebenslauf als PDF, mit Foto und QR-Code zu deinem Profil.",
+        "en": "Your CV as a PDF, with your photo and a QR code to your profile.",
+        "fr": "Votre CV en PDF, avec votre photo et un QR code vers votre profil.",
+        "it": "Il tuo CV in PDF, con la tua foto e un QR code al tuo profilo.",
+        "pt": "Seu currículo em PDF, com sua foto e um QR Code pro seu perfil.",
+    },
+    "digital_pass_cv_download_button": {"de": "Lebenslauf als PDF herunterladen", "en": "Download CV as PDF", "fr": "Télécharger le CV en PDF", "it": "Scarica il CV in PDF", "pt": "Baixar currículo em PDF"},
+    "digital_pass_card_tab": {"de": "Visitenkarte", "en": "Business card", "fr": "Carte de visite", "it": "Biglietto da visita", "pt": "Cartão de visita"},
+    "digital_pass_card_body": {
+        "de": "Erstelle eine digitale Visitenkarte auf Basis deines Lebenslaufs — zum Teilen bei Vorsingen und Konzerten.",
+        "en": "Generate a digital business card based on your CV — handy to share at auditions and concerts.",
+        "fr": "Générez une carte de visite numérique basée sur votre CV — pratique à partager lors d'auditions et de concerts.",
+        "it": "Genera un biglietto da visita digitale basato sul tuo CV — comodo da condividere ad audizioni e concerti.",
+        "pt": "Gere um cartão de visita digital baseado no seu currículo — prático pra compartilhar em audições e concertos.",
+    },
     "feature_coming_soon": {"de": "Demnächst", "en": "Coming soon", "fr": "Bientôt", "it": "Prossimamente", "pt": "Em breve"},
     "match_history_privacy": {"de": "Nur für die beteiligten Personen und Administratoren sichtbar.", "en": "Visible only to the participants and administrators.", "fr": "Visible uniquement par les participants et les administrateurs.", "it": "Visibile solo ai partecipanti e agli amministratori.", "pt": "Visível somente aos participantes e administradores."},
     "match_history_empty": {"de": "Noch keine Matches.", "en": "No Matches yet.", "fr": "Aucun Match pour le moment.", "it": "Nessun Match ancora.", "pt": "Nenhum Match ainda."},
@@ -90,6 +120,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "rechnungmaker_tab_avulso": {"de": "Freier Rechnungsgenerator", "en": "Standalone generator", "fr": "Générateur libre", "it": "Generatore libero", "pt": "Gerador Avulso"},
     "rechnungmaker_match_empty": {"de": "Gerade nichts zu tun — keine Rechnung offen oder anfragbar.", "en": "Nothing to do right now — no invoice open or requestable.", "fr": "Rien à faire pour le moment — aucune facture ouverte ou à demander.", "it": "Niente da fare al momento — nessuna fattura aperta o richiedibile.", "pt": "Nada pendente por enquanto — nenhuma Rechnung aberta ou disponível pra pedir."},
     "rechnungmaker_avulso_help": {"de": "Freier Generator: deine Daten bleiben nur bei dieser Erstellung und im heruntergeladenen PDF.", "en": "Standalone generator: your data stays only in this generation and in the downloaded PDF.", "fr": "Générateur libre : vos données restent uniquement dans cette génération et dans le PDF téléchargé.", "it": "Generatore libero: i tuoi dati restano solo in questa generazione e nel PDF scaricato.", "pt": "Gerador avulso: seus dados ficam apenas nesta geração e no PDF baixado."},
+    # Rechnungmaker live-preview pane (19/09/2026) — label above the
+    # WYSIWYG mock of the PDF (see app/templates/_invoice_preview.html).
+    "invoice_preview_label": {"de": "Live-Vorschau", "en": "Live preview", "fr": "Aperçu en direct", "it": "Anteprima dal vivo", "pt": "Prévia em tempo real"},
     "rechnungmaker_avulso_form_error": {"de": "Bitte Pflichtfelder und dein Rechnungskontingent prüfen.", "en": "Please check the required fields and your invoice allowance.", "fr": "Vérifiez les champs obligatoires et votre quota de factures.", "it": "Controlla i campi obbligatori e il tuo credito fatture.", "pt": "Confira os campos obrigatórios e seus créditos de Rechnung."},
     "rechnungmaker_personal_counter_title": {"de": "Deine ausgestellten Rechnungen", "en": "Your issued invoices", "fr": "Vos factures émises", "it": "Le tue fatture emesse", "pt": "Suas Rechnungen emitidas"},
     "rechnungmaker_personal_counter_help": {"de": "Nur für dich sichtbar — Freier Generator + Match-Rechnungen zusammen.", "en": "Visible only to you — standalone generator + Match invoices combined.", "fr": "Visible uniquement par vous — générateur libre + factures de Match cumulés.", "it": "Visibile solo a te — generatore libero + fatture da Match insieme.", "pt": "Visível só pra você — Gerador Avulso e Match-Rechnungen somados."},
@@ -97,7 +130,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "invoice_status_available": {"de": "Rechnung kann angefordert werden.", "en": "Invoice can be requested.", "fr": "Facture disponible sur demande.", "it": "Fattura disponibile su richiesta.", "pt": "Rechnung disponível pra pedir."},
     "invoice_go_to_rechnungmaker": {"de": "Zum Rechnungmaker", "en": "Go to Rechnungmaker", "fr": "Aller au Rechnungmaker", "it": "Vai al Rechnungmaker", "pt": "Ir para o Rechnungmaker"},
     "listing_form_details_section": {"de": "Musikalische Angaben", "en": "Musical details", "fr": "Détails musicaux", "it": "Dettagli musicali", "pt": "Detalhes musicais"},
-    "listing_form_job_required_help": {"de": "Bei der Suche nach Gesang oder Dirigat sind Werk und Honorar Pflichtfelder (*). Der Veranstaltungsort ist optional.", "en": "When seeking a singer or conductor, work/piece and fee are required (*). Venue is optional.", "fr": "Pour rechercher un chanteur ou un chef, l’œuvre et le cachet sont obligatoires (*). Le lieu est facultatif.", "it": "Per cercare un cantante o direttore, opera e compenso sono obbligatori (*). La sede è facoltativa.", "pt": "Ao procurar cantor ou maestro, obra e cachê são obrigatórios (*). O local de apresentação é opcional."},
+    "listing_form_job_required_help": {
+        "de": "Bei der Suche nach Gesang oder Dirigat ist das Werk Pflichtfeld (*). Stimmlage und Honorar werden unten in der Liste der offenen Stellen angegeben (mindestens eine Stelle erforderlich). Der Veranstaltungsort ist optional.",
+        "en": "When seeking a singer or conductor, work/piece is required (*). Voice type and fee are filled in the vacancy list below (at least one vacancy required). Venue is optional.",
+        "fr": "Pour rechercher un chanteur ou un chef, l'œuvre est obligatoire (*). La tessiture et le cachet sont renseignés dans la liste des postes vacants ci-dessous (au moins un poste requis). Le lieu est facultatif.",
+        "it": "Per cercare un cantante o direttore, l'opera è obbligatoria (*). Tessitura e compenso si inseriscono nell'elenco dei posti vacanti qui sotto (almeno un posto richiesto). La sede è facoltativa.",
+        "pt": "Ao procurar cantor ou maestro, obra é obrigatória (*). Tipo de voz e cachê são preenchidos na lista de vagas abaixo (pelo menos uma vaga obrigatória). O local de apresentação é opcional.",
+    },
     "profile_preferences_card": {"de": "Benachrichtigungen", "en": "Notifications", "fr": "Notifications", "it": "Notifiche", "pt": "Notificações"},
     "profile_visibility_card": {"de": "Sichtbarkeit und Profil-Link", "en": "Visibility and profile link", "fr": "Visibilité et lien du profil", "it": "Visibilità e link del profilo", "pt": "Visibilidade e link do perfil"},
     "profile_professional_card": {"de": "Musikalisches Profil", "en": "Musical profile", "fr": "Profil musical", "it": "Profilo musicale", "pt": "Perfil musical"},
@@ -113,6 +152,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "nav_notas": {"de": "Notas", "en": "Notas", "fr": "Notas", "it": "Notas", "pt": "Notas"},
     "nav_hall_da_fama": {"de": "Ruhmeshalle", "en": "Hall of Fame", "fr": "Temple de la renommée", "it": "Bacheca della fama", "pt": "Hall da Fama"},
     "nav_board": {"de": "Jobs", "en": "Jobs", "fr": "Annonces", "it": "Annunci", "pt": "Vagas"},
+    # Sub-items of the "Jobs" side-nav group (19/09/2026, task #51 menu
+    # reorg — see AI_CHANGELOG.md for Daniel's own sketch). "Search for
+    # a Job" links to the same /board as nav_board above (deliberately
+    # worded differently from the group's own header so it doesn't read
+    # like a duplicate).
+    "nav_search_for_job": {"de": "Job suchen", "en": "Search for a job", "fr": "Rechercher une annonce", "it": "Cerca un annuncio", "pt": "Buscar vaga"},
+    "nav_post_job": {"de": "Anzeige aufgeben", "en": "Post a job", "fr": "Publier une annonce", "it": "Pubblica un annuncio", "pt": "Publicar vaga"},
     "nav_menu_toggle": {"de": "Menü", "en": "Menu", "fr": "Menu", "it": "Menu", "pt": "Menu"},
     "nav_profile": {"de": "Mein Profil", "en": "My profile", "fr": "Mon profil", "it": "Il mio profilo", "pt": "Meu perfil"},
     "nav_login": {"de": "Anmelden", "en": "Log in", "fr": "Connexion", "it": "Accedi", "pt": "Entrar"},
@@ -243,15 +289,20 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "listing_form_description_label": {"de": "Beschreibung", "en": "Description", "fr": "Description", "it": "Descrizione", "pt": "Descrição"},
     "listing_form_city_label": {"de": "Stadt*", "en": "City*", "fr": "Ville*", "it": "Città*", "pt": "Cidade*"},
     "listing_form_voice_type_label": {"de": "Stimmlage (falls zutreffend)", "en": "Voice type (if applicable)", "fr": "Tessiture (le cas échéant)", "it": "Tessitura (se applicabile)", "pt": "Tipo de voz (se aplicável)"},
-    "listing_form_voice_type_required_label": {"de": "Stimmlage*", "en": "Voice type*", "fr": "Tessiture*", "it": "Tessitura*", "pt": "Tipo de voz*"},
 
     # --- P3.A: logistics checkboxes + vacancies per voice type --------
+    # FIX (19/09/2026): this field only shows for singer_available/
+    # conductor_available now (a seeking_singer/seeking_conductor
+    # listing enters voice type through the vacancy list only, see
+    # listing_form_vacancies_help below) — reworded away from the old
+    # "for multiple vacancies, use the list below" text, which no
+    # longer applies to this field at all.
     "listing_form_voice_type_help": {
-        "de": "Nur als allgemeine Angabe. Bei mehreren Vagas pro Stimmlage nutzen Sie unten die Liste der offenen Stellen.",
-        "en": "General guidance only. For multiple vacancies per voice type, use the vacancy list below.",
-        "fr": "Indication générale seulement. Pour plusieurs postes par tessiture, utilisez la liste des vacances ci-dessous.",
-        "it": "Solo indicazione generale. Per più posti per tessitura, usa l'elenco dei posti vacanti qui sotto.",
-        "pt": "Apenas uma indicação geral. Para várias vagas por tipo de voz, use a lista de vagas abaixo.",
+        "de": "Wird zum Filtern im Verzeichnis und auf der Pinnwand verwendet.",
+        "en": "Used for filtering in the directory and on the board.",
+        "fr": "Utilisé pour le filtrage dans l'annuaire et sur le tableau.",
+        "it": "Usato per il filtro nella directory e in bacheca.",
+        "pt": "Usado para filtrar no diretório e no mural.",
     },
     "listing_form_travel_cost_label": {"de": "Fahrkosten werden übernommen", "en": "Travel costs are covered", "fr": "Frais de déplacement pris en charge", "it": "Spese di viaggio coperte", "pt": "Custos de deslocamento cobertos"},
     "listing_form_rehearsal_schedule_label": {"de": "Probenplan vorhanden", "en": "Rehearsal schedule available", "fr": "Calendrier des répétitions disponible", "it": "Calendario delle prove disponibile", "pt": "Cronograma de ensaios disponível"},
@@ -264,13 +315,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "it": "Visibile solo dopo un Match confermato (Zero-Storage: viene salvato solo il link, nessun file).",
         "pt": "Só é exibido após um Match confirmado (Zero-Storage: apenas o link é salvo, nenhum arquivo).",
     },
-    "listing_form_vacancies_section": {"de": "Offene Stellen pro Stimmlage", "en": "Vacancies per voice type", "fr": "Postes vacants par tessiture", "it": "Posti vacanti per tessitura", "pt": "Vagas por tipo de voz"},
+    "listing_form_vacancies_section": {"de": "Offene Stellen", "en": "Vacancies", "fr": "Postes vacants", "it": "Posti vacanti", "pt": "Vagas"},
     "listing_form_vacancies_help": {
-        "de": "Optional. Fügen Sie eine Zeile pro gesuchter Stimmlage hinzu, mit Anzahl der Plätze und Cachê.",
-        "en": "Optional. Add one row per voice type you're seeking, with the number of slots and fee.",
-        "fr": "Facultatif. Ajoutez une ligne par tessiture recherchée, avec le nombre de places et le cachet.",
-        "it": "Facoltativo. Aggiungi una riga per ogni tessitura richiesta, con il numero di posti e il compenso.",
-        "pt": "Opcional. Adicione uma linha para cada tipo de voz procurado, com o número de vagas e o cachê.",
+        "de": "Fügen Sie mindestens eine Stelle hinzu. Bei der Suche nach Gesang wählen Sie die gesuchte Stimmlage; bei der Suche nach Dirigat genügen Anzahl der Plätze und Honorar.",
+        "en": "Add at least one vacancy. For a singer listing, choose the voice type you're seeking; for a conductor listing, just the number of slots and fee.",
+        "fr": "Ajoutez au moins un poste. Pour une annonce de chanteur, choisissez la tessiture recherchée ; pour une annonce de chef, le nombre de places et le cachet suffisent.",
+        "it": "Aggiungi almeno un posto. Per un annuncio da cantante, scegli la tessitura richiesta; per uno da direttore, bastano il numero di posti e il compenso.",
+        "pt": "Adicione pelo menos uma vaga. Para anúncio de cantor, escolha o tipo de voz buscado; para anúncio de maestro, só o número de vagas e o cachê.",
     },
     "listing_form_vacancy_slots_placeholder": {"de": "Plätze", "en": "Slots", "fr": "Places", "it": "Posti", "pt": "Vagas"},
     "listing_form_vacancy_filled_label": {"de": "besetzt", "en": "filled", "fr": "pourvu(s)", "it": "occupati", "pt": "preenchidas"},
@@ -299,11 +350,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "listing_form_submit": {"de": "Veröffentlichen", "en": "Publish", "fr": "Publier", "it": "Pubblica", "pt": "Publicar"},
     "listing_form_update_submit": {"de": "Aktualisieren", "en": "Update", "fr": "Mettre à jour", "it": "Aggiorna", "pt": "Atualizar"},
     "error_required_fields": {
-        "de": "Bitte füllen Sie Werk, Stadt, Cachê und Stimmlage aus.",
-        "en": "Please fill in work, city, fee, and voice type.",
-        "fr": "Veuillez renseigner l'œuvre, la ville, le cachet et la tessiture.",
-        "it": "Compila opera, città, compenso e tessitura.",
-        "pt": "Preencha obra, cidade, cachê e tipo de voz.",
+        "de": "Bitte füllen Sie Werk und Stadt aus und fügen Sie mindestens eine offene Stelle hinzu.",
+        "en": "Please fill in work and city, and add at least one vacancy below.",
+        "fr": "Veuillez renseigner l'œuvre et la ville, et ajouter au moins un poste vacant.",
+        "it": "Compila opera e città, e aggiungi almeno un posto vacante.",
+        "pt": "Preencha obra e cidade, e adicione pelo menos uma vaga.",
     },
     "error_listing_rate_limited": {
         "de": "Zu viele Anzeigen in kurzer Zeit — bitte warten Sie ein paar Minuten und versuchen Sie es erneut.",
@@ -377,6 +428,22 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "À négocier",
         "it": "Da negoziare",
         "pt": "A negociar",
+    },
+    # Listing flyer PDF (19/09/2026) — caption under the QR Code, see
+    # app/listing_pdf.py / GET /listings/{id}/flyer.pdf.
+    "listing_flyer_scan_caption": {
+        "de": "QR-Code scannen für Details und Bewerbung",
+        "en": "Scan the QR Code for details and to apply",
+        "fr": "Scannez le QR Code pour les détails et pour postuler",
+        "it": "Scansiona il QR Code per i dettagli e per candidarti",
+        "pt": "Escaneie o QR Code para ver detalhes e se candidatar",
+    },
+    "listing_flyer_download_button": {
+        "de": "Anzeige herunterladen (QR-Code)",
+        "en": "Download flyer (QR Code)",
+        "fr": "Télécharger l'affiche (QR Code)",
+        "it": "Scarica il volantino (QR Code)",
+        "pt": "Baixar anúncio (QR Code)",
     },
     "fee_negotiable_checkbox": {
         "de": "Honorar verhandelbar (kein Betrag)",
@@ -656,7 +723,19 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # --- mensagens internas -------------------------------------------------------
     "nav_messages": {"de": "Nachrichten", "en": "Messages", "fr": "Messages", "it": "Messaggi", "pt": "Mensagens"},
-    "nav_invitations": {"de": "Einladungen", "en": "Invitations", "fr": "Invitations", "it": "Inviti", "pt": "Convites"},
+    # /invitations tab filter (19/09/2026, task #51 menu reorg) — the
+    # side-nav's "Matches" group links straight into one of these two
+    # via ?tab=, and the same toggle appears at the top of the page
+    # itself so it's not a dead-end once you're there.
+    "invitations_tab_all": {"de": "Alle", "en": "All", "fr": "Tous", "it": "Tutti", "pt": "Todos"},
+    "invitations_tab_pending": {"de": "Ausstehend", "en": "Pending", "fr": "En attente", "it": "In sospeso", "pt": "Pendentes"},
+    "invitations_tab_history": {"de": "Verlauf", "en": "History", "fr": "Historique", "it": "Cronologia", "pt": "Histórico"},
+    # Renamed (19/09/2026, task #51 menu reorg — Daniel's own sketch
+    # labels this "Matches (Job Invitations)"): kept as the international
+    # loanword "Match(es)", same convention already used everywhere else
+    # on the site (nav_match_history, mascot_reminder_evaluation, etc.)
+    # rather than translating it per language.
+    "nav_invitations": {"de": "Matches", "en": "Matches", "fr": "Matches", "it": "Match", "pt": "Matches"},
     "messages_inbox_title": {"de": "Posteingang", "en": "Inbox", "fr": "Boîte de réception", "it": "Posta in arrivo", "pt": "Caixa de entrada"},
     "messages_sent_title": {"de": "Gesendet", "en": "Sent", "fr": "Envoyés", "it": "Inviati", "pt": "Enviadas"},
     "messages_trash_title": {"de": "Papierkorb", "en": "Trash", "fr": "Corbeille", "it": "Cestino", "pt": "Lixeira"},
@@ -761,6 +840,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "Marquer comme urgent ({cost} Notas)", "it": "Segna come urgente ({cost} Notas)", "pt": "Marcar como urgente ({cost} Notas)",
     },
     "urgent_marked_success": {"de": "Als dringend markiert!", "en": "Marked as urgent!", "fr": "Marqué comme urgent !", "it": "Segnato come urgente!", "pt": "Marcada como urgente!"},
+    # Confirmation before spending Notas to mark a listing urgent
+    # (19/09/2026, same fix as notas_redeem_confirm) — only shown for
+    # the PAID path; the free-token path costs nothing, so there's
+    # nothing to confirm there.
+    "mark_urgent_confirm_paid": {
+        "de": "Als dringend markieren für {cost} Notas? Dies wird sofort von deinem Guthaben abgezogen.",
+        "en": "Mark as urgent for {cost} Notas? This will be deducted from your balance right away.",
+        "fr": "Marquer comme urgent pour {cost} Notas ? Ce montant sera déduit immédiatement de votre solde.",
+        "it": "Segnare come urgente per {cost} Notas? Verrà detratto subito dal tuo saldo.",
+        "pt": "Marcar como urgente por {cost} Notas? Isso será descontado do seu saldo imediatamente.",
+    },
     "urgent_error_insufficient_balance": {
         "de": "Kein Gratis-Token diese Woche und nicht genug Notas, um Dringlichkeit zu kaufen.",
         "en": "No free token this week and not enough Notas to buy urgency.",
@@ -1014,6 +1104,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
     "notas_unit": {"de": "Punkte", "en": "notas", "fr": "notas", "it": "notas", "pt": "notas"},
     "notas_redeem_button": {"de": "Einlösen", "en": "Redeem", "fr": "Échanger", "it": "Riscatta", "pt": "Resgatar"},
+    # Confirmation dialog before redeeming a Notas item (19/09/2026,
+    # Daniel: a click was applying the purchase with no confirmation).
+    # {item}/{cost} are replaced in the template, same pattern as the
+    # other {n}/{ratio} placeholders in this file.
+    "notas_redeem_confirm": {
+        "de": "„{item}“ für {cost} einlösen? Dies wird sofort von deinem Guthaben abgezogen.",
+        "en": "Redeem \"{item}\" for {cost}? This will be deducted from your balance right away.",
+        "fr": "Échanger « {item} » contre {cost} ? Ce montant sera déduit immédiatement de votre solde.",
+        "it": "Riscattare \"{item}\" per {cost}? Verrà detratto subito dal tuo saldo.",
+        "pt": "Resgatar \"{item}\" por {cost}? Isso será descontado do seu saldo imediatamente.",
+    },
     "notas_insufficient_short": {
         "de": "Dir fehlen noch {n} Noten.",
         "en": "You're missing {n} Notas.",
@@ -1205,6 +1306,89 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "pt": "Ei, {name}! Não esqueça de completar seu perfil!",
     },
 
+    # Central de Notificações (19/09/2026, task #50) — designed with
+    # Daniel via AskUserQuestion, see app/notification_center.py. The
+    # dropdown chrome first, then one title_key per notification type
+    # (rendered with title_params at display time — see
+    # render_notification_title() in app/notification_center.py).
+    "notification_center_title": {
+        "de": "Benachrichtigungen", "en": "Notifications", "fr": "Notifications",
+        "it": "Notifiche", "pt": "Notificações",
+    },
+    "notification_center_empty": {
+        "de": "Noch keine Benachrichtigungen.", "en": "No notifications yet.",
+        "fr": "Aucune notification pour l'instant.", "it": "Ancora nessuna notifica.",
+        "pt": "Você ainda não tem notificações.",
+    },
+    "notification_center_mark_all_read": {
+        "de": "Alle als gelesen markieren", "en": "Mark all as read",
+        "fr": "Tout marquer comme lu", "it": "Segna tutte come lette",
+        "pt": "Marcar todas como lidas",
+    },
+    "notification_profile_incomplete": {
+        "de": "Vervollständige dein Profil, um mehr Sichtbarkeit zu bekommen.",
+        "en": "Complete your profile to get more visibility.",
+        "fr": "Complétez votre profil pour gagner en visibilité.",
+        "it": "Completa il tuo profilo per ottenere più visibilità.",
+        "pt": "Complete seu perfil para ganhar mais visibilidade.",
+    },
+    "notification_invitation_received": {
+        "de": "{name} hat dir eine Einladung geschickt.",
+        "en": "{name} sent you an invitation.",
+        "fr": "{name} vous a envoyé une invitation.",
+        "it": "{name} ti ha inviato un invito.",
+        "pt": "{name} te enviou um convite.",
+    },
+    "notification_candidatura_received": {
+        "de": "{name} hat sich auf deine Anzeige beworben.",
+        "en": "{name} applied to your listing.",
+        "fr": "{name} a postulé à votre annonce.",
+        "it": "{name} si è candidato al tuo annuncio.",
+        "pt": "{name} se candidatou ao seu anúncio.",
+    },
+    "notification_invitation_accepted": {
+        "de": "{name} hat deine Einladung angenommen.",
+        "en": "{name} accepted your invitation.",
+        "fr": "{name} a accepté votre invitation.",
+        "it": "{name} ha accettato il tuo invito.",
+        "pt": "{name} aceitou seu convite.",
+    },
+    "notification_invitation_declined": {
+        "de": "{name} hat deine Einladung abgelehnt.",
+        "en": "{name} declined your invitation.",
+        "fr": "{name} a décliné votre invitation.",
+        "it": "{name} ha rifiutato il tuo invito.",
+        "pt": "{name} recusou seu convite.",
+    },
+    "notification_match_formed": {
+        "de": "Match mit {name} bestätigt!",
+        "en": "Match with {name} confirmed!",
+        "fr": "Match confirmé avec {name} !",
+        "it": "Match con {name} confermato!",
+        "pt": "Match com {name} confirmado!",
+    },
+    "notification_notas_credited": {
+        "de": "{amount} Notas gutgeschrieben: {reason}",
+        "en": "{amount} Notas credited: {reason}",
+        "fr": "{amount} Notas crédités : {reason}",
+        "it": "{amount} Notas accreditate: {reason}",
+        "pt": "{amount} Notas creditadas: {reason}",
+    },
+    "notification_loja_redeemed": {
+        "de": "\"{item}\" wurde eingelöst.",
+        "en": "\"{item}\" was redeemed.",
+        "fr": "\"{item}\" a été échangé.",
+        "it": "\"{item}\" è stato riscattato.",
+        "pt": "\"{item}\" foi resgatado.",
+    },
+    "notification_new_message": {
+        "de": "Neue Nachricht von {name}.",
+        "en": "New message from {name}.",
+        "fr": "Nouveau message de {name}.",
+        "it": "Nuovo messaggio da {name}.",
+        "pt": "Nova mensagem de {name}.",
+    },
+
     # Hall da Fama's rotating incentive line (Piscadinha, wink pose) —
     # one of these is picked at random per page load, right next to
     # the invite box already on the page (see hall_da_fama_invite_cta
@@ -1388,6 +1572,19 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # --- Buscar pessoas (people search) -----------------------------------
     "nav_search_people": {"de": "Personen suchen", "en": "Search people", "fr": "Rechercher des personnes", "it": "Cerca persone", "pt": "Buscar pessoas"},
+    # "Buscar para este anúncio" (19/09/2026) — button on a listing card
+    # in My Listings that jumps to /people pre-filtered for that listing.
+    "listing_search_for_this_button": {
+        "de": "Für diese Anzeige suchen", "en": "Search for this listing",
+        "fr": "Rechercher pour cette annonce", "it": "Cerca per questo annuncio", "pt": "Buscar para este anúncio",
+    },
+    # Search People (19/09/2026) — shortcut shown only when the viewer
+    # has at least one active seeking_* listing; sends them to My
+    # Listings where the button above lives.
+    "search_people_for_my_listing_link": {
+        "de": "Für meine Anzeige suchen", "en": "Search for my listing",
+        "fr": "Rechercher pour mon annonce", "it": "Cerca per il mio annuncio", "pt": "Buscar para meu anúncio",
+    },
     "search_people_title": {"de": "Personen suchen", "en": "Search people", "fr": "Rechercher des personnes", "it": "Cerca persone", "pt": "Buscar pessoas"},
     "search_people_subtitle": {
         "de": "Finde Sänger(innen) und Dirigent(innen) direkt — nach Land, Region, Stadt oder Stimmlage.",

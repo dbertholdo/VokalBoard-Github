@@ -33,7 +33,15 @@
         <label>Confirm your current password
             <input type="password" name="current_password" required autocomplete="current-password">
         </label>
-        <button type="submit" class="danger">{{ '<span class="status-dot status-dot-off"></span> Turn off Capitalism Mode' if capitalismo_enabled else '<span class="status-dot status-dot-on"></span> Turn on Capitalism Mode' }}</button>
+        {# FIX (19/09/2026): this used to build the whole button label —
+           including the <span> — as one string and drop it in with
+           {{ }}, which Jinja autoescapes by default, so the tag showed
+           up as literal text instead of the colored dot. Real markup
+           belongs in the template, not a Python/Jinja string. #}
+        <button type="submit" class="danger">
+            <span class="status-dot {{ 'status-dot-off' if capitalismo_enabled else 'status-dot-on' }}"></span>
+            {{ 'Turn off Capitalism Mode' if capitalismo_enabled else 'Turn on Capitalism Mode' }}
+        </button>
     </form>
 </div>
 

@@ -63,7 +63,15 @@
     {% endif %}
 
     {% if not lock_reason and vacancies %}
-        {% set can_apply = user and user.role == 'singer' and user.id != listing.author_id %}
+        {# FIX (19/09/2026): candidatura agora também vale pra
+           seeking_conductor — antes só cantor podia se candidatar
+           (correto pra seeking_singer, mas nunca fazia sentido pra
+           seeking_conductor, que nem tinha vaga cadastrada até essa
+           mudança). #}
+        {% set can_apply = user and user.id != listing.author_id and (
+            (listing.listing_type == 'seeking_singer' and user.role == 'singer')
+            or (listing.listing_type == 'seeking_conductor' and user.role == 'conductor')
+        ) %}
         {% if applied %}<p class="success">{{ t('invitation_applied_success') }}</p>{% endif %}
         {% if invite_error %}<p class="error">{{ t(invite_error) }}</p>{% endif %}
         <div class="listing-vacancies-box">
@@ -72,7 +80,7 @@
                 {% for v in vacancies %}
                     {% set my_status = my_invitation_by_vacancy.get(v.id) %}
                     <li class="vacancy-list-item">
-                        <span class="vacancy-voice-name">{{ v.voice_type_name }}</span>
+                        <span class="vacancy-voice-name">{{ v.voice_type_name or t('role_conductor') }}</span>
                         {% set v_fee_display = format_fee(v.fee_amount, v.fee_currency, v.fee_negotiable) %}
                         {% if v_fee_display %}<span class="vacancy-fee">{{ v_fee_display }}</span>{% endif %}
                         <span class="vacancy-slots">{{ v.filled_slots }}/{{ v.total_slots }} {{ t('listing_form_vacancy_filled_label') }}</span>

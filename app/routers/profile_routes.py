@@ -9,13 +9,13 @@ from app.database import fetch_all, fetch_one, execute
 from app.auth import get_current_user, hash_password, verify_password
 from app.render import render
 from app.csrf import verify_csrf
-from app.avatars import save_avatar, remove_existing_avatar
+from app.avatars import save_avatar, remove_existing_avatar, avatar_path_for
 from app.referrals import ensure_referral_code, get_referral_stats
-from app.badges import get_user_badges, with_profile_complete, check_and_notify_new_badges
+from app.badges import get_user_badges, with_profile_complete, check_and_notify_new_badges, top_badges
 from app.match_evaluations import get_quality_tiers
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 from app.password_policy import password_error
-from app.i18n import SUPPORTED_LANGUAGES
+from app.i18n import SUPPORTED_LANGUAGES, translate
 from app.singer_works import (
     get_works,
     get_works_by_category,
@@ -151,6 +151,12 @@ def get_all_voice_type_names(user_id: int) -> list[str]:
     return [r["name"] for r in rows]
 
 
+# Not called from any route since 19/09/2026 (the "Weitere Stimmlagen"
+# fieldset was removed from profile.html/profile_wizard.html) — kept as
+# a working function rather than deleted, since get_extra_voice_types()
+# above still reads singer_profile_voice_types elsewhere (search
+# filtering, notification matching) and this is its natural write-side
+# counterpart if that UI ever comes back.
 def set_extra_voice_types(user_id: int, voice_type_ids: list[int]) -> None:
     execute("DELETE FROM singer_profile_voice_types WHERE user_id = :user_id", {"user_id": user_id})
     seen = set()
@@ -423,20 +429,20 @@ async def update_profile(
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Multiple checkboxes sharing the name "extra_voice_type_ids" arrive as
-    # repeated form fields — FastAPI's Form() doesn't declare that shape
-    # cleanly for a mix with single-value fields above, so read it straight
-    # off the already-parsed request form.
+    # FIX (19/09/2026, Daniel: "Remover 'Weitere Stimmlagen' do perfil"):
+    # the "extra_voice_type_ids" checkboxes were removed from
+    # profile.html/profile_wizard.html, so this form field no longer
+    # exists — this used to read it and then unconditionally call
+    # set_extra_voice_types() below on every save. Left as-is, that
+    # would've silently wiped out anyone's already-saved extra voice
+    # types the next time they touched their profile (an always-empty
+    # list from a field that no longer exists). get_extra_voice_types()/
+    # set_extra_voice_types() (app/routers/profile_routes.py) and the
+    # underlying singer_profile_voice_types table are untouched — search
+    # filtering and notification matching still honor whatever's already
+    # stored there; only the ability to add/remove it through the
+    # profile UI is gone, per the request.
     form = await request.form()
-    valid_voice_ids = {r["id"] for r in fetch_all("SELECT id FROM voice_types")}
-    extra_voice_type_ids = []
-    for raw_id in form.getlist("extra_voice_type_ids"):
-        try:
-            vt_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        if vt_id in valid_voice_ids:
-            extra_voice_type_ids.append(vt_id)
 
     # Same pattern for the spoken-languages fields (P2.B): a repeated,
     # parallel pair of fields per row — "spoken_language_code" (fixed
@@ -546,7 +552,6 @@ async def update_profile(
             )
 
         set_audio_links(user["id"], parse_audio_links(audio_links))
-        set_extra_voice_types(user["id"], extra_voice_type_ids)
     else:
         execute(
             """
@@ -766,23 +771,49 @@ def delete_singer_work(request: Request, work_id: int, csrf_token: str = Form(""
     return RedirectResponse(url="/profile?saved=1#works", status_code=303)
 
 
+@router.get("/profile/digital-pass", response_class=HTMLResponse)
+def digital_pass(request: Request):
+    """
+    Digital Pass (19/09/2026, task #51) — landing page for two tools:
+    the CV export (already built, see download_cv_pdf() right below —
+    just surfaced here with its own real download button) and a
+    business card generator based on that same CV (Daniel: "só colocar
+    para design ainda, não executar" — design/placement only for now,
+    the actual generator isn't built). Kept as its own stub page
+    rather than another disabled line in _profile_menu.html so the
+    "coming soon" state has somewhere to actually explain itself.
+    """
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return render(request, "digital_pass_stub.html", {"user": user})
+
+
 @router.get("/profile/cv.pdf")
 def download_cv_pdf(request: Request):
     """
     P2 cluster, CV export (19/09/2026) — stateless PDF generation (see
     app/cv_pdf.py, same "no filesystem access" shape as the Rechnung
-    generator in app/invoice_pdf.py). Only the PDF-CV half of the
-    original spec item was picked by Daniel; no business-card/QR
-    export yet.
+    generator in app/invoice_pdf.py).
+
+    Redesigned 19/09/2026 to fix two bugs Daniel found (the photo
+    wasn't included, no QR Code was generated) and to make the PDF
+    look like the profile's own "id card" (photo, role/voice line,
+    badge pills, highlighted-profile banner) instead of a plain text
+    CV — see app/cv_pdf.py's own docstring for the visual reasoning.
     """
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    account = fetch_one("SELECT email, phone, phone_visibility FROM users WHERE id = :id", {"id": user["id"]})
+    account = fetch_one(
+        "SELECT email, phone, phone_visibility, profile_highlighted_until FROM users WHERE id = :id",
+        {"id": user["id"]},
+    )
     is_singer = user["role"] == "singer"
     role_profile = get_singer_profile(user["id"]) if is_singer else get_conductor_profile(user["id"])
     works = get_works_by_category(user["id"]) if is_singer else {"solo": [], "choir": []}
+    lang = getattr(request.state, "lang", "de")
 
     if is_singer:
         headline = role_profile.get("voice_type_name") if role_profile else ""
@@ -794,8 +825,28 @@ def download_cv_pdf(request: Request):
     profile_slug = user.get("profile_slug")
     profile_url = f"{str(request.base_url).rstrip('/')}/{'u/' + profile_slug if profile_slug else 'users/' + str(user['id'])}"
 
+    # Same "top 3 unlocked badges" the public profile card shows (see
+    # app/badges.py:top_badges + public_profile.html's badge-row),
+    # resolved to display text here since the PDF has no t() available.
+    badge_labels = []
+    for b in top_badges(user["id"], limit=3):
+        label = translate(f"badge_{b['key']}_label", lang)
+        if b["key"] == "views" and b.get("threshold"):
+            label = f"{label} ({b['threshold']}+)"
+        if b["key"] == "anniversary" and b.get("years"):
+            unit = translate("year_singular", lang) if b["years"] == 1 else translate("year_plural", lang)
+            label = f"{label} ({b['years']} {unit})"
+        badge_labels.append(label)
+
+    is_highlighted = bool(
+        account
+        and account["profile_highlighted_until"]
+        and account["profile_highlighted_until"] > datetime.now(timezone.utc)
+    )
+
     cv = CvDocument(
         full_name=user["full_name"],
+        role_label=translate("role_singer" if is_singer else "role_conductor", lang),
         headline=headline or "",
         city=user.get("city") or "",
         country=user.get("country") or "",
@@ -807,7 +858,16 @@ def download_cv_pdf(request: Request):
         phone=(account["phone"] or "") if account and account["phone_visibility"] == "public" else "",
         email=account["email"] if account else "",
         profile_url=profile_url,
-        spoken_languages=get_spoken_language_names(user["id"], getattr(request.state, "lang", "de")),
+        # FIX (19/09/2026): the photo wasn't making it into the PDF —
+        # avatar_path_for() is the same helper the upload/removal flow
+        # already uses (app/avatars.py), so this reads the exact file
+        # the person's own avatar was last saved to. cv_pdf.py falls
+        # back to an initial-letter circle if the path doesn't exist
+        # (no avatar set, or a stale avatar_url after a removal).
+        avatar_path=avatar_path_for(user["id"]) if user.get("avatar_url") else "",
+        badges=badge_labels,
+        is_highlighted=is_highlighted,
+        spoken_languages=get_spoken_language_names(user["id"], lang),
         composer_tags=get_composer_tags(user["id"]) if is_singer else [],
         solo_works=[CvWork(title=w["title"], composer=w.get("composer") or "") for w in works["solo"]],
         choir_works=[CvWork(title=w["title"], composer=w.get("composer") or "") for w in works["choir"]],
@@ -1027,16 +1087,21 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
     # for visitors) — the person themselves sees all of them, locked
     # or not, in /profile.
     # P3.B: if I (the viewer) have my own open vacancies and this
-    # profile belongs to a singer, offer to invite them directly —
-    # "convite pelo diretório". Only listings I OWN with at least one
-    # vacancy that still has room, and only ever from HERE (not shown
-    # to the artist themselves, and never for a conductor profile).
+    # profile belongs to a singer OR a conductor, offer to invite them
+    # directly — "convite pelo diretório". Only listings I OWN with at
+    # least one vacancy that still has room, and only ever from HERE
+    # (not shown to the artist themselves). FIX (19/09/2026): used to
+    # be singer-only — conductors had no vaga/invite path at all until
+    # today (see app/vacancies.py's module docstring); a viewer with an
+    # active seeking_conductor listing can now invite a conductor here
+    # too. LEFT JOIN voice_types: a seeking_conductor vacancy has
+    # voice_type_id = NULL.
     invitable_vacancies = []
     if (
         profile_user
         and viewer is not None
         and viewer["id"] != user_id
-        and profile_user["role"] == "singer"
+        and profile_user["role"] in ("singer", "conductor")
         and not blocked_either_way
     ):
         invitable_vacancies = fetch_all(
@@ -1045,8 +1110,9 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
                    l.id AS listing_id, l.title AS listing_title, vt.name AS voice_type_name
             FROM listing_vacancies lv
             JOIN listings l ON l.id = lv.listing_id
-            JOIN voice_types vt ON vt.id = lv.voice_type_id
+            LEFT JOIN voice_types vt ON vt.id = lv.voice_type_id
             WHERE l.author_id = :viewer_id AND l.is_active = TRUE
+              AND l.listing_type = :expected_listing_type
               AND lv.filled_slots < lv.total_slots
               AND NOT EXISTS (
                   SELECT 1 FROM job_invitations ji
@@ -1054,7 +1120,10 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
               )
             ORDER BY l.created_at DESC
             """,
-            {"viewer_id": viewer["id"], "profile_id": user_id},
+            {
+                "viewer_id": viewer["id"], "profile_id": user_id,
+                "expected_listing_type": "seeking_singer" if profile_user["role"] == "singer" else "seeking_conductor",
+            },
         )
 
     badges = []

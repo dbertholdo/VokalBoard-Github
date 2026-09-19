@@ -133,7 +133,7 @@
 
 /* Private profile editor: independent from the public profile layout. */
 .profile-menu { display: inline-block; position: relative; }
-.profile-menu summary, .profile-side-menu summary { cursor: pointer; }
+.profile-menu summary, .side-nav-group summary { cursor: pointer; }
 .profile-menu-links { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
 .profile-menu > .profile-menu-links {
     position: absolute;
@@ -146,8 +146,30 @@
     border: 1px solid var(--border);
     border-radius: 10px;
 }
-.profile-menu-links a { display: block; padding: 6px; }
+/* FIX (19/09/2026, Daniel: "fonte estranha... roxa depois de visitar")
+   — no color was ever set here, so the browser's default link/visited
+   purple leaked through instead of the site's own palette. Explicit
+   :visited rule so a clicked link never reverts to browser default. */
+.profile-menu-links a {
+    display: block;
+    padding: 6px;
+    color: var(--ink);
+    text-decoration: none;
+    font-family: inherit;
+    border-radius: var(--radius-tag);
+}
+.profile-menu-links a:visited { color: var(--ink); }
+.profile-menu-links a:hover { color: var(--accent); background: var(--accent2-light); }
 .profile-menu-pending { color: var(--muted); font-size: .85rem; padding: 6px; }
+
+/* Side-nav sub-item (19/09/2026, task #51 menu reorg) — e.g. "Pending"/
+   "History" nested one level under "Matches" inside the Jobs group.
+   Same shell as .profile-menu-links a, just indented and a touch
+   smaller so the hierarchy reads at a glance. */
+.profile-menu-links a.side-nav-subrow { padding-left: 22px; font-size: 0.85rem; color: var(--muted); }
+.profile-menu-links a.side-nav-subrow:visited { color: var(--muted); }
+.profile-menu-links a.side-nav-subrow:hover { color: var(--accent); }
+.profile-menu-links a.side-nav-subrow.active { color: var(--accent); font-weight: 700; }
 .stacked-form.profile-editor-form { max-width: none; }
 .profile-edit-grid {
     display: grid;
@@ -411,6 +433,83 @@ button, .button-primary, .button-secondary, .button-danger, .button-link {
     background: var(--accent-light);
 }
 
+/* Central de Notificações (19/09/2026, task #50) — bell dropdown,
+   same shell pattern as .lang-switch-dropdown/.lang-switch-menu just
+   above, plus its own badge (reuses .badge-count) and item list. */
+.notification-center-dropdown {
+    position: relative;
+    display: inline-block;
+    margin-left: 8px;
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+}
+
+.notification-center-dropdown summary {
+    cursor: pointer;
+    color: var(--muted);
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: var(--radius-tag);
+    user-select: none;
+}
+.notification-center-dropdown summary::-webkit-details-marker { display: none; }
+.notification-center-dropdown summary:hover { background: var(--accent2-light); color: var(--ink); }
+.notification-center-dropdown .badge-count { margin-left: 4px; }
+
+.notification-center-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    box-shadow: 0 6px 18px rgba(28, 31, 46, 0.14);
+    display: flex;
+    flex-direction: column;
+    width: 320px;
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 40;
+}
+
+.notification-center-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: bold;
+    color: var(--ink);
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+}
+
+.notification-center-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    line-height: 1.35;
+}
+.notification-center-item:last-child { border-bottom: none; }
+.notification-center-item:hover { background: var(--accent2-light); }
+.notification-center-item .icon { flex-shrink: 0; margin-top: 1px; color: var(--muted); }
+.notification-center-item.unread { background: var(--accent-light); }
+.notification-center-item.unread .icon { color: var(--accent); }
+
+.notification-center-empty {
+    padding: 16px 12px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
 /* ------------------------------------------------------------
    Layout with sidebar (logged in): .layout-shell is the
    [sidebar | content] row. On desktop the sidebar stays fixed (sticky)
@@ -469,16 +568,25 @@ button, .button-primary, .button-secondary, .button-danger, .button-link {
 }
 .side-nav-icon { width: 1.15em; height: 1.15em; }
 
-/* Alternating shades of green, one light and one stronger, as requested
-   — reuses the variables already defined in :root instead of new
-   standalone colors. */
+/* Alternating light violet shades (stale comment fixed 19/09/2026 —
+   this used to say "green" from before the Mineral palette; the
+   tokens themselves were already correct) — reuses the variables
+   already defined in :root instead of new standalone colors. */
 .side-nav-tone-1 { background: var(--accent2-light); }
 .side-nav-tone-2 { background: var(--accent-light); }
 
 .side-nav-row:hover { background: var(--accent2); color: #fff; }
 
+/* FIX (19/09/2026, Daniel: "a cor do menu onde estou não pode em
+   hipótese alguma ser vermelha"): this was a leftover literal red
+   (#c62828) from before the Mineral palette (19/09/2026) replaced the
+   old green/red scheme — brand tokens were never applied here. Now
+   uses --accent (violet), consistent with every other "current
+   selection" indicator on the site. The Red Zone's own red
+   (.side-nav-row-danger below) is a deliberate, separate exception —
+   it's meant to read as sensitive, per CLAUDE.md §1/§4. */
 .side-nav-row.active {
-    background: #c62828;
+    background: var(--accent);
     color: #fff;
 }
 
@@ -1345,6 +1453,26 @@ form button.link-button:hover { color: var(--accent-dark); }
 .invite-to-vacancy-details {
     margin: 10px 0;
 }
+/* FIX (19/09/2026, Daniel: "aparecer botão de convidar no perfil das
+   outras pessoas" — it already existed but reused .block-user-summary,
+   the same muted, low-key style as "block this person"/"report" below
+   it, so it read as a minor toggle rather than an actual invite CTA.
+   Now styled like a real button (same look as .button-link.button-primary
+   above it), just on a <summary> element so the vacancy picker still
+   expands/collapses without JS. */
+.invite-cta-summary {
+    cursor: pointer;
+    display: inline-block;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    border-radius: var(--radius-control);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    list-style: none;
+}
+.invite-cta-summary::-webkit-details-marker { display: none; }
+.invite-cta-summary:hover { opacity: 0.95; }
 .invitation-list {
     list-style: none;
     margin: 8px 0 0;
@@ -3187,3 +3315,181 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 .badge-active-mail { color: #176545; background: #EAF6EF; }
 .badge-paused-mail { color: var(--muted); background: var(--bg); }
+
+/* ------------------------------------------------------------
+   Rechnungmaker — live WYSIWYG preview (19/09/2026)
+   Paper mock of the PDF layout in app/invoice_pdf.py, updated live by
+   app/static/js/invoice_preview.js on every keystroke. Kept visually in
+   sync with the PDF by hand — same navy/violet/mineral tokens, same
+   column order.
+   ------------------------------------------------------------ */
+.invoice-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+    gap: var(--space-5);
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .invoice-layout {
+        grid-template-columns: 1fr;
+    }
+}
+.invoice-preview {
+    position: sticky;
+    top: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+.invoice-preview-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.invoice-preview-label::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.invoice-paper {
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: 0 12px 28px -18px rgba(23, 40, 63, 0.35);
+    padding: var(--space-5);
+    font-size: 0.82rem;
+    color: var(--ink);
+    overflow-x: auto;
+}
+.invoice-paper-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+.invoice-paper-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: var(--ink);
+}
+.invoice-paper-brand img {
+    width: 20px;
+    height: 20px;
+}
+.invoice-paper-head h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--ink);
+}
+.invoice-paper-parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+.invoice-paper-kicker {
+    margin: 0 0 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+.invoice-paper-party p {
+    margin: 0;
+    line-height: 1.4;
+}
+.invoice-paper-party .pre {
+    white-space: pre-wrap;
+}
+.invoice-paper-meta {
+    margin-top: 4px !important;
+    font-size: 0.76rem;
+    color: var(--muted);
+}
+.invoice-paper-metabar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+    font-size: 0.76rem;
+    color: var(--muted);
+}
+.invoice-paper-metabar strong {
+    display: block;
+    color: var(--ink);
+    font-size: 0.86rem;
+}
+.invoice-paper-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    margin-bottom: var(--space-3);
+}
+.invoice-paper-table th {
+    background: var(--ink);
+    color: #FFFFFF;
+    text-align: left;
+    padding: 6px 8px;
+    font-size: 0.72rem;
+}
+.invoice-paper-table th:nth-child(n+3),
+.invoice-paper-table td:nth-child(n+3) {
+    text-align: right;
+}
+.invoice-paper-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+}
+.invoice-paper-table tbody tr:nth-child(even) {
+    background: var(--bg);
+}
+.invoice-paper-totals {
+    margin-left: auto;
+    width: 60%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: var(--space-3);
+}
+.invoice-paper-totals > div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+.invoice-paper-grandtotal {
+    border-top: 2px solid var(--accent);
+    margin-top: 4px;
+    padding-top: 6px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--ink);
+}
+.invoice-paper-notes {
+    font-size: 0.76rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+.invoice-paper-notes p {
+    margin: 0 0 2px;
+}
+.invoice-paper-footer {
+    margin: var(--space-4) 0 0;
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--muted);
+}

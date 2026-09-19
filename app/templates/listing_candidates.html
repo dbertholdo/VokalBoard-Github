@@ -28,7 +28,7 @@
                         {% if c.artist_avatar_url %}<img class="nav-avatar" src="{{ c.artist_avatar_url }}" alt="">{% endif %}
                         <a href="/users/{{ c.artist_id }}">{{ c.artist_name }}</a>
                         {% set c_fee_display = format_fee(c.fee_amount, c.fee_currency, c.fee_negotiable) %}
-                        <span class="invitation-meta">{{ c.voice_type_name }}{% if c_fee_display %} · {{ c_fee_display }}{% endif %}</span>
+                        <span class="invitation-meta">{{ c.voice_type_name or t('role_conductor') }}{% if c_fee_display %} · {{ c_fee_display }}{% endif %}</span>
                     </div>
                     {% if c.status == 'pending' %}
                         <div class="invitation-item-actions">
@@ -67,7 +67,7 @@
                         {% if i.artist_avatar_url %}<img class="nav-avatar" src="{{ i.artist_avatar_url }}" alt="">{% endif %}
                         <a href="/users/{{ i.artist_id }}">{{ i.artist_name }}</a>
                         {% set i_fee_display = format_fee(i.fee_amount, i.fee_currency, i.fee_negotiable) %}
-                        <span class="invitation-meta">{{ i.voice_type_name }}{% if i_fee_display %} · {{ i_fee_display }}{% endif %}</span>
+                        <span class="invitation-meta">{{ i.voice_type_name or t('role_conductor') }}{% if i_fee_display %} · {{ i_fee_display }}{% endif %}</span>
                     </div>
                     <span class="invitation-status invitation-status-{{ i.status }}">{{ t('invitation_status_' ~ i.status) }}</span>
                 </li>

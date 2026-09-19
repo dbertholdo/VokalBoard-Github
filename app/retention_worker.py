@@ -31,6 +31,15 @@ def run_retention(connection=None, dry_run=False):
     for table, predicate in predicates.items():
         counts[table+'_archive'] = conn.execute(text(f'SELECT count(*) FROM {table} WHERE archived_at IS NULL AND {predicate}')).scalar()
         counts[table+'_purge'] = conn.execute(text(f"SELECT count(*) FROM {table} WHERE COALESCE(archived_at,{archive_dates[table]})+interval '60 days' <= now()")).scalar()
+    # Central de Notificações (19/09/2026, task #50) — Daniel: "mesmo
+    # espírito do Zero-Storage": READ notifications older than 30 days
+    # get purged; UNREAD ones are never touched no matter how old, so
+    # this is a direct DELETE, not the archive-then-purge two-step the
+    # tables above use (there's no "final snapshot" worth keeping for
+    # a notification once it's been read and aged out).
+    counts['notifications_purge'] = conn.execute(
+        text("SELECT count(*) FROM notifications WHERE read_at IS NOT NULL AND read_at + interval '30 days' <= now()")
+    ).scalar()
     if dry_run:
         return counts
     # Capture final job details before removal; the Match itself and participants remain.
@@ -45,6 +54,7 @@ def run_retention(connection=None, dry_run=False):
     # Delete messages first to avoid changing their conversation association unnecessarily.
     for table in ('messages', 'listings'):
         conn.execute(text(f"DELETE FROM {table} WHERE archived_at+interval '60 days'<=now()"))
+    conn.execute(text("DELETE FROM notifications WHERE read_at IS NOT NULL AND read_at + interval '30 days' <= now()"))
     return counts
 
 

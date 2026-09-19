@@ -228,7 +228,7 @@
         {% if invited %}<p class="success">{{ t('invitation_invited_success') }}</p>{% endif %}
         {% if invitable_vacancies %}
             <details class="invite-to-vacancy-details">
-                <summary class="block-user-summary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ t('invitation_invite_button') }}</summary>
+                <summary class="invite-cta-summary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mic"></use></svg> {{ t('invitation_invite_button') }}</summary>
                 <form method="post" action="/listings/{{ invitable_vacancies[0].listing_id }}/invite" class="stacked-form narrow invite-to-vacancy-form" id="invite-to-vacancy-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="artist_user_id" value="{{ profile_user.id }}">
@@ -236,7 +236,7 @@
                     <label>{{ t('invitation_choose_vacancy_label') }}
                         <select name="vacancy_id" id="invite-vacancy-select" data-listings-by-vacancy="{{ invitable_vacancies|map(attribute='vacancy_id')|list|join(',') }}">
                             {% for v in invitable_vacancies %}
-                                <option value="{{ v.vacancy_id }}" data-listing-id="{{ v.listing_id }}">{{ v.listing_title }} — {{ v.voice_type_name }} ({{ v.total_slots - v.filled_slots }} {{ t('listing_form_vacancy_slots_placeholder') }})</option>
+                                <option value="{{ v.vacancy_id }}" data-listing-id="{{ v.listing_id }}">{{ v.listing_title }} — {{ v.voice_type_name or t('role_conductor') }} ({{ v.total_slots - v.filled_slots }} {{ t('listing_form_vacancy_slots_placeholder') }})</option>
                             {% endfor %}
                         </select>
                     </label>

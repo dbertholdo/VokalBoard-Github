@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav_digital_pass') }} — VokalBoard{% endblock %}
+
+{% block content %}
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-card"></use></svg> {{ t('nav_digital_pass') }}</h1>
+<p>{{ t('digital_pass_intro') }}</p>
+
+<div class="tool-tabs">
+    <a class="tool-tab active" href="#digital-pass-cv">{{ t('digital_pass_cv_tab') }}</a>
+    <a class="tool-tab" href="#digital-pass-card">{{ t('digital_pass_card_tab') }}</a>
+</div>
+
+<section class="listing-form-card" id="digital-pass-cv">
+    <h2>{{ t('digital_pass_cv_tab') }}</h2>
+    <p>{{ t('digital_pass_cv_body') }}</p>
+    <p><a class="button-link button-primary" href="/profile/cv.pdf"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> {{ t('digital_pass_cv_download_button') }}</a></p>
+</section>
+
+<section class="listing-form-card" id="digital-pass-card">
+    <h2>{{ t('digital_pass_card_tab') }}</h2>
+    <p>{{ t('digital_pass_card_body') }}</p>
+    <p class="empty-state">{{ t('feature_coming_soon') }}</p>
+</section>
+{% endblock %}

@@ -22,6 +22,8 @@ from app.match_evaluations import get_pending_evaluations
 from app.invoice_match_drafts import count_pending_actions
 from app.notas_wallet import format_notas as _format_notas
 from app.mascot_moments import pending_reminder_key
+from app.notification_center import get_unread_count as _get_notification_unread_count
+from app.notification_center import get_recent_notifications, profile_incomplete_notification, render_notification_title
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -53,6 +55,9 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     # ("3") e fração com vírgula ("0,50"), disponível em qualquer
     # template que precise exibir um valor de Notas.
     context["format_notas"] = _format_notas
+    # Central de Notificações (19/09/2026, task #50): lets base.html
+    # render a notification's title without importing app.i18n itself.
+    context["render_notification_title"] = lambda n: render_notification_title(n, context["t"])
     context["lang_urls"] = {
         code: str(request.url.include_query_params(lang=code)) for code in SUPPORTED_LANGUAGES
     }
@@ -142,6 +147,21 @@ def render(request: Request, template_name: str, context: dict | None = None, st
         # P4 Etapa 3 nav badge: rascunhos de Rechnung de Match onde é a
         # vez desta pessoa agir (ver app/invoice_match_drafts.py).
         context["pending_invoice_actions_count"] = count_pending_actions(user_id)
+
+        # Central de Notificações (19/09/2026, task #50) — see
+        # app/notification_center.py. This is a separate, real list of
+        # discrete events (bell dropdown), NOT the same thing as the
+        # live pending-count badges above. The one synthetic item
+        # (incomplete profile) is merged in here at read time, ahead
+        # of the stored ones, so the template never has to know the
+        # difference.
+        context["notification_unread_count"] = _get_notification_unread_count(user_id)
+        notifications = list(get_recent_notifications(user_id))
+        synthetic_notification = profile_incomplete_notification(context["user"]) if context.get("user") else None
+        if synthetic_notification:
+            notifications.insert(0, synthetic_notification)
+            context["notification_unread_count"] += 1
+        context["notifications"] = notifications
 
         # Atento mascot toast (Part 2 backlog item 4, 19/09/2026): shown
         # once per session, reusing the two counts above (no extra

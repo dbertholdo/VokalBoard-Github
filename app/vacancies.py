@@ -3,16 +3,24 @@ Multiple job vacancies per listing, one row per voice type (P3.A) —
 "um anúncio pai pode conter várias vagas por naipe... com cotas
 individuais e cachês específicos" (CLAUDE.md).
 
-Deliberately ADDITIVE, not a replacement: a "seeking_singer" listing can
-still work exactly as before with just its own single
-`listings.voice_type_id` / `listings.fee` (no vacancy rows at all) — that
-path keeps every existing piece that reads those two columns directly
-working unchanged (board matching, e-mail alerts in app/notifications.py,
-banner targeting in app/banners.py, the "Buscar pessoas" directory).
-Vacancies only come into play when the person filling out the listing
-form adds one or more of them; in that case they're what drives
-invitations/candidaturas/Matches (see app/match_service.py) for that
-listing.
+FIX (19/09/2026, Daniel: "duas formas de adicionar vagas, fica confuso,
+inclusive para o código e db") — no longer additive. This is now the
+ONLY place a seeking_singer/seeking_conductor listing's voice type and
+fee live; `listings.voice_type_id`/`fee_amount`/`fee_currency`/
+`fee_negotiable` are still written for these two listing_types, but only
+as a DERIVED mirror of the vacancy rows (see create_listing/
+update_listing in listings_routes.py), so every existing piece that
+reads those two columns directly (board matching, e-mail alerts in
+app/notifications.py, banner targeting in app/banners.py, the "Buscar
+pessoas" directory) keeps working unchanged without having to be
+rewritten against listing_vacancies directly. Every seeking_singer/
+seeking_conductor listing now always has at least one vacancy row —
+old listings that predate this change were backfilled one by
+db/migrations/2026-09-19_unify_vacancies.sql.
+
+seeking_conductor has no naipe at all, so its vacancy row always has
+voice_type_id = NULL (see parse_vacancies_form's listing_type branch
+below) — conductors are matched by role only, not by voice.
 """
 from app.database import fetch_all, fetch_one, execute
 from app.fees import parse_fee_amount, CURRENCIES, DEFAULT_CURRENCY
@@ -21,15 +29,17 @@ MAX_VACANCIES_PER_LISTING = 10
 
 
 def get_vacancies(listing_id: int) -> list[dict]:
+    # LEFT JOIN (not JOIN): a seeking_conductor vacancy has
+    # voice_type_id = NULL — an inner join would silently drop it.
     return fetch_all(
         """
         SELECT lv.id, lv.voice_type_id, vt.name AS voice_type_name,
                lv.fee_amount, lv.fee_currency, lv.fee_negotiable,
                lv.total_slots, lv.filled_slots
         FROM listing_vacancies lv
-        JOIN voice_types vt ON vt.id = lv.voice_type_id
+        LEFT JOIN voice_types vt ON vt.id = lv.voice_type_id
         WHERE lv.listing_id = :listing_id
-        ORDER BY vt.sort_order
+        ORDER BY vt.sort_order NULLS FIRST, lv.id
         """,
         {"listing_id": listing_id},
     )
@@ -37,7 +47,7 @@ def get_vacancies(listing_id: int) -> list[dict]:
 
 def parse_vacancies_form(
     voice_type_ids: list[str], fee_amounts: list[str], fee_currencies: list[str],
-    fee_negotiables, slots: list[str],
+    fee_negotiables, slots: list[str], listing_type: str = "seeking_singer",
 ) -> list[dict]:
     """
     Turns the parallel `vacancy_voice_type_id` / `vacancy_fee_amount` /
@@ -64,7 +74,36 @@ def parse_vacancies_form(
     a dict-like/callable supporting `i in fee_negotiables` — built
     from the raw form (see listings_routes.py), so each row's checked
     state is read by its own index, independent of who else is checked.
+
+    FIX (19/09/2026): `listing_type == "seeking_conductor"` is a
+    special case — conductors have no naipe, so listing_form.html only
+    shows row 0's slots/fee inputs for that type (no voice select, no
+    "add another row"). This always returns exactly one synthesized
+    vacancy with voice_type_id=None, built from row 0's slots/fee,
+    regardless of what (if anything) came in `voice_type_ids` — a
+    conductor listing never needs the "skip rows with no voice"
+    filtering below, since it never had a voice to begin with.
     """
+    if listing_type == "seeking_conductor":
+        negotiable = bool(fee_negotiables(0)) if callable(fee_negotiables) else bool(0 in fee_negotiables)
+        try:
+            amount = parse_fee_amount(fee_amounts[0]) if fee_amounts else None
+        except ValueError:
+            amount = None
+        if amount is not None and negotiable:
+            amount = None
+        currency = fee_currencies[0].strip().upper() if fee_currencies and fee_currencies[0] else DEFAULT_CURRENCY
+        if currency not in CURRENCIES:
+            currency = DEFAULT_CURRENCY
+        try:
+            total_slots = max(1, int(slots[0])) if slots and slots[0] else 1
+        except (TypeError, ValueError):
+            total_slots = 1
+        return [{
+            "voice_type_id": None, "fee_amount": amount, "fee_currency": currency,
+            "fee_negotiable": negotiable, "total_slots": total_slots,
+        }]
+
     valid_ids = {r["id"] for r in fetch_all("SELECT id FROM voice_types")}
     seen = set()
     result = []
@@ -111,6 +150,12 @@ def set_vacancies(listing_id: int, vacancies: list[dict]) -> None:
     present are deleted (cascades to job_invitations/keeps job_matches,
     since job_matches.vacancy_id has ON DELETE RESTRICT — see note
     below).
+
+    Keys this dict by `voice_type_id`, including `None` for a
+    seeking_conductor row — safe only because parse_vacancies_form()
+    guarantees at most one `None`-keyed row per listing (conductors
+    never have more than one implicit vacancy); this would silently
+    collapse multiple conductor rows into one if that ever changed.
     """
     existing = {r["voice_type_id"]: r["id"] for r in fetch_all(
         "SELECT id, voice_type_id FROM listing_vacancies WHERE listing_id = :id", {"id": listing_id}

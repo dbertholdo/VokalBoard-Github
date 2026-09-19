@@ -42,7 +42,11 @@ def create_invitation(vacancy_id: int, artist_user_id: int, initiated_by_user_id
             ),
             {"vacancy_id": vacancy_id},
         ).mappings().first()
-        if not vacancy or vacancy["listing_type"] != "seeking_singer" or not vacancy["is_active"]:
+        # FIX (19/09/2026, Daniel: maestro também precisa de convite/
+        # candidatura/Match) — was hardcoded to "seeking_singer" only;
+        # now any job-type vacancy works, including a conductor's
+        # single implicit one (voice_type_id NULL, see app/vacancies.py).
+        if not vacancy or vacancy["listing_type"] not in ("seeking_singer", "seeking_conductor") or not vacancy["is_active"]:
             return {"ok": False, "reason": "invitation_error_vacancy_closed"}
         if vacancy["filled_slots"] >= vacancy["total_slots"]:
             return {"ok": False, "reason": "invitation_error_vacancy_full"}

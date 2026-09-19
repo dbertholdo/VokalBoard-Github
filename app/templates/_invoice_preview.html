@@ -1,0 +1,50 @@
+{# Rechnungmaker — live WYSIWYG preview pane (19/09/2026).
+   Shared by rechnungmaker.html (Gerador Avulso tab) and
+   invoice_match_form.html (Match-Rechnungen), both of which use the same
+   field names. Pass the id of the <form> to watch; the JS in
+   app/static/js/invoice_preview.js does the rest — purely client-side,
+   nothing here ever reaches the server (Zero-Storage Policy, CLAUDE.md §2).
+   Layout mirrors app/invoice_pdf.py render_invoice_pdf() by hand. #}
+{% macro invoice_preview_pane(form_id) %}
+<div class="invoice-preview" data-invoice-preview="{{ form_id }}">
+    <span class="invoice-preview-label">{{ t('invoice_preview_label') }}</span>
+    <div class="invoice-paper">
+        <header class="invoice-paper-head">
+            <div class="invoice-paper-brand">
+                <img src="/static/img/brand/icon-small-navy.svg" alt="">
+                <span>VokalBoard</span>
+            </div>
+            <h2>Rechnung</h2>
+        </header>
+        <div class="invoice-paper-parties">
+            <div class="invoice-paper-party">
+                <p class="invoice-paper-kicker">Rechnungssteller</p>
+                <p data-preview="issuer_name">—</p>
+                <p class="pre" data-preview="issuer_address">—</p>
+                <p class="invoice-paper-meta">Steuer-Nr./USt-IdNr.: <span data-preview="issuer_tax_id">—</span></p>
+            </div>
+            <div class="invoice-paper-party">
+                <p class="invoice-paper-kicker">Rechnungsempfänger</p>
+                <p data-preview="recipient_name">—</p>
+                <p class="pre" data-preview="recipient_address">—</p>
+            </div>
+        </div>
+        <div class="invoice-paper-metabar">
+            <span>Rechnungs-Nr.<strong data-preview="number">—</strong></span>
+            <span>Rechnungsdatum<strong data-preview="issue_date">—</strong></span>
+            <span>Leistungsdatum<strong data-preview="service_date">—</strong></span>
+        </div>
+        <table class="invoice-paper-table">
+            <thead><tr><th>Pos.</th><th>Bezeichnung</th><th>Menge</th><th>Einh.</th><th>E-Preis</th><th>Gesamt</th></tr></thead>
+            <tbody data-preview-rows></tbody>
+        </table>
+        <div class="invoice-paper-totals">
+            <div><span>Summe Netto</span><strong data-preview="calc_net">0,00 EUR</strong></div>
+            <div><span data-preview="calc_tax_label">Umsatzsteuer</span><strong data-preview="calc_tax">0,00 EUR</strong></div>
+            <div class="invoice-paper-grandtotal"><span>Endsumme</span><strong data-preview="calc_total">0,00 EUR</strong></div>
+        </div>
+        <div class="invoice-paper-notes" data-preview-notes></div>
+        <p class="invoice-paper-footer">Made with assistance of VokalBoard - Rechnung Maker - www.vokalboard.com/rechnungmaker</p>
+    </div>
+</div>
+{% endmacro %}

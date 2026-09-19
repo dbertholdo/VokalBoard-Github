@@ -4,6 +4,16 @@
 {% block content %}
 <h1>{{ t('nav_invitations') }}</h1>
 
+{# Menu reorg (19/09/2026, task #51) — mirrors the Pending/History
+   sub-links in the side-nav's "Matches" group, so landing here via
+   ?tab= isn't a dead end and the tabs stay reachable without the
+   side-nav open. #}
+<div class="tool-tabs">
+    <a class="tool-tab {{ 'active' if active_tab == 'all' else '' }}" href="/invitations">{{ t('invitations_tab_all') }}</a>
+    <a class="tool-tab {{ 'active' if active_tab == 'pending' else '' }}" href="/invitations?tab=pending">{{ t('invitations_tab_pending') }}</a>
+    <a class="tool-tab {{ 'active' if active_tab == 'history' else '' }}" href="/invitations?tab=history">{{ t('invitations_tab_history') }}</a>
+</div>
+
 {% if responded == 'accepted' %}
     {# Match — pose "celebrando" (19/09/2026), per
        MANUAL_VISUAL_VOKALBOARD_V1.md §7/§10: only on a real confirmed
@@ -28,7 +38,7 @@
                     <div class="invitation-item-main">
                         <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a>
                         {% set i_fee_display = format_fee(i.fee_amount, i.fee_currency, i.fee_negotiable) %}
-                        <span class="invitation-meta">{{ i.voice_type_name }}{% if i_fee_display %} · {{ i_fee_display }}{% endif %}{% if i.event_date %} · {{ i.event_date }}{% endif %}</span>
+                        <span class="invitation-meta">{{ i.voice_type_name or t('role_conductor') }}{% if i_fee_display %} · {{ i_fee_display }}{% endif %}{% if i.event_date %} · {{ i.event_date }}{% endif %}</span>
                         <span class="invitation-meta">{{ t('invitation_from_label') }} <a href="/users/{{ i.contractor_id }}">{{ i.contractor_name }}</a></span>
                     </div>
                     {% if i.status == 'pending' %}
@@ -65,7 +75,7 @@
                 <li class="invitation-item">
                     <div class="invitation-item-main">
                         <a href="/users/{{ i.artist_id }}">{{ i.artist_name }}</a>
-                        <span class="invitation-meta">{{ t('invitation_applied_for_label') }} <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a> — {{ i.voice_type_name }}</span>
+                        <span class="invitation-meta">{{ t('invitation_applied_for_label') }} <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a> — {{ i.voice_type_name or t('role_conductor') }}</span>
                     </div>
                     {% if i.status == 'pending' %}
                         <div class="invitation-item-actions">
@@ -102,7 +112,7 @@
                     <div class="invitation-item-main">
                         <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a>
                         {% set i_fee_display = format_fee(i.fee_amount, i.fee_currency, i.fee_negotiable) %}
-                        <span class="invitation-meta">{{ i.voice_type_name }}{% if i_fee_display %} · {{ i_fee_display }}{% endif %}</span>
+                        <span class="invitation-meta">{{ i.voice_type_name or t('role_conductor') }}{% if i_fee_display %} · {{ i_fee_display }}{% endif %}</span>
                     </div>
                     <span class="invitation-status invitation-status-{{ i.status }}">{{ t('invitation_status_' ~ i.status) }}</span>
                 </li>
@@ -121,7 +131,7 @@
                 <li class="invitation-item">
                     <div class="invitation-item-main">
                         <a href="/users/{{ i.artist_id }}">{{ i.artist_name }}</a>
-                        <span class="invitation-meta">{{ t('invitation_invited_to_label') }} <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a> — {{ i.voice_type_name }}</span>
+                        <span class="invitation-meta">{{ t('invitation_invited_to_label') }} <a href="/listings/{{ i.listing_id }}">{{ i.listing_title }}</a> — {{ i.voice_type_name or t('role_conductor') }}</span>
                     </div>
                     <span class="invitation-status invitation-status-{{ i.status }}">{{ t('invitation_status_' ~ i.status) }}</span>
                 </li>

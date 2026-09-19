@@ -2,7 +2,7 @@
 -- VokalBoard — CONSOLIDATED pending migrations (built 19/09/2026)
 --
 -- Concatenates, in order, every migration from 2026-09-15_buscar_pessoas.sql
--- through 2026-09-19_periodic_mails.sql (26 files) — everything that has
+-- through 2026-09-19_notification_center.sql (28 files) — everything that has
 -- piled up unapplied to Railway production since the migration freeze
 -- described in AGENTS.md. Nothing here is destructive: every file was
 -- audited before concatenation and none contains DROP TABLE, DROP COLUMN,
@@ -22,6 +22,15 @@
 -- anything between rechnungmaker_foundation.sql and itself, so moving it
 -- earlier is safe. Every other file was already dependency-order-safe.
 --
+-- UPDATE (19/09/2026, later same day): two more migrations were added
+-- after this file was first built — 2026-09-19_unify_vacancies.sql (task
+-- #46) and 2026-09-19_notification_center.sql (task #50) — appended at
+-- the end, in that order. Neither depends on anything added here nor on
+-- each other, so their position relative to one another doesn't matter;
+-- they only need to run after the tables they touch (listing_vacancies,
+-- users) already exist, which every earlier section in this file already
+-- guarantees.
+--
 -- ============================================================
 -- HOW TO APPLY — psql only, NOT the Railway dashboard "Query" box
 -- ============================================================
@@ -40,7 +49,7 @@
 -- a half-broken transaction.
 --
 -- The whole file runs as ONE transaction (BEGIN/COMMIT wrap everything
--- below) — either all 26 migrations land, or none do.
+-- below) — either all 28 migrations land, or none do.
 --
 -- BEFORE RUNNING: confirm whether Railway production already has real
 -- user registrations. If it's still empty test data, re-installing
@@ -951,5 +960,87 @@ CREATE TABLE IF NOT EXISTS periodic_mails (
 -- cheap even once paused/old mails pile up.
 CREATE INDEX IF NOT EXISTS idx_periodic_mails_due ON periodic_mails(next_send_at) WHERE is_active = TRUE;
 
+
+-- ---- 2026-09-19_unify_vacancies.sql ---------------------
+-- ============================================================
+-- Unify voice-type/vaga entry into a single UI (19/09/2026)
+--
+-- Daniel: "Hoje temos duas formas de adicionar voz e eu quero que elas
+-- se fundam em uma só... com duas formas de adicionar vagas, fica
+-- confuso, inclusive para o código e db."
+--
+-- From now on, listing_vacancies is the ONLY place a seeking_singer/
+-- seeking_conductor listing's voice type and fee are entered — the
+-- standalone listings.voice_type_id/fee_amount/fee_currency/
+-- fee_negotiable fields are still WRITTEN for these two listing_types
+-- (kept in sync, derived from the vacancy rows — see
+-- _derive_listing_fields_from_vacancies() in
+-- app/routers/listings_routes.py) so every other query that still
+-- reads those columns directly (home page matching, board filtering,
+-- e-mail alerts, banner targeting, the "Buscar pessoas" directory)
+-- keeps working unchanged. Also gives seeking_conductor listings
+-- convite/candidatura/Match for the first time (previously hardcoded
+-- to seeking_singer only in app/match_service.py) — a conductor
+-- vacancy has voice_type_id = NULL, since conductors have no naipe.
+--
+-- Not destructive: relaxes one NOT NULL constraint and adds rows,
+-- never removes or drops anything. Safe to run standalone or folded
+-- into a future consolidation alongside the other pending migrations
+-- (see AGENTS.md's "migration freeze" section — this is NOT applied
+-- to production yet, same as every dated migration since 2026-09-15).
+-- ============================================================
+
+
+-- 1) A conductor vacancy has no naipe.
+ALTER TABLE listing_vacancies ALTER COLUMN voice_type_id DROP NOT NULL;
+
+-- 2) Backfill: every currently-active seeking_singer/seeking_conductor
+--    listing that has ZERO vacancy rows today gets exactly one,
+--    mirroring its own (until-now standalone) voice_type_id/fee
+--    columns — so every existing listing becomes invite-able
+--    immediately, with nothing lost. total_slots=1 matches the
+--    single-implicit-vacancy assumption the old single-field UI
+--    always had.
+INSERT INTO listing_vacancies (listing_id, voice_type_id, fee_amount, fee_currency, fee_negotiable, total_slots)
+SELECT l.id, l.voice_type_id, l.fee_amount, l.fee_currency, l.fee_negotiable, 1
+FROM listings l
+WHERE l.listing_type IN ('seeking_singer', 'seeking_conductor')
+  AND l.is_active = TRUE
+  AND NOT EXISTS (SELECT 1 FROM listing_vacancies lv WHERE lv.listing_id = l.id);
+
+-- ---- 2026-09-19_notification_center.sql ---------------------
+-- ============================================================
+-- Central de Notificações (19/09/2026)
+--
+-- Designed together with Daniel via AskUserQuestion before coding —
+-- see app/notification_center.py's module docstring and
+-- AI_CHANGELOG.md for the full design conversation. A real list of
+-- discrete, individually-readable events, additive on top of the
+-- live pending-count nav badges already on the site (unread messages,
+-- pending invitations/evaluations/invoice actions — app/render.py),
+-- which are untouched by this migration.
+--
+-- Not destructive: only creates a new table + indexes. Safe to run
+-- standalone or folded into a future consolidation alongside the
+-- other pending migrations (see AGENTS.md's "migration freeze"
+-- section — this is NOT applied to production yet, same as every
+-- dated migration since 2026-09-15).
+-- ============================================================
+
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id            BIGSERIAL PRIMARY KEY,
+    user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type          VARCHAR(40) NOT NULL,
+    title_key     VARCHAR(80) NOT NULL,
+    title_params  JSONB,
+    link_url      VARCHAR(300),
+    icon          VARCHAR(40) NOT NULL DEFAULT 'icon-bell',
+    read_at       TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read_at IS NULL;
 
 COMMIT;

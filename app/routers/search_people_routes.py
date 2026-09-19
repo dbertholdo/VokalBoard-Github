@@ -126,6 +126,20 @@ def search_people(
         person["badges"] = top_badges(row["id"], limit=3)
         people.append(person)
 
+    # "Buscar para meu anúncio" (19/09/2026, Daniel) — the shortcut link
+    # only shows up when the viewer actually has an active seeking_*
+    # listing; the button it points to (My Listings) is per-listing, see
+    # listings_routes.py:my_listings() / my_listings.html.
+    has_active_listing = fetch_one(
+        """
+        SELECT 1 FROM visible_listings
+        WHERE author_id = :author_id AND is_active = TRUE
+          AND listing_type IN ('seeking_singer', 'seeking_conductor')
+        LIMIT 1
+        """,
+        {"author_id": user["id"]},
+    ) is not None
+
     context = {
         "user": user,
         "people": people,
@@ -136,6 +150,7 @@ def search_people(
         "page": page,
         "total_pages": total_pages,
         "total": total,
+        "has_active_listing": has_active_listing,
         "filters": {
             "country": country,
             "state": state,

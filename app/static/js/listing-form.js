@@ -3,7 +3,6 @@
     const typeSelect = document.getElementById('listing-type-select');
     if (!typeSelect) return;
     const jobFields = document.getElementById('job-fields');
-    const feeRequiredHelp = document.getElementById('fee-required-help');
     const repertoireInput = document.getElementById('repertoire-input');
     const help = document.getElementById('job-required-help');
     const genericLabels = document.querySelectorAll('.label-generic');
@@ -32,11 +31,6 @@
         updateLocationRequired();
         jobFields.hidden = false;
         jobFields.disabled = false;
-        // P3.E: fee is "exactly one of amount/negotiable", not a plain
-        // required text field anymore — the server validates that
-        // combination (see app.fees.fee_valid); here we just show/hide
-        // the hint, matching the same isJob condition as before.
-        if (feeRequiredHelp) feeRequiredHelp.hidden = !isJob;
         repertoireInput.required = isJob;
         help.hidden = !isJob;
         genericLabels.forEach(label => { label.hidden = isJob; });
@@ -74,12 +68,49 @@
     firstDate.addEventListener('change', updateDateBounds);
     updateDateBounds();
 
-    // P3.A: the vacancy list (multiple naipes/quotas/fee) only makes
-    // sense for "seeking_singer" listings.
+    // P3.A / FIX (19/09/2026, Daniel: "duas formas de adicionar vagas,
+    // fica confuso, inclusive para o código e db") — the vacancy list
+    // is now the ONLY place voice type/fee are entered for BOTH
+    // seeking_singer and seeking_conductor (previously seeking_singer
+    // only, and only as one of two redundant entry points). The
+    // standalone top-level voice type field/fee section are the
+    // mirror image: visible only when NOT is_job.
     const vacanciesSection = document.getElementById('vacancies-section');
+    const voiceTypeStandaloneSection = document.getElementById('voice-type-standalone-section');
+    const topLevelFeeSection = document.getElementById('top-level-fee-section');
+    const addVacancyButton = document.getElementById('add-vacancy-row');
+    const vacanciesRemoveHelp = document.getElementById('vacancies-remove-help');
+    // A conductor vaga has no naipe — only row 0 applies, with its
+    // voice select hidden (see listing_form.html's vacancy-row-
+    // conductor-hide class on every row past the first, and
+    // vacancy-voice-type-select on each row's own select).
     function updateVacanciesVisible() {
-        if (!vacanciesSection) return;
-        vacanciesSection.hidden = typeSelect.value !== 'seeking_singer';
+        const isJob = ['seeking_singer', 'seeking_conductor'].includes(typeSelect.value);
+        const isConductor = typeSelect.value === 'seeking_conductor';
+        if (vacanciesSection) vacanciesSection.hidden = !isJob;
+        if (voiceTypeStandaloneSection) voiceTypeStandaloneSection.hidden = isJob;
+        if (topLevelFeeSection) topLevelFeeSection.hidden = isJob;
+        if (addVacancyButton) addVacancyButton.hidden = isConductor;
+        if (vacanciesRemoveHelp) vacanciesRemoveHelp.hidden = isConductor;
+        document.querySelectorAll('.vacancy-row-conductor-hide').forEach(row => {
+            // Remembers each row's hidden state from BEFORE it was
+            // forced hidden for conductor, so switching back to
+            // seeking_singer restores whatever it was (an untouched
+            // extra row stays hidden; a row that already had data —
+            // editing an existing multi-voice listing — reappears).
+            if (isConductor) {
+                if (row.dataset.prevHidden === undefined) row.dataset.prevHidden = row.hidden ? '1' : '0';
+                row.hidden = true;
+            } else if (row.dataset.prevHidden !== undefined) {
+                row.hidden = row.dataset.prevHidden === '1';
+                delete row.dataset.prevHidden;
+            }
+        });
+        document.querySelectorAll('.vacancy-voice-type-select').forEach(select => {
+            const row = select.closest('.vacancy-row');
+            const isFirstRow = row && !row.classList.contains('vacancy-row-conductor-hide');
+            select.hidden = isConductor && isFirstRow;
+        });
     }
     typeSelect.addEventListener('change', updateVacanciesVisible);
     updateVacanciesVisible();
@@ -87,7 +118,7 @@
     // "Add another voice" reveals the next hidden vacancy row instead of
     // building new DOM — same progressive-reveal idea as the spoken
     // languages fields on /profile, just per-listing instead of per-person.
-    const addVacancyButton = document.getElementById('add-vacancy-row');
+    // Hidden entirely for seeking_conductor (see updateVacanciesVisible).
     if (addVacancyButton) {
         addVacancyButton.addEventListener('click', () => {
             const nextHidden = document.querySelector('.vacancy-row-extra[hidden]');

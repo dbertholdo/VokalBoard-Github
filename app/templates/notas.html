@@ -37,7 +37,16 @@
                 <p class="field-help catalog-item-shortfall">{{ t('notas_insufficient_short').replace('{n}', format_notas(item.cost - balance)) }}</p>
                 <a class="button-link" href="/notas/comprar-notas?faltam={{ item.cost - balance }}">{{ t('notas_buy_missing_link') }}</a>
             {% else %}
-                <form method="post" action="/notas/redeem" class="inline-form">
+                {# FIX (19/09/2026, Daniel: "eu só cliquei e ele já
+                   adicionou ao perfil" — pedir confirmação antes de
+                   resgatar): reusa o mecanismo genérico já existente
+                   em base.html (qualquer <form data-confirm="..."> pede
+                   window.confirm() antes de enviar) em vez de criar um
+                   modal novo — mesmo padrão do resto do site (ex.:
+                   Capitalism Mode em zona_vermelha.html). #}
+                {% set item_title = item.title or t('notas_item_' ~ item.key ~ '_title') %}
+                <form method="post" action="/notas/redeem" class="inline-form"
+                      data-confirm="{{ t('notas_redeem_confirm').replace('{item}', item_title).replace('{cost}', format_notas(item.cost) ~ ' ' ~ t('notas_unit')) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="item_key" value="{{ item.key }}">
                     <input type="hidden" name="idempotency_token" value="{{ redeem_idempotency_token }}">

@@ -62,10 +62,16 @@
         {% set fee_negotiable_checked = values.fee_negotiable if values and values.fee_negotiable is defined else False %}
         {% set fee_amount_value = values.fee_amount if values and values.fee_amount else '' %}
         {% set fee_currency_value = values.fee_currency if values and values.fee_currency else currencies[0] %}
+        {# FIX (19/09/2026, Daniel: unify the two "which voice/fee" entry
+           points into one) — for seeking_singer/seeking_conductor, fee
+           now lives per-vaga in #vacancies-section below; this single
+           top-level fee stays only for singer_available/
+           conductor_available (the person's own asking rate when
+           advertising themselves), so it's hidden entirely for is_job. #}
+        <div id="top-level-fee-section" {% if is_job %}hidden{% endif %}>
         <div class="fee-fields">
             <label>
-                <span class="label-generic" {% if is_job %}hidden{% endif %}>{{ t('match_fee') }}</span>
-                <span class="label-job" {% if not is_job %}hidden{% endif %}>{{ t('listing_form_fee_label') }}</span>
+                <span>{{ t('match_fee') }}</span>
                 <input type="text" name="fee_amount" id="fee-amount-input" maxlength="20" inputmode="decimal"
                        placeholder="{{ t('listing_form_fee_placeholder') }}"
                        {% if fee_negotiable_checked %}disabled{% endif %}
@@ -84,7 +90,7 @@
                 {{ t('fee_negotiable_checkbox') }}
             </label>
         </div>
-        <p class="field-help" id="fee-required-help" {% if not is_job %}hidden{% endif %}>{{ t('fee_amount_or_negotiable_required') }}</p>
+        </div>
     </fieldset>
     <label id="event-date-field" {% if values.listing_type == 'singer_available' %}hidden{% endif %}>{{ t('match_event_date') }}
         <input type="date" name="event_date" {% if is_job %}required{% endif %} value="{{ values.event_date if values else '' }}">
@@ -102,9 +108,17 @@
         </select>
     </label>
 
+    {# FIX (19/09/2026, Daniel: "duas formas de adicionar vagas, fica
+       confuso, inclusive para o código e db") — this standalone field
+       is now hidden entirely for seeking_singer/seeking_conductor: the
+       vagas list below (#vacancies-section) is the only place voice
+       type/fee are entered for those two. Stays visible only for
+       singer_available/conductor_available, where it still means "the
+       voice I'm advertising myself as available for". #}
+    <div id="voice-type-standalone-section" {% if is_job %}hidden{% endif %}>
     <label>
         <span>{{ t('listing_form_voice_type_label') }}</span>
-        <select name="voice_type_id">
+        <select name="voice_type_id" id="voice-type-select">
             <option value="">{{ t('voice_type_all') }}</option>
             {% for vt in voice_types %}
                 <option value="{{ vt.id }}" {% if values.voice_type_id|string == vt.id|string %}selected{% endif %}>{{ vt.name }}</option>
@@ -112,6 +126,7 @@
         </select>
     </label>
     <p class="field-help">{{ t('listing_form_voice_type_help') }}</p>
+    </div>
 
     <label class="checkbox-label">
         <input type="checkbox" name="travel_cost_covered" value="1" {% if values.travel_cost_covered %}checked{% endif %}>
@@ -145,14 +160,21 @@
 
     </section>
 
-    <section class="listing-form-card" id="vacancies-section" {% if values.listing_type != 'seeking_singer' %}hidden{% endif %}>
+    {# FIX (19/09/2026, Daniel: unify the two "which voice/fee" entry
+       points into one) — this is now the ONLY place voice type and fee
+       are entered for seeking_singer/seeking_conductor (at least one
+       row is required, see has_vacancy in listings_routes.py). For
+       seeking_conductor there's no naipe, so only row 0 is shown, with
+       no voice select and no "add another" (a conductor listing always
+       has exactly one implicit vaga) — toggled by listing-form.js. #}
+    <section class="listing-form-card" id="vacancies-section" {% if not is_job %}hidden{% endif %}>
     <h2>{{ t('listing_form_vacancies_section') }}</h2>
     <p class="field-help">{{ t('listing_form_vacancies_help') }}</p>
     {% set max_vacancies = 10 %}
     {% for i in range(max_vacancies) %}
         {% set v = vacancies[i] if i < vacancies|length else None %}
-        <div class="vacancy-row {% if not v and i >= (vacancies|length + 1) %}vacancy-row-extra{% endif %}" {% if not v and i >= (vacancies|length + 1) %}hidden{% endif %}>
-            <select name="vacancy_voice_type_id">
+        <div class="vacancy-row {% if i > 0 %}vacancy-row-conductor-hide{% endif %} {% if not v and i >= (vacancies|length + 1) %}vacancy-row-extra{% endif %}" {% if not v and i >= (vacancies|length + 1) %}hidden{% endif %}>
+            <select name="vacancy_voice_type_id" class="vacancy-voice-type-select">
                 <option value="">{{ t('spoken_language_none') }}</option>
                 {% for vt in voice_types %}
                     <option value="{{ vt.id }}" {% if v and v.voice_type_id == vt.id %}selected{% endif %}>{{ vt.name }}</option>
@@ -173,7 +195,7 @@
         </div>
     {% endfor %}
     <button type="button" id="add-vacancy-row" class="btn-secondary">{{ t('listing_form_add_vacancy') }}</button>
-    <p class="field-help">{{ t('listing_form_vacancies_remove_help') }}</p>
+    <p class="field-help" id="vacancies-remove-help">{{ t('listing_form_vacancies_remove_help') }}</p>
     </section>
 
     <button type="submit">{{ t('listing_form_update_submit') if is_edit else t('listing_form_submit') }}</button>

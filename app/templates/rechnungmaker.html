@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_invoice_preview.html" as invoice_preview with context %}
 {% block title %}Rechnungmaker — VokalBoard{% endblock %}
 {% block content %}
 <h1>Rechnungmaker</h1>
@@ -61,16 +62,17 @@
     {% endif %}
 {% else %}
     {% if error %}<p class="form-error">{{ t('rechnungmaker_avulso_form_error') }}</p>{% endif %}
+    <div class="invoice-layout">
     <section class="profile-edit-card">
     <p class="field-help">{{ t('rechnungmaker_avulso_help') }}</p>
-    <form method="post" action="/rechnungen/pdf" class="form-grid">
+    <form id="invoiceFormAvulso" method="post" action="/rechnungen/pdf" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>Rechnungsnummer<input name="number" value="{{ suggested_number }}" required></label><label>Ausstellungsdatum<input type="date" name="issue_date" value="{{ today }}" required></label><label>Leistungsdatum<input type="date" name="service_date" required></label>
     <label>Seu nome<input name="issuer_name" required></label><label>Seu endereço<textarea name="issuer_address" required></textarea></label><label>Steuernummer / USt-IdNr.<input name="issuer_tax_id" required></label>
     <label>Destinatário<input name="recipient_name" required></label><label>Endereço do destinatário<textarea name="recipient_address" required></textarea></label><label>Serviço<textarea name="service_description" required></textarea></label>
     <label>Valor líquido<input name="net_amount" inputmode="decimal" required></label><label>Moeda<select name="currency"><option>EUR</option><option>CHF</option></select></label>
     <label>País e tributação (USt/MWST)
-    <select id="tax_preset_avulso" onchange="(function(v){var p=v.split(':');document.getElementById('tax_country_avulso').value=p[0];document.getElementById('tax_status_avulso').value=p[1];})(this.value)">
+    <select id="tax_preset_avulso" onchange="(function(v){var p=v.split(':');document.getElementById('tax_country_avulso').value=p[0];document.getElementById('tax_status_avulso').value=p[1];document.getElementById('tax_country_avulso').dispatchEvent(new Event('change'));})(this.value)">
         {% for value, label in tax_preset_options %}<option value="{{ value }}" {% if value == 'DE:standard' %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
     </label>
@@ -83,5 +85,8 @@
     <label>Condições de pagamento<textarea name="payment_terms"></textarea></label><label>IBAN<input name="iban"></label><label>BIC<input name="bic"></label>
     <button class="button-primary" type="submit">Gerar PDF</button></form>
     </section>
+    {{ invoice_preview.invoice_preview_pane("invoiceFormAvulso") }}
+    </div>
+    <script src="/static/js/invoice_preview.js" defer></script>
 {% endif %}
 {% endblock %}

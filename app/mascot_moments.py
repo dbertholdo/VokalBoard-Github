@@ -32,7 +32,12 @@ zero, so this never adds N+1-style cost to the page.
 from app.database import fetch_one
 
 
-def _profile_incomplete(user: dict) -> bool:
+def profile_incomplete(user: dict) -> bool:
+    """
+    Public (19/09/2026): also used by app.notification_center's
+    synthetic "complete your profile" item, so the two checks never
+    disagree — kept as the one place this rule lives.
+    """
     if not user.get("avatar_url"):
         return True
     table = "singer_profiles" if user.get("role") == "singer" else "conductor_profiles"
@@ -47,6 +52,6 @@ def pending_reminder_key(user: dict, pending_evaluations_count: int, pending_inv
         return "mascot_reminder_evaluation"
     if pending_invitations_count:
         return "mascot_reminder_invitation"
-    if _profile_incomplete(user):
+    if profile_incomplete(user):
         return "mascot_reminder_profile"
     return None

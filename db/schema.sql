@@ -11,6 +11,7 @@
 -- for simplicity and so you can also practice with incremental IDs)
 -- CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS user_badges CASCADE;
 DROP TABLE IF EXISTS blocked_users CASCADE;
 DROP TABLE IF EXISTS listing_reports CASCADE;
@@ -690,7 +691,11 @@ CREATE TABLE singer_profile_voice_types (
 CREATE TABLE listing_vacancies (
     id BIGSERIAL PRIMARY KEY,
     listing_id BIGINT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
-    voice_type_id BIGINT NOT NULL REFERENCES voice_types(id) ON DELETE RESTRICT,
+    -- FIX (19/09/2026, db/migrations/2026-09-19_unify_vacancies.sql):
+    -- nullable now — a seeking_conductor vacancy has no naipe. NULL
+    -- for singer stays valid too (always exactly one such row per
+    -- listing per app/vacancies.py's set_vacancies() docstring).
+    voice_type_id BIGINT REFERENCES voice_types(id) ON DELETE RESTRICT,
     fee VARCHAR(100),  -- LEGACY free text, see listings.fee above — same P3.E replacement below.
     fee_amount NUMERIC(10, 2) CHECK (fee_amount IS NULL OR fee_amount >= 0),
     fee_currency VARCHAR(3) NOT NULL DEFAULT 'EUR' CHECK (fee_currency IN ('EUR', 'CHF', 'USD', 'GBP')),
@@ -1089,6 +1094,38 @@ CREATE TABLE user_badges (
 );
 
 CREATE INDEX idx_user_badges_user ON user_badges(user_id);
+
+-- ------------------------------------------------------------
+-- Central de Notificações (19/09/2026) — see app/notification_center.py's
+-- module docstring for the full design (agreed with Daniel via
+-- AskUserQuestion). Discrete, individually-readable events — NOT the
+-- same as the live pending-count nav badges (unread messages, pending
+-- invitations/evaluations/invoice actions) already computed in
+-- app/render.py, which stay as they are. title_key is an app.i18n key,
+-- rendered with title_params at display time — never pre-rendered, so
+-- it still translates correctly if the viewer's language changes
+-- later. "Complete your profile" is deliberately NOT a row here — see
+-- app.notification_center.profile_incomplete_notification(), a
+-- synthetic item computed live instead, since a stored row would need
+-- to be deleted the instant the profile becomes complete.
+-- ------------------------------------------------------------
+CREATE TABLE notifications (
+    id            BIGSERIAL PRIMARY KEY,
+    user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type          VARCHAR(40) NOT NULL,
+    title_key     VARCHAR(80) NOT NULL,
+    title_params  JSONB,
+    link_url      VARCHAR(300),
+    icon          VARCHAR(40) NOT NULL DEFAULT 'icon-bell',
+    read_at       TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at DESC);
+-- Partial index: the bell badge count and the "anything unread?" check
+-- only ever filter on read_at IS NULL — keeps that lookup cheap even
+-- once a user has years of read notification history.
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id) WHERE read_at IS NULL;
 
 -- ------------------------------------------------------------
 -- "Notas" (credit bank) + referral antifraud — see app/referrals.py

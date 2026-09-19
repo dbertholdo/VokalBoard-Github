@@ -20,6 +20,7 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.match_service import create_invitation, respond_invitation
 from app.notifications import notify_invitation_created, notify_invitation_responded, notify_vacancy_filled_elsewhere
+from app.notification_center import create_notification
 
 router = APIRouter()
 
@@ -31,12 +32,21 @@ def apply_to_vacancy(request: Request, background_tasks: BackgroundTasks, vacanc
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    vacancy = fetch_one("SELECT listing_id FROM listing_vacancies WHERE id = :id", {"id": vacancy_id})
+    vacancy = fetch_one(
+        "SELECT lv.listing_id, l.author_id FROM listing_vacancies lv JOIN listings l ON l.id = lv.listing_id WHERE lv.id = :id",
+        {"id": vacancy_id},
+    )
     listing_id = vacancy["listing_id"] if vacancy else None
 
     result = create_invitation(vacancy_id, artist_user_id=user["id"], initiated_by_user_id=user["id"])
     if result["ok"]:
         background_tasks.add_task(notify_invitation_created, str(request.base_url), result["id"])
+        # Central de Notificações (task #50) — the contractor gets a
+        # bell notification for the candidatura, same as the e-mail above.
+        create_notification(
+            vacancy["author_id"], "candidatura_received", "notification_candidatura_received",
+            {"name": user["full_name"]}, link_url=f"/listings/{listing_id}/candidates",
+        )
     redirect_url = f"/listings/{listing_id}" if listing_id else "/board"
     query = "applied=1" if result["ok"] else f"invite_error={result['reason']}"
     return RedirectResponse(url=f"{redirect_url}?{query}", status_code=303)
@@ -65,6 +75,10 @@ def invite_artist(
     result = create_invitation(vacancy_id, artist_user_id=artist_user_id, initiated_by_user_id=user["id"])
     if result["ok"]:
         background_tasks.add_task(notify_invitation_created, str(request.base_url), result["id"])
+        create_notification(
+            artist_user_id, "invitation_received", "notification_invitation_received",
+            {"name": user["full_name"]}, link_url="/invitations",
+        )
     query = "invited=1" if result["ok"] else f"invite_error={result['reason']}"
     return RedirectResponse(url=f"{fallback}?{query}", status_code=303)
 
@@ -88,10 +102,10 @@ def my_invitations(request: Request):
         FROM job_invitations ji
         JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
         JOIN listings l ON l.id = lv.listing_id
-        JOIN voice_types vt ON vt.id = lv.voice_type_id
+        LEFT JOIN voice_types vt ON vt.id = lv.voice_type_id
         JOIN users artist ON artist.id = ji.artist_user_id
         JOIN users contractor ON contractor.id = l.author_id
-    """
+    """  # LEFT JOIN voice_types: a seeking_conductor vacancy has voice_type_id NULL.
 
     invites_received = fetch_all(
         common_select + " WHERE ji.artist_user_id = :id AND ji.initiated_by_user_id <> :id ORDER BY ji.status = 'pending' DESC, ji.created_at DESC",
@@ -110,12 +124,29 @@ def my_invitations(request: Request):
         {"id": user["id"]},
     )
 
+    # Menu reorg (19/09/2026, task #51) — side-nav's "Matches" group
+    # links straight into ?tab=pending/history; filters the four
+    # buckets already fetched above in Python (they're small per-user
+    # lists) rather than adding tab-specific SQL branches to every
+    # query. No tab (or an unrecognized one) shows everything, same as
+    # this page always has.
+    active_tab = request.query_params.get("tab")
+    if active_tab in ("pending", "history"):
+        want_pending = active_tab == "pending"
+        invites_received = [r for r in invites_received if (r["status"] == "pending") == want_pending]
+        applications_sent = [r for r in applications_sent if (r["status"] == "pending") == want_pending]
+        applications_received = [r for r in applications_received if (r["status"] == "pending") == want_pending]
+        invites_sent = [r for r in invites_sent if (r["status"] == "pending") == want_pending]
+    else:
+        active_tab = "all"
+
     context = {
         "user": user,
         "invites_received": invites_received,
         "applications_sent": applications_sent,
         "applications_received": applications_received,
         "invites_sent": invites_sent,
+        "active_tab": active_tab,
         "applied": request.query_params.get("applied") == "1",
         "invited": request.query_params.get("invited") == "1",
         "invite_error": request.query_params.get("invite_error"),
@@ -141,11 +172,11 @@ def listing_candidates(request: Request, listing_id: int):
                artist.id AS artist_id, artist.full_name AS artist_name, artist.avatar_url AS artist_avatar_url
         FROM job_invitations ji
         JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
-        JOIN voice_types vt ON vt.id = lv.voice_type_id
+        LEFT JOIN voice_types vt ON vt.id = lv.voice_type_id
         JOIN users artist ON artist.id = ji.artist_user_id
         WHERE lv.listing_id = :listing_id
         ORDER BY ji.status = 'pending' DESC, ji.created_at DESC
-        """,
+        """,  # LEFT JOIN: a seeking_conductor vacancy has voice_type_id NULL.
         {"listing_id": listing_id},
     )
     candidacies = [r for r in rows if r["initiated_by_user_id"] == r["artist_id"]]
@@ -187,6 +218,44 @@ def respond_to_invitation(
         # gets its own "vaga já preenchida" e-mail.
         for other_id in result.get("filled_other_ids", []):
             background_tasks.add_task(notify_vacancy_filled_elsewhere, str(request.base_url), other_id)
+
+        # Central de Notificações (task #50): let the initiator know
+        # how their invitation/candidatura was answered, and — on
+        # accept — a Match-formed bell for BOTH sides.
+        invite_row = fetch_one(
+            """
+            SELECT ji.initiated_by_user_id, ji.artist_user_id, l.author_id AS contractor_user_id,
+                   artist.full_name AS artist_name, contractor.full_name AS contractor_name
+            FROM job_invitations ji
+            JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
+            JOIN listings l ON l.id = lv.listing_id
+            JOIN users artist ON artist.id = ji.artist_user_id
+            JOIN users contractor ON contractor.id = l.author_id
+            WHERE ji.id = :id
+            """,
+            {"id": invitation_id},
+        )
+        if invite_row:
+            if invite_row["initiated_by_user_id"] != user["id"]:
+                if accepted:
+                    create_notification(
+                        invite_row["initiated_by_user_id"], "invitation_accepted", "notification_invitation_accepted",
+                        {"name": user["full_name"]}, link_url="/invitations",
+                    )
+                else:
+                    create_notification(
+                        invite_row["initiated_by_user_id"], "invitation_declined", "notification_invitation_declined",
+                        {"name": user["full_name"]}, link_url="/invitations",
+                    )
+            if accepted:
+                create_notification(
+                    invite_row["artist_user_id"], "match_formed", "notification_match_formed",
+                    {"name": invite_row["contractor_name"]}, link_url="/profile/matches",
+                )
+                create_notification(
+                    invite_row["contractor_user_id"], "match_formed", "notification_match_formed",
+                    {"name": invite_row["artist_name"]}, link_url="/profile/matches",
+                )
         query = "responded=accepted" if accepted else "responded=declined"
     else:
         query = f"invite_error={result['reason']}"

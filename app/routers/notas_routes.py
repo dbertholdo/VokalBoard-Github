@@ -29,6 +29,8 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.notas_wallet import get_credit_balance, format_notas, debit_notas_atomic
 from app.shop_catalog import get_active_catalog, get_catalog_titles_by_key, ITEM_EFFECTS
+from app.notification_center import create_notification
+from app.i18n import translate
 from app.referrals import (
     get_credit_ledger,
     get_referrals_until_next_credit,
@@ -98,7 +100,7 @@ def redeem_notas(
     # obsoleto — não um débito sem lock ou um saldo negativo. A checagem
     # "active = TRUE" aqui só evita iniciar o resgate de algo já desligado.
     item_row = fetch_one(
-        "SELECT cost FROM shop_catalog_items WHERE item_key = :key AND active = TRUE",
+        "SELECT cost, title FROM shop_catalog_items WHERE item_key = :key AND active = TRUE",
         {"key": item_key},
     )
     if not item_row:
@@ -128,6 +130,18 @@ def redeem_notas(
     )
     if not debited:
         return RedirectResponse(url="/notas?error=notas_insufficient_balance", status_code=303)
+
+    if not already_processed:
+        # Central de Notificações (task #50) — only on the actual
+        # first debit, same guard used for the profile_highlight_7d
+        # side effect below, so a double-click/replay never stacks a
+        # second bell notification either.
+        lang = getattr(request.state, "lang", "de")
+        item_title = item_row["title"] or translate(f"notas_item_{item_key}_title", lang)
+        create_notification(
+            user["id"], "loja_redeemed", "notification_loja_redeemed",
+            {"item": item_title}, link_url="/notas",
+        )
 
     if item_key == "profile_highlight_7d" and not already_processed:
         # Extends from the current highlight if there's still time left on

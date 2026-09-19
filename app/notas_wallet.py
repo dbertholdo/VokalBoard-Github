@@ -37,6 +37,7 @@ from decimal import Decimal
 from sqlalchemy import text
 
 from app.database import engine, fetch_one
+from app.notification_center import create_notification
 
 
 def format_notas(value) -> str:
@@ -112,6 +113,18 @@ def credit_notas(
             },
         )
         inserted = result.first()
+    if inserted is not None:
+        # Central de Notificações (task #50): credit_notas() is the
+        # single entry point for every Notas credit in the system (see
+        # module docstring), so hooking the bell notification in here
+        # — instead of at each of its callers — covers all of them at
+        # once without duplicating the call. `reason` is a raw ledger
+        # code (e.g. "referral_bonus"), not yet localized — good
+        # enough for now, worth a proper i18n mapping in a later pass.
+        create_notification(
+            user_id, "notas_credited", "notification_notas_credited",
+            {"amount": format_notas(amount), "reason": reason}, link_url="/notas",
+        )
     return inserted is not None
 
 

@@ -170,17 +170,6 @@
             </select>
         </label>
 
-        <fieldset class="extra-voice-types">
-            <legend>{{ t('profile_extra_voice_types_label') }}</legend>
-            <p class="field-help">{{ t('profile_extra_voice_types_help') }}</p>
-            {% for vt in voice_types %}
-                <label class="checkbox-inline">
-                    <input type="checkbox" name="extra_voice_type_ids" value="{{ vt.id }}" {% if vt.id in extra_voice_type_ids %}checked{% endif %}>
-                    {{ vt.name }}
-                </label>
-            {% endfor %}
-        </fieldset>
-
         <label>{{ t('profile_bio_label') }} ({{ max_bio_length }} {{ t('chars_max_suffix') }})
             <textarea name="bio" rows="6" maxlength="{{ max_bio_length }}">{{ singer_profile.bio if singer_profile and singer_profile.bio else "" }}</textarea>
         </label>

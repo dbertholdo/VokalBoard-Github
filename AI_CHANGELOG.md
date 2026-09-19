@@ -1,5 +1,726 @@
 # VokalBoard — Registro compartilhado de IA
 
+## 2026-09-19 — Agent: Claude — Item #51 IMPLEMENTED: menu reorg, submenu color fix, Digital Pass stub
+
+Follows directly on the HANDOFF entry right below (same task #51) — Daniel
+came back and said "Faça 1. e 2." (do the submenu color fix and the menu
+reorg), with one extra piece of scope for the "Digital Pass" side-menu
+item: "É a ferramenta para a pessoa gerar um CV dela e uma aba para ela
+gerar um cartão de visita baseado no CV dela. Mas só colocar para design
+ainda, não executar" — Digital Pass is meant to become a CV generator tab
++ a business-card-from-CV generator tab, but only the CV side is real
+right now (it already existed as `/profile/cv.pdf`); the business card
+generator itself is explicitly NOT built, design/placement only.
+
+### 1. Submenu link color fix
+`app/static/css/style.css` — `.profile-menu-links a` had no `color` at
+all, so the browser's default `:visited` purple leaked through. Now sets
+`color: var(--ink)`, an explicit `:visited` rule (never reverts to
+browser default), `text-decoration: none`, and a hover state matching
+the rest of the nav dropdowns (`var(--accent)` text on
+`var(--accent2-light)`). Also added `.side-nav-subrow` (see below) as a
+smaller/indented variant of the same rule set, for the "Pending"/
+"History" links nested under "Matches".
+
+### 2. Menu reorganization (top nav + side nav)
+Implemented Daniel's own sketch (see the HANDOFF entry below for the
+exact transcription) with a few judgment calls, flagged here rather than
+silently decided:
+
+- **Top nav** (`base.html`): re-ordered to Start | Jobs | My Profile |
+  Messages | Matches | [Admin, admins only] | bell | Abmelden | photo+
+  name | Language — matches his sketch exactly aside from the Admin
+  link, which only ever shows for staff and sat in roughly this spot
+  already. The bell (`.notification-center-dropdown`, task #50) moved
+  from the very end of the nav (next to the language switcher) into the
+  logged-in branch, right before Abmelden, per his sketch.
+- **`nav_invitations`** (`app/i18n.py`) renamed from "Einladungen"/
+  "Invitations"/"Convites" to "Matches" across all 5 languages — Daniel's
+  sketch labels this "Matches (Job Invitations)", and "Match" is already
+  kept as an international loanword everywhere else on the site
+  (`nav_match_history`, the mascot reminder strings), so this follows
+  the same convention rather than introducing new wording.
+- **Side nav** (`base.html`): now Start / Search People (kept — see judgment
+  call below) / **My Profile** (group) / **Jobs** (group) / Hall of Fame
+  / Notas, in that order (his sketch has My Profile before Jobs).
+  - **My Profile** group reuses `_profile_menu.html` — the SAME partial
+    already shared with the top-nav profile dropdown (Anti-Spaghetti: one
+    list, not two to keep in sync). Its content is now: View Profile,
+    Edit Profile, **Digital Pass** (new), My Favorites (moved in from its
+    own former top-level side-nav row), Messages (new to this menu —
+    wasn't reachable from the side-nav at all before), Match-Verlauf,
+    Rechnungmaker.
+  - **Jobs** group (new `<details class="side-nav-group">`, a generic
+    class — replaces the old `.profile-side-menu` class name since it's
+    no longer profile-specific): Search for a Job (`/board`), Post a job
+    (`/listings/new` — previously only reachable via a button inside
+    /my-listings, now has its own menu entry), My posted jobs
+    (`/my-listings`), Matches (`/invitations`, badge kept), with Pending/
+    History as two indented `.side-nav-subrow` links under it.
+  - **Judgment calls** (his sketch didn't mention these, so nothing was
+    silently dropped): kept **Search People** (`/people`) as its own
+    top-level side-nav row — a real, separate feature (browsing the
+    artist/conductor directory), not a subset of Jobs or My Profile.
+    Kept **Match-Verlauf** (`/profile/matches`, the post-Match evaluation
+    history — P3.F) and **Rechnungmaker** inside the My Profile dropdown
+    — both are working features not mentioned as removed, and neither
+    fit naturally anywhere else in his sketch.
+- **`/invitations?tab=pending` / `?tab=history`**: `app/routers/
+  invitations_routes.py`'s `my_invitations()` now reads an optional
+  `tab` query param and filters the four already-fetched buckets in
+  Python by `status == 'pending'` (no tab, or an unrecognized one, shows
+  everything — unchanged default). `invitations.html` got a small
+  `.tool-tabs` toggle at the top (same component already used for the
+  messages inbox/sent/trash tabs) so the filter isn't a dead end once
+  you're on the page — mirrors the side-nav's Pending/History links.
+
+### 3. Digital Pass — design/placement only, per Daniel's explicit "não executar"
+- New route `GET /profile/digital-pass` (`app/routers/profile_routes.py`)
+  → `app/templates/digital_pass_stub.html`.
+- **CV tab**: real — links straight to the existing `/profile/cv.pdf`
+  (already built in an earlier session, item #40/#41). Surfacing an
+  existing feature through a new entry point isn't "executing" new
+  functionality, so this stayed wired up.
+- **Business card tab**: placeholder only — body copy explaining what
+  it'll do, `feature_coming_soon` badge, no generator, no new code path.
+  Nothing here was executed beyond the static explanation, per Daniel's
+  instruction.
+- `nav_digital_pass` (i18n key, "Digital Pass" kept untranslated in all
+  5 languages, same term already embedded in the older
+  `nav_profile_download` key) replaces the old disabled
+  `nav_profile_download` / `feature_coming_soon` span that used to be
+  the only mention of this in `_profile_menu.html` — that placeholder
+  line is gone now that there's a real (if partial) page to link to.
+
+### Flag-next-to-language — resolved, no code change needed
+Daniel confirmed: "Do lado do idioma a bandeirinha" — next to the
+LANGUAGE, not next to his own name. Checked `base.html`'s
+`.lang-switch-dropdown` (line ~261-266): it already renders
+`{{ language_meta[lang].flag }} {{ language_meta[lang].label }}` for
+both the collapsed summary AND every option in the open menu, and
+`LANGUAGE_META` (`app/i18n.py`) already has a flag emoji for all 8
+languages. This was already built (matches his own screenshot of the
+dropdown) — nothing to change.
+
+**Validated without a live Postgres connection** (same constraint as
+every other item this session): `ast.parse()` on every changed Python
+file, Jinja2 template parsing on every single template under
+`app/templates/` (not just the touched ones, since `_profile_menu.html`
+is a shared partial). No `pytest` run (Daniel's standing preference).
+All files synced to the device.
+
+**Next safe step:** ask Daniel about the flag-next-to-name placement
+(section 3 below) when he's back, and separately confirm whether the
+judgment calls above (keeping Search People/Match-Verlauf/Rechnungmaker
+where they landed) match what he had in mind — easy to move if not,
+nothing here is destructive. Items #49, #52–#55 remain untouched backlog.
+
+## 2026-09-19 — Agent: Claude — HANDOFF: Item #51 (menu/nav polish) — logged, NOT implemented yet
+
+Daniel sent 7 screenshots (saved this session under
+`/root/.claude/uploads/5076d774-3f1d-5a4b-9122-deb22ba8f860/` — not copied
+into the repo; whoever picks this up should ask Daniel to re-attach them,
+or work from the description below, which is complete) and asked for
+this to be logged for the next agent (Claude or Codex) **before** any
+code was touched — he was low on tokens and wanted to stop cleanly
+rather than risk an unfinished edit. So: nothing described below has
+been implemented. Task #51 stays `in_progress` on the Cowork task list,
+not `completed`.
+
+### 1. Submenu link color/font bug (ready to fix, low risk)
+The "Mein Profil" dropdown submenu (`Mein Profil ansehen` / `Profil
+bearbeiten` / `Match-Verlauf` / `Rechnungmaker` / `Einladungen` — rendered
+via `_profile_menu.html` inside `.profile-menu-links` in `base.html`)
+shows links in the **browser's default `:visited` purple**, not the site's
+palette, and Daniel also flagged the font as "estranha" (odd) there.
+Root cause: `app/static/css/style.css` line 149 —
+```css
+.profile-menu-links a { display: block; padding: 6px; }
+```
+— sets no `color` at all, so the browser's default link/visited colors
+(and default underline) leak through instead of inheriting the site's
+`var(--ink)`/`var(--accent)` tokens the rest of the nav uses. Fix: add an
+explicit `color: var(--ink);` (or `var(--accent)` for hover, matching
+whatever the rest of the nav dropdowns do — see `.lang-switch-menu a` /
+`.notification-center-item` for the established pattern) and make sure
+`:visited` is covered by the same rule (don't leave it to inherit).
+Quick, isolated CSS fix — safe to do first.
+
+### 2. Menu reorganization (needs a design pass, not just CSS)
+Daniel's screenshots include his own proposed structure for BOTH the
+side menu and the top nav bar. Transcribed here exactly as he drew it:
+
+**Side menu (new target structure):**
+```
+- Start
+- My Profile
+    - View Profile
+    - Edit Profile
+    - Digital Pass          <- currently "Match-Verlauf"? needs mapping, see open questions
+    - My Favorites
+    - Messages
+- Jobs
+    - Search for a Job
+    - Post a job
+    - My posted jobs
+    - Matches (Job Invitations)
+        - Pending
+        - History
+- Hall of Fame
+- Notas (change icon for an icon/shadow of the mascot)
+```
+
+**Top nav bar (new target structure):**
+```
+Start | Jobs | My Profile | Messages | Matches | Notification icon (bell) | Abmelden | Photo + first name | Language
+```
+
+This is a real reorganization of both `base.html`'s `<nav>` (see the
+`{% if user %}` block around the existing `nav_home`/`nav_board`/
+`nav_messages`/`nav_invitations` links) and whatever renders the side
+nav (`side-nav`, referenced by `sidebar-toggle` in `base.html`, and
+`_profile_menu.html` for the profile dropdown) — NOT a simple find/
+replace, since some items are being renamed, some moved between the top
+bar and the side menu, and "Jobs" becomes a new parent grouping several
+existing routes (`/board`, `/my-listings`, `/invitations`) that today
+live as separate flat items. Needs a proper design pass (like #46/#50)
+before touching code — see open questions below.
+
+**Open questions for Daniel before implementing (ask first, don't
+guess):**
+- "Digital Pass" in his side-menu sketch — is this the existing
+  "Match-Verlauf" (`/profile/matches`) renamed, or something new that
+  doesn't exist yet? (`Rechnungmaker` and `Einladungen`, currently in the
+  profile dropdown, aren't in his sketch at all — dropped, or just not
+  drawn?)
+- "Jobs" as a menu group: does `Search for a Job` = `/board`, `Post a
+  job` = the listing-creation form, `My posted jobs` = `/my-listings`,
+  `Matches (Job Invitations)` = `/invitations` (with Pending/History as
+  two sub-views, which `/invitations` doesn't currently split into)?
+- Top bar: he explicitly separates `Messages` and `Matches` as two
+  distinct top-level items (today `/invitations` is the only one in the
+  top nav, labeled "Einladungen" — matches his `nav_invitations` key).
+  Where does the badge count for each go once "Jobs" becomes a
+  dropdown — does the unread/pending count move onto the "Jobs" parent
+  item, or stay on the specific child link?
+- The bell (Central de Notificações, #50) is already in the top bar per
+  his own earlier decision ("barra superior, perto do menu de idioma")
+  — his new sketch puts it between Matches and Abmelden, no mention of
+  the language switcher position anymore. Does the language switcher
+  stay where it is now (after the bell), get folded elsewhere, or does
+  he want it dropped from this sketch entirely (unlikely, probably just
+  not drawn)?
+
+### 3. Flag next to language name
+Daniel: "Não esqueça que tem que colocar a bandeirinha do país do lado
+do nome pra facilitar a visualização" (don't forget to put the little
+country flag next to the name for easier scanning). This is AMBIGUOUS —
+not yet clarified with him:
+- The language switcher (`.lang-switch-dropdown` in `base.html`) already
+  shows `{{ language_meta[lang].flag }} {{ language_meta[lang].label }}`
+  for both the collapsed summary and every option in the menu (see
+  `app/i18n.py`'s `LANGUAGE_META` — every language already has a flag
+  emoji). His screenshot of the language dropdown shows exactly this
+  (flag + 2-letter code per row) — so this part may already be done.
+- OR he means the flag should sit next to the **user's own name** in the
+  top-right corner (`.whoami` in `base.html`, today just avatar + first
+  name + role) — e.g. showing the flag of the user's own
+  `preferred_language`. This would be new, not yet built anywhere.
+Ask Daniel directly which one (or both) before implementing.
+
+### Also surfaced this session, not yet actioned (logged for completeness)
+While scoping item #49 (translations) before Daniel redirected to #51,
+found: `zh`/`ko`/`ro` are listed as selectable languages
+(`SUPPORTED_LANGUAGES`/`LANGUAGE_META` in `app/i18n.py`) but have **0 of
+604** translation keys filled in — every string silently falls back to
+English for those three. `de`/`fr`/`it` are missing only 2 keys each
+(`availability_limit`, `availability_invalid`). Also: `CLAUDE.md` §1
+lists Spanish (`espanhol`) as a supported language, but the code has
+French (`fr`) instead — Spanish was never implemented. Daniel hadn't
+confirmed a direction on either point yet (fr-vs-es, translation method)
+before pivoting to #51 — pick this back up as item #49 when he's ready.
+
+**Next safe step:** re-open with Daniel — confirm the open questions
+above for the menu reorg (section 2) and the flag placement (section 3),
+then implement all three (submenu color fix is safe to do immediately
+regardless of the other answers). No code changed in this entry.
+
+## 2026-09-19 — Agent: Claude — Item #50: Central de Notificações (bell)
+
+New, real notification system — a list of discrete, individually-readable
+events — designed together with Daniel via AskUserQuestion before coding
+(he originally referred to this as "item 48" in chat; task list numbering
+was reconciled with him mid-conversation, see session history). Explicitly
+NOT the same thing as the existing live pending-count nav badges
+(`unread_count`, `pending_invitations_count`, `pending_evaluations_count`,
+`pending_invoice_actions_count`, computed per-request in `app/render.py`),
+which are untouched by this change — this is additive.
+
+**Design agreed with Daniel:**
+- Triggers: all four categories he picked — social/Match (invitation
+  received, candidatura received, invitation accepted/declined, Match
+  formed), Notas/Loja/Financeiro (Notas credited, Loja item redeemed),
+  new messages, and pending profile items.
+- Push: "só o sininho por enquanto" — bell only, no real browser push
+  notifications yet (can evolve later).
+- Profile-pending handling: not a stored row — a discrete row would need
+  deleting the instant the profile becomes complete, more bookkeeping
+  than computing it live — so it's a synthetic item, computed on every
+  request from `app.mascot_moments.profile_incomplete()` (renamed from
+  private `_profile_incomplete()` to public, since it's now shared by
+  two modules — the existing "Atento" mascot toast and this).
+- Position: top nav bar, right next to the language switcher
+  (`.lang-switch-dropdown` in `base.html`).
+- Retention: "apagar lidas após 30 dias" — read notifications purged
+  after 30 days by `app/retention_worker.py` (same spirit as the
+  Zero-Storage housekeeping already applied to listings/messages).
+  Unread notifications are NEVER auto-deleted, no matter how old — a
+  direct `DELETE`, not the archive-then-purge two-step the other tables
+  use, since there's no snapshot worth keeping for an already-read row.
+
+**What was built:**
+- `notifications` table (`db/schema.sql` + standalone
+  `db/migrations/2026-09-19_notification_center.sql`, not yet applied to
+  production per the ongoing migration freeze — see `AGENTS.md`):
+  `title_key`/`title_params` (JSONB) instead of a pre-rendered string, so
+  a notification still renders correctly if the viewer's language
+  changes after it was created.
+- `app/notification_center.py`: `create_notification()`,
+  `get_recent_notifications()`, `get_unread_count()`, `mark_as_read()`
+  (returns the `link_url` so "opening" a notification is exactly
+  mark-read-then-redirect), `mark_all_as_read()`,
+  `profile_incomplete_notification()` (the synthetic item), and
+  `render_notification_title()` (fills `title_params` into the
+  translated `title_key`, same `{placeholder}`/`.replace()` pattern
+  already used by the mascot toasts in `base.html`).
+- `app/render.py`: injects `notification_unread_count` and
+  `notifications` (stored + synthetic, merged) into every logged-in
+  page's context, same pattern as the existing nav badges.
+- `app/templates/base.html` + `app/static/css/style.css`: bell dropdown
+  in the top nav, reusing the existing `.badge-count` pill and the same
+  `<details>` shell pattern as `.lang-switch-dropdown`. New `icon-bell`
+  symbol in `app/static/img/icons.svg`.
+- `app/routers/notification_center_routes.py` (new, kept out of
+  `messages_routes.py`/`listings_routes.py` on purpose — CLAUDE.md "Fat
+  Routers Proibidos", this is its own concern): `GET
+  /notifications/{id}/open` (mark read → redirect) and `POST
+  /notifications/mark-all-read`.
+- Trigger wiring, one per agreed category:
+  - Candidatura received → `app/routers/invitations_routes.py`'s
+    `apply_to_vacancy()`.
+  - Invitation received → same file's `invite_artist()`.
+  - Invitation accepted/declined + Match formed (both sides) → same
+    file's `respond_to_invitation()`.
+  - Notas credited → hooked directly into `credit_notas()` in
+    `app/notas_wallet.py` rather than at each of its callers (referrals,
+    listing rewards, admin grants, refunds) — that function is already
+    the single entry point for every Notas credit in the system per its
+    own module docstring, so this covers all of them at once without
+    duplicating the call. Known gap: the urgency-match-reward credit in
+    `app/match_service.py` inserts into `credit_ledger` directly (a
+    deliberate exception, documented in `notas_wallet.py`) and so does
+    NOT get a bell notification yet — a fine follow-up, not blocking.
+  - Loja item redeemed → `app/routers/notas_routes.py`'s
+    `redeem_notas()`, guarded by the same `already_processed` idempotency
+    check already used for the `profile_highlight_7d` side effect, so a
+    double-click/replay never stacks a second notification either.
+  - New message → `app/routers/messages_routes.py`'s `send_message()`,
+    right after the `INSERT INTO messages`.
+- i18n: `notification_center_title/empty/mark_all_read`,
+  `notification_profile_incomplete`, and one `notification_<type>` key
+  per trigger type — all five languages (de/en/fr/it/pt).
+
+**Validated without a live Postgres connection** (same constraint as
+item #46 — this sandbox has none): `ast.parse()` on every changed/new
+Python file, Jinja2 template parsing on `base.html`. No `pytest` run
+(per Daniel's standing preference not to run the suite unless asked).
+
+**Next safe step:** none required — #50 is functionally complete. Good
+follow-ups, not started: wire the urgency-match-reward credit into a
+bell notification too (see gap above); a proper i18n mapping for
+`credit_ledger.reason` codes instead of showing the raw code in the
+"Notas credited" notification text; and the explicit backlog items
+#49/#51–#55, none of which are in scope without Daniel's go-ahead.
+
+## 2026-09-19 — Agent: Claude — Item #46 (fase 1): unificar vaga/tipo de voz num único caminho, maestro ganha convite/candidatura/Match
+
+Primeira etapa do redesign conjunto do sistema de Match que Daniel pediu
+("Vale a pena fazer o Design em conjunto"), decidida em conversa antes
+de codificar (ver histórico da sessão). Escopo combinado com Daniel,
+deliberadamente menor que uma reescrita completa das consultas de
+matching (home/board/notificações/banners), pra reduzir risco dado que
+este sandbox não tem Postgres real pra testar.
+
+**O problema, nas palavras do Daniel:** "Hoje temos duas formas de
+adicionar voz e eu quero que elas se fundam em uma só. Pq eu adiciono
+no primeiro quadro Solo, choir ou both, coloco o tipo de voz e embaixo
+tem Vacancies per voice type e aí a pessoa acha que tem que adicionar
+novamente o que ela já fez em cima." Também: convite/candidatura/Match
+simplesmente não existia pra `seeking_conductor` (hardcoded pra
+`seeking_singer` em `app/match_service.py`), e um anúncio
+`seeking_singer` sem clicar em "Adicionar outro tipo de voz" também não
+tinha vaga cadastrada nenhuma (mesmo com tipo de voz/cachê preenchidos
+no campo solto) — logo sem caminho de convite algum.
+
+**O que mudou:**
+
+1. **Um único lugar pra tipo de voz/cachê.** O campo solto "Stimmlage"
+   e a seção de cachê no topo do formulário (`app/templates/
+   listing_form.html`) somem completamente para `seeking_singer`/
+   `seeking_conductor` — sobra só a lista de vagas
+   (`#vacancies-section`), que agora é obrigatória (pelo menos 1
+   linha). Esses dois campos continuam existindo, sem mudança, só pra
+   `singer_available`/`conductor_available` (a pessoa anunciando a
+   própria disponibilidade — isso não é vaga a preencher).
+
+2. **Maestro ganha convite/candidatura/Match.** `create_invitation()`
+   em `app/match_service.py` não trava mais em `listing_type ==
+   "seeking_singer"`. Como maestro não tem naipe, a lista de vagas pra
+   `seeking_conductor` mostra só 1 linha (sem select de voz, sem
+   "Adicionar outro tipo de voz") — `listing_vacancies.voice_type_id`
+   passou a aceitar `NULL` pra esse caso (migration abaixo). Botão de
+   convidar (`public_profile.html`), lista de candidatos
+   (`listing_candidates.html`), "Meus convites/candidaturas"
+   (`invitations.html`) e o botão de candidatar-se
+   (`listing_detail.html`) foram todos ajustados pra funcionar com os
+   dois tipos — inclusive a checagem de quem pode se candidatar, que
+   antes só liberava `role == 'singer'` mesmo numa vaga de maestro.
+
+3. **Anúncios antigos sem vaga são migrados automaticamente** — `db/
+   migrations/2026-09-19_unify_vacancies.sql` cria 1 vaga pra cada
+   anúncio `seeking_singer`/`seeking_conductor` ativo que hoje não tem
+   nenhuma, usando o tipo de voz/cachê que já estavam salvos nele. Não
+   é destrutiva (só relaxa uma constraint NOT NULL e insere linhas).
+
+**O que NÃO mudou (escolha deliberada pra reduzir risco):** as
+consultas de matching da home, do board, dos e-mails de notificação
+(`app/notifications.py`) e dos banners (`app/banners.py`) continuam
+lendo `listings.voice_type_id`/`fee_amount`/`fee_currency`/
+`fee_negotiable` DIRETAMENTE, sem saber que agora esses valores vêm da
+lista de vagas — porque `app/routers/listings_routes.py` passou a
+*espelhar* os dados da vaga de volta pra essas colunas no momento de
+salvar (`_derive_listing_fields_from_vacancies()`): 1 vaga só → copia
+direto; várias vozes diferentes → `voice_type_id NULL` ("todas as
+vozes", já era um valor válido) e cachê em aberto. Isso evita reescrever
+essa parte mais espalhada do código agora — fica pra uma fase futura,
+se algum dia for necessário.
+
+Verificado: `_job_fields_valid()`, `parse_vacancies_form()` (ramo
+conductor) e `_derive_listing_fields_from_vacancies()` testados
+diretamente com casos de tabela-verdade (ver histórico da sessão), além
+de Jinja2/AST em todos os arquivos tocados. **Sem Postgres real neste
+sandbox** pra testar a migration de fato ou o fluxo end-to-end — antes
+de subir, recomendo fortemente rodar `pytest tests -q` contra um banco
+real e aplicar a migration numa cópia de teste primeiro.
+
+**Ainda não feito (fica pra uma fase 2, se o Daniel quiser):**
+reescrever as consultas de matching pra ler `listing_vacancies`
+diretamente em vez do espelhamento; permitir mais de 1 vaga por
+anúncio de maestro (hoje deliberadamente travado em 1, "mesmo sistema,
+só que simples" por pedido do Daniel).
+
+## 2026-09-19 — Agent: Claude — Padronizar rodapé "VokalBoard" + tipo de voz obrigatório em seeking_singer
+
+Follow-up on the same "To-do List 1.1" session, after Daniel reviewed
+the batch below and sent two more explicit fixes to execute now (plus
+six items to only queue — see task list #49-#54, not implemented):
+
+**1. Rodapé/título padronizado para "VokalBoard".** Daniel's original
+CV footer instruction used "Vokal Board" (two words) verbatim; he
+confirmed today this should match the one-word brand name used
+everywhere else. Fixed the two remaining two-word spots: the CV PDF
+footer (`app/cv_pdf.py`) and, found while checking for other
+occurrences, `<title>` in `app/templates/base.html` — the only place
+left still saying "Vokal Board" (og:site_name, og:title, twitter:title,
+the nav brand link, and `listing_pdf.py`'s flyer already used the
+correct one-word form).
+
+**2. Tipo de voz agora obrigatório em anúncios "seeking_singer".**
+Daniel: "a pessoa tem que obrigatoriamente colocar qual voz busca.
+Senão não faz sentido." Previously a blank `voice_type_id` meant "all
+voices", a deliberately valid choice — but that let a listing publish
+with no voice specified at all, which silently breaks the invite
+button, "Buscar para este anúncio" and the directory's voice-type
+filter for it (the exact gap flagged in the previous entry below).
+`_job_fields_valid()` in `app/routers/listings_routes.py` now requires
+a voice type for `seeking_singer` specifically — satisfied either by
+the single legacy `voice_type_id` field or by at least one vacancy row
+(naipe), enforced server-side in both `create_listing` and
+`update_listing`. `seeking_conductor` is untouched on purpose:
+conductors aren't matched by voice type at all (see
+`app/notifications.py`), so it stays optional there. Client-side,
+`listing_form.html`/`listing-form.js` swap the field's label/help text
+to a "required" variant when `seeking_singer` is selected, in sync with
+the vacancy list's own visibility — reusing the existing (previously
+unused) `listing_form_voice_type_required_label` i18n string and
+adding `listing_form_voice_type_required_help`. Note: `error_required_
+fields`, the generic validation error shown on failure, already
+mentioned "voice type" in its text before this change — it just wasn't
+enforced; wording didn't need to change.
+
+Verified: `_job_fields_valid()` logic table-tested directly (seeking_
+singer with/without voice → valid/invalid; seeking_conductor without
+voice → still valid; singer_available → always valid), plus Jinja2/AST
+syntax checks on every touched file. No live Postgres in this sandbox
+to run `pytest`, same limitation as the previous entry — recommend
+running the suite before deploy.
+
+Six more items from Daniel went to the to-do list but were **not**
+implemented, per his explicit "não executar ainda": finishing
+translations to the remaining languages, a notification-bell "Central
+de Notificações", a font/spacing inconsistency he spotted on a
+card/image (needs follow-up to pin down exactly where), a confirm-
+before-publish warning for listings with no fee details, a Messenger/
+inbox redesign (font not standardized there either), and the
+inability to remove an already-added vacancy/naipe row (only add).
+
+## 2026-09-19 — Agent: Claude — To-do List 1.1: menu color, profile background, "Weitere Stimmlagen", Notas confirmation, CV redesign (photo+QR), listing flyer (QR), invite button, listing-scoped search
+
+Daniel's "To-do List 1.1" — nine items total, worked through one at a
+time as he added more mid-session:
+
+**1. Menu ativo nunca vermelho.** `.side-nav-row.active` was a literal
+leftover `#c62828` red from before the Mineral palette (19/09/2026)
+replaced the old green/red scheme — never migrated to a brand token.
+Now uses `var(--accent)` (violet), consistent with every other
+"current selection" indicator on the site. The Red Zone's own red
+(`.side-nav-row-danger`) is untouched — that one's deliberate. Also
+fixed a stale "green palette" code comment nearby.
+
+**2. Fundo verde no card de perfil.** Root cause: `app/static/img/
+bg-leaves.svg`'s leaf outline was still the pre-Mineral-palette green
+(`#a9dfc7`) — now a soft violet (`#B7AEEE`) matching its own fill.
+Bigger find: `app/static/img/bg-clouds.svg` was *referenced* by
+base.html/style.css (`.site-bg.bg-clouds`, picked on ~50% of page
+loads) but never actually existed on disk — so roughly half of all
+page loads silently rendered no decorative background at all. Created
+it from scratch, same animation technique and now-matching violet
+palette as the leaves file.
+
+**3. Removido "Weitere Stimmlagen" do perfil.** Removed the fieldset
+from `profile.html` and `profile_wizard.html`. Also removed the now-
+pointless `extra_voice_type_ids` parsing and the `set_extra_voice_types()`
+call from the `/profile` POST handler in `profile_routes.py` — leaving
+that call in would have silently wiped anyone's already-saved extra
+voice types the next time they touched their profile (the form field
+that used to feed it no longer exists, so it would always submit
+empty). `get_extra_voice_types()`/`set_extra_voice_types()` and the
+underlying `singer_profile_voice_types` table are untouched — search
+filtering and notification matching still honor whatever's already
+stored there; only the ability to add/remove it through the profile UI
+is gone.
+
+**4. Confirmação antes de comprar com Notas.** Two one-click "spend
+Notas" flows had no confirmation: redeeming a Loja item (`notas.html`)
+and marking a listing urgent for Notas (`my_listings.html`, only the
+*paid* path — the free-token path costs nothing). Both now use the
+site's existing generic `data-confirm="..."` mechanism (already in
+base.html, used by Capitalism Mode's toggle) instead of a new modal.
+
+**5/6. CV PDF: fixed missing photo + QR Code, redesigned to match the
+profile's own "id card".** `app/cv_pdf.py` rewritten: a navy header
+band (photo circle-clipped via a custom `Flowable` with a canvas clip
+path — falls back to an initial-letter circle when there's no avatar
+or the file's missing — name, role/voice line, badge pills, the
+"Hervorgehobenes Profil" banner when it applies) plus a QR Code
+(new `app/qr.py`, shared with the listing flyer below) linking back to
+the public profile, on the right. Sections below (Biografie, Sprachen,
+Repertoireschwerpunkt, Solo/Chorrepertoire, Hörbeispiele) unchanged in
+substance, just restyled. Footer text is exactly what Daniel asked for:
+"Vokal Board - Trusted Member - www.vokalboard.com" (note: two words,
+"Vokal Board" — differs from the one-word "VokalBoard" used everywhere
+else on the site; used verbatim since it was an explicit instruction,
+flag if that was a typo and "VokalBoard" was actually meant).
+`profile_routes.py`'s `/profile/cv.pdf` route now resolves the avatar
+via `avatar_path_for()` (same helper the upload flow uses), computes
+top-3 badges + the highlighted-profile flag the same way the public
+profile does, and passes a translated role label. New dependency:
+`qrcode==8.2` (pure Python + Pillow, no system package — same
+reasoning as reportlab/nh3 already in requirements.txt).
+
+**Baixar anúncio com QR Code (flyer para imprimir).** New
+`app/listing_pdf.py` + `GET /listings/{id}/flyer.pdf` (author-only,
+same gate as edit/mark-urgent): a poster-style A4 page — brand header,
+listing-type pill, title, a facts grid (naipe/cidade/data/honorário/
+local — only what's actually set), then a big, dominant QR Code
+linking straight back to the listing. Button added to each card in
+`my_listings.html`.
+
+**7. Botão "Convidar" mais visível no perfil de outras pessoas.** The
+invite-to-vacancy feature already existed (`invitable_vacancies` in
+`profile_routes.py`'s public profile route) but its `<summary>` reused
+`.block-user-summary` — the same muted, low-key style as "block this
+person"/"report" right below it — so it read as a minor toggle, not an
+actual CTA. Now styled like a real button (`.invite-cta-summary`, same
+look as `.button-link.button-primary`).
+**Known limitation, not fixed here:** this invite flow is strictly
+tied to `listing_vacancies` rows (P3.A's "vagas por naipe" model) — a
+listing created via the simple/legacy single-`voice_type_id` path has
+*no* vacancy row and therefore still shows no invite button at all,
+because `job_invitations.vacancy_id` is a hard FK and the whole Match
+flow (`app/match_service.py`) is vacancy-based with no equivalent path
+for a plain listing. Extending invites to legacy listings would mean
+either lazily auto-creating a `listing_vacancies` row (safe-looking,
+but a real behavior change to confirm first — see the Match-system
+redesign item below) or a schema change; deliberately left alone this
+round rather than guessing. If Daniel's active listing is the simple
+kind, the invite button still won't show up for it.
+
+**8. "Buscar para este anúncio" (My Listings) + "Buscar para meu
+anúncio" (Search People).** Each active seeking_* listing card in
+`my_listings.html` now has a button linking to `/people` pre-filtered
+by role and, when unambiguous, voice type (`search_voice_type_id` in
+the `my_listings()` query — the listing's own `voice_type_id`, or, for
+a vacancy-based listing, its voice type only when every vacancy shares
+the same one; several different naipes on one listing means the button
+just searches broadly instead of guessing) plus city/state/country.
+Search People (`search_people.html`) shows a "Buscar para meu anúncio"
+link — only when `search_people_routes.py` finds the viewer has at
+least one active seeking_* listing — pointing to My Listings, where
+that button lives.
+
+**9. Flagged, not implemented: redesenho do sistema de Match.** Daniel
+agreed the vagas/convites/candidaturas design has real gaps (see the
+invite-button limitation above) and asked to work through it together
+rather than have it guessed at solo — added to the to-do list as its
+own item, intentionally left for a joint design pass instead of a
+unilateral code change.
+
+**Files changed:** `app/static/css/style.css`, `app/static/img/
+bg-leaves.svg`, `app/static/img/bg-clouds.svg` (new), `app/templates/
+profile.html`, `app/templates/profile_wizard.html`,
+`app/routers/profile_routes.py`, `app/templates/notas.html`,
+`app/templates/my_listings.html`, `app/i18n.py`, `app/cv_pdf.py`,
+`app/qr.py` (new), `requirements.txt`, `app/listing_pdf.py` (new),
+`app/routers/listings_routes.py`, `app/templates/public_profile.html`,
+`app/routers/search_people_routes.py`, `app/templates/search_people.html`.
+Verified: every touched template parses and renders through Jinja2
+with a full mocked context; `cv_pdf.py` and `listing_pdf.py` both
+render real PDFs, checked visually (`pdftoppm`) including the
+avatar-circle clip and the placeholder-letter fallback. No live
+Postgres available in this session — `pytest tests -q` (especially
+`tests/test_p2_wizard_cv_works.py`) is still worth a real run before
+this ships.
+
+## 2026-09-19 — Agent: Claude — Redesigned Rechnung PDF + live WYSIWYG preview
+
+Daniel shared a reference invoice layout (a German "Muster GmbH" sample)
+and asked for three things: (1) restyle VokalBoard's Rechnung PDF to
+match that pattern, (2) let the person filling the form watch each
+element of the page update live as they type ("What you see is what you
+get"), (3) put the VokalBoard logo at the top of the document.
+
+**PDF redesign (`app/invoice_pdf.py`):** rewrote `render_invoice_pdf()`.
+New layout, top to bottom: brand header (VokalBoard logo — the raster
+`app/static/img/brand/icon-256.png`, since ReportLab has no native SVG
+support and adding `svglib`/`lxml` just for this felt like unnecessary
+weight given `reportlab` was explicitly picked for having zero system
+dependencies — see requirements.txt comment — plus "VokalBoard" wordmark,
+"Rechnung" title top-right); a two-column Rechnungssteller/
+Rechnungsempfänger address block; a shaded metadata bar (Rechnungs-Nr./
+Rechnungsdatum/Leistungsdatum); a line-items table with Pos./Bezeichnung/
+Menge/Einh./E-Preis/Gesamt columns styled in the brand navy (`#17283F`,
+replacing the old ad-hoc green `#1f5f4a`); a right-aligned totals block
+(Summe Netto/Umsatzsteuer/Endsumme, with a violet `#635BDE` accent rule
+above Endsumme); then the existing notes (tax note/payment terms/IBAN/
+BIC) and footer credit line, both unchanged. Rendered and visually
+checked a sample PDF before calling this done (`pdftoppm` → PNG,
+inspected by eye — see this session's own record).
+
+**Assumption made on Daniel's behalf (flag if wrong):** the reference
+sample's item table implies multiple line items with their own qty/unit
+price, but `InvoiceDocument` only ever held one `service_description` +
+`net_amount` (+ optional Fahrkosten/Übernachtungskosten as their own
+lines). Rather than turning this into a data-model change (new per-item
+form fields, DB/draft changes for the Match flow, etc.), I matched the
+reference *pattern* only — the single service line renders as "1 ×
+pausch." in the item table, same as the optional expense lines. If
+Daniel actually wants free-form multiple line items, that's a separate,
+larger follow-up.
+
+**Live WYSIWYG preview (both Rechnung forms):** added
+`app/static/js/invoice_preview.js`, a small vanilla-JS module (no
+framework, matching CLAUDE.md §1's stack) that watches the invoice
+form's `input`/`change` events and re-renders a paper-style mock of the
+PDF next to it, entirely client-side. This had to stay client-side to
+respect the Rechnung Zero-Storage Policy (CLAUDE.md §2) — nothing typed
+into the form is posted anywhere until the person actually submits it.
+The preview mirrors two bits of server logic by hand (flagged in the
+file's own header comment so they don't silently drift):
+`app/invoice_tax_presets.py resolve_tax()` (country/status → tax rate +
+legal note) and `InvoiceDocument.validate()`'s net/tax/total math. New
+shared partial `app/templates/_invoice_preview.html` (a
+`invoice_preview_pane(form_id)` macro) is used from both
+`rechnungmaker.html` (Gerador Avulso tab) and `invoice_match_form.html`
+(Match-Rechnungen) — imported `with context` so the macro can call `t()`.
+Added the `invoice_preview_label` i18n key (de/en/fr/it/pt). New CSS at
+the end of `app/static/css/style.css` (`.invoice-layout`/`.invoice-paper`
+and friends) lays the form and the live preview out side by side on
+desktop and stacks them on narrow screens, using the same brand tokens
+as the rest of the site (`--ink`/`--accent`/`--bg`/`--border`) so the
+preview and the PDF stay visually consistent with each other and with
+the site.
+
+**Can this drift out of sync?** The tax-rate/legal-note logic and the
+net/tax/total math are duplicated (Python for the real PDF, JS for the
+preview) on purpose — this preview has zero server round-trips by
+design. Both copies are commented pointing at each other; if
+`invoice_tax_presets.py` or `InvoiceDocument.validate()` ever change,
+`invoice_preview.js` needs the matching edit or the preview will show
+numbers that don't match the PDF it's supposed to be previewing.
+
+**Not done in this pass:** re-encoding the Manrope font into the PDF
+itself (ReportLab needs a TTF/OTF; only `.woff2` files are bundled for
+the web) — the PDF still uses ReportLab's built-in Helvetica. Also
+didn't touch `invoice_match_preview.html` (the read-only confirmation
+screen after the issuer submits) — that page has no form to watch, so
+"live preview" doesn't apply there; it already shows the final numbers
+once submitted.
+
+**Files changed:** `app/invoice_pdf.py`, `app/static/js/invoice_preview.js`
+(new), `app/templates/_invoice_preview.html` (new),
+`app/templates/rechnungmaker.html`, `app/templates/invoice_match_form.html`,
+`app/static/css/style.css`, `app/i18n.py`. Verified: `app/invoice_pdf.py`
+renders a real PDF (checked visually), both templates parse and render
+cleanly through Jinja2 with a full mocked context (no live Postgres
+available in this session to run the actual `pytest` suite — worth a
+real `pytest tests -q` pass next time there's DB access, especially
+`tests/test_invoice_pdf.py` and `tests/test_rechnungmaker_page.py`).
+Synced to Daniel's machine.
+
+**Next step:** run the real test suite against Postgres to confirm
+nothing broke; if Daniel wants true multi-line-item invoices (not just
+the visual pattern), that needs a `InvoiceDocument` data-model change.
+
+## 2026-09-19 — Agent: Claude — Fixed: Capitalism Mode button showed raw HTML
+
+Daniel screenshotted the Red Zone's "Capitalism Mode" toggle button rendering
+the literal text `<span class="status-dot status-dot-on"></span> Turn on
+Capitalism Mode` instead of a colored status dot + label.
+
+**Root cause:** `app/templates/zona_vermelha.html` built the whole button
+label — including the `<span class="status-dot ...">` markup — as one
+Python/Jinja string and dropped it in with `{{ ... }}`. Jinja2 autoescapes
+by default, so the `<span>` tag showed up as literal visible text instead
+of being rendered as markup.
+
+**Fix:** moved the markup into the template itself — a real `<span
+class="status-dot {{ 'status-dot-off' if capitalismo_enabled else
+'status-dot-on' }}"></span>` followed by the plain-text label interpolated
+separately. No `| safe` needed since nothing dynamic is being injected as
+markup anymore. Confirmed `.status-dot`/`.status-dot-on`/`.status-dot-off`
+already exist in `app/static/css/style.css` — no CSS changes needed.
+Grepped the rest of `app/templates/*.html` for the same anti-pattern
+(string-built `<span`/markup dropped into `{{ }}` without `| safe`) —
+this was the only occurrence.
+
+**Files changed:** `app/templates/zona_vermelha.html` only. Synced to
+Daniel's machine. Not covered by an automated test (purely a rendering
+fix, no behavior change) — worth a quick visual check on the Red Zone
+next time it's open.
+
+**Next step:** none needed for this item — visual fix only.
+
 ## 2026-09-19 — Agent: Claude — Fixed: CONSOLIDATED migration wasn't actually re-run-safe
 
 Daniel hit `ERROR: relation "users_profile_slug_key" already exists` re-running

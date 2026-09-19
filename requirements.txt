@@ -34,3 +34,8 @@ cryptography==50.0.1
 # num post que todo mundo vê na home. Escrito em Rust (bindings pro
 # ammonia) — não precisa de nenhuma dependência de sistema.
 nh3==0.3.7
+
+# QR Codes para o CV em PDF e para o flyer de anúncio pra imprimir
+# (19/09/2026) — ver app/qr.py. Puro Python + Pillow (já é dependência),
+# sem dependência de sistema, mesmo critério usado pro resto do stack.
+qrcode==8.2
