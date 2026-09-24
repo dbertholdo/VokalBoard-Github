@@ -1,5 +1,330 @@
 # VokalBoard — Registro compartilhado de IA
 
+### 2026-09-24 — Codex — entrega da camada visual e handoff de QA
+- `VISUAL_ROLLOUT.md`: cobertura efetiva, evidências e limites registrados; não certificar estados não testados.
+- Verificação final: contrato dos 59 templates aprovado; botão Report a bug com nome acessível em 320px, diálogo abre e Cancel fecha sem envio; foco visível por teclado. Viewport restaurado, aba final de QA fechada.
+- Marca aplicada via CSS compartilhado, assinatura final em contornos, Manrope existente, componentes Mineral e separação de Red Zone administrativa/urgência. Regras funcionais e mudanças prévias do Claude preservadas.
+- Próximo verificável para Claude: investigar as 18 falhas funcionais registradas abaixo e testar fluxos de negócio. Limites de QA visual: aparelho físico, zoom real, outros navegadores/leitor de tela e estados não exercitados descritos no inventário. Não tratar a suíte geral como verde.
+- Sem publicar/deploy/migrar produção. Ambiente local de QA mantido em 8002 para reprodução; banco principal não modificado por esta tarefa.
+
+### 2026-09-24 — Codex — acessibilidade do controle flutuante
+- `base.html`: adiciona nome acessível traduzido ao botão Report a bug, cujo texto fica oculto no celular. Ação, diálogo e envio intactos.
+- Revisão CSS -3 no navegador: checkboxes alinhados em linha; foco por Tab navy 2px; sem overflow em 320px. Aviso Dismiss ocultou banner; menu abriu e fechou por Escape. Paginação mostrou Page 2 / 2. Perfil em 720px (reflow equivalente de largura para 1440/200%) sem overflow; NÃO é teste de zoom real do navegador.
+- Próximo: confirmar nome acessível e contrato final, registrar cobertura/limites para Claude.
+
+### 2026-09-24 — Codex — versão final de cache e testes focados
+- `base.html`/`test_brand_visual.py`: asset revision `20260924-3` inclui ajuste de checkbox e danger, evitando CSS anterior em cache.
+- Testes de marca após ajustes: **11 passed**, três avisos de dependências; `git diff --check` sem erros (avisos normais LF/CRLF).
+- A limpeza automática dos testes remove contas sectest; fixture recriada somente no banco isolado para inspeção final. Não executar suíte simultaneamente com navegador autenticado.
+- Próximo: conferir última revisão no navegador e registrar limitações reais, sem corrigir backend.
+
+### 2026-09-24 — Codex — alinhamento de opções e estados de perigo
+- `brand.css`: labels de checkbox/radio mantêm texto ao lado do controle, em vez de empilhamento centralizado observado no celular; respeita `[hidden]`. Botões danger da Red Zone mantêm cor semântica vermelha, sem alterar ações.
+- Verificado: Red Zone ativo agora navy sobre branco, regra nova carregada; alternância Singer available exibe início/fim e oculta event_date, sem overflow.
+- Próximo: repetir inspeção destes estados e testes de marca; funções não visuais ficam para Claude.
+
+### 2026-09-24 — Codex — atualização de cache visual
+- `base.html` e teste de marca: versão do CSS passa a `20260924-2`, pois o navegador ainda carregava a cópia anterior após reload (regra nova ausente em document.styleSheets).
+- Mudança somente de referência ao asset; próximo: verificar regra efetivamente carregada e contraste Red Zone.
+
+### 2026-09-24 — Codex — contraste administrativo observado no navegador
+- `brand.css`: corrige Red Zone ativo branco-sobre-branco no submenu; padroniza somente aparência dos controles de `.red-zone-box`.
+- Evidência anterior: 36 medições de páginas principais + 48 de páginas administrativas, nas larguras 320/390/768/1440, sem overflow horizontal de página. Menu móvel aberto com aria-expanded=true; prévia avulsa atualizou nome e valor fictícios (100 + 19 = 119), sem emitir PDF.
+- Próximo: recarregar CSS local e verificar contraste ativo, demais estados e contrato. Nenhuma rota, validação ou permissão alterada.
+
+### 2026-09-24 — Codex — suíte completa e fronteira com Claude
+- Por confirmação expressa do Daniel: Codex trabalha SOMENTE no visual; programação funcional fica com Claude. Nenhuma correção funcional será feita nesta etapa.
+- Suíte no contêiner `vokalboard-brand-qa`, banco isolado: **267 passed, 18 failed, 3 warnings**, 90,43s. Testes novos de marca passaram (controles de 59 templates, assets, contraste e rotas).
+- Falhas para investigação do Claude, SEM atribuição confirmada de causa: admin_report_moderation (3), financial (1), mascot_moments (1), match_history_access (1), moderation_punishments_and_estornos (4), p2_wizard_cv_works (1), periodic_mails (1), profile_layout (2), security/AdminPosts (1), urgency_routes (3). Saída resumida não prova regressão; testes/expectativas também podem estar desatualizados.
+- Navegador: homepage anônima inspecionada em desktop e 320px, sem overflow horizontal; Manrope presente no estilo computado. Ainda faltam páginas internas/interações e demais larguras.
+- Próximo verificável: fixtures locais para inspecionar páginas autenticadas e completar responsividade. Sem deploy, sem produção.
+
+### 2026-09-24 — Codex — retomada da validação visual
+- `tests/test_brand_visual.py`: reconhece aspas simples e duplas válidas no extends Jinja; nenhum template/controle alterado.
+- Execução interrompida em cinco falhas: 70 testes passaram; três falhas na preparação de anúncios para denúncias, uma em acesso financeiro e uma no teste visual (aspas). Ainda não atribuídas a regressões.
+- Próximo: repetir teste corrigido, finalizar suíte e verificar telas no navegador; ambiente exclusivamente local isolado, sem deploy/migrações em produção.
+
+### Marca — acabamento contextual e regressões
+- Contrato de controles executado: 59 templates preservados.
+- `brand.css`: remove verde/gradiente residual do perfil, normaliza estados de vagas/convites.
+- `zona_vermelha.html`: região administrativa usa símbolo branco sobre navy, NÃO o mascote de urgência;
+  rótulos Red Zone/God Mode e permissões intactos. `brand/MANIFEST.md` atualizado para assinatura final.
+- `tests/test_brand_visual.py`: cobertura do template-base, contraste de oito pares e 40 rotas reais.
+- Banco novo `vokalboard_brand_retention_test_20260924` criado e schema carregado; nenhum banco existente alterado.
+- Próximo: executar suíte e navegador com fixtures descartáveis. Não declarar aprovação antes disso.
+
+### Marca — lotes 1–5: skin compartilhada
+- `base.html`: logo final e stylesheet `brand.css`; menus e ações preservados.
+- `brand.css`: navegação, controles 44px, cards/filtros, perfis/mensagens, Notas, Admin,
+  urgência localizada e prévia de Rechnung; layout estreito e redução de movimento.
+- Ainda não validado no navegador. Próximo: contrato de campos e execução em banco isolado.
+
+### Marca — assets finais importados
+- `app/static/img/brand/vokalboard-lockup-{navy,white}.svg`: assinatura final em contornos
+  copiada sem edição do kit; todos os hashes do MANIFEST conferidos com sucesso.
+- Origens preservadas; nada gerado/recolorido. Próximo: conectar assinatura e estilos.
+
+### Marca — baseline capturada
+- `tests/brand_contract.json`: contrato do HTML funcional atual antes de qualquer mudança de telas.
+- Gerador executado com sucesso; próximo: conferir assets e aplicar lote 1.
+
+### Marca — contrato de preservação antes do redesign
+- `tests/brand_contract.py`: inventaria campos, ações, links, IDs e atributos de validação
+  antes da mudança visual, incluindo alterações ainda não commitadas do Claude.
+- Teste ainda não executado; próximo: capturar baseline e aplicar assinatura/CSS compartilhado.
+
+## 2026-09-24 — Codex — identidade visual v1: inventário e escopo
+- Lidos AGENTS, entrada Claude 21/09 (cachê opcional + confirmação), manuais/instruções
+  e COMECE_AQUI/VERIFICACAO do pacote final. Nenhuma regra funcional antiga será restaurada.
+- `VISUAL_ROLLOUT.md`: inventário dos 59 templates, seis lotes, limites e critérios de teste.
+- Git inicial: quatro arquivos já modificados (este log, i18n, listing-form.js, listing_form.html), preservados.
+- Testes ainda não executados nesta etapa; Docker disponível após início pelo usuário.
+- Próximo: assets finais e camada visual compartilhada; regressões em banco isolado.
+- Sem deploy, sem SQL em produção, sem ativar workers de produção/local principal.
+
+## 2026-09-21 — Agent: Claude — Task #52: warn when publishing a listing without a fee or "negotiable"
+
+Backlog item #52 from `PLANO_EXECUTIVO_ORGANIZADO.md` P5: "Aviso ao
+publicar anúncio sem Cachê/A negociar." Picked as the next package
+after delivering a SWOT/PESTLE/RACI/NFR/Gap Analysis report — chosen
+by Daniel from a short list of ready backlog items because it's small
+and self-contained.
+
+**Scope, deliberately soft.** Fee has been fully optional server-side
+since 19/09/2026 (`app/fees.py`/`app/vacancies.py`: "a vaga's fee isn't
+validated as strictly required... it can be added/edited later") — this
+task does NOT change that. It only adds a client-side confirmation
+nudge, in `app/static/js/listing-form.js`, so nobody accidentally
+publishes an anúncio with zero fee information without realizing it —
+listings with a visible cachê get more applications.
+
+**Behavior:** on submit, if the listing type is a job listing
+(`seeking_singer`/`seeking_conductor`) and NO visible vacancy row has
+either a fee amount typed or "A negociar" checked, OR the listing is a
+self-ad (`singer_available`/`conductor_available`) and the top-level
+fee section is in the same empty state, a `window.confirm()` shows a
+translated warning ("Você não preencheu o cachê nem marcou 'A
+negociar'... Publicar mesmo assim?"). Cancel keeps editing; OK
+resubmits the form once (a local flag prevents asking twice on the
+same submit).
+
+**Files changed:**
+- `app/i18n.py` — new key `listing_form_fee_warning_confirm` (de/en/fr/it/pt).
+- `app/templates/listing_form.html` — form now carries `id="listing-form"`
+  and `data-fee-warning="{{ t(...) }}"` so the JS reads the already-
+  translated message instead of hardcoding English (the page is
+  user-facing, not Admin, so it must follow the viewer's own language —
+  unlike the Admin/God Mode `t_en()` fix from two days ago).
+- `app/static/js/listing-form.js` — new submit listener, added at the
+  end of the existing IIFE; reuses the same `typeSelect`/
+  `feeAmountInput`/`feeNegotiableCheckbox` references already declared
+  above it in the file, no new globals.
+
+**Testing:** `node --check` on the JS file and an `ast.parse` on
+`i18n.py` both pass (syntax-only — this sandbox has no live Postgres or
+browser). No Python backend logic changed, so no new pytest test was
+needed; grepped `tests/` first to confirm nothing already asserts on
+`listing_form.html`'s exact markup around the fee section (nothing
+does). Per the project's own testing note, this still needs a real
+browser check (including confirming the dialog text renders correctly
+in a non-English site language) before being called fully verified —
+left as the next safe step for whoever has browser/device access next.
+
+**Next safe step:** browser-verify this in at least German and
+English, on both `seeking_singer` (multi-row case) and
+`singer_available` (top-level fee case), then move to whichever backlog
+item Daniel prioritizes next.
+
+## 2026-09-19 — Agent: Claude — HANDOFF: session wrap-up, next steps, open decisions (Daniel is running low on weekly tokens)
+
+Daniel asked to write down what's left and the next steps in detail,
+since he's about to run out of weekly tokens — this entry is meant to
+be a complete, standalone briefing for whoever (Claude or Codex) picks
+this up next, with zero assumed memory of this session.
+
+### 0. Deploy status — READY, but NOT YET actually applied
+
+Everything in `db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql`
+is confirmed ready (all 29 source migrations present, one clean
+`BEGIN;`/`COMMIT;` pair, verified against the actual migrations folder —
+see the entry right above this one). **Nobody has run it against
+production yet** — that's still Daniel's manual step:
+```
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql
+```
+Use `psql` directly (NOT the Railway dashboard's "Query" box — it
+mis-splits the dollar-quoted trigger functions and already broke
+production once this way). Take a Railway Postgres backup/snapshot
+first if production already has real user data. If any NEW migration
+gets added after this HANDOFF entry, whoever adds it must fold it into
+this same CONSOLIDATED file too (see that file's own header for the
+pattern) — do not just leave a new standalone `.sql` file sitting next
+to it, that's exactly the gap that was just found and fixed twice this
+session (`2026-09-19_p2_wizard_cv_works.sql` was missing entirely).
+
+### 1. OPEN DECISION — blocks task #49's next phase, needs Daniel's word
+
+`app/i18n.py`'s `SUPPORTED_LANGUAGES` and its own module docstring both
+say the 5 core languages are de/en/**fr**/it/pt (French) — but
+`CLAUDE.md` §1 lists "inglês, português, **espanhol**, italiano, ..."
+(Spanish, not French). All 622 i18n keys currently have real French
+text; there is zero Spanish content anywhere in the codebase. This was
+flagged once before this session even started and confirmed again
+during this session's full translation audit.
+
+**Before anyone touches zh/ko/ro (see #49 below), Daniel needs to pick
+one:**
+- (a) Keep French as-is, and just fix `CLAUDE.md`'s wording to say
+  "francês" instead of "espanhol" (cheapest option, zero re-translation).
+- (b) Replace French with Spanish — re-translate all 622 keys into
+  Spanish, drop `fr` from `SUPPORTED_LANGUAGES`/`LANGUAGE_META`.
+- (c) Support both — add `es` as a 6th core language alongside `fr`
+  (~622 more translations, the most expensive option).
+
+Whichever gets picked determines which languages zh/ko/ro-style full
+coverage gets built for next — don't start #49's next phase without
+this answer, it would mean redoing work.
+
+### 2. Task #49 — translations: what's actually done vs. what's left
+
+**Done this session (full audit, see the two entries below this one for
+the complete detail):**
+- All 622 i18n keys confirmed complete for de/en/fr/it/pt — 0 missing,
+  0 empty entries (was 4 gaps before this session: `availability_limit`
+  and `availability_invalid` were missing de/fr/it; both now fixed).
+- 0 placeholder mismatches (e.g. a key using `{name}` in one language
+  but not another, which would silently drop the substitution).
+- Every static `t()`/`t_en()` call site in the whole codebase
+  cross-checked against actually-defined keys — found and fixed one
+  real bug: `listing_form.html`'s currency `<select>` screen-reader
+  label was calling a key (`listing_form_fee_currency_label`) that
+  didn't exist anywhere, so it was printing that literal string instead
+  of "Currency"/"Währung"/etc. Now defined for all 5 core languages.
+- Admin/God Mode was leaking the viewer's own site language on 8 call
+  sites across 3 templates (an admin browsing in Portuguese would see a
+  few admin strings in Portuguese) — fixed with a new `t_en()` helper
+  in `app/render.py` that always forces English, per Daniel's explicit
+  rule that Admin/God Mode must be English-only. Full details in the
+  entry below.
+
+**Still 0% done — the actual remaining scope of #49:** Chinese
+Simplified (`zh`), Korean (`ko`), Romanian (`ro`) have ZERO translated
+keys — every single one of the 622 keys falls back to English for
+these three languages via `translate()`'s fallback chain (see
+`app/i18n.py`). This is the bulk of the real work still ahead on this
+task — roughly 622 keys × 3 languages, ideally by a native/fluent
+speaker or a very careful pass per language, not a blind bulk machine
+pass, given how much of the site's copy is short strings without
+context (button labels, single words) where mistranslation is easy.
+Blocked on the decision in §1 above (whether `fr` stays, and whether
+`es` needs to be added to that list too, before doing this work).
+
+### 3. Flagged but deliberately NOT touched — a policy call for Daniel
+
+`app/permissions.py`'s own docstring describes role_level 1 (moderator)
+as having "only the reports/blocks queue (read + act on reports)" — but
+the actual report accept/reject routes (`admin_accept_report`,
+`admin_reject_report` in `app/routers/admin_routes.py`) currently
+require `LEVEL_GOD` (level 3), not level 1. So a moderator-level account
+can (after this session's dashboard-access fix) now VIEW the reports
+queue, but still can't act on any of them — contradicting the
+documented design. I did not change this, since loosening who can apply
+account punishments/bans is a real security/policy decision, not a bug
+fix I should make unilaterally. If Daniel wants moderators to actually
+be able to act on reports (as the docstring says they always could),
+that's a one-line change (`require_level(request, LEVEL_GOD)` →
+`require_level(request, LEVEL_MODERATOR)` on those two routes) — but
+it should be an explicit "yes, do that" from him first.
+
+### 4. Backlog — untouched, not started without Daniel's go-ahead
+
+- **#52 — Aviso ao publicar anúncio sem Cachê/A negociar.** Warn the
+  user in the listing form if they're about to publish without setting
+  either a fee amount or checking "a negociar" for a vacancy row. Not
+  started.
+- **#53 — Redesenhar Messenger/Inbox do site.** A full visual/UX redesign
+  of `/messages` — no design direction discussed yet, would need a
+  design conversation with Daniel first (like #51's menu reorg was,
+  ideally with sketches/reference screenshots the way he did for the
+  notification center). Not started.
+- **#55 — Match fase 2: ler `listing_vacancies` direto.** Currently
+  `listings.voice_type_id`/`fee_amount`/`fee_currency`/`fee_negotiable`
+  are kept as a DERIVED MIRROR of the real vacancy rows (see
+  `app/vacancies.py`'s module docstring) so every existing piece that
+  reads those columns directly (board matching, e-mail alerts, banner
+  targeting, the "Buscar pessoas" directory) keeps working unchanged.
+  Phase 2 means rewriting those call sites to read `listing_vacancies`
+  directly instead, then dropping the mirror columns — a real
+  refactor across several files, not a quick task. Not started.
+
+### 5. Everything else from this session — DONE and SYNCED to Daniel's PC
+
+Confirmed written to `G:\My Drive\Coursera\VokalBoard\VokalBoard-Github\`
+via the device bridge, `device_commit_files` reported zero rejections
+on every batch this session:
+- Notification Center dropdown redesign (matches Daniel's reference
+  screenshot — color-coded icon badges, relative time, restyled header).
+- Task #51 round 2 (real buttons instead of bare links, side-nav
+  accordion behavior, translation check, spacing fix).
+- Task #54 (remove-vacancy button, replacing the old "clear the field
+  and save again" workaround).
+- Admin access bug fix (`/admin` dashboard was requiring God Mode to
+  even view; Admin-level accounts couldn't get in — fixed).
+- Admin/God Mode English-only enforcement (`t_en()` helper, 8 call
+  sites fixed).
+- Translation audit + 3 real bugs fixed (see §2 above).
+- Migration consolidation fix — the missing `p2_wizard_cv_works.sql`
+  migration (see §0 above).
+
+**Standing caveat, unchanged all session:** this sandbox has no live
+Postgres connection, so nothing here has been run against a real
+database — every check was `ast.parse()` for Python syntax, a full
+Jinja2 template-load pass, `node --check` for JS, i18n completeness
+scripts, and `pytest --collect-only` (274 tests collect cleanly, no
+import/syntax errors) — never actual test execution or a real query.
+Whoever picks this up next should keep that in mind for anything
+touching the database specifically.
+
+## 2026-09-19 — Agent: Claude — Deploy readiness re-check: found a whole migration missing from CONSOLIDATED
+
+Daniel: "migrations db ready? may I deploy?" — re-verified
+`db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql` against
+the actual migrations directory (not just against what the file's own
+header claimed) and found `2026-09-19_p2_wizard_cv_works.sql` (the
+Profile Wizard/CV/"works" cluster) had **never been folded in at all** —
+not a late addition like the previous two, just missing since the file
+was first built.
+
+This one was serious: it adds `users.profile_wizard_seen_at`, which
+`app/auth.py`'s `get_current_user()` already includes in its SELECT on
+**every single authenticated request**, and the `singer_works` table
+(`app/singer_works.py`, `app/routers/profile_routes.py`). Deploying the
+consolidated file as it stood would have broken every logged-in page
+load immediately after deploy with a "column does not exist" error.
+
+**Fixed:** appended the migration's body (no `BEGIN;`/`COMMIT;` of its
+own to strip — it never had one) right before the file's single final
+`COMMIT;`, after the two previous additions. No dependency either way
+(it only needs `users(id)`, created at the very top of the file; nothing
+else in the file depends on it). Updated the header (28 → 29 files) and
+added an "UPDATE 2" note explaining the gap and the fix, same pattern as
+the previous two additions.
+
+**Re-verified from scratch, not just re-checked the same spot:** wrote a
+small script that lists every `.sql` file in `db/migrations/` (except
+the consolidated file itself) and confirms each filename is actually
+referenced inside the consolidated file — all 29 now present. Also
+re-confirmed exactly one `BEGIN;`/`COMMIT;` pair in the whole file
+(line 75 / line 1081).
+
+**Answer to Daniel: yes, migrations are now ready** — same standing
+instructions as before: apply with `psql` (not the Railway dashboard
+Query box — see the file's own header for why), and take a Railway
+Postgres backup/snapshot first if production already has real user
+data. Nothing from today's other work (notification center redesign,
+task #54, the admin fixes, the translation audit) touched the database
+at all, so this migration file is the only thing that needed re-checking.
+
 ## 2026-09-19 — Agent: Claude — Translation audit (task #49) + Admin access bug fix + Admin/God Mode English-only enforcement
 
 Daniel: "Das traduções que já temos, confira se está tudo em ordem antes

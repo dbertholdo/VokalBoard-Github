@@ -187,4 +187,44 @@
     }
 
     updateJobFields();
+
+    // Task #52 (Daniel: "aviso ao publicar anúncio sem Cachê/A
+    // negociar") — a soft nudge, not a hard requirement: fee stays
+    // fully optional server-side (parse_vacancies_form/fee_valid, see
+    // app/fees.py and app/vacancies.py — it can always be added later),
+    // but a listing published with no fee info anywhere gets fewer
+    // applications, so we confirm() once before letting it through.
+    // Checks the top-level fee fields for a self-ad listing
+    // (singer_available/conductor_available) or every VISIBLE vacancy
+    // row for a job listing (seeking_singer/seeking_conductor) — "any
+    // one row has fee info" is enough to skip the warning, since a
+    // multi-naipe listing only needs one clear vaga to look worth
+    // opening.
+    const listingForm = document.getElementById('listing-form');
+    if (listingForm) {
+        let feeWarningAcknowledged = false;
+        listingForm.addEventListener('submit', (e) => {
+            if (feeWarningAcknowledged) return;
+            const isJob = ['seeking_singer', 'seeking_conductor'].includes(typeSelect.value);
+            let hasFeeInfo;
+            if (isJob) {
+                const visibleRows = Array.from(document.querySelectorAll('.vacancy-row')).filter(row => !row.hidden);
+                hasFeeInfo = visibleRows.some(row => {
+                    const amount = row.querySelector('.vacancy-fee-amount');
+                    const negotiable = row.querySelector('.vacancy-fee-negotiable');
+                    return (amount && amount.value.trim() !== '') || (negotiable && negotiable.checked);
+                });
+            } else {
+                hasFeeInfo = (feeAmountInput && feeAmountInput.value.trim() !== '')
+                    || (feeNegotiableCheckbox && feeNegotiableCheckbox.checked);
+            }
+            if (hasFeeInfo) return;
+            e.preventDefault();
+            const message = listingForm.getAttribute('data-fee-warning');
+            if (window.confirm(message)) {
+                feeWarningAcknowledged = true;
+                listingForm.requestSubmit ? listingForm.requestSubmit() : listingForm.submit();
+            }
+        });
+    }
 })();

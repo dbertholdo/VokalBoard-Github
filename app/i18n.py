@@ -351,6 +351,19 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
     "listing_form_vacancy_slots_placeholder": {"de": "Plätze", "en": "Slots", "fr": "Places", "it": "Posti", "pt": "Vagas"},
     "listing_form_vacancy_filled_label": {"de": "besetzt", "en": "filled", "fr": "pourvu(s)", "it": "occupati", "pt": "preenchidas"},
+    # Task #52: soft client-side confirm before publishing without a fee
+    # amount or "negotiable" set anywhere on the listing — fee stays
+    # fully optional (can be added later), this is only a nudge, since
+    # listings with a visible fee get more applications. Fires for the
+    # top-level fee (self-ad listings) OR every vacancy row (job
+    # listings) — see listing-form.js.
+    "listing_form_fee_warning_confirm": {
+        "de": "Sie haben kein Honorar angegeben und \"Verhandelbar\" nicht angekreuzt. Anzeigen mit sichtbarem Honorar erhalten mehr Bewerbungen. Trotzdem veröffentlichen?",
+        "en": "You haven't entered a fee or checked \"Negotiable\". Listings with a visible fee get more applications. Publish anyway?",
+        "fr": "Vous n'avez pas indiqué de cachet ni coché \"Négociable\". Les annonces avec un cachet visible reçoivent plus de candidatures. Publier quand même ?",
+        "it": "Non hai indicato un compenso né spuntato \"Trattabile\". Gli annunci con compenso visibile ricevono più candidature. Pubblicare comunque?",
+        "pt": "Você não preencheu o cachê nem marcou \"A negociar\". Anúncios com cachê visível recebem mais candidaturas. Publicar mesmo assim?",
+    },
     "listing_form_add_vacancy": {"de": "Weitere Stimmlage hinzufügen", "en": "Add another voice type", "fr": "Ajouter une autre tessiture", "it": "Aggiungi un'altra tessitura", "pt": "Adicionar outro tipo de voz"},
     # FIX (19/09/2026, task #54, Daniel: "permitir remover vaga/naipe já
     # adicionado, não só adicionar") — replaces the old "leave the field

@@ -1,5 +1,14 @@
 # VokalBoard — brand assets manifest
 
+## Final package integrated 24/09/2026 (supersedes provisional status below)
+
+`vokalboard-lockup-navy.svg` and `vokalboard-lockup-white.svg` are the final
+Manrope 700 outlined signatures from vokalboard-brand-kit-v1/logos. The
+package SHA-256 manifest was checked before copying. Navy is used in the
+site header with clear space, original proportions and no effect. Existing
+symbol/icon variants remain valid. Font files and OFL license are preserved.
+No provisional lettering is used. Mascot assets are unchanged.
+
 Logo package delivered 19/09/2026. Source (outside the repo, Daniel's
 machine): `C:\Users\danie\.codex\visualizations\2026\09\18\01a0b362-6841-7bc1-8f29-dc0e1ca62148\vokalboard-logo-v1\`
 — see that folder's own `LEIA-ME.md`, plus `INSTRUCOES_MARCA_CODEX_CLAUDE.md`
