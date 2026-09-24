@@ -1,5 +1,45 @@
 # VokalBoard — Registro compartilhado de IA
 
+## 2026-09-24 — Codex — pendências consolidadas após a sessão visual
+
+Registro solicitado por Daniel. Esta entrada consolida o ponto de retomada e substitui os próximos passos intermediários desta sessão, sem apagar o histórico. Não é uma nova auditoria de todo o Plano Executivo.
+
+### 1. Validação visual ainda pendente
+- [ ] Testar em celular físico e em Safari/Firefox, incluindo menu, fechamento de avisos, formulários e tabelas.
+- [ ] Testar zoom real de 200%; a medição de largura equivalente não certifica zoom real.
+- [ ] Completar acessibilidade com leitor de tela, navegação integral por teclado, nomes dos campos dinâmicos e contraste dos estados efetivamente renderizados. Os oito pares de cores aprovados não cobrem todos os estados.
+- [ ] Inspecionar os estados ainda não exercitados dos templates inventariados em `VISUAL_ROLLOUT.md`: dados extensos, erros, vazios, diferentes idiomas e conteúdo dinâmico; corrigir apenas eventuais problemas visuais encontrados.
+- [ ] Medir performance de carregamento/renderização; não foi certificada nesta sessão.
+
+### 2. Investigação funcional — responsabilidade do Claude
+Não corrigida por Codex, conforme divisão expressa do Daniel. Reproduzir e distinguir defeito real de fixture/expectativa desatualizada antes de alterar código ou testes. Não atribuir as falhas ao redesign sem evidência.
+
+| Grupo de testes | Falhas | Evidência a investigar |
+|---|---:|---|
+| `test_admin_report_moderation.py` | 3 | Preparação do anúncio retornou None antes de testar moderação |
+| `test_financial.py` | 1 | Acesso nível 2 recebeu 200 onde teste esperava 303 |
+| `test_mascot_moments.py` | 1 | Momento joinha após resgate não encontrou asset esperado |
+| `test_match_history_access.py` | 1 | Quantidade de itens do submenu diverge da expectativa |
+| `test_moderation_punishments_and_estornos.py` | 4 | Preparação do anúncio retornou None |
+| `test_p2_wizard_cv_works.py` | 1 | Asserção de telefone privado nos bytes do PDF falhou; verificar conteúdo extraído, não concluir vazamento apenas pela sequência de bytes |
+| `test_periodic_mails.py` | 1 | Campos em branco retornaram 422 onde teste esperava 303 |
+| `test_profile_layout.py` | 2 | Contagens de campos/cards diferentes das expectativas |
+| `test_security.py` / AdminPosts | 1 | Post esperado não encontrado no HTML retornado |
+| `test_urgency_routes.py` | 3 | Criação urgente retornou 400; botão e anúncio urgente esperados ausentes |
+
+- [ ] Reexecutar a suíte completa após investigação; último resultado foi **267 aprovados, 18 falhas, 3 avisos**. Não declarar suíte verde.
+- [ ] Verificar ponta a ponta os fluxos não exercitados nesta revisão: publicar anúncio com confirmação de cachê, emitir/enviar PDF, pagamentos, campanhas e controles administrativos. Usar dados/serviços isolados; não disparar e-mails reais, cobrar ou realizar ações destrutivas em produção.
+- [ ] Avaliar os avisos de dependências (Starlette/httpx, passlib/crypt, ReportLab/ast); nenhuma atualização de dependência foi feita aqui.
+
+### 3. Ponto de retomada e salvaguardas
+- Já verificado, não refazer sem motivo: contrato dos 59 templates; 11 testes de marca aprovados na execução final (1,25s); 84 medições de largura; interações e limitações detalhadas no inventário. `git diff --check` sem erros.
+- Ambiente usado: contêiner `vokalboard-brand-qa`, localhost:8002, banco `vokalboard_brand_retention_test_20260924`. Confirmar disponibilidade e isolamento antes de executar testes; não presumir que continua ativo.
+- A suíte limpa usuários `sectest`: executá-la antes de criar fixtures para navegador, nunca simultaneamente. A execução final dos testes ocorreu depois da última inspeção; recriar fixtures se necessário. Não registrar credenciais aqui.
+- Preservar regras/campos/ações e mudanças do Claude. Zona de Alerta = urgência; Red Zone = administração; God Mode = poderes.
+- Nenhum deploy/publicação/migração de produção autorizado. Codex permanece no visual; programação funcional fica com Claude.
+- Arquivo alterado nesta solicitação: somente `AI_CHANGELOG.md`. Verificação: conferência do log/inventário e estado Git antes da edição; sem executar novamente testes de aplicação por ser alteração documental.
+- Próximo passo verificável: Claude reproduzir os grupos falhos no banco isolado; revisão visual prosseguir pelos itens da seção 1, sem certificar antecipadamente os resultados.
+
 ### 2026-09-24 — Codex — entrega da camada visual e handoff de QA
 - `VISUAL_ROLLOUT.md`: cobertura efetiva, evidências e limites registrados; não certificar estados não testados.
 - Verificação final: contrato dos 59 templates aprovado; botão Report a bug com nome acessível em 320px, diálogo abre e Cancel fecha sem envio; foco visível por teclado. Viewport restaurado, aba final de QA fechada.
