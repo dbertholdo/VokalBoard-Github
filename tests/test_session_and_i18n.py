@@ -4,13 +4,15 @@ from datetime import datetime, timedelta, timezone
 
 from itsdangerous import TimestampSigner
 from app.i18n import SUPPORTED_LANGUAGES, translate
+from app.i18n_locales import load_locale
 
 
 def test_new_requested_languages_are_available_with_safe_english_fallback():
     assert {"zh", "ko", "ro"}.issubset(SUPPORTED_LANGUAGES)
-    assert translate("nav_login", "zh") == "Log in"
-    assert translate("nav_login", "ko") == "Log in"
-    assert translate("nav_login", "ro") == "Log in"
+    # Untranslated keys fall back to English; translated ones come from
+    # app/locales/<lang>.json (see tests/test_i18n_locales.py).
+    for lang in ("zh", "ko", "ro"):
+        assert translate("nav_login", lang) == (load_locale(lang).get("nav_login") or "Log in")
 
 
 def _set_session(client, payload):

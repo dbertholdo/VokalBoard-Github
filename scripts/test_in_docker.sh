@@ -31,7 +31,7 @@ URL_BASE=postgresql+psycopg2://maestro_user:maestro_pass@db:5432
 PYTEST_OPTS=(-q --tb=short -p no:warnings --show-capture=no)
 
 fresh_db() {  # drop + create + load current schema
-  docker exec "$DB_CONTAINER" dropdb -U maestro_user --if-exists "$1"
+  docker exec "$DB_CONTAINER" dropdb -U maestro_user --if-exists --force "$1"
   docker exec "$DB_CONTAINER" createdb -U maestro_user "$1"
   docker cp db/schema.sql "$DB_CONTAINER":/tmp/schema_test.sql
   docker exec "$DB_CONTAINER" psql -q -U maestro_user -d "$1" -v ON_ERROR_STOP=1 -f /tmp/schema_test.sql >/dev/null 2>&1

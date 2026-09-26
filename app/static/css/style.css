@@ -1030,6 +1030,11 @@ button, .button-primary, .button-secondary, .button-danger, .button-link {
     font-size: 0.82rem;
     color: var(--muted);
 }
+/* A file input has no surrounding gap in the wizard, so the -8px above
+   made its help text overlap the control (Codex QA 25/09, 320px). */
+input[type="file"] + .field-help { margin-top: 4px; }
+/* Same overlap after a button (e.g. "add vacancy" on /listings/new). */
+button + .field-help { margin-top: 8px; }
 
 .hashtags {
     display: flex;
@@ -1475,6 +1480,20 @@ form button.link-button:hover { color: var(--accent-dark); }
     min-width: 100px;
 }
 .vacancy-row .field-help { flex: 0 0 100%; margin: 0; }
+/* a11y (26/09/2026): labelled vacancy fields — label stacked above control. */
+.vacancy-row .vacancy-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 120px;
+    min-width: 100px;
+    margin: 0;
+}
+.vacancy-row .vacancy-field[hidden] { display: none; }
+.vacancy-row .vacancy-field select,
+.vacancy-row .vacancy-field input { width: 100%; min-width: 0; }
+.vacancy-field-label { font-size: 0.875rem; line-height: 1.25rem; color: var(--muted); }
+.vacancy-row .fee-negotiable-label { flex: 1 1 100%; display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; }
 
 /* Remove-vacancy button (19/09/2026, task #54) — small round icon
    button, same shell as .notification-center-mark-all-btn, tinted red
@@ -2376,6 +2395,10 @@ form button.link-button:hover { color: var(--accent-dark); }
 @media (max-width: 860px) {
     .site-header { padding: 12px 16px; gap: 10px; }
     .sidebar-toggle { display: flex; }
+    /* One-row header: links duplicated in the side menu (☰) are hidden. */
+    .site-header nav .nav-dup,
+    .site-header nav .nav-sep,
+    .site-header .whoami { display: none; }
 
     .side-nav {
         position: fixed;

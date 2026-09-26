@@ -8,7 +8,7 @@ Same hierarchy as `CLAUDE.md` §0. Read in order and stop as soon as you have en
 2. **`HANDOFF.md` — current state. Always read it first; it is usually enough.**
 3. `AI_CHANGELOG.md` — recent history only (≤ ~300 lines). Read the top entry, or more only when needed.
 4. `docs/changelog-archive/` — old history. **Grep only, never read in full.**
-5. `PLANO_EXECUTIVO_ORGANIZADO.md`, `VISUAL_ROLLOUT.md`, `MANIFEST.md` files — only when the task touches them.
+5. `PLANO_EXECUTIVO_ORGANIZADO.md`, `docs/` (index: `docs/README.md` — visual rollout, migrations, i18n), `MANIFEST.md` files — only when the task touches them.
 
 Also check `git status` before editing. **At the end of every material change:** (a) rewrite `HANDOFF.md` to reflect the new current state (≤ ~80 lines, remove resolved items); (b) add a ≤10-line English entry at the top of `AI_CHANGELOG.md` (files, tests run and result, next verifiable step); (c) if the changelog passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/`. Never delete history, never record secrets, and never call a phase done without running the applicable tests.
 

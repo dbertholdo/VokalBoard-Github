@@ -170,6 +170,7 @@ table { max-width:100%; }
 .invoice-paper-party p { line-height:1.5rem; }
 .invoice-paper-grandtotal { font-size:1rem; line-height:1.5rem; padding-top:var(--space-2); }
 .invoice-paper-table th, .invoice-paper-table td { padding:var(--space-2); }
+.invoice-paper-table th, .invoice-paper-table td:nth-child(n+3), .invoice-paper-totals > div > :last-child { white-space:nowrap; }
 /* Intentional exception: raw HTML source is monospaced, still 16px for input. */
 .stacked-form textarea.code-editor { font-family:ui-monospace,'SF Mono',Consolas,Menlo,monospace; font-size:1rem; line-height:1.5rem; white-space:pre; tab-size:4; }
 @media (max-width:700px) {
@@ -189,6 +190,10 @@ table { max-width:100%; }
     .hero { padding:var(--space-4); }
     .invoice-paper { padding:16px; }
     .invoice-paper-table { display:block; overflow-x:auto; }
+    /* 26/09/2026: at 320px values broke across lines ("0.00 / EUR");
+       keep amounts whole — the table scrolls instead — and give the
+       totals the full width. Preview only; PDF generation untouched. */
+    .invoice-paper-totals { width:100%; }
     .invoice-paper-head, .notas-balance-box { flex-wrap:wrap; }
     .match-celebrate { align-items:flex-start; flex-direction:column; padding:16px; }
     .alert-zone-banner { align-items:flex-start; }

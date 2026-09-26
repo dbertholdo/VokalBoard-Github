@@ -13,6 +13,9 @@ How it works in practice:
 - `app/render.py` injects a `t(key)` function into every template's
   context, which simply looks up this dictionary.
 
+Languages added after the core five (zh, ko, ro, ...) are NOT edited
+here: they live in app/locales/<lang>.json (see docs/I18N.md).
+
 Language is a UI-only choice, independent from currency (EUR/CHF are
 picked by country, not by language) — see app/financial_settings.py.
 """
@@ -350,6 +353,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "pt": "Adicione pelo menos uma vaga. Para anúncio de cantor, escolha o tipo de voz buscado; para anúncio de maestro, só o número de vagas e o cachê.",
     },
     "listing_form_vacancy_slots_placeholder": {"de": "Plätze", "en": "Slots", "fr": "Places", "it": "Posti", "pt": "Vagas"},
+    # a11y (26/09/2026): visible labels for each vacancy-row control.
+    "listing_form_vacancy_voice_label": {"de": "Stimmlage", "en": "Voice type", "fr": "Tessiture", "it": "Registro vocale", "pt": "Naipe"},
+    "listing_form_vacancy_fee_label": {"de": "Honorar", "en": "Fee", "fr": "Cachet", "it": "Compenso", "pt": "Cachê"},
     "listing_form_vacancy_filled_label": {"de": "besetzt", "en": "filled", "fr": "pourvu(s)", "it": "occupati", "pt": "preenchidas"},
     # Task #52: soft client-side confirm before publishing without a fee
     # amount or "negotiable" set anywhere on the listing — fee stays
@@ -1778,6 +1784,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "work_invalid_category": {"en": "Please choose solo or choir.", "pt": "Escolha solo ou coral.", "de": "Bitte wähle Solo oder Chor.", "fr": "Veuillez choisir solo ou chœur.", "it": "Scegli solo o coro."},
     "work_max_works_reached": {"en": "You've reached the maximum number of works.", "pt": "Você atingiu o número máximo de obras.", "de": "Du hast die maximale Anzahl an Werken erreicht.", "fr": "Vous avez atteint le nombre maximum d'œuvres.", "it": "Hai raggiunto il numero massimo di opere."},
 }
+
+
+# Languages beyond the core five (zh/ko/ro/...) come from app/locales/<lang>.json
+# — see app/i18n_locales.py and docs/I18N.md. Missing keys fall back to English.
+from app.i18n_locales import merge_into as _merge_external_locales  # noqa: E402
+
+_merge_external_locales(TRANSLATIONS)
 
 
 def translate(key: str, lang: str) -> str:

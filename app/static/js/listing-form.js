@@ -109,7 +109,8 @@
         document.querySelectorAll('.vacancy-voice-type-select').forEach(select => {
             const row = select.closest('.vacancy-row');
             const isFirstRow = row && !row.classList.contains('vacancy-row-conductor-hide');
-            select.hidden = isConductor && isFirstRow;
+            // Hide the whole labelled field (label text included), not just the select.
+            (select.closest('.vacancy-field') || select).hidden = isConductor && isFirstRow;
         });
         // A conductor listing always has exactly one implicit vaga —
         // there's nothing to remove (mirrors add-vacancy-button/
@@ -223,7 +224,11 @@
             const message = listingForm.getAttribute('data-fee-warning');
             if (window.confirm(message)) {
                 feeWarningAcknowledged = true;
-                listingForm.requestSubmit ? listingForm.requestSubmit() : listingForm.submit();
+                // Deferred: browsers ignore requestSubmit() while this submit
+                // event is still being dispatched, so "OK" did nothing (26/09/2026).
+                setTimeout(() => {
+                    listingForm.requestSubmit ? listingForm.requestSubmit() : listingForm.submit();
+                }, 0);
             }
         });
     }

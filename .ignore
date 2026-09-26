@@ -3,7 +3,6 @@
 # See CLAUDE.md §0 "Large files".
 db/seed_cities.sql
 tests/brand_contract.json
-Claude outputs/
-preview4.html
+docs/archive/
 app/static/img/icons.svg
 app/static/fonts/

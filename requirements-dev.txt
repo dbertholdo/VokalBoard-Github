@@ -7,7 +7,7 @@
 #   sem precisar executar o app.
 # pip-audit: verifica as bibliotecas do requirements.txt contra um
 #   banco de vulnerabilidades conhecidas (CVEs).
-pytest==8.3.3
+pytest==9.0.3
 bandit==1.7.10
 pip-audit==2.7.3
 # pypdf: só usado em tests/test_invoice_pdf.py para extrair o texto do PDF

@@ -20,3 +20,6 @@ app/static/receipts/*
 # motivo dos avatares, ver app/post_images.py.
 app/static/post_images/*
 !app/static/post_images/.gitkeep
+
+# Translation batches from scripts/i18n_tool.py (work files, see docs/I18N.md)
+*_batch.json

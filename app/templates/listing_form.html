@@ -174,19 +174,33 @@
     {% for i in range(max_vacancies) %}
         {% set v = vacancies[i] if i < vacancies|length else None %}
         <div class="vacancy-row {% if i > 0 %}vacancy-row-conductor-hide{% endif %} {% if not v and i >= (vacancies|length + 1) %}vacancy-row-extra{% endif %}" {% if not v and i >= (vacancies|length + 1) %}hidden{% endif %}>
-            <select name="vacancy_voice_type_id" class="vacancy-voice-type-select">
-                <option value="">{{ t('spoken_language_none') }}</option>
-                {% for vt in voice_types %}
-                    <option value="{{ vt.id }}" {% if v and v.voice_type_id == vt.id %}selected{% endif %}>{{ vt.name }}</option>
-                {% endfor %}
-            </select>
-            <input type="number" name="vacancy_total_slots" min="1" max="99" placeholder="{{ t('listing_form_vacancy_slots_placeholder') }}" value="{{ v.total_slots if v else '' }}">
-            <input type="text" name="vacancy_fee_amount" class="vacancy-fee-amount" maxlength="20" inputmode="decimal" placeholder="{{ t('listing_form_fee_placeholder') }}" {% if v and v.fee_negotiable %}disabled{% endif %} value="{{ v.fee_amount if v and v.fee_amount else '' }}">
-            <select name="vacancy_fee_currency" class="vacancy-fee-currency" {% if v and v.fee_negotiable %}disabled{% endif %}>
-                {% for currency in currencies %}
-                    <option value="{{ currency }}" {% if v and v.fee_currency == currency %}selected{% endif %}>{{ currency }}</option>
-                {% endfor %}
-            </select>
+            {# a11y (26/09/2026): each control gets a persistent visible
+               label — placeholders alone aren't labels (Codex QA 25/09). #}
+            <label class="vacancy-field vacancy-field-voice">
+                <span class="vacancy-field-label">{{ t('listing_form_vacancy_voice_label') }}</span>
+                <select name="vacancy_voice_type_id" class="vacancy-voice-type-select">
+                    <option value="">{{ t('spoken_language_none') }}</option>
+                    {% for vt in voice_types %}
+                        <option value="{{ vt.id }}" {% if v and v.voice_type_id == vt.id %}selected{% endif %}>{{ vt.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="vacancy-field vacancy-field-slots">
+                <span class="vacancy-field-label">{{ t('listing_form_vacancy_slots_placeholder') }}</span>
+                <input type="number" name="vacancy_total_slots" min="1" max="99" placeholder="{{ t('listing_form_vacancy_slots_placeholder') }}" value="{{ v.total_slots if v else '' }}">
+            </label>
+            <label class="vacancy-field vacancy-field-fee">
+                <span class="vacancy-field-label">{{ t('listing_form_vacancy_fee_label') }}</span>
+                <input type="text" name="vacancy_fee_amount" class="vacancy-fee-amount" maxlength="20" inputmode="decimal" placeholder="{{ t('listing_form_fee_placeholder') }}" {% if v and v.fee_negotiable %}disabled{% endif %} value="{{ v.fee_amount if v and v.fee_amount else '' }}">
+            </label>
+            <label class="vacancy-field vacancy-field-currency">
+                <span class="vacancy-field-label">{{ t('listing_form_fee_currency_label') }}</span>
+                <select name="vacancy_fee_currency" class="vacancy-fee-currency" {% if v and v.fee_negotiable %}disabled{% endif %}>
+                    {% for currency in currencies %}
+                        <option value="{{ currency }}" {% if v and v.fee_currency == currency %}selected{% endif %}>{{ currency }}</option>
+                    {% endfor %}
+                </select>
+            </label>
             <label class="fee-negotiable-label">
                 <input type="checkbox" name="vacancy_fee_negotiable_{{ i }}" class="vacancy-fee-negotiable" value="1" {% if v and v.fee_negotiable %}checked{% endif %}>
                 {{ t('fee_negotiable_checkbox') }}
@@ -213,5 +227,5 @@
     <button type="submit">{{ t('listing_form_update_submit') if is_edit else t('listing_form_submit') }}</button>
 </form>
 
-<script src="/static/js/listing-form.js" defer></script>
+<script src="/static/js/listing-form.js?v=20260926-2" defer></script>
 {% endblock %}

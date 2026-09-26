@@ -9,6 +9,14 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history (2026-09-14 → 2026-09-19): `docs/changelog-archive/AI_CHANGELOG_until_2026-09-19.md` — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — a11y fixes, #52 bug, security scan, i18n groundwork, docs reorg
+- **A11y/visual (Codex's 25/09 list, browser-verified at 320px):** labelled vacancy fields (`listing_form.html`, `listing-form.js`, 2 new i18n keys); help-text overlap after file inputs/buttons (`style.css`); invoice preview amounts no longer break (`brand.css`); mobile header 251→130px (`base.html` `.nav-dup`). Cache version `20260926-1`, style.css + listing-form.js now versioned too.
+- **Bug (#52):** "publish anyway" did nothing — `requestSubmit()` inside the submit handler is ignored by browsers; now deferred. Verified 6 cases (de/en, job/self-ad, fee/no fee, OK/Cancel).
+- **Security:** bandit 0 high (7 B608 reviewed = false positives); pip-audit prod clean; pytest → 9.0.3.
+- **i18n groundwork:** `app/locales/{zh,ko,ro}.json` + `app/i18n_locales.py` loader (fallback to English), `scripts/i18n_tool.py` (status/todo/apply/check with placeholder validation), `docs/I18N.md`, `tests/test_i18n_locales.py` (6 tests incl. e-mail language guard).
+- **Organized:** `VISUAL_ROLLOUT.md` → `docs/`; `preview4.html` + `Claude outputs/` → `docs/archive/` (moved, not deleted); `docs/README.md` index.
+- Tests: 284 passed + 10 retention, 0 failed. Next: `HANDOFF.md` §3.
+
 ## 2026-09-26 — Claude — 18 failing tests fixed; suite green
 - **Product bug:** `admin_routes.py` periodic-mail create/edit used `Form(...)`, so a blank field returned a raw 422 page instead of the friendly `error=dados_invalidos` redirect → now `Form("")`, service validation unchanged.
 - **Stale tests after 19/09 changes (not product bugs):** vacancy rows are now required for job listings (new shared `job_vacancy_fields()` in `test_security.py`, used by report-moderation/punishments/urgency, 10 tests); level-2 admins may open `/admin`; `/notas` needs verified email; profile submenu (Digital Pass replaced the disabled placeholder) and profile form/fieldset counts; the logged-in home redirects to the wizard (post check now anonymous); the CV PDF privacy test now checks extracted text (the raw-byte check always hit the xref table; confirmed a public phone does appear).

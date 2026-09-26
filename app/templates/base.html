@@ -51,8 +51,8 @@
     <link rel="icon" type="image/svg+xml" href="/static/img/brand/icon-small-navy.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/img/brand/icon-32.png">
     <link rel="apple-touch-icon" href="/static/img/brand/icon-256.png">
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/brand.css?v=20260925-1">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260926-1">
+    <link rel="stylesheet" href="/static/css/brand.css?v=20260926-1">
 
     {# ------------------------------------------------------------
        Mascot moment toast helper (Part 2 backlog item 4, 19/09/2026) —
@@ -217,18 +217,20 @@
         <a class="brand" href="/" aria-label="VokalBoard"><img class="brand-lockup" src="/static/img/brand/vokalboard-lockup-navy.svg" alt="VokalBoard" width="200" height="56"></a>
         <nav>
             {% if user %}
-                <a href="/">{{ t('nav_home') }}</a>
+                {# .nav-dup = duplicated in the side menu; hidden on mobile to keep
+                   the header to one row (Codex QA 25/09: ~250px tall at 320px). #}
+                <a class="nav-dup" href="/">{{ t('nav_home') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
-                <a href="/board">{{ t('nav_board') }}</a>
+                <a class="nav-dup" href="/board">{{ t('nav_board') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
-                <details class="profile-menu">
+                <details class="profile-menu nav-dup">
                     <summary>{{ t('nav_profile') }}</summary>
                     <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
                 </details>
                 <span class="nav-sep" aria-hidden="true">|</span>
-                <a href="/messages">{{ t('nav_messages') }}{% if unread_count and unread_count > 0 %} <span class="badge-count">{{ unread_count }}</span>{% endif %}</a>
+                <a class="nav-dup" href="/messages">{{ t('nav_messages') }}{% if unread_count and unread_count > 0 %} <span class="badge-count">{{ unread_count }}</span>{% endif %}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
-                <a href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
+                <a class="nav-dup" href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
                 {% if user.role_level and user.role_level >= 1 %}<span class="nav-sep" aria-hidden="true">|</span><a href="/admin">Admin</a>{% endif %}
                 <span class="nav-sep" aria-hidden="true">|</span>
                 {# Central de Notificações (task #50) — bell dropdown.
