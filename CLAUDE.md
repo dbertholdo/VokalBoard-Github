@@ -1,15 +1,33 @@
 # CLAUDE.md — Diretrizes de Desenvolvimento do VokalBoard
 
-Este arquivo é o guia oficial de arquitetura, regras de negócio e restrições de segurança para o desenvolvimento do **VokalBoard** ("Dein Weg zu dem perfekten Auftritt!"). Todos os agentes de IA (Claude/Codex) devem ler este documento e o `AI_CHANGELOG.md` antes de iniciar qualquer alteração.
+Este arquivo é o guia oficial de arquitetura, regras de negócio e restrições de segurança para o desenvolvimento do **VokalBoard** ("Dein Weg zu dem perfekten Auftritt!"). Todos os agentes de IA (Claude/Codex) devem ler este documento e o `HANDOFF.md` antes de iniciar qualquer alteração — see §0 (main document hierarchy).
+
+---
+
+## 0. Document hierarchy — MAIN HIERARCHY FOR ALL AIs (Daniel's decision, 2026-09-26)
+
+Read in this order, and **stop as soon as you have enough context**. This saves tokens and applies to Claude, Codex and any other agent.
+
+| # | File | Role | When to read |
+|---|---|---|---|
+| 1 | `CLAUDE.md` (Claude) / `AGENTS.md` (Codex) | Stable rules | Always (auto-loaded) |
+| 2 | **`HANDOFF.md`** | **Current state**: repo/test status, next step, open issues, open decisions, constraints | **Always, first**; usually enough |
+| 3 | `AI_CHANGELOG.md` | Recent history (≤ ~300 lines) | Only the top entry, or when HANDOFF points there |
+| 4 | `docs/changelog-archive/` | Old history | **Grep only**, never read in full |
+| 5 | `PLANO_EXECUTIVO_ORGANIZADO.md` (grep `^### P` for the package, read only that range), `VISUAL_ROLLOUT.md`, `docs/MIGRATIONS.md`, `MANIFEST.md` files | Roadmap / visual inventory / migration rules / brand assets | Only when the task touches them |
+
+**At the end of every task:** (a) **rewrite** `HANDOFF.md` so it reflects the new current state (≤ ~80 lines; remove resolved items); (b) add a **≤10-line** entry at the top of `AI_CHANGELOG.md`; (c) if the changelog passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/`.
+**Token hygiene:** read files by range/grep rather than whole; run tests as `pytest tests -q --tb=line -p no:warnings`, then one failing file at a time with `--tb=short`. Don't re-read a file you just edited; don't dump whole `git diff`s — use `git diff --stat` then diff single files.
+**Large files — NEVER read whole** (grep for the symbol, then read only that line range): `app/i18n.py` (~170 KB — grep the key), `db/schema.sql` (~135 KB — grep `CREATE TABLE <name>`), `app/static/css/style.css` (~100 KB — grep the selector), `app/routers/{listings,admin,profile,financial}_routes.py` (50–60 KB each — grep `def <name>`), `db/migrations/CONSOLIDATED_*.sql` (~55 KB), `app/templates/base.html` (~38 KB), `app/static/img/icons.svg`. Never open `db/seed_cities.sql` (city data), `tests/brand_contract.json` (generated baseline) or `Claude outputs/` (old one-off deliverables).
 
 ---
 
 ## 1. Stack Tecnológica e Padrões do Projeto
 - **Backend:** Python (FastAPI), SQLAlchemy, PostgreSQL.
 - **Frontend / UI:** Jinja2 templates, HTML5, CSS customizado (`style.css`), JavaScript puro (sem frameworks pesados).
-- **Idioma Padrão do Sistema:** Alemão (com suporte a i18n para inglês, português, espanhol, italiano, chinês simplificado, coreano e romeno). A moeda oficial do site é a **Nota** (1 Nota = 1 Euro/CHF dependendo da região).
+- **Idioma Padrão do Sistema:** Alemão (com suporte a i18n para inglês, português, espanhol, italiano, chinês simplificado, coreano e romeno — ⚠️ the code actually ships **fr**, not es; open decision in `HANDOFF.md` §5). A moeda oficial do site é a **Nota** (1 Nota = 1 Euro/CHF dependendo da região).
 - **Estilo Visual Obrigatório:** Todos os cards, blocos e painéis devem seguir o padrão de bordas arredondadas/suavizadas e sombreamento leve, com separação evidente e restrita para a **Red Zone**.
-- **Identidade visual v1.0 (19/09/2026, paleta Mineral — substituiu o esquema verde anterior):** navy `#17283F` (marca/texto), fundo `#F5F7FA`, ação violeta `#635BDE`/hover `#5148C5`, superfícies brancas. Tipografia Manrope (Google Fonts, SIL OFL 1.1), self-hosted em `app/static/fonts/manrope/` — ver `@font-face` no topo de `style.css`. Tokens (cor, espaçamento 4/8/12/16/24/32/48px, raio de card/controle/tag) ficam em `:root` de `app/static/css/style.css`, sob os MESMOS nomes de variável de antes (`--accent`, `--ink`, `--bg`, etc.) — qualquer regra nova deve usar `var(--token)`, nunca hex direto, pra herdar automaticamente de futuros ajustes de marca. **Logo e mascote implementados em 19/09/2026** (além do sistema cor/tipografia/espaçamento/raio-base já aplicado antes): símbolo "V/asas — Assinatura" (`app/static/img/brand/`, ver `MANIFEST.md` na pasta) substituindo a referência quebrada a `bird-logo.svg` em favicon/nav/footer. Das oito poses aprovadas do Tangará (`app/static/img/mascot/`, ver `MANIFEST.md` na pasta), sete já em uso (a última leva, Part 2 backlog item 4, adicionou Acolhedor/Atento/Joinha/Piscadinha ao Zona de Alerta/Solidário/Celebração já existentes — ver `app/mascot_moments.py` pra lógica de prioridade do lembrete Atento). Só Neutro segue sem tela definida — ver o manifesto pra não espalhar o mascote sem critério. **Atenção:** a página 404 usa a pose Zona de Alerta (olhos vermelhos) como piada de "pássaro perdido" — uma exceção pontual explicitamente aprovada pelo Daniel, documentada no manifesto, ao invés de restringir essa pose só à Zona de Alerta como o manual original definia. Pendências que **não** fazem parte desta entrega: a assinatura completa símbolo+nome em Manrope (os lockups da pasta de origem são PROVISIONAL, fonte antiga, não usar), o `bird-flying.svg` (easter egg do pássaro voando — nenhuma pose aprovada é animada) e o `red-zone-bird-police.png` da Red Zone administrativa (conceito visual antigo, não faz parte do pacote Tangará — "Zona de Alerta" ≠ "Red Zone", ver `INSTRUCOES_MARCA_CODEX_CLAUDE.md` §1). Ver `AI_CHANGELOG.md` de 19/09/2026 para o detalhe completo.
+- **Visual identity v1.0 (Mineral palette):** navy `#17283F`, background `#F5F7FA`, violet action `#635BDE`/hover `#5148C5`, white surfaces; Manrope self-hosted in `app/static/fonts/manrope/`. Tokens live in `:root` of `app/static/css/style.css`; the shared brand layer is `app/static/css/brand.css` (loaded after `style.css`). New rules must use `var(--token)`, never raw hex. Logo: `app/static/img/brand/`; Tangará mascot poses: `app/static/img/mascot/` (+ `app/mascot_moments.py`). **Read each folder's `MANIFEST.md` before using the logo or mascot.** The 404 page's Zona de Alerta pose is an approved exception. Zona de Alerta (urgency) ≠ Red Zone (admin). Full history: `docs/changelog-archive/` (2026-09-19 entries).
 
 ---
 
@@ -56,8 +74,8 @@ Para evitar o inchaço do código e manter a manutenibilidade, os agentes devem 
 ---
 
 ## 5. Instruções para os Agentes de IA (Claude / Codex)
-1. **Consulte o Histórico:** Leia sempre os últimos registros do `AI_CHANGELOG.md` antes de codificar para entender o que foi alterado recentemente.
+1. **Consulte o Estado Atual:** Leia `HANDOFF.md` antes de codificar (ver §0). Abra o `AI_CHANGELOG.md` só quando precisar de mais histórico.
 2. **Modularidade:** Mantenha as rotas limpas conforme a Seção 4.
 3. **Testes Automatizados:** Toda alteração de código deve ser validada executando a suíte de testes (`pytest tests -q`) para garantir que as regras de segurança e fluxos continuem íntegros.
-4. **Atualize o Changelog:** Ao concluir qualquer tarefa ou etapa de desenvolvimento, adicione obrigatoriamente uma entrada clara no topo de `AI_CHANGELOG.md` detalhando o que foi alterado, os testes rodados e o próximo passo seguro.
+4. **Atualize o Handoff e o Changelog:** Ao concluir qualquer tarefa, reescreva `HANDOFF.md` (estado atual) e adicione uma entrada curta (≤10 linhas) no topo de `AI_CHANGELOG.md`: o que mudou, testes rodados, próximo passo seguro. See §0.
 5. **Idioma da documentação e dos comentários (decisão do Daniel, 18/09/2026): a partir de agora, EM INGLÊS.** Isso vale pra `AI_CHANGELOG.md`, `PLANO_EXECUTIVO_ORGANIZADO.md`, comentários de código (docstrings, comentários inline, mensagens de commit) e este próprio `CLAUDE.md` daqui pra frente. Não é retroativo — não é pra reescrever/traduzir o que já existe em português (mudanças anteriores a 18/09/2026 ficam como estão); "no final do projeto vamos voltar pra tradução" cobre isso depois, de uma vez só. Textos voltados ao USUÁRIO final (i18n em `app/i18n.py`, `app/email_localization.py`, conteúdo de e-mail, UI) não mudam — continuam multilíngues (`de`/`en`/`fr`/`it`/`pt`) como sempre foram; essa regra é só pra documentação/comentários/código, não pra conteúdo do produto.

@@ -1,0 +1,9 @@
+# Search-ignore for ripgrep-based tools (Claude Code Grep, Codex, rg).
+# NOT a .gitignore — these files stay tracked; they just never need searching.
+# See CLAUDE.md §0 "Large files".
+db/seed_cities.sql
+tests/brand_contract.json
+Claude outputs/
+preview4.html
+app/static/img/icons.svg
+app/static/fonts/
