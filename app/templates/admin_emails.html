@@ -82,7 +82,7 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label>HTML
             <textarea name="template_html" rows="22" maxlength="20000" required
-                      style="font-family: 'SF Mono', Consolas, Menlo, monospace; font-size:13px; white-space:pre;">{{ settings.email_layout_template_html }}</textarea>
+                      class="code-editor">{{ settings.email_layout_template_html }}</textarea>
         </label>
         <div style="display:flex; gap:12px;">
             <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-save"></use></svg> Salvar código</button>

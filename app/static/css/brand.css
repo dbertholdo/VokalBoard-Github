@@ -1,6 +1,10 @@
 /* Brand kit v1: visual adapter for existing components. No business rules. */
 :root { --surface:var(--card-bg); --text-muted:var(--muted); }
 body { font-family:Manrope,'Noto Sans','Noto Sans CJK SC','Noto Sans CJK KR','Microsoft YaHei','Malgun Gothic',sans-serif; }
+/* Manrope supplies Latin; installed regional fonts supply CJK glyphs.
+   These are local fallbacks, not bundled fonts or a coverage guarantee. */
+body:lang(zh) { font-family:Manrope,'Noto Sans SC','Noto Sans CJK SC','PingFang SC','Microsoft YaHei',sans-serif; }
+body:lang(ko) { font-family:Manrope,'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
 body, .layout-shell { background:var(--bg); }
 .brand { display:inline-flex; align-items:center; padding:8px; background:none; color:var(--ink); flex-shrink:0; }
 .brand-lockup { display:block; width:200px; height:auto; max-width:100%; object-fit:contain; }
@@ -12,7 +16,7 @@ body, .layout-shell { background:var(--bg); }
 .side-nav, .side-nav-tone-1, .side-nav-tone-2 { background:var(--card-bg); }
 .side-nav-row:hover, .side-nav-row.active { background:var(--accent-light); color:var(--accent-dark); }
 .side-nav-row.active { box-shadow:inset 3px 0 var(--accent); }
-.profile-menu-links a, .profile-menu-links a.side-nav-subrow { font-size:.875rem; min-height:44px; border-color:var(--border-control); }
+.profile-menu-links a, .profile-menu-links a.side-nav-subrow { font-size:1rem; line-height:1.5rem; min-height:44px; border-color:var(--border-control); }
 .profile-menu-pending { opacity:1; font-size:.875rem; }
 .sidebar-toggle, .notification-center-mark-all-btn { width:44px; height:44px; min-width:44px; border-color:var(--border-control); }
 .notification-center-menu { width:320px; max-width:calc(100vw - 32px); }
@@ -74,9 +78,9 @@ a { color:var(--accent-dark); text-underline-offset:3px; }
 .pagination, .message-tabs, .tool-tabs { flex-wrap:wrap; gap:8px; }
 .pagination a, .message-tabs a { min-height:44px; display:inline-flex; align-items:center; padding:8px 16px; border-radius:8px; }
 .message-tabs a.active, .tool-tab.active { background:var(--accent-light); color:var(--accent-dark); border-color:var(--accent); }
-.message-row { padding:20px; border-radius:var(--radius-card); background:var(--card-bg); }
+.message-row { padding:var(--space-4); border-radius:var(--radius-card); background:var(--card-bg); }
 .message-row.unread { border-left-color:var(--error-text); background:var(--card-bg); }
-.message-body-box { background:var(--card-bg); font-size:1rem; padding:24px; }
+.message-body-box { background:var(--card-bg); font-size:1rem; padding:24px; border-radius:var(--radius-card); }
 .retention-warning { color:var(--attention-text); background:var(--attention-bg); border-radius:8px; }
 .retention-warning summary { min-height:44px; min-width:44px; padding:8px 12px; }
 .profile-account-area { background:var(--accent-light); border:1px solid var(--border); }
@@ -102,8 +106,8 @@ a { color:var(--accent-dark); text-underline-offset:3px; }
 .admin-subnav a.active { color:var(--ink); }
 .admin-subnav-red { color:white !important; text-decoration:underline !important; }
 .admin-subnav a.admin-subnav-red.active { color:var(--ink) !important; }
-.red-zone-box input:not([type=checkbox]):not([type=radio]):not([type=hidden]) { padding:10px 12px; border:1px solid var(--border-control); }
-.red-zone-box button { padding:10px 16px; border:1px solid var(--accent); background:var(--accent); color:white; }
+.red-zone-box input:not([type=checkbox]):not([type=radio]):not([type=hidden]) { padding:12px; border:1px solid var(--border-control); }
+.red-zone-box button { padding:12px 16px; border:1px solid var(--accent); background:var(--accent); color:white; }
 .red-zone-box button:hover { background:var(--accent-dark); }
 .red-zone-box button.danger { background:var(--error-bg); color:var(--error-text); border-color:var(--error-text); }
 .red-zone-box button.danger:hover { background:var(--error-text); color:white; }
@@ -120,7 +124,7 @@ table { max-width:100%; }
 .admin-table th, .admin-users-table th { background:var(--bg); font-size:.875rem; color:var(--ink); }
 .admin-table td, .admin-users-table td { font-size:.875rem; padding:12px; }
 .invoice-layout > * { min-width:0; }
-.invoice-paper { box-shadow:none; border:1px solid var(--border); }
+.invoice-paper { box-shadow:none; border:1px solid var(--border); font-size:1rem; line-height:1.5rem; }
 .invoice-paper-table { font-size:.875rem; }
 .invoice-paper-table th, .invoice-paper-meta, .invoice-paper-notes, .invoice-paper-footer { font-size:.875rem; }
 .invoice-paper-parties { gap:24px; }
@@ -128,12 +132,52 @@ table { max-width:100%; }
 .mascot-inline { object-fit:contain; }
 .vb-mascot-toast { animation:none; transition:none; }
 .vb-mascot-toast-img { object-fit:contain; }
+/* Audit follow-up: scoped normalization, preserving visibility and behavior. */
+.hero { background:var(--accent-light); padding:var(--space-5); margin-bottom:var(--space-5); }
+.hero-actions { gap:var(--space-3); margin-top:var(--space-4); }
+.invite-friend-box { background:var(--accent-light); border:1px solid var(--border); border-radius:var(--radius-card); margin:var(--space-5) 0; }
+.invite-friend-box p { color:var(--ink); }
+.invite-friend-box .button-link { background:var(--accent); color:white; border:1px solid var(--accent); white-space:normal; }
+.invite-friend-box .button-link:hover { background:var(--accent-dark); }
+.profile-highlight-banner { background:var(--accent-light); color:var(--accent-dark); border-radius:var(--radius-tag); padding:var(--space-2) var(--space-3); gap:var(--space-2); font-size:.875rem; line-height:1.25rem; }
+.logistics-flag, .vacancy-apply-status { background:var(--bg); color:var(--ink); border-radius:var(--radius-tag); padding:var(--space-1) var(--space-2); font-size:.875rem; line-height:1.25rem; }
+.listing-vacancies-box { background:var(--card-bg); border-color:var(--border); border-radius:var(--radius-card); padding:var(--space-4); }
+.vacancy-list-item { border-color:var(--border); padding:var(--space-2) 0; }
+.profile-edit-grid { gap:var(--space-4); }
+.profile-edit-card, .profile-editor-form fieldset.profile-edit-card { margin-bottom:var(--space-4); }
+.profile-edit-grid > .profile-edit-card { margin-bottom:0; }
+.profile-editor-card { margin:var(--space-5) 0; }
+.profile-hero { margin:var(--space-5) 0; padding:var(--space-5); }
+.stacked-form { gap:var(--space-4); }
+.wizard-nav { margin-top:var(--space-4); }
+.message-list { gap:var(--space-4); }
+.message-actions, .referrer-preview { gap:var(--space-3); }
+.profile-menu > .profile-menu-links { border-radius:var(--radius-card); }
+.profile-menu-links a { padding:var(--space-3) var(--space-4); }
+.profile-menu-links a.side-nav-subrow { padding:var(--space-2) var(--space-4) var(--space-2) var(--space-5); }
+.red-zone-hero { gap:var(--space-4); margin-bottom:var(--space-4); }
+.capitalismo-banner { padding:var(--space-3) var(--space-4); gap:var(--space-3); }
+.button-primary:hover, .invite-cta-summary:hover { opacity:1; }
+.site-header nav a, .site-header summary, .side-nav-row, .admin-subnav a { font-size:1rem; line-height:1.5rem; font-weight:600; }
+.stacked-form label { font-size:.875rem; line-height:1.25rem; font-weight:600; }
+.stacked-form label.checkbox-label, .stacked-form label.checkbox-inline { font-weight:400; }
+.stacked-form input, .stacked-form select, .stacked-form textarea { font-weight:400; line-height:1.5rem; }
+.profile-hero .card h3 { font-size:1.25rem; line-height:1.75rem; text-transform:none; letter-spacing:normal; color:var(--ink); }
+.hall-fame-meta, .field-help, .meta, .author, .person-card-subtitle, .locked-hint { font-size:.875rem; line-height:1.25rem; font-weight:400; }
+.invoice-paper-head h2 { font-size:1.5rem; line-height:2rem; }
+.invoice-paper-kicker, .invoice-paper-metabar, .invoice-paper-metabar strong { font-size:.875rem; line-height:1.25rem; }
+.invoice-paper-kicker { text-transform:none; letter-spacing:normal; font-weight:600; }
+.invoice-paper-party p { line-height:1.5rem; }
+.invoice-paper-grandtotal { font-size:1rem; line-height:1.5rem; padding-top:var(--space-2); }
+.invoice-paper-table th, .invoice-paper-table td { padding:var(--space-2); }
+/* Intentional exception: raw HTML source is monospaced, still 16px for input. */
+.stacked-form textarea.code-editor { font-family:ui-monospace,'SF Mono',Consolas,Menlo,monospace; font-size:1rem; line-height:1.5rem; white-space:pre; tab-size:4; }
 @media (max-width:700px) {
     .container { padding:24px 16px 48px; }
     .site-header { padding:8px 16px; gap:8px; }
     .brand-lockup { width:176px; }
     .site-header nav { width:100%; gap:4px 8px; }
-    .site-header nav a, .site-header summary { font-size:.875rem; }
+    .site-header nav a, .site-header summary { font-size:1rem; }
     .sidebar-toggle { width:44px; height:44px; }
     .filters > *, .admin-users-filter > * { min-width:0; max-width:100%; }
     .filters input, .filters select { flex:1 1 100%; width:100%; }
@@ -142,6 +186,7 @@ table { max-width:100%; }
     .listing-card, .person-card, .card, .catalog-item { padding:16px; }
     .profile-grid, .profile-edit-grid, .invoice-paper-parties { grid-template-columns:minmax(0,1fr); }
     .profile-hero { padding:16px; }
+    .hero { padding:var(--space-4); }
     .invoice-paper { padding:16px; }
     .invoice-paper-table { display:block; overflow-x:auto; }
     .invoice-paper-head, .notas-balance-box { flex-wrap:wrap; }

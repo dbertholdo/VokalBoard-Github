@@ -1,5 +1,29 @@
 # Brand kit v1 — inventário e verificação (24/09/2026)
 
+## Atualização de 25/09/2026 — implementada SEM testes
+
+Por ordem expressa de Daniel, esta revisão não executou site, testes, build ou navegador.
+Os resultados de 24/09 abaixo são históricos: NÃO validam a revisão `20260925-1`.
+
+- Aplicadas correções do audit de fundos (hero, convite, destaque e vagas), espaçamento,
+  raios, opacidade hover e hierarquia tipográfica na camada `brand.css`.
+- Manrope permanece principal; navegação/entradas 16/24, labels/metadados 14/20,
+  títulos dos cards de perfil 20/28. Prévia HTML de fatura ajustada sem editar PDF.
+- Exceção intencional: editores de código HTML usam monoespaçada 16/24, centralizada
+  na classe `code-editor`. Conteúdo dos e-mails/iframes não recebe o CSS do site.
+- Avatares e indicadores circulares mantêm sua geometria de identidade/status;
+  não são painéis nem botões. Bolhas de mensagem passam a raio uniforme de painel.
+- Fallbacks de chinês/coreano diferenciados por idioma. Ainda falta empacotar uma
+  família complementar licenciada para garantir independência das fontes instaladas;
+  os fallbacks locais NÃO garantem cobertura/consistência em todos os dispositivos.
+- Pendentes: todas as validações visuais/acessibilidade/performance listadas abaixo,
+  incluindo impacto de navegação maior no mobile e reflow da prévia financeira.
+- As 18 falhas funcionais continuam reservadas ao Claude; nada foi corrigido/testado
+  no backend. Sem deploy, migrações ou alteração de banco.
+
+Próximo passo quando testes forem autorizados: conferir a revisão de CSS acima no
+navegador e repetir a cobertura pertinente. Estado: implementado, não verificado.
+
 Referência: `vokalboard-brand-kit-v1`, manual e instruções versão 0.4.
 Escopo exclusivamente visual. Sem deploy, migração, mudança de cobrança ou permissões.
 Estado inicial: Claude já integrou tokens Mineral, Manrope local, mascotes e novos fluxos.

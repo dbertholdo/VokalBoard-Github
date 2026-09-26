@@ -43,7 +43,7 @@
 
     <label>Corpo do e-mail (HTML)
         <textarea name="body_html" rows="16" maxlength="20000" required
-                  style="font-family: 'SF Mono', Consolas, Menlo, monospace; font-size:13px; white-space:pre;">{{ mail.body_html if mail else '' }}</textarea>
+                  class="code-editor">{{ mail.body_html if mail else '' }}</textarea>
         <span class="field-help">HTML cru, mesmo nível de confiança da aba "Código" do layout — sem passar pelo filtro do editor de posts (não suporta tabela/estilo embutido). Só quem é Admin chega aqui.</span>
     </label>
 
