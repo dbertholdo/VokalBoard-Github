@@ -356,3 +356,60 @@ def unread_messages_notification(user_id: int) -> dict | None:
         "title_params": {"n": row["n"]}, "link_url": link, "icon": "icon-mail",
         "read_at": None, "created_at": None, "synthetic": True,
     }
+
+
+# ---------------------------------------------------------------------------
+# M6: e-mail limit + moderation of reported messages
+# ---------------------------------------------------------------------------
+
+def claim_daily_email(recipient_id: int) -> bool:
+    """At most one "new messages" e-mail per recipient per 24 h (Daniel,
+    2026-09-26). Atomic: two messages arriving at once can't both win."""
+    with engine.begin() as conn:
+        return conn.execute(
+            text(
+                """UPDATE users SET message_email_sent_at = now()
+                   WHERE id = :id AND (message_email_sent_at IS NULL
+                                       OR message_email_sent_at <= now() - interval '24 hours')
+                   RETURNING id"""
+            ),
+            {"id": recipient_id},
+        ).first() is not None
+
+
+def open_message_reports(limit: int = 50) -> list[dict]:
+    return fetch_all(
+        """
+        SELECT r.id, r.reason, r.body_snapshot, r.created_at, r.message_id,
+               rep.full_name AS reporter_name, u.id AS reported_user_id, u.full_name AS reported_name
+        FROM message_reports r
+        JOIN users rep ON rep.id = r.reporter_id
+        JOIN users u ON u.id = r.reported_user_id
+        WHERE r.status = 'open'
+        ORDER BY r.created_at
+        LIMIT :limit
+        """,
+        {"limit": limit},
+    )
+
+
+def resolve_message_report(report_id: int, admin_id: int, remove_message: bool) -> bool:
+    """Dismiss, or remove the reported message (the report keeps its text
+    snapshot until it's purged 60 days after resolution)."""
+    with engine.begin() as conn:
+        report = conn.execute(
+            text("SELECT message_id FROM message_reports WHERE id = :id AND status = 'open' FOR UPDATE"),
+            {"id": report_id},
+        ).mappings().first()
+        if not report:
+            return False
+        if remove_message and report["message_id"]:
+            conn.execute(text("DELETE FROM messages WHERE id = :id"), {"id": report["message_id"]})
+        conn.execute(
+            text(
+                """UPDATE message_reports SET status = :status, resolved_at = now(), resolved_by = :admin
+                   WHERE id = :id"""
+            ),
+            {"status": "removed" if remove_message else "dismissed", "admin": admin_id, "id": report_id},
+        )
+    return True

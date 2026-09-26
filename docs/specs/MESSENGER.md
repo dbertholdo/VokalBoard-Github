@@ -1,6 +1,15 @@
 # Spec — Messenger (backlog #53): per-pair chat, requests, 60-day expiry
 
-**Status:** DRAFT — designed with Daniel 2026-09-26, not implemented.
+**Status:** IMPLEMENTED 2026-09-26 (M1–M6, tested; migration pending like all others — folded into the consolidated file).
+
+**Final decisions (Daniel, 2026-09-26) — replace the "Open" section below:** at most **one "new messages" e-mail per recipient per day**; desktop **popup bubble** on a new message → click opens a small chat window (bottom right) with minimize/close in its header, like Facebook; **report message = yes** (recipient reports → admin queue, God Mode dismisses or removes).
+
+**As built — notes:**
+- A DB trigger files every message into its pair's conversation (created if missing) and drops an expired conversation's old messages first, so direct inserts keep working; `visible_messages` = messages of conversations active within 60 days (all existing readers — badges, admin stats, profile export — unchanged).
+- Replying to a request accepts it. A declined request stays silent: the sender still sees "waiting".
+- The immediate "new message" bell entry was removed; the Notification Center shows a synthetic entry once a message is unread for 5 minutes.
+- Minimized chat windows only *peek* (`/since?peek=1`) — nothing is marked read until the window is open.
+- Old URLs `/messages/sent`, `/messages/trash`, `/messages/{id}` redirect into the conversation view; `message_detail.html` removed (brand-contract baseline refreshed for the two Messenger templates only).
 Replaces Gemini's "Prompt 2" (it assumed JWT/WebSockets/UUID/ORM models/a `matches` table and permanent history — none of which fit this repo or the no-storage rule).
 
 ## Decisions (Daniel, 2026-09-26)

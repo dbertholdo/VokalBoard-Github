@@ -89,6 +89,35 @@
     </ul>
 {% endif %}
 
+{# Messenger (2026-09-26): reported messages. Admin area is English-only. #}
+<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-flag"></use></svg> Reported messages</h2>
+{% if message_reports|length == 0 %}
+    <p class="empty-state">No open message reports.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for r in message_reports %}
+            <li>
+                <p><a href="/admin/users/{{ r.reported_user_id }}">{{ r.reported_name }}</a> — reported by {{ r.reporter_name }} · {{ r.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                <p class="field-help">Reason: "{{ r.reason }}"</p>
+                <blockquote class="message-body-box">{{ r.body_snapshot }}</blockquote>
+                {% if not r.message_id %}<p class="field-help">The message itself has already expired.</p>{% endif %}
+                {% if user.role_level and user.role_level >= 3 %}
+                    <div class="admin-actions">
+                        <form method="post" action="/admin/message-reports/{{ r.id }}/remove" data-confirm="Remove this message for both people?">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="danger">Remove message</button>
+                        </form>
+                        <form method="post" action="/admin/message-reports/{{ r.id }}/dismiss">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn-secondary">Dismiss</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
 <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> Recent blocks</h2>
 {% if blocks|length == 0 %}
     <p class="empty-state">No blocks recorded.</p>

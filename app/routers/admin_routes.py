@@ -44,6 +44,7 @@ from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
 from app.routers.auth_routes import send_password_reset_email
+from app import messenger
 from app.permissions import require_level, sync_is_admin_flag, log_audit_action, LEVEL_COMMON, LEVEL_MODERATOR, LEVEL_ADMIN, LEVEL_GOD
 from app.richtext import sanitize_post_body
 from app.post_images import save_post_image
@@ -165,6 +166,8 @@ def admin_dashboard(request: Request):
         "user": admin,
         "stats": stats,
         "reports": reports,
+        # Messenger (2026-09-26): reported messages — viewing like listing reports, acting God Mode only.
+        "message_reports": messenger.open_message_reports(),
         "blocks": blocks,
         # P3.E: on/off for the "% compatibilidade" signal (see
         # app/compatibility.py) — off by default, Daniel wants to
@@ -233,6 +236,19 @@ def admin_reject_report(request: Request, report_id: int, csrf_token: str = Form
             report.get("preferred_language"), report["reporter_name"], report["listing_title"], False,
         )
         send_email(report["reporter_email"], subject, html)
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/admin/message-reports/{report_id}/{action}")
+def admin_resolve_message_report(request: Request, report_id: int, action: str, csrf_token: str = Form(...)):
+    """Dismiss a reported message, or remove it. God Mode only, like listing
+    reports (Daniel, 2026-09-26: moderators don't act on reports)."""
+    admin = require_level(request, LEVEL_GOD)
+    if not admin or action not in ("dismiss", "remove"):
+        return RedirectResponse(url="/admin", status_code=303)
+    verify_csrf(request, csrf_token)
+    if messenger.resolve_message_report(report_id, admin["id"], remove_message=action == "remove"):
+        log_audit_action(request, admin, f"message_report_{action}", f"message_report_id={report_id}")
     return RedirectResponse(url="/admin", status_code=303)
 
 

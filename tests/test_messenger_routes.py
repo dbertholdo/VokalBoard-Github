@@ -138,3 +138,45 @@ def test_dock_is_rendered_outside_messages_pages_only():
     assert 'id="vb-chat-dock"' in alice.get("/board").text
     assert 'id="vb-chat-dock"' not in alice.get("/messages").text
     assert 'id="vb-chat-dock"' not in TestClient(app).get("/board").text  # logged out
+
+
+def test_at_most_one_new_message_email_per_day(monkeypatch):
+    import app.routers.messages_routes as routes
+    sent = []
+    monkeypatch.setattr(routes, "notify_new_message", lambda *args: sent.append(args))
+    alice, a = _person("Mail A")
+    bob, b = _person("Mail B")
+    execute("UPDATE users SET notify_messages = TRUE WHERE id = :b", {"b": b})
+    execute("INSERT INTO contact_pairs (user_low_id, user_high_id, source) VALUES (:lo, :hi, 'accepted')",
+            {"lo": min(a, b), "hi": max(a, b)})
+    for i in range(3):
+        assert _send(alice, b, f"Message {i}").status_code == 303
+    assert len(sent) == 1
+    execute("UPDATE users SET message_email_sent_at = now() - interval '25 hours' WHERE id = :b", {"b": b})
+    _send(alice, b, "Next day")
+    assert len(sent) == 2
+
+
+def test_message_reports_queue_moderator_views_god_acts():
+    alice, a = _person("Queue Sender")
+    bob, b = _person("Queue Reporter")
+    m.send_message(a, b, "Nasty words")
+    msg = fetch_one("SELECT id FROM messages WHERE sender_id = :a", {"a": a})["id"]
+    m.report_message(b, msg, "Harassment")
+    report = fetch_one("SELECT id FROM message_reports WHERE message_id = :m", {"m": msg})["id"]
+
+    mod, mod_id = _person("Queue Moderator")
+    execute("UPDATE users SET role_level = 1 WHERE id = :id", {"id": mod_id})
+    god, god_id = _person("Queue God")
+    execute("UPDATE users SET role_level = 3 WHERE id = :id", {"id": god_id})
+
+    token = extract_csrf(god.get("/admin").text)
+    assert "Nasty words" in god.get("/admin").text
+    mod.post(f"/admin/message-reports/{report}/remove", data={"csrf_token": extract_csrf(mod.get("/board").text)})
+    assert fetch_one("SELECT status FROM message_reports WHERE id = :r", {"r": report})["status"] == "open"
+
+    god.post(f"/admin/message-reports/{report}/remove", data={"csrf_token": token})
+    assert fetch_one("SELECT status FROM message_reports WHERE id = :r", {"r": report})["status"] == "removed"
+    assert fetch_one("SELECT id FROM messages WHERE id = :m", {"m": msg}) is None
+    assert fetch_one("SELECT 1 AS ok FROM audit_log WHERE action = 'message_report_remove' AND details = :d",
+                     {"d": f"message_report_id={report}"})

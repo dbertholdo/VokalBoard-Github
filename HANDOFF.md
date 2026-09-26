@@ -1,13 +1,13 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-26 — Claude (Notas v2 implemented: purchased/earned, 18-month expiry, Stripe checkout + webhook, Terms/withdrawal pages). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-26 — Claude (Messenger implemented M1–M6; Notas v2 implemented earlier today). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, not pushed. Everything below is committed.
-- **Tests GREEN:** 307 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
+- **Tests GREEN:** 327 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
 - Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — production deps clean; dev `pytest` bumped 8.3.3 → 9.0.3 (advisory PYSEC-2026-1845), suite passes on it.
-- Static assets are cache-versioned `?v=20260926-1` (style.css, brand.css; listing-form.js `-2`). Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
+- Static assets are cache-versioned: style.css `?v=20260926-4`, brand.css `-1`, listing-form.js `-2`, messenger.js `-3`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
 ## 2. Work split (Daniel's decision, 2026-09-24)
 - **Codex:** visual/CSS. **Claude:** functional code, tests, business flows. On 2026-09-26 Daniel had Claude take Codex's open a11y list (done, §4).
@@ -15,9 +15,9 @@
 
 ## 3. Next up
 1. **Notas v2 go-live (N6) — Daniel:** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
-2. **Messenger IN PROGRESS** — spec `docs/specs/MESSENGER.md` (Daniel 2026-09-26: max 1 e-mail/recipient/day; desktop popup bubble → small chat window with minimize/close; report message = yes). Done: M1 schema; M2 service; M3 chat page; M4 live updates; M5 desktop dock (popup bubble → small chat window, minimize/close, up to 3, kept across pages, peek when minimized, JSON /messages/c/{id}/post) — browser-verified at 1280px, hidden at 390px. **Next: M6 — at most 1 'new messages' e-mail per recipient per day (users.message_email_sent_at, atomic UPDATE … RETURNING), admin queue for message reports (view level 1+, resolve God Mode only, like listing reports).** Stages: M1 schema · M2 service+routes · M3 chat page · M4 polling/badges/5-min notification · M5 desktop bubble+windows · M6 e-mail limit + admin report queue.
+2. **Messenger DONE (M1–M6)** — `docs/specs/MESSENGER.md` (as-built notes at the top). Goes live with the pending migration (§7). Suggested follow-up when Daniel wants: a browser pass on real phones.
 3. **Languages es → ro → zh → ko** — route in `docs/I18N.md` (661 public keys each, 0% done).
-4. Confirm the Railway `retention_worker` service runs — it now also does the account purge and Notas expiry.
+4. Confirm the Railway `retention_worker` service runs — it now also does the account purge, Notas expiry and the 60-day conversation deletion.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
 - `/listings/new` vacancy rows: every control has a visible, associated label; conductor mode hides the whole labelled field.
@@ -34,7 +34,6 @@
 - Still open, low priority: legal pages (Impressum/Datenschutz/Code of Conduct) are out of scope for added languages unless Daniel decides otherwise.
 
 ## 6. Backlog (not started without Daniel's go-ahead)
-- #53 Messenger — designed, see `docs/specs/MESSENGER.md` (awaiting approval).
 - #55 Match phase 2 — read `listing_vacancies` directly, drop the mirror columns on `listings`.
 - Dependency deprecation warnings (Starlette/httpx, passlib/crypt, ReportLab/ast) — not blocking.
 

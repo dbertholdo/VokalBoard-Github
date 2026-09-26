@@ -139,7 +139,8 @@ def _after_send(request: Request, background_tasks: BackgroundTasks, user: dict,
         "SELECT email, full_name, email_verified, notify_messages, preferred_language FROM users WHERE id = :id",
         {"id": recipient_id},
     )
-    if recipient["email_verified"] and recipient["notify_messages"]:
+    # At most one "new messages" e-mail per recipient per day (Daniel, 2026-09-26).
+    if recipient["email_verified"] and recipient["notify_messages"] and messenger.claim_daily_email(recipient_id):
         background_tasks.add_task(
             notify_new_message, str(request.base_url), recipient["email"],
             recipient["full_name"], user["full_name"], recipient.get("preferred_language"),
