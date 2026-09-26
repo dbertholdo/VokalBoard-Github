@@ -387,6 +387,12 @@ class TestMessageRateLimit:
         # flow in the tests, confirm it directly in the database (the same
         # thing the email link would do).
         execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": sender_id})
+        # Messenger (2026-09-26): a stranger may send only ONE message until
+        # it's accepted, so the rate limit matters between people in contact.
+        execute(
+            "INSERT INTO contact_pairs (user_low_id, user_high_id, source) VALUES (:lo, :hi, 'accepted')",
+            {"lo": min(sender_id, recipient_id), "hi": max(sender_id, recipient_id)},
+        )
 
         login(client, sender_email, sender_password)
         r = client.get(f"/messages/new?to={recipient_id}")

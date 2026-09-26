@@ -1,0 +1,298 @@
+"""
+Messenger rules (docs/specs/MESSENGER.md — Daniel, 2026-09-26).
+
+- One conversation per pair of users (`conversations`, low/high id).
+- Everyone can message everyone, but a first message from someone without
+  prior contact becomes a REQUEST in the recipient's Requests folder; the
+  sender may send only that one message until it's accepted. Replying
+  counts as accepting. A declined request stays silent for the sender.
+- No request needed when the pair has had contact before (`contact_pairs`,
+  outlives deleted chats) or has a Match (`job_matches`). Blocking always wins.
+- A conversation is deleted 60 days after its last message (DB trigger +
+  retention worker); the "!" warning shows during the last 10 days.
+- "Seen" is never exposed: `read_at` is only used for unread counts.
+
+Routers stay thin; every rule lives here. List/thread queries are single
+statements (no N+1).
+"""
+from datetime import datetime, timezone
+
+from sqlalchemy import text
+
+from app.database import engine, fetch_all, fetch_one
+from app.retention_rules import warning_days
+
+MAX_MESSAGE_LENGTH = 2000
+MAX_MESSAGES_PER_HOUR = 20
+MAX_MESSAGES_PER_RECIPIENT_PER_HOUR = 5
+REPORT_REASON_MIN, REPORT_REASON_MAX = 3, 500
+
+
+def _pair(a: int, b: int) -> tuple[int, int]:
+    return (a, b) if a < b else (b, a)
+
+
+def _side(conv: dict, user_id: int) -> str:
+    return "low" if conv["user_low_id"] == user_id else "high"
+
+
+def is_blocked(a: int, b: int) -> bool:
+    return fetch_one(
+        """SELECT 1 FROM blocked_users
+           WHERE (blocker_id = :a AND blocked_id = :b) OR (blocker_id = :b AND blocked_id = :a)""",
+        {"a": a, "b": b},
+    ) is not None
+
+
+def _has_contact(conn, a: int, b: int) -> bool:
+    lo, hi = _pair(a, b)
+    return conn.execute(
+        text(
+            """
+            SELECT EXISTS (SELECT 1 FROM contact_pairs WHERE user_low_id = :lo AND user_high_id = :hi)
+                OR EXISTS (SELECT 1 FROM job_matches
+                           WHERE (artist_user_id = :lo AND contractor_user_id = :hi)
+                              OR (artist_user_id = :hi AND contractor_user_id = :lo))
+            """
+        ),
+        {"lo": lo, "hi": hi},
+    ).scalar_one()
+
+
+def _add_contact(conn, a: int, b: int, source: str = "accepted") -> None:
+    lo, hi = _pair(a, b)
+    conn.execute(
+        text("INSERT INTO contact_pairs (user_low_id, user_high_id, source) VALUES (:lo, :hi, :s) ON CONFLICT DO NOTHING"),
+        {"lo": lo, "hi": hi, "s": source},
+    )
+
+
+def _rate_limited(sender_id: int, recipient_id: int) -> str | None:
+    counts = fetch_one(
+        """
+        SELECT count(*) AS total,
+               count(*) FILTER (WHERE recipient_id = :r) AS to_recipient
+        FROM visible_messages WHERE sender_id = :s AND created_at > now() - interval '1 hour'
+        """,
+        {"s": sender_id, "r": recipient_id},
+    )
+    if counts["total"] >= MAX_MESSAGES_PER_HOUR:
+        return "rate_limited"
+    if counts["to_recipient"] >= MAX_MESSAGES_PER_RECIPIENT_PER_HOUR:
+        return "rate_limited_recipient"
+    return None
+
+
+def send_message(sender_id: int, recipient_id: int, body: str, listing_id: int | None = None) -> tuple[str, int | None]:
+    """Returns (status, conversation_id). Status: 'sent', 'request_sent',
+    'request_pending' (request already sent, not accepted yet — nothing
+    stored), 'invalid', 'recipient_missing', 'blocked', 'rate_limited',
+    'rate_limited_recipient'."""
+    body = (body or "").strip()[:MAX_MESSAGE_LENGTH]
+    if not body or sender_id == recipient_id:
+        return "invalid", None
+    if not fetch_one("SELECT 1 FROM users WHERE id = :id AND deleted_at IS NULL", {"id": recipient_id}):
+        return "recipient_missing", None
+    if is_blocked(sender_id, recipient_id):
+        return "blocked", None
+    limited = _rate_limited(sender_id, recipient_id)
+    if limited:
+        return limited, None
+    lo, hi = _pair(sender_id, recipient_id)
+    with engine.begin() as conn:
+        # Same pair lock the message trigger takes — serializes two first
+        # messages racing to create the conversation.
+        conn.execute(text("SELECT pg_advisory_xact_lock(:a, :b)"),
+                     {"a": lo % 2147483647, "b": hi % 2147483647})
+        conv = conn.execute(
+            text("SELECT * FROM conversations WHERE user_low_id = :lo AND user_high_id = :hi FOR UPDATE"),
+            {"lo": lo, "hi": hi},
+        ).mappings().first()
+        contact = _has_contact(conn, sender_id, recipient_id)
+        if conv is None:
+            status = "active" if contact else "request"
+            conv_id = conn.execute(
+                text(
+                    """INSERT INTO conversations (user_low_id, user_high_id, status, requested_by)
+                       VALUES (:lo, :hi, :status, :by) RETURNING id"""
+                ),
+                {"lo": lo, "hi": hi, "status": status, "by": sender_id if status == "request" else None},
+            ).scalar_one()
+        else:
+            conv_id, status = conv["id"], conv["status"]
+            expired = conn.execute(
+                text("SELECT :t + interval '60 days' <= now()"), {"t": conv["last_activity_at"]}
+            ).scalar_one()
+            if status == "request" and (contact or conv["requested_by"] != sender_id):
+                # A Match/contact arrived meanwhile, or the recipient replies
+                # (replying = accepting): the conversation becomes a chat.
+                status = "active"
+                conn.execute(text("UPDATE conversations SET status = 'active', declined_at = NULL WHERE id = :id"),
+                             {"id": conv_id})
+                _add_contact(conn, sender_id, recipient_id)
+            elif status == "request" and not expired:
+                already = conn.execute(
+                    text("SELECT count(*) FROM messages WHERE conversation_id = :c AND sender_id = :s"),
+                    {"c": conv_id, "s": sender_id},
+                ).scalar_one()
+                if already >= 1:
+                    return "request_pending", conv_id
+        conn.execute(
+            text(
+                """INSERT INTO messages (sender_id, recipient_id, listing_id, body, conversation_id)
+                   VALUES (:s, :r, :l, :b, :c)"""
+            ),
+            {"s": sender_id, "r": recipient_id, "l": listing_id, "b": body, "c": conv_id},
+        )
+    return ("request_sent" if status == "request" else "sent"), conv_id
+
+
+def conversation_for(user_id: int, conversation_id: int) -> dict | None:
+    """The conversation if `user_id` is a participant and it hasn't expired."""
+    return fetch_one(
+        """SELECT * FROM conversations
+           WHERE id = :id AND :u IN (user_low_id, user_high_id)
+             AND last_activity_at + interval '60 days' > now()""",
+        {"id": conversation_id, "u": user_id},
+    )
+
+
+def accept_request(user_id: int, conversation_id: int) -> bool:
+    conv = conversation_for(user_id, conversation_id)
+    if not conv or conv["status"] != "request" or conv["requested_by"] == user_id:
+        return False
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE conversations SET status = 'active', declined_at = NULL WHERE id = :id"),
+                     {"id": conversation_id})
+        _add_contact(conn, conv["user_low_id"], conv["user_high_id"])
+    return True
+
+
+def decline_request(user_id: int, conversation_id: int) -> bool:
+    conv = conversation_for(user_id, conversation_id)
+    if not conv or conv["status"] != "request" or conv["requested_by"] == user_id:
+        return False
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE conversations SET declined_at = now() WHERE id = :id"), {"id": conversation_id})
+    return True
+
+
+def hide_conversation(user_id: int, conversation_id: int) -> bool:
+    """Hides it from this user's list until the next message arrives."""
+    conv = conversation_for(user_id, conversation_id)
+    if not conv:
+        return False
+    column = f"{_side(conv, user_id)}_hidden_at"  # 'low_hidden_at' / 'high_hidden_at' only
+    with engine.begin() as conn:
+        conn.execute(text(f"UPDATE conversations SET {column} = now() WHERE id = :id"),  # nosec B608 - fixed column names
+                     {"id": conversation_id})
+    return True
+
+
+def report_message(user_id: int, message_id: int, reason: str) -> str:
+    """'reported', 'already', 'invalid' or 'not_allowed'. Only the recipient
+    of a message can report it; the text is snapshotted for moderation."""
+    reason = (reason or "").strip()[:REPORT_REASON_MAX]
+    if len(reason) < REPORT_REASON_MIN:
+        return "invalid"
+    message = fetch_one("SELECT id, sender_id, recipient_id, body FROM visible_messages WHERE id = :id", {"id": message_id})
+    if not message or message["recipient_id"] != user_id:
+        return "not_allowed"
+    with engine.begin() as conn:
+        inserted = conn.execute(
+            text(
+                """INSERT INTO message_reports (message_id, reporter_id, reported_user_id, reason, body_snapshot)
+                   VALUES (:m, :r, :u, :reason, :body)
+                   ON CONFLICT (message_id, reporter_id) DO NOTHING RETURNING id"""
+            ),
+            {"m": message_id, "r": user_id, "u": message["sender_id"], "reason": reason, "body": message["body"]},
+        ).first()
+    return "reported" if inserted else "already"
+
+
+# ---------------------------------------------------------------------------
+# Read side (single queries — no N+1)
+# ---------------------------------------------------------------------------
+
+_LIST_SQL = """
+SELECT c.id, c.status, c.requested_by, c.declined_at, c.last_activity_at,
+       o.id AS other_id, o.full_name AS other_name, o.avatar_url AS other_avatar,
+       (o.deleted_at IS NOT NULL) AS other_deactivated,
+       last.body AS last_body, last.sender_id AS last_sender_id, last.created_at AS last_created_at,
+       COALESCE(unread.n, 0) AS unread
+FROM conversations c
+JOIN users o ON o.id = CASE WHEN c.user_low_id = :u THEN c.user_high_id ELSE c.user_low_id END
+LEFT JOIN LATERAL (
+    SELECT body, sender_id, created_at FROM messages m
+    WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1
+) last ON TRUE
+LEFT JOIN LATERAL (
+    SELECT count(*) AS n FROM messages m
+    WHERE m.conversation_id = c.id AND m.recipient_id = :u AND m.read_at IS NULL
+) unread ON TRUE
+WHERE :u IN (c.user_low_id, c.user_high_id)
+  AND c.last_activity_at + interval '60 days' > now()
+  AND last.created_at IS NOT NULL
+  AND (CASE WHEN c.user_low_id = :u THEN c.low_hidden_at ELSE c.high_hidden_at END) IS NULL
+  AND {folder}
+  {unread_filter}
+ORDER BY c.last_activity_at DESC
+"""
+_FOLDERS = {
+    # My chats + my own pending requests (shown as "waiting for acceptance").
+    "inbox": "(c.status = 'active' OR c.requested_by = :u)",
+    # Requests others sent me that I haven't declined.
+    "requests": "(c.status = 'request' AND c.requested_by <> :u AND c.declined_at IS NULL)",
+}
+
+
+def list_conversations(user_id: int, folder: str = "inbox", unread_only: bool = False) -> list[dict]:
+    sql = _LIST_SQL.format(
+        folder=_FOLDERS.get(folder, _FOLDERS["inbox"]),
+        unread_filter="AND COALESCE(unread.n, 0) > 0" if unread_only else "",
+    )
+    rows = fetch_all(sql, {"u": user_id})  # nosec B608 - folder/filter are fixed literals
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        row["days_left"] = warning_days(row["last_activity_at"], now)
+        row["pending_mine"] = row["status"] == "request" and row["requested_by"] == user_id
+    return rows
+
+
+def thread(user_id: int, conversation_id: int, after_id: int = 0, mark_read: bool = True) -> list[dict]:
+    """Messages of a conversation (after `after_id`, for polling), oldest
+    first; marks the ones addressed to `user_id` as read."""
+    rows = fetch_all(
+        """
+        SELECT m.id, m.body, m.created_at, m.sender_id, (m.sender_id = :u) AS mine,
+               m.listing_id, l.title AS listing_title
+        FROM visible_messages m
+        LEFT JOIN visible_listings l ON l.id = m.listing_id
+        WHERE m.conversation_id = :c AND m.id > :after
+        ORDER BY m.id
+        """,
+        {"u": user_id, "c": conversation_id, "after": after_id},
+    )
+    if mark_read and any(not r["mine"] for r in rows):
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE messages SET read_at = now() WHERE conversation_id = :c AND recipient_id = :u AND read_at IS NULL"),
+                {"c": conversation_id, "u": user_id},
+            )
+    return rows
+
+
+def unread_counts(user_id: int) -> dict:
+    """{'inbox': unread messages in chats, 'requests': pending requests with unread messages}."""
+    row = fetch_one(
+        """
+        SELECT count(*) FILTER (WHERE c.status = 'active' OR c.requested_by = :u) AS inbox,
+               count(DISTINCT c.id) FILTER (WHERE c.status = 'request' AND c.requested_by <> :u AND c.declined_at IS NULL) AS requests
+        FROM messages m JOIN conversations c ON c.id = m.conversation_id
+        WHERE m.recipient_id = :u AND m.read_at IS NULL
+          AND c.last_activity_at + interval '60 days' > now()
+          AND (CASE WHEN c.user_low_id = :u THEN c.low_hidden_at ELSE c.high_hidden_at END) IS NULL
+        """,
+        {"u": user_id},
+    )
+    return {"inbox": row["inbox"], "requests": row["requests"]}

@@ -9,6 +9,10 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Messenger M2: rules service
+- New `app/messenger.py`: block > contact/Match > request (1 message until accepted; reply = accept; declined stays silent), accept/decline/hide, report (recipient only, text snapshot), list/thread/unread in single queries, never exposes read status. `/messages/send` now uses it (rate limits unchanged, 429 kept).
+- Tests: `tests/test_messenger.py` (10); throttle test now seeds a contact pair (strangers are limited to 1 message anyway). Next: M3 chat page.
+
 ## 2026-09-26 — Claude — Messenger M1: schema (per-pair conversations, 60-day expiry)
 - `db/migrations/2026-09-26_messenger.sql` (+ schema.sql, folded into CONSOLIDATED): `conversations` (request/active, per-side hide), `contact_pairs`, `message_reports`, `messages.conversation_id`, `users.message_email_sent_at`; backfill (both sides wrote → active + legacy contact; one-way → request). Verified idempotent + pg_dump-identical.
 - Trigger files every message into its pair's conversation and drops an expired conversation's history before a new message; `visible_messages` = conversation active within 60 days; retention worker deletes conversations at 60 days (was ~30+60). `warning_days` → last 10 of 60 days.

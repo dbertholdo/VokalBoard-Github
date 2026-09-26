@@ -13,18 +13,9 @@ from app.retention_rules import warning_days
 
 router = APIRouter()
 
-MAX_MESSAGE_LENGTH = 2000
-
-# Brake against message spam/harassment — designed to NEVER get in
-# the way of a normal conversation (even a lively one) or prevent
-# contact between two people, just to avoid a burst. Two limits, both
-# per rolling hour: a general one (how many messages the person sends
-# in total) and one per recipient (how many they send to ONE SAME
-# person) — the second is the one that really matters against
-# harassment (someone insisting with the same person), the first is
-# just an extra safety net against mass spam to different people.
-MAX_MESSAGES_PER_HOUR = 20
-MAX_MESSAGES_PER_RECIPIENT_PER_HOUR = 5
+# Limits and rules live in app/messenger.py (re-exported for older imports).
+from app.messenger import MAX_MESSAGE_LENGTH, MAX_MESSAGES_PER_HOUR, MAX_MESSAGES_PER_RECIPIENT_PER_HOUR  # noqa: E402,F401
+from app import messenger  # noqa: E402
 
 
 @router.get("/messages", response_class=HTMLResponse)
@@ -138,108 +129,39 @@ def send_message(
     if not user["email_verified"]:
         return RedirectResponse(url="/?verify_required=1", status_code=303)
 
-    body = body.strip()[:MAX_MESSAGE_LENGTH]
-    if not body or recipient_id == user["id"]:
-        return RedirectResponse(url="/messages", status_code=303)
-
-    # Brake against a burst of messages (see constants above) —
-    # checked BEFORE the content check, to give the right warning.
-    # It's not permanent: once 1 hour has passed since the oldest
-    # counted message, the limit clears on its own.
-    sent_last_hour = fetch_one(
-        "SELECT count(*) AS n FROM visible_messages WHERE sender_id = :id AND created_at > now() - interval '1 hour'",
-        {"id": user["id"]},
-    )["n"]
-    if sent_last_hour >= MAX_MESSAGES_PER_HOUR:
-        listing = fetch_one("SELECT id, title FROM visible_listings WHERE id = :id", {"id": int(listing_id)}) if listing_id else None
-        recipient_for_error = fetch_one("SELECT id, full_name FROM users WHERE id = :id", {"id": recipient_id})
-        context = {
-            "user": user,
-            "recipient": recipient_for_error,
-            "listing": listing,
-            "max_message_length": MAX_MESSAGE_LENGTH,
-            "error": "message_error_rate_limited",
-        }
-        return render(request, "message_compose.html", context, status_code=429)
-
-    sent_to_recipient_last_hour = fetch_one(
-        """
-        SELECT count(*) AS n FROM visible_messages
-        WHERE sender_id = :sender_id AND recipient_id = :recipient_id AND created_at > now() - interval '1 hour'
-        """,
-        {"sender_id": user["id"], "recipient_id": recipient_id},
-    )["n"]
-    if sent_to_recipient_last_hour >= MAX_MESSAGES_PER_RECIPIENT_PER_HOUR:
-        listing = fetch_one("SELECT id, title FROM visible_listings WHERE id = :id", {"id": int(listing_id)}) if listing_id else None
-        recipient_for_error = fetch_one("SELECT id, full_name FROM users WHERE id = :id", {"id": recipient_id})
-        context = {
-            "user": user,
-            "recipient": recipient_for_error,
-            "listing": listing,
-            "max_message_length": MAX_MESSAGE_LENGTH,
-            "error": "message_error_rate_limited_recipient",
-        }
-        return render(request, "message_compose.html", context, status_code=429)
-
-    # A block prevents messages in both directions: neither whoever
-    # blocked nor whoever was blocked can send a message to the other side.
-    blocked = fetch_one(
-        """
-        SELECT 1 FROM blocked_users
-        WHERE (blocker_id = :user_id AND blocked_id = :recipient_id)
-           OR (blocker_id = :recipient_id AND blocked_id = :user_id)
-        """,
-        {"user_id": user["id"], "recipient_id": recipient_id},
+    # Messenger (2026-09-26): every rule — block, contact/Match, request,
+    # rate limits — lives in app/messenger.py.
+    status, conversation_id = messenger.send_message(
+        user["id"], recipient_id, body, int(listing_id) if listing_id.isdigit() else None,
     )
-    if blocked:
+    if status in ("rate_limited", "rate_limited_recipient"):
+        listing = fetch_one("SELECT id, title FROM visible_listings WHERE id = :id", {"id": int(listing_id)}) if listing_id.isdigit() else None
+        context = {
+            "user": user,
+            "recipient": fetch_one("SELECT id, full_name FROM users WHERE id = :id", {"id": recipient_id}),
+            "listing": listing,
+            "max_message_length": MAX_MESSAGE_LENGTH,
+            "error": "message_error_" + status,
+        }
+        return render(request, "message_compose.html", context, status_code=429)
+    if status not in ("sent", "request_sent"):
         return RedirectResponse(url="/messages", status_code=303)
 
     recipient = fetch_one(
-        "SELECT email, full_name, email_verified, notify_messages, preferred_language FROM users WHERE id = :id AND deleted_at IS NULL",
+        "SELECT email, full_name, email_verified, notify_messages, preferred_language FROM users WHERE id = :id",
         {"id": recipient_id},
     )
-    if not recipient:
-        return RedirectResponse(url="/messages", status_code=303)
-
-    execute(
-        """
-        INSERT INTO messages (sender_id, recipient_id, listing_id, body)
-        VALUES (:sender_id, :recipient_id, :listing_id, :body)
-        """,
-        {
-            "sender_id": user["id"],
-            "recipient_id": recipient_id,
-            "listing_id": int(listing_id) if listing_id else None,
-            "body": body,
-        },
-    )
-
-    # Central de Notificações (task #50) — bell notification for the
-    # recipient, independent of their e-mail preference below (this
-    # one's never opt-out, same as the existing unread-count badge).
+    # Central de Notificações (task #50) — bell notification for the recipient.
     create_notification(
         recipient_id, "new_message", "notification_new_message",
         {"name": user["full_name"]}, link_url="/messages",
     )
-
-    # "Get an e-mail every time you receive a message" — in the
-    # background, so as not to delay the redirect for whoever sent
-    # it. Only fires if the person has a verified e-mail and the
-    # notice turned on (users.notify_messages, see /profile).
     if recipient["email_verified"] and recipient["notify_messages"]:
         background_tasks.add_task(
-            notify_new_message,
-            str(request.base_url),
-            recipient["email"],
-            recipient["full_name"],
-            user["full_name"],
-            recipient.get("preferred_language"),
+            notify_new_message, str(request.base_url), recipient["email"],
+            recipient["full_name"], user["full_name"], recipient.get("preferred_language"),
         )
-
-    # Badges that depend on messages (contact, fast response) —
-    # checks for whoever SENT it (the action was theirs).
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
-
     return RedirectResponse(url="/messages/sent", status_code=303)
 
 
