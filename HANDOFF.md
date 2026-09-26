@@ -16,7 +16,7 @@
 ## 3. Next up
 1. **Notas v2 go-live (N6) — Daniel:** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
 2. **Messenger DONE (M1–M6)** — `docs/specs/MESSENGER.md` (as-built notes at the top). Goes live with the pending migration (§7). Suggested follow-up when Daniel wants: a browser pass on real phones.
-3. **Languages:** es + ro DONE (UI 694/694 + all e-mails); zh + ko UI 694/694 (e-mails still fall back to English). All AI drafts; native review still to do. Next: bundled CJK font (Noto Sans SC/KR, `docs/I18N.md` phase 4 — waiting on Daniel's OK to download), then zh/ko e-mail copy.
+3. **Languages:** es + ro DONE (UI 694/694 + all e-mails); zh + ko UI 694/694 + self-hosted CJK font (`app/static/fonts/noto-cjk/MANIFEST.md`; rerun `scripts/subset_cjk_fonts.py` after editing zh/ko.json). zh/ko e-mails still fall back to English — next step. All AI drafts; native review still to do.
 4. Confirm the Railway `retention_worker` service runs — it now also does the account purge, Notas expiry and the 60-day conversation deletion.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
@@ -24,7 +24,7 @@
 - `/profile/wizard` photo step: help text no longer overlaps the file input (was −8px, now +4px). Same fix after buttons (+8px).
 - `/rechnungmaker?tab=avulso` 320px: amounts stay on one line (table scrolls inside), totals full width. PDF untouched.
 - Logged-in mobile header: ~251px → 130px; links duplicated in the ☰ side menu are hidden ≤860px (badges still in side menu).
-- Still never verified: physical phones, Safari/Firefox, real 200% zoom, screen reader, performance, bundled CJK font.
+- Still never verified: physical phones, Safari/Firefox, real 200% zoom, screen reader, performance, CJK font on real phones/macOS.
 
 ## 5. Decisions (Daniel, 2026-09-26) — settled, don't reopen
 - **Languages:** fr stays core (de/en/fr/it/pt). **es** joins zh/ko/ro as an *added* language: public/user site only; admin area English-only for added languages (existing core-language admin text untouched).
