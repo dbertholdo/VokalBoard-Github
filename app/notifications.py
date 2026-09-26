@@ -33,7 +33,7 @@ from app.email_localization import (
 )
 
 
-def _matching_recipients(listing_type: str, author_id: int, voice_type_id: int | None) -> list[dict]:
+def _matching_recipients(listing_type: str, author_id: int, voice_type_ids: list[int]) -> list[dict]:
     """Quem tem o perfil compatível com essa vaga e quer receber
     alerta — extraído de notify_matching_users() pra ser reaproveitado
     também pelo lembrete de 6h de vaga urgente (P5 Etapa 2,
@@ -47,21 +47,22 @@ def _matching_recipients(listing_type: str, author_id: int, voice_type_id: int |
             "id != :author_id",
         ]
         params = {"author_id": author_id}
-        if voice_type_id:
+        # #55: the listing may seek several voices (one per vacancy).
+        if voice_type_ids:
             conditions.append(
                 """(
                     EXISTS (
                         SELECT 1 FROM singer_profile_voice_types spvt
-                        WHERE spvt.user_id = users.id AND spvt.voice_type_id = :voice_type_id
+                        WHERE spvt.user_id = users.id AND spvt.voice_type_id = ANY(:voice_type_ids)
                     )
                     OR EXISTS (
                         SELECT 1 FROM singer_profiles sp
                         WHERE sp.user_id = users.id
-                          AND (sp.voice_type_id = :voice_type_id OR sp.voice_type_id IS NULL)
+                          AND (sp.voice_type_id = ANY(:voice_type_ids) OR sp.voice_type_id IS NULL)
                     )
                 )"""
             )
-            params["voice_type_id"] = voice_type_id
+            params["voice_type_ids"] = list(voice_type_ids)
         # nosec B608 below: only joins FIXED WHERE fragments (defined above,
         # never coming from person input) — the actual values all go through
         # a parameter (:voice_type_id etc.) in `params`, never pasted into the string.
@@ -81,8 +82,8 @@ def _matching_recipients(listing_type: str, author_id: int, voice_type_id: int |
 
 
 def notify_matching_users(base_url: str, listing_id: int, listing_type: str, title: str,
-                           city: str | None, author_id: int, voice_type_id: int | None) -> None:
-    recipients = _matching_recipients(listing_type, author_id, voice_type_id)
+                           city: str | None, author_id: int, voice_type_ids: list[int]) -> None:
+    recipients = _matching_recipients(listing_type, author_id, voice_type_ids)
     if not recipients:
         return
 
@@ -107,7 +108,7 @@ def notify_matching_users(base_url: str, listing_id: int, listing_type: str, tit
 
 
 def notify_urgent_listing_reminder(base_url: str, listing_id: int, listing_type: str, title: str,
-                                    city: str | None, author_id: int, voice_type_id: int | None) -> None:
+                                    city: str | None, author_id: int, voice_type_ids: list[int]) -> None:
     """
     P5 Etapa 2 (18/09/2026): lembrete extra, 6h depois de uma vaga ser
     marcada urgente, SE continuar sem Match — pros mesmos perfis
@@ -123,7 +124,7 @@ def notify_urgent_listing_reminder(base_url: str, listing_id: int, listing_type:
     app/email_localization.py (o alerta de match original também não
     usa esse padrão).
     """
-    recipients = _matching_recipients(listing_type, author_id, voice_type_id)
+    recipients = _matching_recipients(listing_type, author_id, voice_type_ids)
     if not recipients:
         return
 

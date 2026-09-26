@@ -28,7 +28,9 @@ def _due_rows(conn):
     return conn.execute(
         text(
             """
-            SELECT l.id, l.listing_type, l.title, l.city, l.author_id, l.voice_type_id
+            SELECT l.id, l.listing_type, l.title, l.city, l.author_id,
+                   ARRAY(SELECT t.voice_type_id FROM listing_terms t
+                         WHERE t.listing_id = l.id AND t.voice_type_id IS NOT NULL) AS voice_type_ids
             FROM listings l
             WHERE l.is_urgent = TRUE
               AND l.is_active = TRUE
@@ -55,7 +57,7 @@ def run_urgent_listing_reminder(connection=None, dry_run=False, base_url=""):
     for row in rows:
         notify_urgent_listing_reminder(
             base_url, row["id"], row["listing_type"], row["title"],
-            row["city"], row["author_id"], row["voice_type_id"],
+            row["city"], row["author_id"], list(row["voice_type_ids"] or []),
         )
         conn.execute(
             text("UPDATE listings SET urgent_reminder_sent_at = now() WHERE id = :id"),

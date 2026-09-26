@@ -47,8 +47,8 @@ RATING_JOIN_SQL = """
 # desempate por compatibilidade (cidade > nota) e por fim o mais
 # recente primeiro.
 FEE_COMPATIBILITY_ORDER_SQL = f"""
-    l.fee_negotiable ASC,
-    CASE WHEN NOT l.fee_negotiable THEN l.fee_amount END DESC NULLS LAST,
+    ls.fee_negotiable ASC,
+    CASE WHEN NOT ls.fee_negotiable THEN ls.fee_amount END DESC NULLS LAST,
     {CITY_TIER_SQL} ASC,
     author_rating.avg_stars DESC NULLS LAST,
     l.created_at DESC

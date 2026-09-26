@@ -1247,4 +1247,34 @@ CREATE OR REPLACE VIEW visible_messages AS
  SELECT m.* FROM messages m JOIN conversations c ON c.id = m.conversation_id
  WHERE c.last_activity_at + interval '60 days' > now();
 
+-- ============================================================
+-- ---- 2026-09-26_listing_terms.sql (#55) -----------------------
+-- Folded in 2026-09-26. Verified on its own: applied twice to a DB built
+-- from the previous schema.sql with a job listing + self-ad (idempotent,
+-- constraint rejects re-copying) → pg_dump identical to schema.sql.
+-- Depends on listings/listing_vacancies (created earlier in this file).
+-- ============================================================
+UPDATE listings
+SET voice_type_id = NULL, fee_amount = NULL, fee_negotiable = FALSE
+WHERE listing_type IN ('seeking_singer', 'seeking_conductor')
+  AND (voice_type_id IS NOT NULL OR fee_amount IS NOT NULL OR fee_negotiable);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'listings_job_terms_live_in_vacancies') THEN
+        ALTER TABLE listings ADD CONSTRAINT listings_job_terms_live_in_vacancies
+            CHECK (listing_type NOT IN ('seeking_singer', 'seeking_conductor')
+                   OR (voice_type_id IS NULL AND fee_amount IS NULL AND NOT fee_negotiable));
+    END IF;
+END $$;
+
+CREATE OR REPLACE VIEW listing_terms AS
+ SELECT lv.listing_id, lv.voice_type_id, lv.fee_amount, lv.fee_currency, lv.fee_negotiable
+ FROM listing_vacancies lv
+ JOIN listings l ON l.id = lv.listing_id AND l.listing_type IN ('seeking_singer', 'seeking_conductor')
+ UNION ALL
+ SELECT l.id, l.voice_type_id, l.fee_amount, l.fee_currency, l.fee_negotiable
+ FROM listings l
+ WHERE l.listing_type IN ('singer_available', 'conductor_available');
+
 COMMIT;

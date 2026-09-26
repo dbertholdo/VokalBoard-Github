@@ -31,6 +31,14 @@ contrário:
   uma instalação limpa a partir de `db/schema.sql` (que já é cumulativo) é
   mais simples e segura do que encadear migração por migração.
 
+## 2026-09-26 — Messenger + #55 also folded in
+
+`2026-09-26_messenger.sql` (conversations, contact pairs, reports, 60-day
+view/trigger) and `2026-09-26_listing_terms.sql` (#55: job listings' copy
+of voice/fee cleared + constraint, `listing_terms` view) were appended to
+the consolidated file in that order, each verified the same way
+(idempotent, pg_dump-identical to `schema.sql`).
+
 ## 2026-09-26 — Notas v2 folded into the consolidated file
 
 `db/migrations/2026-09-26_notas_v2.sql` (purchased/earned category, expiry,

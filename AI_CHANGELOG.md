@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — #55 Match phase 2: one source for a listing's voice/fee
+- Job listings keep voice/fee only in `listing_vacancies`; the copy on `listings` is cleared and blocked by constraint `listings_job_terms_live_in_vacancies`. Self-ads keep their own columns (moving them to vacancies would have pulled them into invitations/slots). View `listing_terms` merges both; `app/listing_terms.py` has the card summary join (same display rules as the old copy).
+- Readers switched: card queries, fee ordering (`compatibility.py`), home matching, board voice filter, "search people for my listing", e-mail alerts + urgent reminder (now lists of voices). Behaviour fixes: multi-voice listings now match each voice (before: board filter never, home/alerts everyone); new-job alerts no longer go to every singer.
+- Migration `2026-09-26_listing_terms.sql` (+ schema.sql, CONSOLIDATED) verified. Tests +3 (`test_listing_terms.py`); 330 passed + 10 retention.
+
 ## 2026-09-26 — Claude — Spanish UI complete (es 694/694)
 - `app/locales/es.json`: all public keys, applied in 6 validated batches via `scripts/i18n_tool.py` (placeholders checked); informal "tú", glossary kept (Notas, Matches, Digital Pass, Rechnungmaker, Tangará), fee = "caché", negotiable = "a convenir". AI draft — native review pending; e-mails still fall back to English (phase 3).
 - Also fixed "nota/Note" → "Nota" (currency name) in 5 core-language texts; Italian gender ("alla prossima Nota").

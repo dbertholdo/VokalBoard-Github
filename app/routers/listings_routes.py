@@ -5,6 +5,7 @@ from app.database import fetch_all, fetch_one, execute, execute_returning
 from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
+from app.listing_terms import LISTING_SUMMARY_JOIN
 from app.notifications import notify_matching_users
 from app.badges import check_and_notify_new_badges
 from app.urgency import ListingNotEligible, UrgencyUnavailable, get_urgency_status, mark_listing_urgent
@@ -68,7 +69,7 @@ EVENT_STATUS_SQL = """
 
 LISTING_COLUMNS = f"""
     l.id, l.title, l.description, l.city, l.state, l.country, l.listing_type,
-    l.repertoire, l.venue, l.fee_amount, l.fee_currency, l.fee_negotiable,
+    l.repertoire, l.venue, ls.fee_amount, ls.fee_currency, ls.fee_negotiable,
     l.ensemble_type, l.event_date, l.available_from, l.available_until, l.created_at,
     l.travel_cost_covered, l.rehearsal_schedule_available, l.sheet_music_available,
     l.is_urgent, l.urgent_marked_at,
@@ -130,28 +131,15 @@ def _job_fields_valid(listing_type: str, city: str, repertoire: str, has_vacancy
 
 def _derive_listing_fields_from_vacancies(vacancies: list[dict], fallback_currency: str) -> tuple:
     """
-    (19/09/2026) seeking_singer/seeking_conductor no longer collect
-    voice_type_id/fee_amount/fee_currency/fee_negotiable directly —
-    those live only in the vacancy list now (app/vacancies.py). This
-    mirrors the vacancy data back onto `listings`' own columns so every
-    OTHER piece of code that still reads `listings.voice_type_id`/fee
-    directly — home page matching, board filtering, e-mail alerts in
-    app/notifications.py, banner targeting in app/banners.py, the
-    "Buscar pessoas" directory — keeps working unchanged, without
-    having to be rewritten against listing_vacancies. Deliberately
-    approximate for a multi-vacancy listing (several different voices):
-    voice_type_id falls back to NULL ("all voices", an already-valid
-    meaning) and fee falls back to unset, since there's no single
-    correct answer to mirror in that case — the vacancy list itself
-    (shown on listing_detail.html) is what shows the real breakdown.
+    #55 (2026-09-26): job listings keep their voice type and fee ONLY in
+    listing_vacancies — nothing is copied onto `listings` any more (a DB
+    constraint keeps those columns empty for job listings). Readers go
+    through `listing_terms` / LISTING_SUMMARY_JOIN (app/listing_terms.py).
+    Returns the values to store: (voice_type_id, fee_amount, fee_currency,
+    fee_negotiable) — empty, plus the form's currency as a harmless default.
     """
-    if len(vacancies) == 1:
-        v = vacancies[0]
-        return v["voice_type_id"], v["fee_amount"], v["fee_currency"], v["fee_negotiable"]
-    distinct_voice_ids = {v["voice_type_id"] for v in vacancies if v["voice_type_id"]}
-    voice_type_id = next(iter(distinct_voice_ids)) if len(distinct_voice_ids) == 1 else None
     currency = fallback_currency if fallback_currency in CURRENCIES else DEFAULT_CURRENCY
-    return voice_type_id, None, currency, False
+    return None, None, currency, False
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -207,17 +195,21 @@ def home(request: Request):
             # singer_profiles.voice_type_id remains as a compatibility
             # fallback, but matching must use the dedicated relation first.
             conditions.append(
-                """(
-                    l.voice_type_id IS NULL
-                    OR EXISTS (
-                        SELECT 1 FROM singer_profile_voice_types spvt
-                        WHERE spvt.user_id = :viewer_voice_user_id
-                          AND spvt.voice_type_id = l.voice_type_id
-                    )
-                    OR EXISTS (
-                        SELECT 1 FROM singer_profiles sp
-                        WHERE sp.user_id = :viewer_voice_user_id
-                          AND sp.voice_type_id = l.voice_type_id
+                # #55: every vacancy voice counts (listing_terms), not one copied value.
+                """EXISTS (
+                    SELECT 1 FROM listing_terms t
+                    WHERE t.listing_id = l.id AND (
+                        t.voice_type_id IS NULL
+                        OR EXISTS (
+                            SELECT 1 FROM singer_profile_voice_types spvt
+                            WHERE spvt.user_id = :viewer_voice_user_id
+                              AND spvt.voice_type_id = t.voice_type_id
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM singer_profiles sp
+                            WHERE sp.user_id = :viewer_voice_user_id
+                              AND sp.voice_type_id = t.voice_type_id
+                        )
                     )
                 )"""
             )
@@ -227,7 +219,8 @@ def home(request: Request):
                 SELECT {LISTING_COLUMNS}, u.id AS author_id, u.full_name AS author_name, vt.name AS voice_type_name
                 FROM visible_listings l
                 JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
-                LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+                {LISTING_SUMMARY_JOIN}
+                LEFT JOIN voice_types vt ON vt.id = ls.voice_type_id
                 {RATING_JOIN_SQL}
                 WHERE {" AND ".join(conditions)}
                 ORDER BY {order_by_city}
@@ -243,7 +236,8 @@ def home(request: Request):
                 SELECT {LISTING_COLUMNS}, u.id AS author_id, u.full_name AS author_name, vt.name AS voice_type_name
                 FROM visible_listings l
                 JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
-                LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+                {LISTING_SUMMARY_JOIN}
+                LEFT JOIN voice_types vt ON vt.id = ls.voice_type_id
                 {RATING_JOIN_SQL}
                 WHERE l.is_active = TRUE AND l.listing_type = 'seeking_conductor'
                     AND (l.event_date IS NULL OR l.event_date >= CURRENT_DATE)
@@ -266,6 +260,7 @@ def home(request: Request):
             SELECT {LISTING_COLUMNS}, u.full_name AS author_name
             FROM visible_listings l
             JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
+            {LISTING_SUMMARY_JOIN}
             {RATING_JOIN_SQL}
             WHERE l.is_active = TRUE AND (l.event_date IS NULL OR l.event_date >= CURRENT_DATE)
             ORDER BY {FEE_COMPATIBILITY_ORDER_SQL}
@@ -428,7 +423,7 @@ def board(
         params["listing_type"] = listing_type
 
     if voice_type_id:
-        conditions.append("l.voice_type_id = :voice_type_id")
+        conditions.append("EXISTS (SELECT 1 FROM listing_terms t WHERE t.listing_id = l.id AND t.voice_type_id = :voice_type_id)")
         params["voice_type_id"] = int(voice_type_id)
 
     if ensemble_type:
@@ -487,7 +482,8 @@ def board(
             ) AS is_saved
         FROM visible_listings l
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
-        LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+        {LISTING_SUMMARY_JOIN}
+        LEFT JOIN voice_types vt ON vt.id = ls.voice_type_id
         WHERE {where_clause}
         ORDER BY l.is_urgent DESC, l.created_at DESC, l.id DESC
         LIMIT :limit OFFSET :offset
@@ -777,7 +773,10 @@ async def create_listing(
         title,
         city or None,
         user["id"],
-        int(voice_type_id) if voice_type_id else None,
+        # #55: every vacancy voice (job listings) or the self-ad's own voice.
+        [v["voice_type_id"] for v in vacancies if v["voice_type_id"]]
+        if listing_type in ('seeking_singer', 'seeking_conductor')
+        else ([int(voice_type_id)] if voice_type_id else []),
     )
 
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
@@ -801,7 +800,8 @@ def listing_detail(request: Request, listing_id: int):
             vt.name AS voice_type_name
         FROM visible_listings l
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
-        LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+        {LISTING_SUMMARY_JOIN}
+        LEFT JOIN voice_types vt ON vt.id = ls.voice_type_id
         WHERE l.id = :id
         """,  # nosec B608 - only LISTING_COLUMNS (fixed constant); the id goes by parameter.
         {"id": listing_id},
@@ -939,7 +939,8 @@ def download_listing_flyer(request: Request, listing_id: int):
         f"""
         SELECT {LISTING_COLUMNS}, l.author_id, vt.name AS voice_type_name
         FROM visible_listings l
-        LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+        {LISTING_SUMMARY_JOIN}
+        LEFT JOIN voice_types vt ON vt.id = ls.voice_type_id
         WHERE l.id = :id
         """,  # nosec B608 - only LISTING_COLUMNS (fixed constant); the id goes by parameter.
         {"id": listing_id},
@@ -1184,13 +1185,8 @@ def my_listings(request: Request, urgent_error: str = "", urgent_marked: str = "
                -- shares the same one (a listing with several naipes
                -- has no single answer, so the button just searches
                -- broadly with no voice filter instead of guessing).
-               COALESCE(
-                   l.voice_type_id,
-                   (SELECT MIN(lv.voice_type_id) FROM listing_vacancies lv
-                    WHERE lv.listing_id = l.id
-                    GROUP BY lv.listing_id
-                    HAVING COUNT(DISTINCT lv.voice_type_id) = 1)
-               ) AS search_voice_type_id
+               (SELECT CASE WHEN COUNT(DISTINCT t.voice_type_id) = 1 THEN MIN(t.voice_type_id) END
+                FROM listing_terms t WHERE t.listing_id = l.id) AS search_voice_type_id
         FROM visible_listings l
         WHERE l.author_id = :author_id
         ORDER BY l.created_at DESC
@@ -1286,7 +1282,8 @@ def my_favorites(request: Request):
         FROM saved_listings sl
         JOIN visible_listings l ON l.id = sl.listing_id
         JOIN users u ON u.id = l.author_id AND u.deleted_at IS NULL
-        LEFT JOIN voice_types vt ON vt.id = l.voice_type_id
+        {LISTING_SUMMARY_JOIN}
+        LEFT JOIN voice_types vt ON vt.id = ls.voice_type_id
         WHERE sl.user_id = :user_id
         ORDER BY sl.created_at DESC
         """,  # nosec B608 - only LISTING_COLUMNS (fixed constant); user_id goes by parameter.

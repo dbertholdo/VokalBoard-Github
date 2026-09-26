@@ -1,11 +1,11 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-26 — Claude (Spanish UI 100%; Messenger + Notas v2 implemented earlier today). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-26 — Claude (#55 done: one source for listing voice/fee; Spanish UI 100%; Messenger + Notas v2 earlier today). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, not pushed. Everything below is committed.
-- **Tests GREEN:** 327 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
+- **Tests GREEN:** 330 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
 - Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — production deps clean; dev `pytest` bumped 8.3.3 → 9.0.3 (advisory PYSEC-2026-1845), suite passes on it.
 - Static assets are cache-versioned: style.css `?v=20260926-4`, brand.css `-1`, listing-form.js `-2`, messenger.js `-3`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
@@ -34,7 +34,6 @@
 - Still open, low priority: legal pages (Impressum/Datenschutz/Code of Conduct) are out of scope for added languages unless Daniel decides otherwise.
 
 ## 6. Backlog (not started without Daniel's go-ahead)
-- #55 Match phase 2 — read `listing_vacancies` directly, drop the mirror columns on `listings`.
 - Dependency deprecation warnings (Starlette/httpx, passlib/crypt, ReportLab/ast) — not blocking.
 
 ## 7. Standing constraints

@@ -4,20 +4,13 @@ Multiple job vacancies per listing, one row per voice type (P3.A) —
 individuais e cachês específicos" (CLAUDE.md).
 
 FIX (19/09/2026, Daniel: "duas formas de adicionar vagas, fica confuso,
-inclusive para o código e db") — no longer additive. This is now the
-ONLY place a seeking_singer/seeking_conductor listing's voice type and
-fee live; `listings.voice_type_id`/`fee_amount`/`fee_currency`/
-`fee_negotiable` are still written for these two listing_types, but only
-as a DERIVED mirror of the vacancy rows (see create_listing/
-update_listing in listings_routes.py), so every existing piece that
-reads those two columns directly (board matching, e-mail alerts in
-app/notifications.py, banner targeting in app/banners.py, the "Buscar
-pessoas" directory) keeps working unchanged without having to be
-rewritten against listing_vacancies directly. Every seeking_singer/
-seeking_conductor listing now always has at least one vacancy row —
-old listings that predate this change were backfilled one by
-db/migrations/2026-09-19_unify_vacancies.sql.
-
+inclusive para o código e db") — this is the ONLY place a
+seeking_singer/seeking_conductor listing's voice type and fee live.
+#55 (2026-09-26): the derived copy on `listings` is gone (a DB constraint
+keeps those columns empty for job listings); every reader goes through
+the `listing_terms` view / app/listing_terms.py, which also covers
+self-ads (their own `listings` columns). Every job listing has at least
+one vacancy row (backfilled by db/migrations/2026-09-19_unify_vacancies.sql).
 seeking_conductor has no naipe at all, so its vacancy row always has
 voice_type_id = NULL (see parse_vacancies_form's listing_type branch
 below) — conductors are matched by role only, not by voice.
