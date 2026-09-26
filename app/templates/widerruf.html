@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ t('withdrawal_title') }}{% endblock %}
+
+{% block content %}
+{# Withdrawal notice — follows the statutory model (Anlage 1 zu Art. 246a
+   § 1 Abs. 2 EGBGB) for digital content. Written 2026-09-26 without a
+   lawyer review (Daniel's decision). #}
+<h1>{{ t('withdrawal_title') }}</h1>
+
+{% if lang == 'en' %}
+<div class="legal-block">
+<p><em>The German version is binding; this English version is provided for convenience.</em></p>
+
+<h3>Right of withdrawal</h3>
+<p>You have the right to withdraw from this contract within 14 days without giving any reason. The
+withdrawal period is 14 days from the day the contract is concluded.</p>
+<p>To exercise your right of withdrawal, you must inform us (contact details in the
+<a href="/impressum">Impressum</a>) of your decision to withdraw by means of a clear statement (e.g. an
+e-mail). You may use the model form below, but it is not obligatory. To meet the deadline, it is
+sufficient to send your notice before the withdrawal period has expired.</p>
+
+<h3>Effects of withdrawal</h3>
+<p>If you withdraw, we will reimburse all payments received from you without undue delay and at the latest
+within 14 days of the day we receive your notice. We use the same means of payment you used for the
+original transaction, unless expressly agreed otherwise; you will not be charged any fees for this
+reimbursement.</p>
+
+<h3>Early expiry of the right of withdrawal</h3>
+<p>Your right of withdrawal expires as soon as the Notas have been credited to your account, if you have
+expressly agreed at checkout that we begin before the end of the withdrawal period and confirmed your
+knowledge that you thereby lose your right of withdrawal (§ 356 (5) BGB).</p>
+
+<h3>Model withdrawal form</h3>
+<p>(Complete and return this form only if you wish to withdraw from the contract.)<br>
+To: [see Impressum]<br>
+I/We (*) hereby give notice that I/we (*) withdraw from my/our (*) contract for the purchase of the
+following digital content: ______<br>
+Ordered on (*): ______<br>
+Name of consumer(s): ______ · Address of consumer(s): ______<br>
+Date: ______<br>
+(*) Delete as appropriate.</p>
+</div>
+{% else %}
+<div class="legal-block">
+<h3>Widerrufsrecht</h3>
+<p>Du hast das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die
+Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsabschlusses.</p>
+<p>Um dein Widerrufsrecht auszuüben, musst du uns (Kontaktdaten im <a href="/impressum">Impressum</a>)
+mittels einer eindeutigen Erklärung (z. B. per E-Mail) über deinen Entschluss, diesen Vertrag zu
+widerrufen, informieren. Du kannst dafür das unten stehende Muster-Widerrufsformular verwenden, das
+jedoch nicht vorgeschrieben ist. Zur Wahrung der Widerrufsfrist reicht es aus, dass du die Mitteilung
+über die Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absendest.</p>
+
+<h3>Folgen des Widerrufs</h3>
+<p>Wenn du diesen Vertrag widerrufst, haben wir dir alle Zahlungen, die wir von dir erhalten haben,
+unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die Mitteilung über
+deinen Widerruf bei uns eingegangen ist. Für diese Rückzahlung verwenden wir dasselbe Zahlungsmittel, das
+du bei der ursprünglichen Transaktion eingesetzt hast, es sei denn, mit dir wurde ausdrücklich etwas
+anderes vereinbart; in keinem Fall werden dir wegen dieser Rückzahlung Entgelte berechnet.</p>
+
+<h3>Vorzeitiges Erlöschen des Widerrufsrechts</h3>
+<p>Dein Widerrufsrecht erlischt, sobald die Notas deinem Konto gutgeschrieben wurden, wenn du im
+Bezahlvorgang ausdrücklich zugestimmt hast, dass wir vor Ablauf der Widerrufsfrist mit der Ausführung
+beginnen, und deine Kenntnis davon bestätigt hast, dass du dadurch dein Widerrufsrecht verlierst
+(§ 356 Abs. 5 BGB).</p>
+
+<h3>Muster-Widerrufsformular</h3>
+<p>(Wenn du den Vertrag widerrufen willst, dann fülle bitte dieses Formular aus und sende es zurück.)<br>
+An: [siehe Impressum]<br>
+Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag über den Kauf der folgenden
+digitalen Inhalte: ______<br>
+Bestellt am (*): ______<br>
+Name des/der Verbraucher(s): ______ · Anschrift des/der Verbraucher(s): ______<br>
+Datum: ______<br>
+(*) Unzutreffendes streichen.</p>
+</div>
+{% endif %}
+{% endblock %}

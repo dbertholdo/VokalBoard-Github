@@ -24,7 +24,7 @@ def _seed_user(client, balance=Decimal("10")):
     execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
     execute("DELETE FROM credit_ledger WHERE user_id = :id", {"id": user_id})
     execute(
-        "INSERT INTO credit_ledger (user_id, delta, reason) VALUES (:id, :bal, 'sectest_seed')",
+        "INSERT INTO credit_ledger (user_id, delta, reason, category) VALUES (:id, :bal, 'sectest_seed', 'earned')",
         {"id": user_id, "bal": balance},
     )
     execute("UPDATE shop_catalog_items SET active = TRUE WHERE item_key = 'profile_highlight_7d'")

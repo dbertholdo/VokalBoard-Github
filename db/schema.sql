@@ -1171,10 +1171,33 @@ CREATE TABLE credit_ledger (
     -- itself stays a short machine label, this is the free text.
     -- NULL for every other kind of credit_ledger row.
     admin_note       TEXT,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Notas v2 (2026-09-26, docs/specs/NOTAS_V2.md): every credit is
+    -- 'purchased' (paid with money, never expires) or 'earned' (bonus,
+    -- expires_at = credited + 18 months). Debits leave category NULL —
+    -- credit_lot_usage records which credits they consumed.
+    category         VARCHAR(10),
+    expires_at       TIMESTAMPTZ,
+    CONSTRAINT credit_ledger_category_valid CHECK (category IS NULL OR category IN ('purchased', 'earned')),
+    CONSTRAINT credit_ledger_credit_has_category CHECK (delta <= 0 OR category IS NOT NULL),
+    CONSTRAINT credit_ledger_expiry_only_earned CHECK (expires_at IS NULL OR category = 'earned')
 );
 
 CREATE INDEX idx_credit_ledger_user ON credit_ledger(user_id);
+CREATE INDEX idx_credit_ledger_earned_expiry ON credit_ledger (expires_at) WHERE category = 'earned';
+
+-- credit_lot_usage: which credit "lots" each debit consumed (Notas v2).
+-- Spend order: purchased first, then earned by soonest expiry. Lets the
+-- expiry job remove only the unspent remainder of an earned lot and
+-- refunds go back to the right category. Append-only, like the ledger.
+CREATE TABLE credit_lot_usage (
+    id        BIGSERIAL PRIMARY KEY,
+    debit_id  BIGINT NOT NULL REFERENCES credit_ledger(id) ON DELETE CASCADE,
+    lot_id    BIGINT NOT NULL REFERENCES credit_ledger(id) ON DELETE CASCADE,
+    amount    NUMERIC(10,2) NOT NULL CHECK (amount > 0)
+);
+CREATE INDEX idx_credit_lot_usage_lot ON credit_lot_usage(lot_id);
+CREATE INDEX idx_credit_lot_usage_debit ON credit_lot_usage(debit_id);
 CREATE UNIQUE INDEX idx_credit_ledger_user_idempotency
     ON credit_ledger (user_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;

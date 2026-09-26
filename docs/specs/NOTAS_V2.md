@@ -1,6 +1,15 @@
 # Spec — Notas v2: purchased vs. earned, expiry, Stripe
 
-**Status:** DRAFT — designed with Daniel 2026-09-26, not implemented. Tax status known (D9); the account purge (D6) is already live.
+**Status:** IMPLEMENTED 2026-09-26 (N1–N5, tested; migration pending like all others). N6 (go-live) needs Daniel: live keys, webhook, Capitalism Mode.
+
+**As built — differences from the draft below:**
+- Debits keep `category` NULL (a debit can span both categories); the split lives in `credit_lot_usage`. Only credits require a category (DB constraint).
+- Stripe prices are set in code (`app/notas_purchase.BUNDLES`, `price_data`) — no Price IDs to create in the dashboard.
+- Consent proof (Terms + waiver version and timestamp) is stored in the PaymentIntent **metadata at Stripe**, not via Stripe's `consent_collection` (which would need a ToS URL configured in the dashboard).
+- Purchases require Stripe keys **and Capitalism Mode on**; God Mode can test while it's off.
+- Purchase ledger key = `stripe_purchase:<payment_intent>`; refunds/disputes find the purchase by it — no Stripe API call and no extra table.
+- Expiry job + 30-day notice (Notification Center + e-mail) run inside the hourly retention worker. "Already warned" is read from `notifications` (ledger stays append-only).
+- Also fixed on the way: "Notas" was translated as "Punkte"/"Noten" (de) and lower-cased (pt/en/fr/it) in 9 keys — it's a name, never translated.
 Replaces Gemini's "Prompt 1" (it assumed Alembic/JWT/UUID/ORM models and balance columns on `users` — none of which fit this repo).
 
 ## Decisions (Daniel, 2026-09-26)

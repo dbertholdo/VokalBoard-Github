@@ -50,6 +50,7 @@ _TYPE_STYLE = {
     "invitation_declined": ("icon-close", "notif-badge-neutral"),
     "match_formed": ("icon-star", "notif-badge-accent"),
     "notas_credited": ("icon-money", "notif-badge-success"),
+    "notas_expiring": ("icon-money", "notif-badge-attention"),
     "loja_redeemed": ("icon-gift", "notif-badge-success"),
     "new_message": ("icon-mail", "notif-badge-info"),
     "profile_incomplete": ("icon-profile", "notif-badge-attention"),

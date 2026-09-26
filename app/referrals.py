@@ -165,7 +165,7 @@ def get_credit_ledger(user_id: int, limit: int = 50) -> list[dict]:
     # extrato (ex.: /profile), que continua ignorando o campo.
     return fetch_all(
         """
-        SELECT id, delta, reason, created_at FROM credit_ledger
+        SELECT id, delta, reason, created_at, category, expires_at FROM credit_ledger
         WHERE user_id = :id ORDER BY created_at DESC LIMIT :limit
         """,
         {"id": user_id, "limit": limit},

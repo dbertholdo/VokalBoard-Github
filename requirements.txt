@@ -39,3 +39,4 @@ nh3==0.3.7
 # (19/09/2026) — ver app/qr.py. Puro Python + Pillow (já é dependência),
 # sem dependência de sistema, mesmo critério usado pro resto do stack.
 qrcode==8.2
+stripe==15.6.1  # Notas purchases (Checkout + webhook signature check) — app/notas_purchase.py

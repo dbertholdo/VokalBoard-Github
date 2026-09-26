@@ -38,7 +38,7 @@ _PRE_DELETE = (
 def expired_account_ids(conn) -> list[int]:
     rows = conn.execute(
         text(f"SELECT id FROM users WHERE deleted_at IS NOT NULL "
-             f"AND deleted_at + interval '{REACTIVATION_WINDOW}' <= now() ORDER BY id")
+             f"AND deleted_at + interval '{REACTIVATION_WINDOW}' <= now() ORDER BY id")  # nosec B608 - module constant
     )
     return [r[0] for r in rows]
 

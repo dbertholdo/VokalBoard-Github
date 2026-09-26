@@ -9,6 +9,7 @@ import time
 from sqlalchemy import text
 from app.account_purge import purge_expired_accounts
 from app.database import engine
+from app.notas_expiry import run_notas_expiry
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,8 @@ def run_retention(connection=None, dry_run=False):
     # Accounts past the 6-month reactivation window are erased automatically
     # (Daniel, 2026-09-26) — see app/account_purge.py.
     counts.update(purge_expired_accounts(conn, dry_run=dry_run))
+    # Notas v2: write off expired earned Notas + 30-day warnings (app/notas_expiry.py).
+    counts.update(run_notas_expiry(conn, dry_run=dry_run))
     if dry_run:
         return counts
     # Capture final job details before removal; the Match itself and participants remain.

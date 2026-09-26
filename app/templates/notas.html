@@ -5,6 +5,7 @@
 <h1>{{ t('notas_title') }}</h1>
 <p class="subtitle">{{ t('notas_subtitle') }}</p>
 
+{% if purchase_success %}<p class="success">{{ t('notas_purchase_success') }}</p>{% endif %}
 {% if redeemed %}<p class="success">{{ t('notas_redeemed_success') }}</p>
 <script nonce="{{ csp_nonce }}">window.vbShowMascotToast('/static/img/mascot/mascot-thumbsup.png', '', 1000);</script>
 {% endif %}
@@ -17,6 +18,13 @@
     <div>
         <p class="notas-balance-value">{{ format_notas(balance) }}</p>
         <p class="notas-balance-label">{{ t('notas_balance_label') }}</p>
+        <p class="notas-balance-next">{{ t('notas_purchased_label') }}: {{ format_notas(balances.purchased) }} · {{ t('notas_earned_label') }}: {{ format_notas(balances.earned) }}</p>
+        {% if balances.next_expiry %}
+            <p class="notas-balance-next">{{ t('notas_next_expiry_hint').replace('{amount}', format_notas(balances.next_expiry.amount)).replace('{date}', balances.next_expiry.date.strftime('%d.%m.%Y')) }}</p>
+        {% endif %}
+        {% if balances.debt > 0 %}
+            <p class="notas-balance-next">{{ t('notas_debt_hint').replace('{amount}', format_notas(balances.debt)) }}</p>
+        {% endif %}
         {% if referrals_until_next_credit > 0 %}
             <p class="notas-balance-next">{{ t('notas_next_credit_hint').replace('{n}', referrals_until_next_credit | string) }}</p>
         {% endif %}
@@ -24,6 +32,7 @@
 </div>
 
 <p class="field-help">{{ t('notas_how_it_works').replace('{ratio}', credit_ratio | string) }}</p>
+<p class="field-help">{{ t('notas_rules_hint') }} <a href="/agb">{{ t('footer_terms') }}</a></p>
 
 <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('notas_catalog_title') }}</h2>
 <ul class="catalog-grid">
@@ -83,8 +92,13 @@
                            None cai pro texto do i18n (só o item que já existia de início). #}
                         {% set redeemed_key = entry.reason[7:] %}
                         {{ catalog_titles.get(redeemed_key) or t('notas_item_' ~ redeemed_key ~ '_title') }}
+                    {% elif entry.reason in ('purchase', 'earned_expired', 'admin_refund', 'stripe_refund', 'stripe_dispute', 'stripe_dispute_won', 'admin_grant_credit', 'admin_grant_debit') %}
+                        {{ t('notas_reason_' ~ entry.reason) }}
                     {% else %}
                         {{ entry.reason }}
+                    {% endif %}
+                    {% if entry.category %}
+                        <span class="tag">{{ t('notas_category_' ~ entry.category) }}{% if entry.expires_at %} · {{ t('notas_expires_on').replace('{date}', entry.expires_at.strftime('%d.%m.%Y')) }}{% endif %}</span>
                     {% endif %}
                 </span>
                 <span class="ledger-date">{{ entry.created_at.strftime('%d.%m.%Y') }}</span>

@@ -51,8 +51,10 @@ if [ $RECREATE = 1 ]; then
     -e SECRET_KEY=dev-secret-key-change-in-production \
     -e EMAIL_BACKEND=console \
     "$IMAGE" sleep infinity >/dev/null
+  docker cp requirements.txt vb-test:/code/
   docker cp requirements-dev.txt vb-test:/code/
-  docker exec vb-test pip install -q -r /code/requirements-dev.txt >/dev/null 2>&1
+  # The web image may predate the current requirements.txt — install both.
+  docker exec vb-test pip install -q -r /code/requirements.txt -r /code/requirements-dev.txt >/dev/null 2>&1
 fi
 
 docker exec vb-test sh -c 'rm -rf /code/app /code/tests /code/db'

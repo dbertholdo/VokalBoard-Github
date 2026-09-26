@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ t('terms_title') }}{% endblock %}
+
+{% block content %}
+{# Terms (AGB) — written 2026-09-26 from docs/specs/NOTAS_V2.md without a
+   lawyer review (Daniel's decision). Keep §3 in sync with app/notas_wallet.py
+   (spend order, 18-month expiry) and §6 with app/account_purge.py. #}
+<h1>{{ t('terms_title') }}</h1>
+<p class="field-help">{{ t('terms_version') }}</p>
+
+{% if lang == 'en' %}
+<div class="legal-block">
+<p><em>The German version is binding; this English version is provided for convenience.</em></p>
+
+<h3>1. Scope and provider</h3>
+<p>These Terms apply to the use of VokalBoard (www.vokalboard.com), a platform connecting singers,
+conductors and ensembles. The provider is named in the <a href="/impressum">Impressum</a>.
+Using the platform itself is free of charge; Notas (below) are optional.</p>
+
+<h3>2. Account</h3>
+<p>You must provide truthful information and keep your password secret. The
+<a href="/code-of-conduct">Code of Conduct</a> applies to all content and contact on the platform.
+We may suspend or close accounts that violate it.</p>
+
+<h3>3. Notas</h3>
+<p>3.1 Notas are platform credits for services inside VokalBoard (e.g. urgent listings, profile highlights).
+They have no cash value and cannot be paid out, exchanged for money or transferred to other accounts.</p>
+<p>3.2 <strong>Purchased Notas never expire.</strong> <strong>Earned Notas</strong> (bonuses, rewards, referrals,
+credits from the team) <strong>expire 18 months after the date they were credited</strong>. We notify you
+30 days before earned Notas expire.</p>
+<p>3.3 When you use Notas, purchased Notas are used first, then earned Notas, starting with those that expire soonest.</p>
+<p>3.4 VokalBoard may change the prices of services in Notas. Changes are announced at least 4 weeks in
+advance and do not affect services already paid for.</p>
+
+<h3>4. Buying Notas and payment</h3>
+<p>Notas are sold in bundles at the prices shown before checkout, in EUR or CHF. Payment is processed by
+Stripe on its own checkout page; VokalBoard never receives your card or bank details. The contract is
+concluded when you complete the payment; the Notas are credited to your account immediately afterwards.
+In accordance with § 19 UStG, no VAT is charged (small business).</p>
+
+<h3>5. Right of withdrawal</h3>
+<p>As a consumer you have a statutory right of withdrawal — see the
+<a href="/widerruf">withdrawal notice</a>. By ticking the checkbox at checkout you expressly request that
+the Notas be credited immediately and acknowledge that you thereby lose your right of withdrawal once
+they have been credited (§ 356 (5) BGB).</p>
+
+<h3>6. Deleting your account</h3>
+<p>You can delete your account at any time in your profile. It is deactivated immediately and can be
+reactivated — including your Notas — within 6 months by logging in again. After 6 months your account
+data and all remaining Notas are permanently erased; they cannot be restored or paid out.</p>
+
+<h3>7. Liability</h3>
+<p>VokalBoard only provides the platform; contracts between musicians and organisers are concluded
+directly between them. Otherwise, liability is governed by the statutory provisions.</p>
+
+<h3>8. Changes to these Terms</h3>
+<p>We announce changes at least 4 weeks before they take effect, by e-mail or in the Notification Center.</p>
+
+<h3>9. Final provisions</h3>
+<p>German law applies. If you are a consumer, mandatory consumer-protection rules of the country where
+you live remain unaffected.</p>
+</div>
+{% else %}
+<div class="legal-block">
+<h3>1. Geltungsbereich und Anbieter</h3>
+<p>Diese AGB gelten für die Nutzung von VokalBoard (www.vokalboard.com), einer Plattform, die
+Sänger(innen), Dirigent(inn)en und Ensembles zusammenbringt. Der Anbieter ist im
+<a href="/impressum">Impressum</a> genannt. Die Nutzung der Plattform selbst ist kostenlos; Notas
+(siehe unten) sind optional.</p>
+
+<h3>2. Konto</h3>
+<p>Du musst wahrheitsgemäße Angaben machen und dein Passwort geheim halten. Für alle Inhalte und Kontakte
+auf der Plattform gilt der <a href="/code-of-conduct">Verhaltenskodex</a>. Wir können Konten, die dagegen
+verstoßen, sperren oder schließen.</p>
+
+<h3>3. Notas</h3>
+<p>3.1 Notas sind Plattform-Guthaben für Leistungen innerhalb von VokalBoard (z. B. dringende Anzeigen,
+Profil-Hervorhebung). Sie haben keinen Geldwert und können nicht ausgezahlt, in Geld umgetauscht oder
+auf andere Konten übertragen werden.</p>
+<p>3.2 <strong>Gekaufte Notas verfallen nie.</strong> <strong>Verdiente Notas</strong> (Boni, Belohnungen,
+Empfehlungen, Gutschriften vom Team) <strong>verfallen 18 Monate nach dem Tag ihrer Gutschrift</strong>.
+Wir informieren dich 30 Tage vorher.</p>
+<p>3.3 Beim Einlösen werden zuerst gekaufte Notas verwendet, danach verdiente Notas, beginnend mit denen,
+die am frühesten verfallen.</p>
+<p>3.4 VokalBoard kann die Preise von Leistungen in Notas ändern. Änderungen werden mindestens 4 Wochen
+im Voraus angekündigt und gelten nicht für bereits bezahlte Leistungen.</p>
+
+<h3>4. Kauf von Notas und Zahlung</h3>
+<p>Notas werden in Paketen zu den vor dem Bezahlvorgang angezeigten Preisen in EUR oder CHF verkauft. Die
+Zahlung wickelt Stripe auf seiner eigenen Bezahlseite ab; VokalBoard erhält keine Karten- oder Bankdaten.
+Der Vertrag kommt mit Abschluss der Zahlung zustande; die Notas werden unmittelbar danach deinem Konto
+gutgeschrieben. Gemäß § 19 UStG wird keine Umsatzsteuer berechnet (Kleinunternehmer).</p>
+
+<h3>5. Widerrufsrecht</h3>
+<p>Als Verbraucher(in) hast du ein gesetzliches Widerrufsrecht — siehe
+<a href="/widerruf">Widerrufsbelehrung</a>. Mit dem Häkchen im Bezahlvorgang verlangst du ausdrücklich,
+dass die Notas sofort gutgeschrieben werden, und bestätigst deine Kenntnis davon, dass du dein
+Widerrufsrecht mit der Gutschrift verlierst (§ 356 Abs. 5 BGB).</p>
+
+<h3>6. Löschung des Kontos</h3>
+<p>Du kannst dein Konto jederzeit in deinem Profil löschen. Es wird sofort deaktiviert und kann innerhalb
+von 6 Monaten durch erneutes Einloggen reaktiviert werden — einschließlich deiner Notas. Nach 6 Monaten
+werden deine Kontodaten und alle verbleibenden Notas endgültig gelöscht; sie können weder
+wiederhergestellt noch ausgezahlt werden.</p>
+
+<h3>7. Haftung</h3>
+<p>VokalBoard stellt nur die Plattform bereit; Verträge zwischen Musiker(inne)n und Veranstalter(inne)n
+kommen direkt zwischen diesen zustande. Im Übrigen gilt die gesetzliche Haftung.</p>
+
+<h3>8. Änderungen dieser AGB</h3>
+<p>Wir kündigen Änderungen mindestens 4 Wochen vor ihrem Inkrafttreten per E-Mail oder in der
+Benachrichtigungszentrale an.</p>
+
+<h3>9. Schlussbestimmungen</h3>
+<p>Es gilt deutsches Recht. Für Verbraucher(innen) bleiben zwingende Verbraucherschutzvorschriften des
+Landes, in dem sie leben, unberührt.</p>
+</div>
+{% endif %}
+{% endblock %}

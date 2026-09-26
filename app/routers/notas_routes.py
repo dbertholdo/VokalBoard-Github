@@ -27,7 +27,9 @@ from app.database import engine, fetch_one
 from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
-from app.notas_wallet import get_credit_balance, format_notas, debit_notas_atomic
+from app.notas_wallet import get_balances, get_credit_balance, format_notas, debit_notas_atomic
+from app.notas_purchase import BUNDLES, create_checkout_url, currency_for, purchases_available
+from app.email_layout import SITE_BASE_URL
 from app.shop_catalog import get_active_catalog, get_catalog_titles_by_key, ITEM_EFFECTS
 from app.notification_center import create_notification
 from app.i18n import translate
@@ -43,7 +45,7 @@ router = APIRouter()
 
 
 @router.get("/notas", response_class=HTMLResponse)
-def notas_page(request: Request, redeemed: str = "", error: str = ""):
+def notas_page(request: Request, redeemed: str = "", error: str = "", purchase: str = ""):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
@@ -53,6 +55,9 @@ def notas_page(request: Request, redeemed: str = "", error: str = ""):
     context = {
         "user": user,
         "balance": get_credit_balance(user["id"]),
+        # Notas v2: purchased / earned split + next expiry (docs/specs/NOTAS_V2.md).
+        "balances": get_balances(user["id"]),
+        "purchase_success": purchase == "success",
         "ledger": get_credit_ledger(user["id"]),
         "catalog": get_active_catalog(),
         # Título de cada item pro extrato mostrar o nome certo mesmo
@@ -186,8 +191,55 @@ def redeem_notas(
 NOTAS_TO_EUR_RATE = Decimal("1")
 
 
+def _buy_page(request: Request, user: dict, missing, error: str = "", cancelled: bool = False):
+    """Real bundles when Stripe + Capitalism Mode allow it (Notas v2, N5);
+    the original "coming soon" page otherwise."""
+    context = {
+        "user": user,
+        "missing_notas": format_notas(missing) if missing is not None else None,
+        "missing_eur": f"{missing * NOTAS_TO_EUR_RATE:.2f}".replace(".", ",") if missing is not None else None,
+    }
+    if not purchases_available(user):
+        return render(request, "notas_comprar_stub.html", context)
+    currency = currency_for(user).upper()
+    context.update({
+        "bundles": [
+            {"key": key, "notas": b["notas"], "price": f"{b['cents'] / 100:.2f}".replace(".", ",") + f" {currency}"}
+            for key, b in BUNDLES.items()
+        ],
+        "error": error,
+        "cancelled": cancelled,
+    })
+    return render(request, "notas_comprar.html", context)
+
+
+@router.post("/notas/comprar-notas")
+def comprar_notas_checkout(
+    request: Request,
+    csrf_token: str = Form(...),
+    bundle: str = Form(""),
+    accept_terms_waiver: str = Form(""),
+):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if not user["email_verified"]:
+        return RedirectResponse(url="/?verify_required=1", status_code=303)
+    verify_csrf(request, csrf_token)
+    if not purchases_available(user) or bundle not in BUNDLES:
+        return RedirectResponse(url="/notas/comprar-notas", status_code=303)
+    if accept_terms_waiver != "1":
+        return _buy_page(request, user, None, error="notas_buy_waiver_required")
+    base_url = SITE_BASE_URL or str(request.base_url).rstrip("/")
+    try:
+        url = create_checkout_url(user, bundle, getattr(request.state, "lang", "de"), base_url)
+    except Exception:
+        return _buy_page(request, user, None, error="notas_buy_error")
+    return RedirectResponse(url=url, status_code=303)
+
+
 @router.get("/notas/comprar-notas", response_class=HTMLResponse)
-def comprar_notas_stub(request: Request, faltam: str = ""):
+def comprar_notas_stub(request: Request, faltam: str = "", cancelled: str = ""):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
@@ -201,12 +253,7 @@ def comprar_notas_stub(request: Request, faltam: str = ""):
     except (InvalidOperation, ValueError):
         missing = None
 
-    context = {
-        "user": user,
-        "missing_notas": format_notas(missing) if missing is not None else None,
-        "missing_eur": f"{missing * NOTAS_TO_EUR_RATE:.2f}".replace(".", ",") if missing is not None else None,
-    }
-    return render(request, "notas_comprar_stub.html", context)
+    return _buy_page(request, user, missing, cancelled=cancelled == "1")
 
 
 @router.get("/hall-da-fama", response_class=HTMLResponse)

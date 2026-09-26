@@ -21,7 +21,7 @@ from app.auth import get_current_user
 from app.database import engine, fetch_all, execute
 from app.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_META, translate
 from app.render import render, templates
-from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes, invoice_routes, invitations_routes, support_routes, notification_center_routes
+from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes, invoice_routes, invitations_routes, support_routes, notification_center_routes, payments_routes
 
 load_dotenv()
 
@@ -113,7 +113,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "frame-src https://challenges.cloudflare.com; "
             "object-src 'none'; "
             "base-uri 'self'; "
-            "form-action 'self'; "
+            # Notas v2: the buy form redirects to Stripe Checkout (browsers apply
+            # form-action to that redirect too).
+            "form-action 'self' https://checkout.stripe.com; "
             "frame-ancestors 'self';"
         )
         if SESSION_COOKIE_SECURE:
@@ -410,6 +412,7 @@ app.include_router(invoice_routes.router)
 app.include_router(invitations_routes.router)
 app.include_router(support_routes.router)
 app.include_router(notification_center_routes.router)
+app.include_router(payments_routes.router)
 
 
 # ------------------------------------------------------------

@@ -1,11 +1,11 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-26 — Claude (automatic 6-month account purge live in the retention worker; Notas spec updated with tax status). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-26 — Claude (Notas v2 implemented: purchased/earned, 18-month expiry, Stripe checkout + webhook, Terms/withdrawal pages). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, not pushed. Everything below is committed.
-- **Tests GREEN:** 291 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
+- **Tests GREEN:** 307 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
 - Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — production deps clean; dev `pytest` bumped 8.3.3 → 9.0.3 (advisory PYSEC-2026-1845), suite passes on it.
 - Static assets are cache-versioned `?v=20260926-1` (style.css, brand.css; listing-form.js `-2`). Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
@@ -14,9 +14,10 @@
 - Preserve each other's changes; check `git status` before editing.
 
 ## 3. Next up
-1. **Two DRAFT specs await Daniel's approval** (designed with him 2026-09-26, nothing built): `docs/specs/NOTAS_V2.md` (purchased/earned Notas, 18-month earned expiry, Stripe, Terms pages) and `docs/specs/MESSENGER.md` (#53: per-pair chat, requests, 60-day expiry, polling). Settled since: Daniel is Kleinunternehmer (§ 19 UStG → no VAT, Stripe Tax off) and wants no lawyer review. Still pending: approval of both specs + the Messenger "open" defaults (e-mail throttle, toast, reporting).
-2. **Languages es → ro → zh → ko** — route in `docs/I18N.md` (630 public keys each, 0% done).
-3. **Account purge is automatic** (done): `app/account_purge.py` runs hourly inside the retention worker — make sure the Railway `retention_worker` service is actually running in production.
+1. **Notas v2 go-live (N6) — Daniel:** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
+2. **Messenger spec** (`docs/specs/MESSENGER.md`) awaits approval + its 3 "open" defaults.
+3. **Languages es → ro → zh → ko** — route in `docs/I18N.md` (661 public keys each, 0% done).
+4. Confirm the Railway `retention_worker` service runs — it now also does the account purge and Notas expiry.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
 - `/listings/new` vacancy rows: every control has a visible, associated label; conductor mode hides the whole labelled field.
@@ -29,6 +30,7 @@
 - **Languages:** fr stays core (de/en/fr/it/pt). **es** joins zh/ko/ro as an *added* language: public/user site only; admin area English-only for added languages (existing core-language admin text untouched).
 - **Moderators (level 1)** do NOT act on reports — accept/reject stays God Mode only (`permissions.py` docstring updated).
 - **Fee wording:** German "Honorar" everywhere (listing form label fixed); Italian unified on "compenso"; added languages use the common modern term (glossary in `docs/I18N.md`).
+- **Notas v2:** purchased spent first, never expire; earned expire 18 months after crediting; 6-month reactivation then erasure; Kleinunternehmer (§ 19 UStG, no VAT); no lawyer review of `/agb` `/widerruf`.
 - Still open, low priority: legal pages (Impressum/Datenschutz/Code of Conduct) are out of scope for added languages unless Daniel decides otherwise.
 
 ## 6. Backlog (not started without Daniel's go-ahead)

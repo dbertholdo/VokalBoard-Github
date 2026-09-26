@@ -11,6 +11,7 @@ see respond_invitation() below, the single entry point for both.
 """
 from sqlalchemy import text
 from app.database import engine
+from app.notas_wallet import credit_in_tx
 from app.urgency import URGENCY_MATCH_REWARD_NOTAS
 
 MAX_PENDING_INVITATIONS_PER_ARTIST = 30
@@ -187,18 +188,10 @@ def respond_invitation(invitation_id: int, acting_user_id: int, action: str) -> 
         # duplica, mesmo que respond_invitation() seja chamada de novo
         # por algum retry.
         if invite["is_urgent"]:
-            conn.execute(
-                text(
-                    """
-                    INSERT INTO credit_ledger (user_id, delta, reason, reference_id, idempotency_key)
-                    VALUES (:uid, :delta, 'urgency_match_reward', :ref, :key)
-                    ON CONFLICT (user_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
-                    """
-                ),
-                {
-                    "uid": invite["contractor_user_id"], "delta": URGENCY_MATCH_REWARD_NOTAS,
-                    "ref": match_id, "key": f"urgency_match_reward:{match_id}",
-                },
+            # Notas v2: an earned lot (expires after 18 months), via the wallet.
+            credit_in_tx(
+                conn, invite["contractor_user_id"], URGENCY_MATCH_REWARD_NOTAS, "urgency_match_reward",
+                reference_id=match_id, idempotency_key=f"urgency_match_reward:{match_id}",
             )
 
         # P3.D: a vacancy can have more than one slot (e.g. "3 Sopranos"),

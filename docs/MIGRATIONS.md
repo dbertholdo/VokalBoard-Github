@@ -31,6 +31,15 @@ contrário:
   uma instalação limpa a partir de `db/schema.sql` (que já é cumulativo) é
   mais simples e segura do que encadear migração por migração.
 
+## 2026-09-26 — Notas v2 folded into the consolidated file
+
+`db/migrations/2026-09-26_notas_v2.sql` (purchased/earned category, expiry,
+`credit_lot_usage`, backfill) was appended to the consolidated file before its
+final `COMMIT`. Verified on its own: applied twice to a DB built from the
+previous `schema.sql` (idempotent), and the result is pg_dump-identical to the
+current `schema.sql`. Existing credits become *earned* with 18 months counted
+from the day the migration runs (not retroactive).
+
 ## Consolidated migration built 19/09/2026 — read this before touching the pending migrations
 
 `db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql` is the

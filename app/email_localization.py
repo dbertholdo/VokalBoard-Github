@@ -343,3 +343,23 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         f"{subject} — VokalBoard",
         f"<p>{greeting} {recipient},</p><p>{intro}</p><p>{response}</p><p>{closing}</p>",
     )
+
+
+def notas_expiring_email(language: str | None, recipient_name: str, amount: str, date: str, url: str) -> tuple[str, str]:
+    """Notas v2 (N3): earned Notas expire 18 months after they were
+    credited; this warns 30 days ahead. Purchased Notas never expire."""
+    lang = email_language(language)
+    recipient = escape(recipient_name)
+    safe_url = escape(url, quote=True)
+    amount, date = escape(amount), escape(date)
+    copy = {
+        "de": ("Deine Notas laufen bald ab", "Hallo", f"{amount} deiner verdienten Notas laufen am {date} ab. Nutze sie vorher — gekaufte Notas laufen nie ab.", "Zu meinen Notas"),
+        "en": ("Your Notas expire soon", "Hello", f"{amount} of your earned Notas expire on {date}. Use them before then — purchased Notas never expire.", "Go to my Notas"),
+        "fr": ("Vos Notas expirent bientôt", "Bonjour", f"{amount} de vos Notas gagnées expirent le {date}. Utilisez-les avant — les Notas achetées n'expirent jamais.", "Voir mes Notas"),
+        "it": ("Le tue Notas scadono presto", "Ciao", f"{amount} delle tue Notas guadagnate scadono il {date}. Usale prima — le Notas acquistate non scadono mai.", "Vai alle mie Notas"),
+        "pt": ("Suas Notas vão expirar em breve", "Olá", f"{amount} das suas Notas ganhas expiram em {date}. Use-as antes disso — Notas compradas nunca expiram.", "Ver minhas Notas"),
+    }[lang]
+    return (
+        f"{copy[0]} — VokalBoard",
+        f"<p>{copy[1]} {recipient},</p><p>{copy[2]}</p><p><a href=\"{safe_url}\">{copy[3]}</a></p>",
+    )

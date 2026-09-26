@@ -187,7 +187,7 @@ def test_notas_page_shows_buy_missing_link_when_balance_insufficient(client):
     execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
     execute("DELETE FROM credit_ledger WHERE user_id = :id", {"id": user_id})
     execute(
-        "INSERT INTO credit_ledger (user_id, delta, reason) VALUES (:id, 1, 'sectest_seed')",
+        "INSERT INTO credit_ledger (user_id, delta, reason, category) VALUES (:id, 1, 'sectest_seed', 'earned')",
         {"id": user_id},
     )
     login(client, email, password)

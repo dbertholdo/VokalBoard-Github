@@ -9,6 +9,14 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history (2026-09-14 → 2026-09-19): `docs/changelog-archive/AI_CHANGELOG_until_2026-09-19.md` — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Notas v2 implemented (N1–N5)
+- **N1** `db/migrations/2026-09-26_notas_v2.sql` (+ schema.sql, folded into CONSOLIDATED): `credit_ledger.category/expires_at`, `credit_lot_usage`, backfill (existing = earned, 18 months from rollout). Verified idempotent + pg_dump-identical.
+- **N2** `app/notas_wallet.py`: lots, purchased-first spend order, debts, lazy expiry, category-correct refunds; `credit_in_tx`/`debit_in_tx`. Urgency purchase + urgent-match reward now go through it (no direct ledger inserts left).
+- **N3** `app/notas_expiry.py` in the retention worker: write-off + 30-day notice (notification + e-mail, 5 langs). **N4** `/notas` split/expiry/history tags; `/agb`, `/widerruf`, Stripe in `datenschutz`, footer links.
+- **N5** `app/notas_purchase.py` + `/webhooks/stripe`: Checkout with server-side prices, waiver consent in PaymentIntent metadata, idempotent purchase/refund/dispute handling; gated by Stripe keys + Capitalism Mode. CSP `form-action` now allows checkout.stripe.com (redirect would have been blocked). `stripe==15.6.1`.
+- Fixed: "Notas" translated as "Punkte/Noten" (de) / lower-cased (pt/en/fr/it) in 9 keys. Browser-checked /notas, buy page (320px), legal pages.
+- Tests: +16 (`test_notas_v2.py`, `test_notas_purchase.py`); 307 passed + 10 retention, 0 failed; bandit clean on new code; pip-audit clean.
+
 ## 2026-09-26 — Claude — automatic account purge (6-month window)
 - New `app/account_purge.py`, called by the hourly `retention_worker` (no extra Railway service): erases accounts deactivated > 6 months ago — user row + cascades, their Matches (→ evaluations, Match invoice drafts) and avatar file. Per-account savepoint; logs counts only.
 - Bug found: the old manual script could never delete a user who had a Match (`job_matches` FKs are RESTRICT) and would abort the whole run there. `scripts/purge_deleted_accounts.py` is now a thin wrapper (`--dry-run`).

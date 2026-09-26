@@ -22,6 +22,16 @@ def datenschutz(request: Request):
     return render(request, "datenschutz.html", {"user": get_current_user(request)})
 
 
+@router.get("/agb", response_class=HTMLResponse)
+def terms(request: Request):
+    return render(request, "agb.html", {"user": get_current_user(request)})
+
+
+@router.get("/widerruf", response_class=HTMLResponse)
+def withdrawal(request: Request):
+    return render(request, "widerruf.html", {"user": get_current_user(request)})
+
+
 @router.get("/code-of-conduct", response_class=HTMLResponse)
 def code_of_conduct(request: Request):
     return render(request, "code_of_conduct.html", {"user": get_current_user(request)})

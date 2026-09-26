@@ -24,6 +24,7 @@ from decimal import Decimal
 from sqlalchemy import text
 
 from app.database import engine, fetch_one
+from app.notas_wallet import debit_in_tx
 
 URGENCY_PURCHASE_COST_NOTAS = Decimal("2")
 URGENCY_MATCH_REWARD_NOTAS = Decimal("0.50")
@@ -106,19 +107,9 @@ def mark_listing_urgent(user_id: int, listing_id: int, today: date | None = None
         if free_used is not None:
             result = "free"
         else:
-            balance = conn.execute(
-                text("SELECT COALESCE(SUM(delta), 0) FROM credit_ledger WHERE user_id = :id"),
-                {"id": user_id},
-            ).scalar_one()
-            if balance < URGENCY_PURCHASE_COST_NOTAS:
+            # Notas v2: spend order (purchased first) + lot tracking live in the wallet.
+            if not debit_in_tx(conn, user_id, URGENCY_PURCHASE_COST_NOTAS, "urgency_purchase", reference_id=listing_id):
                 raise UrgencyUnavailable("insufficient_balance")
-            conn.execute(
-                text(
-                    "INSERT INTO credit_ledger (user_id, delta, reason, reference_id) "
-                    "VALUES (:uid, :delta, 'urgency_purchase', :ref)"
-                ),
-                {"uid": user_id, "delta": -URGENCY_PURCHASE_COST_NOTAS, "ref": listing_id},
-            )
             result = "purchased"
 
         conn.execute(

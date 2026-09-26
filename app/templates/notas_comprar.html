@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ t('notas_buy_title') }}{% endblock %}
+
+{% block content %}
+{# Notas v2 (N5): real purchase page — shown only when Stripe is configured
+   and Capitalism Mode is on (or for God Mode). Price comes from
+   app/notas_purchase.BUNDLES; the browser only picks a bundle key. #}
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-card"></use></svg> {{ t('notas_buy_title') }}</h1>
+
+{% if missing_notas %}
+    <p class="field-help">{{ t('notas_buy_stub_missing').replace('{n}', missing_notas).replace('{eur}', missing_eur) }}</p>
+{% endif %}
+{% if cancelled %}<p class="field-help">{{ t('notas_buy_cancelled') }}</p>{% endif %}
+{% if error %}<p class="error">{{ t(error) }}</p>{% endif %}
+
+<p>{{ t('notas_buy_intro') }}</p>
+
+<form method="post" action="/notas/comprar-notas" class="stacked-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="checkbox-label">
+        <input type="checkbox" name="accept_terms_waiver" value="1" required>
+        <span>{{ t('notas_buy_waiver_label') }} <a href="/agb" target="_blank" rel="noopener">{{ t('footer_terms') }}</a> · <a href="/widerruf" target="_blank" rel="noopener">{{ t('footer_withdrawal') }}</a></span>
+    </label>
+    <ul class="catalog-grid">
+        {% for bundle in bundles %}
+            <li class="catalog-item">
+                <p class="catalog-item-title">{{ bundle.notas }} {{ t('notas_unit') }}</p>
+                <p class="catalog-item-cost">{{ bundle.price }}</p>
+                <button type="submit" name="bundle" value="{{ bundle.key }}">{{ t('notas_buy_button') }}</button>
+            </li>
+        {% endfor %}
+    </ul>
+</form>
+
+<p class="field-help">{{ t('notas_rules_hint') }}</p>
+<p class="field-help">{{ t('notas_buy_payment_note') }} Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.</p>
+<p><a class="button-link" href="/notas">&larr; {{ t('notas_buy_stub_back') }}</a></p>
+{% endblock %}

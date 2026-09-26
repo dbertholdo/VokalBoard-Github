@@ -95,7 +95,7 @@ def test_deactivated_item_blocks_new_redemptions_but_not_the_route_itself(client
     execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
     execute("DELETE FROM credit_ledger WHERE user_id = :id", {"id": user_id})
     execute(
-        "INSERT INTO credit_ledger (user_id, delta, reason) VALUES (:id, 5, 'sectest_seed')",
+        "INSERT INTO credit_ledger (user_id, delta, reason, category) VALUES (:id, 5, 'sectest_seed', 'earned')",
         {"id": user_id},
     )
     login(client, email, password)
@@ -133,7 +133,7 @@ def test_shop_history_shows_up_in_admin_loja_page(client):
     execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
     execute("DELETE FROM credit_ledger WHERE user_id = :id", {"id": user_id})
     execute(
-        "INSERT INTO credit_ledger (user_id, delta, reason) VALUES (:id, 5, 'sectest_seed')",
+        "INSERT INTO credit_ledger (user_id, delta, reason, category) VALUES (:id, 5, 'sectest_seed', 'earned')",
         {"id": user_id},
     )
     login(client, email, password)
@@ -159,7 +159,7 @@ def test_admin_user_detail_shows_notas_extract(client):
     execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
     execute("DELETE FROM credit_ledger WHERE user_id = :id", {"id": user_id})
     execute(
-        "INSERT INTO credit_ledger (user_id, delta, reason) VALUES (:id, 2, 'referral_bonus')",
+        "INSERT INTO credit_ledger (user_id, delta, reason, category) VALUES (:id, 2, 'referral_bonus', 'earned')",
         {"id": user_id},
     )
 
