@@ -20,8 +20,6 @@ waiting for all the e-mails to go out first — the sending happens
 afterward, in the background, without delaying the response for
 whoever posted.
 """
-import html as html_module
-
 from app.database import fetch_all, fetch_one
 from app.email import send_email
 from app.email_localization import (
@@ -30,6 +28,8 @@ from app.email_localization import (
     application_received_email,
     invitation_response_email,
     vacancy_filled_email,
+    listing_match_alert_email,
+    urgent_listing_reminder_email,
 )
 
 
@@ -67,12 +67,12 @@ def _matching_recipients(listing_type: str, author_id: int, voice_type_ids: list
         # never coming from person input) — the actual values all go through
         # a parameter (:voice_type_id etc.) in `params`, never pasted into the string.
         return fetch_all(
-            f"SELECT email, full_name FROM users WHERE {' AND '.join(conditions)}", params  # nosec B608
+            f"SELECT email, full_name, preferred_language FROM users WHERE {' AND '.join(conditions)}", params  # nosec B608
         )
     elif listing_type == "seeking_conductor":
         return fetch_all(
             """
-            SELECT email, full_name FROM users
+            SELECT email, full_name, preferred_language FROM users
             WHERE role = 'conductor' AND email_verified = TRUE AND notify_matches = TRUE
                 AND deleted_at IS NULL AND id != :author_id
             """,
@@ -83,70 +83,26 @@ def _matching_recipients(listing_type: str, author_id: int, voice_type_ids: list
 
 def notify_matching_users(base_url: str, listing_id: int, listing_type: str, title: str,
                            city: str | None, author_id: int, voice_type_ids: list[int]) -> None:
-    recipients = _matching_recipients(listing_type, author_id, voice_type_ids)
-    if not recipients:
-        return
-
     listing_url = f"{base_url.rstrip('/')}/listings/{listing_id}"
-    safe_title = html_module.escape(title)
-    safe_city = html_module.escape(city) if city else None
-    for recipient in recipients:
-        safe_recipient_name = html_module.escape(recipient["full_name"])
-        html = f"""
-            <p>Hallo {safe_recipient_name},</p>
-            <p>Es gibt eine neue Anzeige, die zu deinem Profil passen könnte:</p>
-            <p><strong>{safe_title}</strong>{f' — {safe_city}' if safe_city else ''}</p>
-            <p><a href="{listing_url}">{listing_url}</a></p>
-            <p>Du erhältst diese Benachrichtigung, weil du passende Anzeigen abonniert hast.
-            Das kannst du jederzeit in deinem Profil ausschalten.</p>
-            <hr>
-            <p>(EN) A new listing might match your profile: <strong>{safe_title}</strong>{f' — {safe_city}' if safe_city else ''}.
-            <a href="{listing_url}">{listing_url}</a><br>
-            You're getting this because match alerts are on for your account — you can turn them off anytime in your profile.</p>
-        """
-        send_email(recipient["email"], f"Neue passende Anzeige: {title} — VokalBoard", html)
+    for recipient in _matching_recipients(listing_type, author_id, voice_type_ids):
+        subject, html = listing_match_alert_email(recipient["preferred_language"], recipient["full_name"], title, city, listing_url)
+        send_email(recipient["email"], subject, html)
 
 
 def notify_urgent_listing_reminder(base_url: str, listing_id: int, listing_type: str, title: str,
                                     city: str | None, author_id: int, voice_type_ids: list[int]) -> None:
     """
-    P5 Etapa 2 (18/09/2026): lembrete extra, 6h depois de uma vaga ser
-    marcada urgente, SE continuar sem Match — pros mesmos perfis
-    compatíveis que já teriam recebido o alerta de "nova vaga" (mesma
-    query de _matching_recipients(), reaproveitada). Chamado pelo
-    app/urgent_listing_reminder_worker.py, nunca duas vezes pra mesma
-    vaga (o worker marca urgent_reminder_sent_at depois de chamar
-    isso, protegendo contra reenvio em duplicidade).
-
-    Texto deliberadamente diferente do alerta original (senão pareceria
-    spam de "vaga nova" repetida) — mesmo estilo bilíngue DE/EN inline
-    já usado nesta função vizinha, em vez do padrão de 5 idiomas de
-    app/email_localization.py (o alerta de match original também não
-    usa esse padrão).
+    P5 Etapa 2 (18/09/2026): one extra reminder, 6 h after a listing was
+    marked urgent, IF it still has no Match — to the same compatible
+    profiles as the "new listing" alert (_matching_recipients()). Called by
+    app/urgent_listing_reminder_worker.py, never twice for the same listing
+    (the worker sets urgent_reminder_sent_at afterwards). Worded differently
+    from the original alert so it doesn't read as a repeated "new listing".
     """
-    recipients = _matching_recipients(listing_type, author_id, voice_type_ids)
-    if not recipients:
-        return
-
     listing_url = f"{base_url.rstrip('/')}/listings/{listing_id}"
-    safe_title = html_module.escape(title)
-    safe_city = html_module.escape(city) if city else None
-    for recipient in recipients:
-        safe_recipient_name = html_module.escape(recipient["full_name"])
-        html = f"""
-            <p>Hallo {safe_recipient_name},</p>
-            <p>Diese dringende Anzeige ist seit 6 Stunden noch offen — falls du Interesse hast, jetzt ist ein guter Moment:</p>
-            <p><strong>⚡ {safe_title}</strong>{f' — {safe_city}' if safe_city else ''}</p>
-            <p><a href="{listing_url}">{listing_url}</a></p>
-            <p>Du erhältst diese Benachrichtigung, weil du passende Anzeigen abonniert hast.
-            Das kannst du jederzeit in deinem Profil ausschalten.</p>
-            <hr>
-            <p>(EN) This urgent listing has been open for 6 hours — if you're interested, now's a good moment:
-            <strong>⚡ {safe_title}</strong>{f' — {safe_city}' if safe_city else ''}.
-            <a href="{listing_url}">{listing_url}</a><br>
-            You're getting this because match alerts are on for your account — you can turn them off anytime in your profile.</p>
-        """
-        send_email(recipient["email"], f"Immer noch dringend: {title} — VokalBoard", html)
+    for recipient in _matching_recipients(listing_type, author_id, voice_type_ids):
+        subject, html = urgent_listing_reminder_email(recipient["preferred_language"], recipient["full_name"], title, city, listing_url)
+        send_email(recipient["email"], subject, html)
 
 
 def notify_new_message(base_url: str, recipient_email: str, recipient_name: str, sender_name: str, preferred_language: str | None = None) -> None:

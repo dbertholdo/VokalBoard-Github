@@ -3,7 +3,8 @@ from app.email_localization import email_language, new_message_email, password_r
 
 def test_email_language_uses_account_preference_or_english_fallback():
     assert email_language("pt") == "pt"
-    assert email_language("zh") == "en"
+    assert email_language("zh") == "zh"
+    assert email_language("xx") == "en"
     assert email_language(None) == "en"
 
 
@@ -33,6 +34,30 @@ def test_romanian_emails():
     assert email_language("ro") == "ro"
     subject, body = verification_email("ro", "Ana", "https://example.test/v", 24)
     assert subject.startswith("Confirmă-ți adresa de e-mail") and "valabil 24 ore" in body
+
+
+def test_chinese_and_korean_emails_put_the_name_first():
+    subject, body = verification_email("zh", "张三", "https://example.test/v", 24)
+    assert subject.startswith("确认你的邮箱地址") and body.startswith("<p>张三，你好！</p>") and "24 小时" in body
+    subject, body = verification_email("ko", "김민지", "https://example.test/v", 24)
+    assert subject.startswith("이메일 주소를 인증하세요") and body.startswith("<p>김민지 님, 안녕하세요!</p>")
+
+
+def test_formerly_german_only_emails_follow_the_recipient_language():
+    from app.email_localization import badge_unlocked_email, listing_match_alert_email, urgent_listing_reminder_email
+    subject, body = listing_match_alert_email("en", "Ann", "Requiem <b>", "Köln", "https://example.test/l/1")
+    assert subject == "New matching listing: Requiem <b> — VokalBoard"
+    assert "Requiem &lt;b&gt;</strong> — Köln" in body and "Hallo" not in body and "(EN)" not in body
+    assert urgent_listing_reminder_email("de", "Anna", "Messiah", None, "u")[0] == "Immer noch dringend: Messiah — VokalBoard"
+    assert urgent_listing_reminder_email("ko", "김", "Messiah", None, "u")[0].startswith("아직 긴급해요")
+    assert badge_unlocked_email("es", "Ana", "Embajador(a)", "u")[0] == "Nueva insignia desbloqueada — VokalBoard"
+
+
+def test_badge_names_in_emails_are_localized():
+    from app.badges import _badge_name
+    assert _badge_name({"key": "listing"}, "fr") == "Première annonce"
+    assert _badge_name({"key": "anniversary", "years": 2}, "de") == "Jahrestag (2 Jahre)"
+    assert _badge_name({"key": "views", "threshold": 100}, "zh").endswith("(100+)")
 
 
 def test_email_footer_follows_the_recipient_language(client):

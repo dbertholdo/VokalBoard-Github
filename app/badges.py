@@ -15,10 +15,11 @@ it's purely individual recognition. The views badge only shows "passed
 X", never the exact number — deliberately, to keep profile_views
 private.
 """
-import html as html_module
 
 from app.database import fetch_one, fetch_all, execute
 from app.email import send_email
+from app.email_localization import badge_unlocked_email, email_language
+from app.i18n import translate
 
 # Ordered highest to lowest: we only take the highest tier already
 # reached (instead of showing 3 views badges at once).
@@ -241,34 +242,17 @@ def check_and_notify_new_badges(user_id: int, base_url: str) -> None:
         )
 
         profile_url = f"{base_url.rstrip('/')}/profile"
-        badge_name_de, badge_name_en = _badge_names(b)
-        safe_name = html_module.escape(user["full_name"])
-        html = f"""
-            <p>Hallo {safe_name},</p>
-            <p>Du hast eine neue Auszeichnung freigeschaltet: <strong>{badge_name_de}</strong></p>
-            <p><a href="{profile_url}">{profile_url}</a></p>
-            <hr>
-            <p>(EN) You've unlocked a new badge: <strong>{badge_name_en}</strong><br>
-            <a href="{profile_url}">{profile_url}</a></p>
-        """
-        send_email(user["email"], "Neue Auszeichnung freigeschaltet — VokalBoard", html)
+        lang = email_language(user["preferred_language"])
+        subject, html = badge_unlocked_email(lang, user["full_name"], _badge_name(b, lang), profile_url)
+        send_email(user["email"], subject, html)
 
 
-def _badge_names(b: dict) -> tuple[str, str]:
-    names = {
-        "referral": ("Botschafter(in)", "Ambassador"),
-        "listing": ("Erste Anzeige", "First listing"),
-        "contact": ("Kontaktfreudig", "Reached out"),
-        "fast_response": ("Schnelle Antwort", "Fast response"),
-        "profile_complete": ("Profil komplett", "Complete profile"),
-        "views": ("Gefragt", "In demand"),
-        "anniversary": ("Jahrestag", "Anniversary"),
-    }
-    de, en = names.get(b["key"], (b["key"], b["key"]))
+def _badge_name(b: dict, lang: str) -> str:
+    """Localized badge label for e-mails — same i18n keys as the profile page."""
+    name = translate(f"badge_{b['key']}_label", lang)
     if b["key"] == "views" and b.get("threshold"):
-        de += f" ({b['threshold']}+)"
-        en += f" ({b['threshold']}+)"
+        name += f" ({b['threshold']}+)"
     if b["key"] == "anniversary" and b.get("years"):
-        de += f" ({b['years']} {'Jahr' if b['years'] == 1 else 'Jahre'})"
-        en += f" ({b['years']} {'year' if b['years'] == 1 else 'years'})"
-    return de, en
+        unit = translate("year_singular" if b["years"] == 1 else "year_plural", lang)
+        name += f" ({b['years']} {unit})" if lang not in ("zh", "ko") else f" ({b['years']}{unit})"
+    return name

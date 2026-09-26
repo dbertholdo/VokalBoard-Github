@@ -16,7 +16,7 @@
 ## 3. Next up
 1. **Notas v2 go-live (N6) — Daniel:** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
 2. **Messenger DONE (M1–M6)** — `docs/specs/MESSENGER.md` (as-built notes at the top). Goes live with the pending migration (§7). Suggested follow-up when Daniel wants: a browser pass on real phones.
-3. **Languages:** es + ro DONE (UI 694/694 + all e-mails); zh + ko UI 694/694 + self-hosted CJK font (`app/static/fonts/noto-cjk/MANIFEST.md`; rerun `scripts/subset_cjk_fonts.py` after editing zh/ko.json). zh/ko e-mails still fall back to English — next step. All AI drafts; native review still to do.
+3. **Languages:** es, ro, zh, ko DONE — UI 694/694 + all e-mails; zh/ko have a self-hosted CJK font (`app/static/fonts/noto-cjk/MANIFEST.md`; rerun `scripts/subset_cjk_fonts.py` after editing zh/ko.json). All AI drafts; native review still to do.
 4. Confirm the Railway `retention_worker` service runs — it now also does the account purge, Notas expiry and the 60-day conversation deletion.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
@@ -34,7 +34,7 @@
 - Still open, low priority: legal pages (Impressum/Datenschutz/Code of Conduct) are out of scope for added languages unless Daniel decides otherwise.
 
 ## 6. Backlog (not started without Daniel's go-ahead)
-- **Hardcoded German e-mail subjects/bodies** (not localized): badge unlocked (`app/badges.py`), matching-listing alert + urgent reminder (`app/notifications.py`). Move them into `app/email_localization.py`.
+- Accessibility pass; migration dry run (Daniel: "not yet"). Rebuild the stale local `web` dev container (2026-09-17 image, no code mount).
 
 ## 7. Standing constraints
 - **No production migrations/deploy** without Daniel's explicit order. Pending schema: `db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql` (ready, NOT applied). `psql -v ON_ERROR_STOP=1 -f …` only, never Railway's Query box. New migrations must be folded in and re-verified. Details: `docs/MIGRATIONS.md`.
