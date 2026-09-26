@@ -52,7 +52,7 @@ Read in this order, and **stop as soon as you have enough context**. This saves 
 - **Pausa Automática:** O anúncio só muda para "Pausado" quando 100% das cotas de todos os naipes forem preenchidas.
 
 ### B. Sistema de Notas e Economia Interna
-- As transações de Notas devem obrigatoriamente registrar histórico na tabela `note_transactions` (evitando simples alterações em um campo numérico isolado de saldo), garantindo auditoria de origem e destino (ex: bônus de perfil 100%, indicações, compra de urgências, selo de verificação).
+- As transações de Notas devem obrigatoriamente registrar histórico na tabela `credit_ledger` (append-only; `app/notas_wallet.py`; v2 design: `docs/specs/NOTAS_V2.md`) (evitando simples alterações em um campo numérico isolado de saldo), garantindo auditoria de origem e destino (ex: bônus de perfil 100%, indicações, compra de urgências, selo de verificação).
 - **Regra de Conversão:** Notas compradas ou ganhas **NÃO** podem ser convertidas em dinheiro real (explicitado nos termos de uso).
 
 ### C. Avaliações, Badges e Gamificação (360°)

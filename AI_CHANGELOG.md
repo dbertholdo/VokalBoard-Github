@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history (2026-09-14 → 2026-09-19): `docs/changelog-archive/AI_CHANGELOG_until_2026-09-19.md` — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Notas v2 + Messenger designed (docs only)
+- Reviewed a Gemini proposal against the real repo (it assumed Alembic/JWT/UUID/ORM models/WebSockets — none exist) and designed both features with Daniel instead.
+- New DRAFT specs: `docs/specs/NOTAS_V2.md` (purchased spent first + never expire; earned expire after 18 months per credit; 6-month reactivation then erasure; tax records kept by Stripe/accounting; Terms + withdrawal pages missing → prerequisite) and `docs/specs/MESSENGER.md` (per-pair chat, message requests, Match = consent, 60-day expiry with day-50 "!" tooltip, polling, desktop dock / mobile badge, never "seen").
+- `CLAUDE.md` §3.B: `note_transactions` → real table `credit_ledger`. No code changed, no tests needed. Next: Daniel approves specs; tax status for Stripe.
+
 ## 2026-09-26 — Claude — language policy: es added, admin English-only for added languages
 - Daniel's decisions: fr stays core; **es** added (with zh/ko/ro) for the **public site only**; admin stays English for added languages (core admin text untouched); moderators don't act on reports; German fee = "Honorar".
 - `app/i18n_locales.py`: `page_language()` (used in `render()`: admin templates → English for non-core langs), `admin_only_keys()` scanner (0 today — admin is hardcoded English). `es` in `SUPPORTED_LANGUAGES`/`LANGUAGE_META`, `app/locales/es.json`. Tool scoped to public keys.

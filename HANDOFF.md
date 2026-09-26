@@ -1,7 +1,7 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-26 — Claude (language policy decided: es added, admin English-only for added languages; language route in docs/I18N.md). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-26 — Claude (Notas v2 + Messenger designed with Daniel → two draft specs in docs/specs/; no code changed). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, not pushed. Everything below is committed.
@@ -14,8 +14,9 @@
 - Preserve each other's changes; check `git status` before editing.
 
 ## 3. Next up
-1. **Languages es → ro → zh → ko** — follow the route in `docs/I18N.md` (phase 2 = UI strings in ~80-key batches via `scripts/i18n_tool.py`; 630 public keys each, 0% done). Admin stays English for these automatically.
-2. Backlog (§6) in the order Daniel picks.
+1. **Two DRAFT specs await Daniel's approval** (designed with him 2026-09-26, nothing built): `docs/specs/NOTAS_V2.md` (purchased/earned Notas, 18-month earned expiry, Stripe, Terms pages) and `docs/specs/MESSENGER.md` (#53: per-pair chat, requests, 60-day expiry, polling). Pending from Daniel: tax status (Kleinunternehmer / OSS) for the Stripe stage; lawyer review of the Terms/withdrawal text; the Messenger "open" defaults (e-mail throttle, toast, reporting).
+2. **Languages es → ro → zh → ko** — route in `docs/I18N.md` (630 public keys each, 0% done).
+3. Needed by both specs: turn `scripts/purge_deleted_accounts.py` (manual today) into a scheduled worker.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
 - `/listings/new` vacancy rows: every control has a visible, associated label; conductor mode hides the whole labelled field.
@@ -31,7 +32,7 @@
 - Still open, low priority: legal pages (Impressum/Datenschutz/Code of Conduct) are out of scope for added languages unless Daniel decides otherwise.
 
 ## 6. Backlog (not started without Daniel's go-ahead)
-- #53 Messenger/Inbox redesign — needs a design conversation first.
+- #53 Messenger — designed, see `docs/specs/MESSENGER.md` (awaiting approval).
 - #55 Match phase 2 — read `listing_vacancies` directly, drop the mirror columns on `listings`.
 - Dependency deprecation warnings (Starlette/httpx, passlib/crypt, ReportLab/ast) — not blocking.
 
