@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Korean UI translation (694/694)
+- `app/locales/ko.json`: all public keys (해요체, fee 출연료, "Match"/Notas kept). zh done in 16f4fa2. `docs/I18N.md` phase 2 marks zh/ko done.
+- Tests: `scripts/test_in_docker.sh` → 333 passed, 7 skipped + 10 retention; `i18n_tool.py check` clean.
+- Next: CJK font (needs Daniel's OK to download Noto Sans SC/KR), then zh/ko e-mails.
+
 ## 2026-09-26 — Claude — e-mail footer per language + dependency cleanup (0 warnings)
 - Footer/sign-off now in the recipient's language (`render_email(html, to)` looks up `users.preferred_language`): Daniel's "From Team VokalBoard.com" + translations for 7 languages. Old Portuguese seed and new English default count as built-in; custom admin text still goes to everyone. Admin form hint added.
 - passlib → bcrypt directly (`app/auth.py`; same $2b$/12 rounds/72-byte truncation — proven compatible both ways); ReportLab 4.2.5 → 4.5.1; `httpx2` for TestClient. Suite now has 0 warnings; pip-audit clean.

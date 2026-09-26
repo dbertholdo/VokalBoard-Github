@@ -16,7 +16,7 @@
 ## 3. Next up
 1. **Notas v2 go-live (N6) — Daniel:** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
 2. **Messenger DONE (M1–M6)** — `docs/specs/MESSENGER.md` (as-built notes at the top). Goes live with the pending migration (§7). Suggested follow-up when Daniel wants: a browser pass on real phones.
-3. **Languages:** es + ro DONE — UI 694/694 + all e-mails (AI drafts; native review still to do). Next: zh → ko (need a bundled CJK font first, `docs/I18N.md` phase 4).
+3. **Languages:** es + ro DONE (UI 694/694 + all e-mails); zh + ko UI 694/694 (e-mails still fall back to English). All AI drafts; native review still to do. Next: bundled CJK font (Noto Sans SC/KR, `docs/I18N.md` phase 4 — waiting on Daniel's OK to download), then zh/ko e-mail copy.
 4. Confirm the Railway `retention_worker` service runs — it now also does the account purge, Notas expiry and the 60-day conversation deletion.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
