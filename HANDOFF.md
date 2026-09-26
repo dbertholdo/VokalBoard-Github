@@ -27,6 +27,9 @@ Reproduce first; decide per failure whether it's a product bug, a stale test or 
 | `test_periodic_mails.py` | 1 | Blank fields → 422, expected 303 |
 | `test_security.py` (AdminPosts) | 1 | Expected post not found in HTML |
 
+**Likely root cause for 10/18 (static read, 2026-09-26, not yet run):** `test_admin_report_moderation`, `test_moderation_punishments_and_estornos` and `test_urgency_routes` post a `seeking_singer` listing with the old standalone `voice_type_id=""` and no vacancy rows. Since 19/09 `_job_fields_valid()` (`app/routers/listings_routes.py:103`) requires ≥1 vacancy row, so creation is rejected → listing None / 400. Probably stale test fixtures, not a product bug: fix the `_listing_data` helpers to send a vacancy row and re-run.
+**Needs Docker Desktop running** (tests use the compose Postgres; no local `.env`).
+
 Token tip: `pytest tests -q --tb=line -p no:warnings` for the list, then one file at a time with `--tb=short`.
 
 ## 4. Open visual/a11y issues (found by Codex 2026-09-25, not fixed)
