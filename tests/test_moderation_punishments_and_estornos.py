@@ -21,7 +21,7 @@ import pytest
 from app.database import execute, execute_returning, fetch_one
 from app.moderation import apply_moderation_punishment, unban_user, get_moderation_history, PUNISHMENT_TYPES
 from app.notas_wallet import credit_notas, debit_notas_atomic, get_credit_balance
-from tests.test_security import DEFAULT_PASSWORD, extract_csrf, login, register_test_user
+from tests.test_security import DEFAULT_PASSWORD, extract_csrf, login, register_test_user, job_vacancy_fields
 
 
 def _promote(user_id: int, level: int):
@@ -52,13 +52,10 @@ def _listing_data(csrf_token):
         "state": "Bayern",
         "city": "München",
         "country": "DE",
-        "voice_type_id": "",
         "repertoire": "Requiem",
         "venue": "",
-        "fee_amount": "100",
-        "fee_currency": "EUR",
-        "fee_negotiable": "",
         "ensemble_type": "",
+        **job_vacancy_fields(),
         "event_date": (date.today() + timedelta(days=10)).isoformat(),
     }
 

@@ -33,12 +33,34 @@ def unique_email() -> str:
     return f"sectest_{uuid.uuid4().hex[:12]}@example.com"
 
 
+def job_vacancy_fields(fee_amount="100", fee_currency="EUR") -> dict:
+    """One valid vacancy row for a seeking_singer listing form.
+
+    Since 19/09/2026 the vacancy rows are the only place a job listing's
+    voice type and fee are entered, and _job_fields_valid() requires at
+    least one row with a real voice type (see app/vacancies.py).
+    """
+    voice = fetch_one("SELECT id FROM voice_types ORDER BY id LIMIT 1")
+    return {
+        "vacancy_voice_type_id": str(voice["id"]),
+        "vacancy_fee_amount": fee_amount,
+        "vacancy_fee_currency": fee_currency,
+        "vacancy_total_slots": "1",
+    }
+
+
 def _fake_ip() -> str:
     """A different fake IPv4 on every call — simulates people signing up from
     different networks, so these tests don't trip the mass-registration
     throttle (app/register_throttle.py), which is tested separately in
-    TestRegistrationThrottle."""
-    return f"203.0.113.{uuid.uuid4().int % 254 + 1}"
+    TestRegistrationThrottle.
+
+    Drawn from 198.18.0.0/15 (reserved for benchmarking, ~131k addresses):
+    the old 203.0.113.x pool had only 254, and with ~300 registrations per
+    suite run random collisions pushed some IP past the 5-per-hour limit
+    (flaky 429s)."""
+    n = uuid.uuid4().int
+    return f"198.{18 + n % 2}.{(n >> 1) % 256}.{(n >> 9) % 254 + 1}"
 
 
 def register_test_user(client, full_name="Security Test User", password=DEFAULT_PASSWORD, email=None, ip=None):
@@ -510,6 +532,9 @@ class TestAdminPosts:
         assert "<strong>in bold</strong>" in detail.text
         assert "<script>" not in detail.text
 
+        # Checked as an anonymous visitor: since 19/09/2026 a logged-in user
+        # with an unfinished profile is redirected from / to /profile/wizard.
+        client.cookies.clear()
         home = client.get("/")
         assert "Post with HTML" in home.text
         assert "<strong>" not in home.text  # the summary is plain text, no markup

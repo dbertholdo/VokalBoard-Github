@@ -79,9 +79,11 @@ class TestAccessLevels:
         r = client.get("/financeiro", follow_redirects=False)
         assert r.status_code == 303
         assert r.headers["location"] == "/"
-        # Report triage and privilege management are God Mode only.
+        # Since 19/09/2026 level 2 may open the /admin dashboard itself;
+        # acting on reports stays God Mode only (see
+        # test_admin_report_moderation.py::test_admin_level_2_cannot_resolve_reports).
         r2 = client.get("/admin", follow_redirects=False)
-        assert r2.status_code == 303
+        assert r2.status_code == 200
 
     def test_moderator_level_1_cannot_reach_admin_users(self, client):
         user_id, email, password = register_test_user(client, full_name="Moderator Test")

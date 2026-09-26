@@ -69,14 +69,17 @@ class MatchHistoryTests(unittest.TestCase):
 
     def test_submenu_has_no_fake_download(self):
         source = (ROOT / 'app/templates/_profile_menu.html').read_text(encoding='utf-8')
-        # 5 real links (view/edit profile, match history, P4 Etapa 3
-        # Rechnungmaker, P3.B invitations) + the one deliberately-disabled
-        # "coming soon" placeholder below.
-        self.assertEqual(source.count('<a '), 5)
+        # 7 real links since the 19/09/2026 menu reorg (item #51): view/edit
+        # profile, Digital Pass, favorites, messages, match history,
+        # Rechnungmaker. Invitations moved to the top nav, and the old
+        # disabled "download" placeholder was replaced by the real
+        # Digital Pass page — so no fake/disabled entry may remain.
+        self.assertEqual(source.count('<a '), 7)
         self.assertIn('href="/profile/matches"', source)
         self.assertIn('href="/rechnungmaker"', source)
-        self.assertIn('href="/invitations"', source)
-        self.assertIn('aria-disabled="true"', source)
+        self.assertIn('href="/profile/digital-pass"', source)
+        self.assertNotIn('aria-disabled="true"', source)
+        self.assertNotIn('nav_profile_download', source)
 
 
 if __name__ == '__main__':

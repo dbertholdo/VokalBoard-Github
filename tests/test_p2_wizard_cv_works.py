@@ -117,11 +117,17 @@ def test_cv_pdf_respects_private_phone_visibility():
     client = TestClient(app)
     user_id, email, password = register_test_user(client, full_name="Private Phone Test")
     execute(
-        "UPDATE users SET email_verified = TRUE, phone = '+49 151 00000000', phone_visibility = 'private' WHERE id = :id",
+        "UPDATE users SET email_verified = TRUE, phone = '+49 151 98765432', phone_visibility = 'private' WHERE id = :id",
         {"id": user_id},
     )
     _login(client, email, password)
 
     r = client.get("/profile/cv.pdf")
     assert r.status_code == 200
-    assert b"00000000" not in r.content
+    # Check the extracted text, not raw bytes: page streams are compressed
+    # and the xref table always contains runs like "0000000000".
+    import io
+    from pypdf import PdfReader
+    text = "".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(r.content)).pages)
+    assert "Private Phone Test" in text  # sanity: extraction works
+    assert "98765432" not in text.replace(" ", "")

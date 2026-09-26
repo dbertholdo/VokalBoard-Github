@@ -67,6 +67,8 @@ def test_joinha_thumbsup_on_profile_save(client):
 
 def test_joinha_thumbsup_on_notas_redeem(client):
     user_id, email, password = register_test_user(client)
+    # /notas requires a verified email (Notas antifraud pass, 19/09/2026).
+    execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
     r = client.get("/login")
     token = extract_csrf(r.text)
     client.post("/login", data={"csrf_token": token, "email": email, "password": password}, follow_redirects=False)

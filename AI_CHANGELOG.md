@@ -9,6 +9,13 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history (2026-09-14 → 2026-09-19): `docs/changelog-archive/AI_CHANGELOG_until_2026-09-19.md` — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — 18 failing tests fixed; suite green
+- **Product bug:** `admin_routes.py` periodic-mail create/edit used `Form(...)`, so a blank field returned a raw 422 page instead of the friendly `error=dados_invalidos` redirect → now `Form("")`, service validation unchanged.
+- **Stale tests after 19/09 changes (not product bugs):** vacancy rows are now required for job listings (new shared `job_vacancy_fields()` in `test_security.py`, used by report-moderation/punishments/urgency, 10 tests); level-2 admins may open `/admin`; `/notas` needs verified email; profile submenu (Digital Pass replaced the disabled placeholder) and profile form/fieldset counts; the logged-in home redirects to the wizard (post check now anonymous); the CV PDF privacy test now checks extracted text (the raw-byte check always hit the xref table; confirmed a public phone does appear).
+- **Flaky test fix:** `_fake_ip()` pool 254 → ~131k addresses (random collisions hit the 5-registrations/IP/hour limit → intermittent 429).
+- New `scripts/test_in_docker.sh`: isolated test DBs + throwaway container; also runs the retention tests, which were always skipped before.
+- Tests: **278 passed + 10 retention, 0 failed**, 3 full runs. Next: `HANDOFF.md` §3.
+
 ## 2026-09-26 — Claude — token optimization pass 2 (docs/config only)
 - `CLAUDE.md` §0: "Large files — never read whole" map (i18n.py ~170 KB, schema.sql, style.css, big routers…) + hygiene rules (grep→range reads, `git diff --stat`, short test tracebacks, plan read per P-section).
 - New `.ignore` (ripgrep search-ignore, not gitignore): seed_cities.sql, brand_contract.json, `Claude outputs/`, preview4.html, icons.svg, fonts. Verified `rg --files` skips them.

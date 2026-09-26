@@ -19,8 +19,10 @@ class ProfileLayoutTests(unittest.TestCase):
                 self.assertTrue(stack)
                 self.assertEqual(stack.pop(), token[3:])
         self.assertFalse(stack)
-        self.assertEqual(source.count('<fieldset'), 9)
-        self.assertEqual(source.count('</fieldset>'), 9)
+        # 8 cards since 19/09/2026: the nested "Weitere Stimmlagen"
+        # (extra voice types) fieldset was removed on purpose (To-do 1.1).
+        self.assertEqual(source.count('<fieldset'), 8)
+        self.assertEqual(source.count('</fieldset>'), 8)
         self.assertLess(source.index('badges-box'), source.index('action="/profile"'))
         self.assertGreater(source.index('profile-account-area'), source.index('</form>'))
         self.assertEqual(source.count('<section'), source.count('</section>'))
@@ -28,7 +30,8 @@ class ProfileLayoutTests(unittest.TestCase):
     def test_form_contract_preserved(self):
         source = (ROOT / 'app/templates/profile.html').read_text(encoding='utf-8')
         forms = re.findall(r'<form\b[^>]*>.*?</form>', source, re.S)
-        self.assertEqual(len(forms), 3)
+        # profile editor, block list, delete account + P2 works (add, delete).
+        self.assertEqual(len(forms), 5)
         editor = next(form for form in forms if 'action="/profile"' in form)
         self.assertIn('enctype="multipart/form-data"', editor)
         for name in ('csrf_token', 'avatar', 'remove_avatar', 'notify_matches', 'notify_messages',

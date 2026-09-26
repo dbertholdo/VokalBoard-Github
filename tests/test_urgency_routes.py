@@ -4,7 +4,7 @@ checkbox na criação, o botão "marcar depois" e o filtro/ordenação do
 from datetime import date, timedelta
 
 from app.database import execute
-from tests.test_security import extract_csrf, login, register_test_user
+from tests.test_security import extract_csrf, login, register_test_user, job_vacancy_fields
 
 
 def _base_listing_data(csrf_token, is_urgent=False):
@@ -16,13 +16,10 @@ def _base_listing_data(csrf_token, is_urgent=False):
         "state": "Bayern",
         "city": "München",
         "country": "DE",
-        "voice_type_id": "",
         "repertoire": "Requiem",
         "venue": "",
-        "fee_amount": "100",
-        "fee_currency": "EUR",
-        "fee_negotiable": "",
         "ensemble_type": "",
+        **job_vacancy_fields(),
         # seeking_singer/seeking_conductor exigem event_date válido
         # (ver create_listing() -> _valid_event_date()).
         "event_date": (date.today() + timedelta(days=10)).isoformat(),

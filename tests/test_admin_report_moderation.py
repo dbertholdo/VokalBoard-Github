@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from app.database import execute, fetch_one
 from app.moderation import resolve_report, get_open_reports
-from tests.test_security import extract_csrf, login, register_test_user
+from tests.test_security import extract_csrf, login, register_test_user, job_vacancy_fields
 
 
 def _listing_data(csrf_token):
@@ -19,13 +19,10 @@ def _listing_data(csrf_token):
         "state": "Bayern",
         "city": "München",
         "country": "DE",
-        "voice_type_id": "",
         "repertoire": "Requiem",
         "venue": "",
-        "fee_amount": "100",
-        "fee_currency": "EUR",
-        "fee_negotiable": "",
         "ensemble_type": "",
+        **job_vacancy_fields(),
         "event_date": (date.today() + timedelta(days=10)).isoformat(),
     }
 

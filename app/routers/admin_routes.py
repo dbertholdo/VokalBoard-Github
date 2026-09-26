@@ -784,10 +784,13 @@ def admin_periodic_mail_new(request: Request, error: str = ""):
 @router.post("/admin/emails/periodic/new")
 def admin_periodic_mail_create(
     request: Request,
-    name: str = Form(...),
-    subject: str = Form(...),
-    body_html: str = Form(...),
-    frequency: str = Form(...),
+    # Default "" (not Form(...)): FastAPI turns a blank required field into a
+    # raw 422 page; app/periodic_mails.py validates and we redirect with
+    # error=dados_invalidos instead.
+    name: str = Form(""),
+    subject: str = Form(""),
+    body_html: str = Form(""),
+    frequency: str = Form(""),
     csrf_token: str = Form(...),
 ):
     admin = require_admin(request)
@@ -827,10 +830,13 @@ def admin_periodic_mail_edit_form(request: Request, mail_id: int, error: str = "
 def admin_periodic_mail_update(
     request: Request,
     mail_id: int,
-    name: str = Form(...),
-    subject: str = Form(...),
-    body_html: str = Form(...),
-    frequency: str = Form(...),
+    # Default "" (not Form(...)): FastAPI turns a blank required field into a
+    # raw 422 page; app/periodic_mails.py validates and we redirect with
+    # error=dados_invalidos instead.
+    name: str = Form(""),
+    subject: str = Form(""),
+    body_html: str = Form(""),
+    frequency: str = Form(""),
     csrf_token: str = Form(...),
 ):
     admin = require_admin(request)

@@ -1,36 +1,21 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-26 — Claude (doc hierarchy + token optimization; no code changed). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-26 — Claude (all 18 failing tests fixed; suite green). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
-- Branch `main`. **Uncommitted:** Codex's visual batch `20260925-1` (`brand.css`, `base.html` CSS cache version, `admin_emails.html`, `admin_periodic_mail_form.html`, `tests/test_brand_visual.py`, `VISUAL_ROLLOUT.md`) plus the 2026-09-26 doc/token restructure (`CLAUDE.md`, `AGENTS.md`, `HANDOFF.md`, `.ignore`, `docs/`). Browser-checked by Codex, not committed yet.
-- Test suite (last full run 2026-09-25, isolated QA DB): **267 passed, 18 failed, 3 warnings**. Not green.
+- Branch `main`, not pushed. Visual batch `20260925-1` and the doc hierarchy are committed.
+- **Test suite GREEN (2026-09-26):** 278 passed + 10 retention = **0 failures**, stable over 3 full runs. Run it with `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`).
 
 ## 2. Work split (Daniel's decision, 2026-09-24)
 - **Codex:** visual/CSS only. **Claude:** functional code, test failures, business flows.
 - Preserve each other's changes; check `git status` before editing.
 
-## 3. Next up — Claude: the 18 failing tests
-Reproduce first; decide per failure whether it's a product bug, a stale test or a fixture problem. Don't blame the redesign without evidence.
-
-| Test file | Fails | Symptom |
-|---|---:|---|
-| `test_admin_report_moderation.py` | 3 | Listing setup returned None before moderation |
-| `test_moderation_punishments_and_estornos.py` | 4 | Listing setup returned None |
-| `test_urgency_routes.py` | 3 | Urgent create → 400; urgent button/listing missing |
-| `test_profile_layout.py` | 2 | Field/card counts differ from expectations |
-| `test_financial.py` | 1 | Level-2 access got 200, expected 303 |
-| `test_mascot_moments.py` | 1 | "Joinha" after redeem: asset not found |
-| `test_match_history_access.py` | 1 | Submenu item count differs |
-| `test_p2_wizard_cv_works.py` | 1 | Private phone found in PDF bytes — check extracted text before calling it a leak |
-| `test_periodic_mails.py` | 1 | Blank fields → 422, expected 303 |
-| `test_security.py` (AdminPosts) | 1 | Expected post not found in HTML |
-
-**Likely root cause for 10/18 (static read, 2026-09-26, not yet run):** `test_admin_report_moderation`, `test_moderation_punishments_and_estornos` and `test_urgency_routes` post a `seeking_singer` listing with the old standalone `voice_type_id=""` and no vacancy rows. Since 19/09 `_job_fields_valid()` (`app/routers/listings_routes.py:103`) requires ≥1 vacancy row, so creation is rejected → listing None / 400. Probably stale test fixtures, not a product bug: fix the `_listing_data` helpers to send a vacancy row and re-run.
-**Needs Docker Desktop running** (tests use the compose Postgres; no local `.env`).
-
-Token tip: `pytest tests -q --tb=line -p no:warnings` for the list, then one file at a time with `--tb=short`.
+## 3. Next up
+1. **Visual/a11y issues below (§4)** — Codex's side, or Claude if Daniel reassigns. `/listings/new` missing labels is the most user-impacting.
+2. **Open decisions (§5)** — need Daniel's answer; they block #49 (translations).
+3. Browser-check #52 (fee warning, §6), then the backlog Daniel prioritizes.
+4. Not yet run: `bandit`/`pip-audit` (in requirements-dev.txt), review of dependency warnings.
 
 ## 4. Open visual/a11y issues (found by Codex 2026-09-25, not fixed)
 - **High:** `/rechnungmaker?tab=avulso` at 320px — preview table/totals break values across many lines (don't touch PDF generation).
@@ -51,5 +36,5 @@ Token tip: `pytest tests -q --tb=line -p no:warnings` for the list, then one fil
 
 ## 7. Standing constraints
 - **No production migrations/deploy** without Daniel's explicit order. The pending schema is `db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql` (ready, NOT applied). Apply only with `psql -v ON_ERROR_STOP=1 -f …`, never Railway's Query box. Any new migration must be folded into that file and re-verified. Details: `docs/MIGRATIONS.md`.
-- QA environment (may not be running): container `vokalboard-brand-qa`, localhost:8002, DB `vokalboard_brand_retention_test_20260924`. The suite deletes `sectest` users, so don't run it alongside browser fixtures.
+- Tests: `scripts/test_in_docker.sh` uses DBs `vokalboard_test` / `vokalboard_retention_test` (recreated with `--recreate`). Codex's older browser-QA setup: container `vokalboard-brand-qa`, localhost:8002 (may not be running). The suite deletes `sectest_` users, so don't run it alongside browser fixtures on the same DB.
 - Zona de Alerta = urgency; Red Zone = admin; God Mode = powers. Admin/God Mode UI is English-only (`t_en()`).
