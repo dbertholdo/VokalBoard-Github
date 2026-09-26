@@ -7,7 +7,6 @@ psycopg2-binary==2.9.9
 # .github/workflows/security.yml), compatível sem mudança de código.
 Jinja2==3.1.6
 python-multipart==0.0.31
-passlib==1.7.4
 bcrypt==4.0.1
 itsdangerous==2.2.0
 python-dotenv==1.2.2
@@ -22,7 +21,7 @@ Pillow==12.3.0
 # Painel financeiro interno (Zona Vermelha — ver app/routers/financial_routes.py):
 # geração dos exports de fechamento mensal/anual.
 openpyxl==3.1.5   # exportar .xlsx
-reportlab==4.2.5  # exportar .pdf (puro Python, sem dependência de sistema tipo cairo/pango)
+reportlab==4.5.1  # exportar .pdf (puro Python, sem dependência de sistema tipo cairo/pango)
 # Rascunhos de Rechnung por Match ficam criptografados em repouso. A chave fica
 # exclusivamente no ambiente de execução, nunca no banco ou no repositório.
 cryptography==50.0.1

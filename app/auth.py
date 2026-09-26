@@ -1,17 +1,28 @@
 """Authentication helpers: password hashing and logged-in user session."""
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Request
 from app.database import fetch_one
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 2026-09-26: bcrypt directly instead of passlib (unmaintained since 2020;
+# relies on the `crypt` module Python 3.13 removes). Same format as before —
+# "$2b$", 12 rounds — so every existing hash keeps verifying. bcrypt only
+# reads the first 72 bytes; passlib truncated silently, and so do we.
+_BCRYPT_MAX_BYTES = 72
+
+
+def _password_bytes(plain_password: str) -> bytes:
+    return plain_password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
 
 
 def hash_password(plain_password: str) -> str:
-    return pwd_context.hash(plain_password)
+    return bcrypt.hashpw(_password_bytes(plain_password), bcrypt.gensalt(rounds=12)).decode("ascii")
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
-    return pwd_context.verify(plain_password, password_hash)
+    try:
+        return bcrypt.checkpw(_password_bytes(plain_password), (password_hash or "").encode("ascii"))
+    except ValueError:  # malformed/unknown hash → never a match
+        return False
 
 
 def get_current_user(request: Request) -> dict | None:

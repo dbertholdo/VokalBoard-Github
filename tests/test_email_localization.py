@@ -33,3 +33,21 @@ def test_romanian_emails():
     assert email_language("ro") == "ro"
     subject, body = verification_email("ro", "Ana", "https://example.test/v", 24)
     assert subject.startswith("Confirmă-ți adresa de e-mail") and "valabil 24 ore" in body
+
+
+def test_email_footer_follows_the_recipient_language(client):
+    from app.database import execute
+    from app.email_layout import render_email
+    from tests.test_security import register_test_user
+    uid, email, _ = register_test_user(client, full_name="Footer DE")
+    execute("UPDATE users SET preferred_language = 'de' WHERE id = :id", {"id": uid})
+    # Production still holds the old Portuguese seed: it must be treated as a default.
+    execute("UPDATE system_settings SET value = 'Equipe VokalBoard' WHERE key = 'email_layout_signature'")
+    html = render_email("<p>Body</p>", email)
+    assert "Dein Team von VokalBoard.com" in html and "weil du ein Konto bei VokalBoard.com hast" in html
+    assert "Você recebeu" not in html
+    assert "From Team VokalBoard.com" in render_email("<p>Body</p>", "nobody@example.test")
+    # A custom admin text is sent as-is.
+    execute("UPDATE system_settings SET value = 'Liebe Grüße, Daniel' WHERE key = 'email_layout_signature'")
+    assert "Liebe Grüße, Daniel" in render_email("<p>Body</p>", email)
+    execute("UPDATE system_settings SET value = 'From Team VokalBoard.com' WHERE key = 'email_layout_signature'")

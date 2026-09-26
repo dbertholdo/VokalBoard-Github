@@ -1,12 +1,12 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-26 — Claude (Spanish + Romanian complete: UI + e-mails; #55, Messenger, Notas v2 earlier today). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-26 — Claude (e-mail footer per recipient language; dependency warnings cleared; es/ro, #55, Messenger, Notas v2 earlier today). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, not pushed. Everything below is committed.
-- **Tests GREEN:** 332 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
-- Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — production deps clean; dev `pytest` bumped 8.3.3 → 9.0.3 (advisory PYSEC-2026-1845), suite passes on it.
+- **Tests GREEN:** 333 passed + 10 retention, 0 failed, **0 warnings**. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
+- Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — prod + dev clean (2026-09-26). passlib removed (bcrypt direct, hashes compatible), ReportLab 4.5.1, httpx2 for tests.
 - Static assets are cache-versioned: style.css `?v=20260926-4`, brand.css `-1`, listing-form.js `-2`, messenger.js `-3`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
 ## 2. Work split (Daniel's decision, 2026-09-24)
@@ -34,8 +34,7 @@
 - Still open, low priority: legal pages (Impressum/Datenschutz/Code of Conduct) are out of scope for added languages unless Daniel decides otherwise.
 
 ## 6. Backlog (not started without Daniel's go-ahead)
-- Dependency deprecation warnings (Starlette/httpx, passlib/crypt, ReportLab/ast) — not blocking.
-- **E-mail footer not localized:** signature/footer (`app/email_layout.py`, admin-editable `email_layout_signature/footer`) default to Portuguese and go to every recipient in that one language. Needs per-language footer text + `render_email(language)`.
+- **Hardcoded German e-mail subjects/bodies** (not localized): badge unlocked (`app/badges.py`), matching-listing alert + urgent reminder (`app/notifications.py`). Move them into `app/email_localization.py`.
 
 ## 7. Standing constraints
 - **No production migrations/deploy** without Daniel's explicit order. Pending schema: `db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql` (ready, NOT applied). `psql -v ON_ERROR_STOP=1 -f …` only, never Railway's Query box. New migrations must be folded in and re-verified. Details: `docs/MIGRATIONS.md`.

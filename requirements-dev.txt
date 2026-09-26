@@ -14,3 +14,6 @@ pip-audit==2.7.3
 # gerado (confirmar o rodapé de assinatura, P4 18/09/2026) — nunca importado
 # fora dos testes, então não entra em requirements.txt.
 pypdf==6.19.0
+# httpx2: what starlette.testclient (FastAPI TestClient) now wants — silences its
+# deprecation warning about plain httpx. Tests only.
+httpx2==2.13.1

@@ -40,7 +40,7 @@ def send_email(to: str, subject: str, html: str, attachments: list[dict] | None 
     app/email_layout.py — so changing the layout there changes every
     automatic email at once, without touching any of the callers.
     """
-    html = render_email(html)
+    html = render_email(html, to)  # footer/sign-off in the recipient's language
     if EMAIL_BACKEND == "resend" and not RESEND_API_KEY:
         # Bug found 19/09/2026: EMAIL_BACKEND=resend with no RESEND_API_KEY
         # silently fell through to the console backend below — nothing was

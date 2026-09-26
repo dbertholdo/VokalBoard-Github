@@ -62,7 +62,8 @@ import os
 import re
 from html import escape
 
-from app.database import fetch_all, execute
+from app.database import execute, fetch_all, fetch_one
+from app.email_localization import email_language
 
 # SITE_BASE_URL: separado do que cada rota calcula com request.base_url
 # (não disponível aqui — e-mail também é mandado por workers em
@@ -107,10 +108,35 @@ _DEFAULTS = {
     "email_layout_logo_url": "",
     "email_layout_accent_color": "#12a488",  # mesmo --accent do site (app/static/css/style.css)
     "email_layout_header_emoji": "🎵",
-    "email_layout_signature": "Equipe VokalBoard",
-    "email_layout_footer": "Você recebeu este e-mail porque tem uma conta no VokalBoard.",
+    "email_layout_signature": "From Team VokalBoard.com",
+    "email_layout_footer": "You received this e-mail because you have an account on VokalBoard.com.",
     "email_layout_template_html": DEFAULT_TEMPLATE_HTML,
 }
+
+# Sign-off + footer in the RECIPIENT's language (Daniel, 2026-09-26: "From
+# Team VokalBoard.com"). Used while the admin fields still hold a built-in
+# default (the old Portuguese seed or the English one above); any other
+# text typed at /admin/emails is a deliberate custom override for everyone.
+_SIGNATURE_BY_LANG = {
+    "de": "Dein Team von VokalBoard.com",
+    "en": "From Team VokalBoard.com",
+    "fr": "L'équipe VokalBoard.com",
+    "it": "Il team di VokalBoard.com",
+    "pt": "Equipe VokalBoard.com",
+    "es": "El equipo de VokalBoard.com",
+    "ro": "Echipa VokalBoard.com",
+}
+_FOOTER_BY_LANG = {
+    "de": "Du erhältst diese E-Mail, weil du ein Konto bei VokalBoard.com hast.",
+    "en": "You received this e-mail because you have an account on VokalBoard.com.",
+    "fr": "Vous recevez cet e-mail parce que vous avez un compte sur VokalBoard.com.",
+    "it": "Ricevi questa e-mail perché hai un account su VokalBoard.com.",
+    "pt": "Você recebeu este e-mail porque tem uma conta no VokalBoard.com.",
+    "es": "Recibes este correo porque tienes una cuenta en VokalBoard.com.",
+    "ro": "Primești acest e-mail pentru că ai un cont pe VokalBoard.com.",
+}
+_BUILTIN_SIGNATURES = {"Equipe VokalBoard", _SIGNATURE_BY_LANG["en"]}
+_BUILTIN_FOOTERS = {"Você recebeu este e-mail porque tem uma conta no VokalBoard.", _FOOTER_BY_LANG["en"]}
 
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _SCRIPT_TAG_RE = re.compile(r"<\s*script\b[^>]*>.*?<\s*/\s*script\s*>", re.IGNORECASE | re.DOTALL)
@@ -194,7 +220,14 @@ def _nl2br(text: str) -> str:
     return escape(text).replace("\n", "<br>")
 
 
-def render_email(body_html: str) -> str:
+def _recipient_language(recipient_email: str | None) -> str:
+    if not recipient_email:
+        return "en"
+    row = fetch_one("SELECT preferred_language FROM users WHERE lower(email) = lower(:e)", {"e": recipient_email})
+    return email_language(row["preferred_language"] if row else None)
+
+
+def render_email(body_html: str, recipient_email: str | None = None) -> str:
     """Embrulha `body_html` (já pronto — parágrafos/links que cada
     função de e-mail monta, sem mudança nenhuma) com o layout
     compartilhado (molde da aba Código + valores da aba Formulário).
@@ -223,7 +256,14 @@ def render_email(body_html: str) -> str:
     template = template.replace("{{ACCENT}}", accent)
     template = template.replace("{{LOGO}}", logo_html)
     template = template.replace("{{EMOJI}}", escape(settings["email_layout_header_emoji"]))
-    template = template.replace("{{SIGNATURE}}", _nl2br(settings["email_layout_signature"]))
-    template = template.replace("{{FOOTER}}", _nl2br(settings["email_layout_footer"]))
+    lang = _recipient_language(recipient_email)
+    signature = settings["email_layout_signature"]
+    if signature.strip() in _BUILTIN_SIGNATURES:
+        signature = _SIGNATURE_BY_LANG[lang]
+    footer = settings["email_layout_footer"]
+    if footer.strip() in _BUILTIN_FOOTERS:
+        footer = _FOOTER_BY_LANG[lang]
+    template = template.replace("{{SIGNATURE}}", _nl2br(signature))
+    template = template.replace("{{FOOTER}}", _nl2br(footer))
     template = template.replace(REQUIRED_TOKEN, body_html)
     return template

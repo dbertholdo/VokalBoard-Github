@@ -281,8 +281,8 @@ INSERT INTO system_settings (key, value) VALUES
     ('email_layout_logo_url', ''),
     ('email_layout_accent_color', '#12a488'),
     ('email_layout_header_emoji', '🎵'),
-    ('email_layout_signature', 'Equipe VokalBoard'),
-    ('email_layout_footer', 'Você recebeu este e-mail porque tem uma conta no VokalBoard.')
+    ('email_layout_signature', 'From Team VokalBoard.com'),
+    ('email_layout_footer', 'You received this e-mail because you have an account on VokalBoard.com.')
 ON CONFLICT (key) DO NOTHING;
 
 -- Audit log of Red Zone sensitive actions (turning Capitalism

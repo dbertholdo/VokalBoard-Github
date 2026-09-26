@@ -37,8 +37,10 @@ def test_render_email_wraps_body_with_layout_defaults():
     _reset_layout_settings()
     html = render_email("<p>Corpo de teste único e específico</p>")
     assert "Corpo de teste único e específico" in html
-    assert "Equipe VokalBoard" in html
-    assert "Você recebeu este e-mail" in html
+    # The stored Portuguese seed counts as a built-in default → localized
+    # sign-off/footer (2026-09-26); no recipient → English.
+    assert "From Team VokalBoard.com" in html
+    assert "You received this e-mail" in html
     assert "#12a488" in html
     assert "🎵" in html
 
@@ -83,8 +85,9 @@ def test_verification_email_body_goes_through_shared_layout(client, capsys):
     _reset_layout_settings()
     register_test_user(client, full_name="Layout Wrap Test")
     captured = capsys.readouterr()
-    assert "Equipe VokalBoard" in captured.out
-    assert "Você recebeu este e-mail" in captured.out
+    # Registered on the German site (default) → German sign-off and footer.
+    assert "Dein Team von VokalBoard.com" in captured.out
+    assert "weil du ein Konto bei VokalBoard.com hast" in captured.out
 
 
 def test_admin_emails_page_requires_admin(client):
