@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Spanish UI complete (es 694/694)
+- `app/locales/es.json`: all public keys, applied in 6 validated batches via `scripts/i18n_tool.py` (placeholders checked); informal "tú", glossary kept (Notas, Matches, Digital Pass, Rechnungmaker, Tangará), fee = "caché", negotiable = "a convenir". AI draft — native review pending; e-mails still fall back to English (phase 3).
+- Also fixed "nota/Note" → "Nota" (currency name) in 5 core-language texts; Italian gender ("alla prossima Nota").
+- Rendered /, /board, /login, /register in es: no raw keys. i18n tests pass. Next: #55 Match phase 2.
+
 ## 2026-09-26 — Claude — Messenger M6: daily e-mail limit + report queue — Messenger DONE
 - `messenger.claim_daily_email()` (atomic UPDATE … RETURNING on `users.message_email_sent_at`): max 1 "new messages" e-mail per recipient per 24 h.
 - Admin dashboard "Reported messages" (text snapshot, reporter, reported user); `POST /admin/message-reports/{id}/{dismiss|remove}` God Mode only + `audit_log`; remove deletes the message.
