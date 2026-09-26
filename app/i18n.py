@@ -20,7 +20,10 @@ Language is a UI-only choice, independent from currency (EUR/CHF are
 picked by country, not by language) — see app/financial_settings.py.
 """
 
-SUPPORTED_LANGUAGES = ["de", "en", "fr", "it", "pt", "zh", "ko", "ro"]
+# Core five (complete, inline below) + languages added later, which live in
+# app/locales/<lang>.json and cover the PUBLIC site only (admin stays English).
+# Roadmap for the added ones: docs/I18N.md.
+SUPPORTED_LANGUAGES = ["de", "en", "fr", "it", "pt", "es", "zh", "ko", "ro"]
 DEFAULT_LANGUAGE = "de"
 
 # Flag + native label for each supported language, used by the
@@ -32,6 +35,7 @@ LANGUAGE_META = {
     "fr": {"flag": "🇫🇷", "label": "FR"},
     "it": {"flag": "🇮🇹", "label": "IT"},
     "pt": {"flag": "🇧🇷", "label": "PT"},
+    "es": {"flag": "🇪🇸", "label": "ES"},
     "zh": {"flag": "🇨🇳", "label": "中文"},
     "ko": {"flag": "🇰🇷", "label": "한국어"},
     "ro": {"flag": "🇷🇴", "label": "RO"},
@@ -356,6 +360,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # a11y (26/09/2026): visible labels for each vacancy-row control.
     "listing_form_vacancy_voice_label": {"de": "Stimmlage", "en": "Voice type", "fr": "Tessiture", "it": "Registro vocale", "pt": "Naipe"},
     "listing_form_vacancy_fee_label": {"de": "Honorar", "en": "Fee", "fr": "Cachet", "it": "Compenso", "pt": "Cachê"},
+    # 26/09/2026: public strings that were hardcoded (Portuguese/English) in templates.
+    "invoice_match_encrypted_help": {"de": "Match-Rechnung: Die Daten bleiben verschlüsselt, bis {name} bestätigt. Nichts wird im Klartext gespeichert.", "en": "Match invoice: the data stays encrypted until {name} confirms. Nothing is stored in plain text.", "fr": "Facture Match : les données restent chiffrées jusqu'à la confirmation de {name}. Rien n'est stocké en clair.", "it": "Fattura Match: i dati restano crittografati finché {name} non conferma. Nulla viene salvato in chiaro.", "pt": "Match-Rechnung: os dados ficam criptografados até {name} confirmar. Nada fica salvo em texto aberto."},
+    "invoice_match_confirm_failed": {"de": "Bestätigung nicht möglich — der Entwurf ist möglicherweise abgelaufen.", "en": "Couldn't confirm — the draft may have expired.", "fr": "Confirmation impossible — le brouillon a peut-être expiré.", "it": "Impossibile confermare — la bozza potrebbe essere scaduta.", "pt": "Não foi possível confirmar — o rascunho pode ter expirado."},
+    "invoice_match_after_confirm_help": {"de": "Nach der Bestätigung wird das PDF erstellt und per E-Mail an beide Seiten geschickt — VokalBoard speichert keine Kopie, auch nicht diesen Entwurf.", "en": "After confirming, the PDF is generated and e-mailed to both parties — VokalBoard keeps no copy, not even this draft.", "fr": "Après confirmation, le PDF est généré et envoyé par e-mail aux deux parties — VokalBoard n'en garde aucune copie, pas même ce brouillon.", "it": "Dopo la conferma, il PDF viene generato e inviato via e-mail a entrambe le parti — VokalBoard non ne conserva alcuna copia, nemmeno di questa bozza.", "pt": "Depois de confirmar, o PDF é gerado e enviado por e-mail para as duas partes — o VokalBoard não guarda nenhuma cópia, nem este rascunho."},
+    "listing_contact_after_match_help": {"de": "Direkte Kontaktdaten werden nach einem bestätigten Match freigegeben.", "en": "Direct contact details are shared after a confirmed Match.", "fr": "Les coordonnées directes sont partagées après un Match confirmé.", "it": "I contatti diretti vengono condivisi dopo un Match confermato.", "pt": "Os contatos diretos são compartilhados após um Match confirmado."},
     "listing_form_vacancy_filled_label": {"de": "besetzt", "en": "filled", "fr": "pourvu(s)", "it": "occupati", "pt": "preenchidas"},
     # Task #52: soft client-side confirm before publishing without a fee
     # amount or "negotiable" set anywhere on the listing — fee stays
@@ -399,7 +408,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "listing_form_work_label": {"de": "Werk*", "en": "Work/Piece*", "fr": "Œuvre*", "it": "Opera*", "pt": "Obra*"},
     "listing_form_repertoire_placeholder": {"de": "z.B. Mozart, Requiem", "en": "e.g. Mozart, Requiem", "fr": "ex. Mozart, Requiem", "it": "es. Mozart, Requiem", "pt": "ex.: Mozart, Requiem"},
     "listing_form_venue_label": {"de": "Ort (Kirche, Saal, ...)", "en": "Venue (church, hall, ...)", "fr": "Lieu (église, salle, ...)", "it": "Luogo (chiesa, sala, ...)", "pt": "Local (igreja, sala, ...)"},
-    "listing_form_fee_label": {"de": "Cachê*", "en": "Fee*", "fr": "Cachet*", "it": "Compenso*", "pt": "Cachê*"},
+    "listing_form_fee_label": {"de": "Honorar*", "en": "Fee*", "fr": "Cachet*", "it": "Compenso*", "pt": "Cachê*"},
     "listing_form_fee_placeholder": {
         "de": "z.B. 250€ oder \"nach Vereinbarung\"",
         "en": "e.g. €250 or \"negotiable\"",
@@ -470,7 +479,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "de": "Alle Details (Honorar, Datum und mehr) auf VokalBoard.",
         "en": "Full details (fee, date and more) on VokalBoard.",
         "fr": "Tous les détails (cachet, date et plus) sur VokalBoard.",
-        "it": "Tutti i dettagli (cachet, data e altro) su VokalBoard.",
+        "it": "Tutti i dettagli (compenso, data e altro) su VokalBoard.",
         "pt": "Todos os detalhes (cachê, data e mais) no VokalBoard.",
     },
     # P3.D follow-up (2026-09-18): shown on the vaga page itself under
@@ -481,7 +490,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "de": "Honorar, Datum und weitere Details sind nach der Anmeldung sichtbar.",
         "en": "Fee, date and more details become visible after you register.",
         "fr": "Cachet, date et autres détails visibles après inscription.",
-        "it": "Cachet, data e altri dettagli visibili dopo la registrazione.",
+        "it": "Compenso, data e altri dettagli visibili dopo la registrazione.",
         "pt": "Cachê, data e outros detalhes ficam visíveis depois de criar conta.",
     },
     "fee_negotiable_label": {
@@ -511,7 +520,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "de": "Honorar verhandelbar (kein Betrag)",
         "en": "Fee negotiable (no amount)",
         "fr": "Cachet à négocier (pas de montant)",
-        "it": "Cachet da negoziare (nessun importo)",
+        "it": "Compenso da negoziare (nessun importo)",
         "pt": "Cachê a negociar (sem valor)",
     },
     "fee_amount_or_negotiable_required": {

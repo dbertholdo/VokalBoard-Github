@@ -163,7 +163,7 @@
                 <p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> <a href="mailto:{{ listing.author_email }}">{{ listing.author_email }}</a></p>
                 {% if listing.author_phone %}<p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-phone"></use></svg> {{ listing.author_phone }}</p>{% endif %}
             {% elif user.id != listing.author_id %}
-                <p class="field-help">Direct contact details are shared after a confirmed Match.</p>
+                <p class="field-help">{{ t('listing_contact_after_match_help') }}</p>
             {% endif %}
             {% if user.id != listing.author_id %}
                 <p><a href="/messages/new?to={{ listing.author_id }}&listing_id={{ listing.id }}" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('message_send_here') }}</a></p>

@@ -12,6 +12,7 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 from app.i18n import translate, SUPPORTED_LANGUAGES, LANGUAGE_META
+from app.i18n_locales import page_language
 from app.csrf import get_or_create_csrf_token
 from app.database import fetch_one, execute
 from app.captcha import HONEYPOT_FIELD, TURNSTILE_SITE_KEY, captcha_enabled
@@ -46,10 +47,14 @@ _LAST_SEEN_SESSION_KEY = "last_seen_updated_at"
 def render(request: Request, template_name: str, context: dict | None = None, status_code: int = 200):
     context = dict(context or {})
     lang = getattr(request.state, "lang", "de")
+    # Admin pages stay English for languages added after the core five
+    # (es/zh/ko/ro — see app/i18n_locales.py); `lang` itself (picker, cookie)
+    # remains the viewer's choice.
+    text_lang = page_language(lang, template_name)
 
     context["request"] = request
     context["lang"] = lang
-    context["t"] = lambda key: translate(key, lang)
+    context["t"] = lambda key: translate(key, text_lang)
     # FIX (19/09/2026, Daniel: "a área Admin/God Mode precisa
     # NECESSARIAMENTE ser em inglês somente") — a handful of admin
     # templates (admin.html, admin_posts.html, admin_user_detail.html)
@@ -67,7 +72,7 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     # the "A negociar" label is already resolved to the current
     # language here, so app/fees.py itself never has to import i18n.
     context["format_fee"] = lambda amount, currency, negotiable: _format_fee(
-        amount, currency, negotiable, translate("fee_negotiable_label", lang)
+        amount, currency, negotiable, translate("fee_negotiable_label", text_lang)
     )
     # P5 Etapa 1 (18/09/2026): Notas agora suportam fração (0,50 Nota
     # por vaga postada) — format_notas() mostra inteiro sem decimais

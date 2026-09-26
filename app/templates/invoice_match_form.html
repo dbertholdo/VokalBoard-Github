@@ -4,7 +4,7 @@
 {% block content %}
 <a class="back-link" href="/rechnungmaker?tab=match">&larr; {{ t('nav_rechnungmaker') }}</a>
 <h1>Rechnung — {{ match.title }}</h1>
-<p class="field-help">Match-Rechnung: os dados ficam criptografados até {{ match.contractor_name }} confirmar. Nada fica salvo em texto aberto.</p>
+<p class="field-help">{{ t('invoice_match_encrypted_help').replace('{name}', match.contractor_name) }}</p>
 {% if error %}<p class="form-error">Confira os campos obrigatórios.</p>{% endif %}
 <div class="invoice-layout">
 <section class="card">

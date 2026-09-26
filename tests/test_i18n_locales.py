@@ -64,3 +64,50 @@ def test_every_email_template_covers_every_email_language():
                     kwargs[variant_param] = variant
                 subject, body = fn(**kwargs)
                 assert subject and body, (name, lang, variant)
+
+
+def test_admin_pages_stay_english_for_added_languages_only():
+    """Daniel, 2026-09-26: added languages (es/zh/ko/ro) are for the public
+    site only; the admin area stays English. Core languages keep their
+    existing admin behaviour untouched."""
+    from app.i18n_locales import page_language
+    for template in ("admin.html", "admin_user_detail.html", "financeiro_estornos.html",
+                     "financial_dashboard.html", "zona_vermelha.html"):
+        for lang in SUPPORTED_LANGUAGES:
+            expected = lang if lang in CORE_LANGUAGES else "en"
+            assert page_language(lang, template) == expected, (template, lang)
+    for template in ("home.html", "board.html", "listing_form.html", "notas.html", "assinar_stub.html"):
+        for lang in SUPPORTED_LANGUAGES:
+            assert page_language(lang, template) == lang, (template, lang)
+
+
+def test_spanish_is_registered_as_an_added_language():
+    from app.i18n import LANGUAGE_META
+    assert "es" in SUPPORTED_LANGUAGES and "es" in LANGUAGE_META and "es" not in CORE_LANGUAGES
+
+
+def test_locale_files_contain_no_admin_only_keys():
+    from app.i18n_locales import admin_only_keys
+    admin_only = admin_only_keys(TRANSLATIONS)
+    leaked = {lang: sorted(set(load_locale(lang)) & admin_only) for lang in locale_files()}
+    assert not any(leaked.values()), leaked
+
+
+def test_admin_page_ignores_added_language_but_public_page_uses_it(client, monkeypatch):
+    """End to end: a Spanish translation shows on public pages, never on
+    admin pages; Portuguese (core) admin behaviour is unchanged."""
+    from app.database import execute
+    from tests.test_security import login, register_test_user
+
+    monkeypatch.setitem(TRANSLATIONS["nav_logout"], "es", "SALIR_ES_MARKER")
+    user_id, email, password = register_test_user(client, full_name="I18n Admin Scope")
+    execute("UPDATE users SET role_level = 3, email_verified = TRUE WHERE id = :id", {"id": user_id})
+    login(client, email, password)
+
+    public = client.get("/board?lang=es")
+    assert "SALIR_ES_MARKER" in public.text
+    admin = client.get("/admin?lang=es")
+    assert admin.status_code == 200
+    assert "SALIR_ES_MARKER" not in admin.text and "Log out" in admin.text
+    admin_pt = client.get("/admin?lang=pt")
+    assert "Sair" in admin_pt.text  # core language admin behaviour untouched

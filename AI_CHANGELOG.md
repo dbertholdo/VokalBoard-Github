@@ -9,6 +9,13 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history (2026-09-14 → 2026-09-19): `docs/changelog-archive/AI_CHANGELOG_until_2026-09-19.md` — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — language policy: es added, admin English-only for added languages
+- Daniel's decisions: fr stays core; **es** added (with zh/ko/ro) for the **public site only**; admin stays English for added languages (core admin text untouched); moderators don't act on reports; German fee = "Honorar".
+- `app/i18n_locales.py`: `page_language()` (used in `render()`: admin templates → English for non-core langs), `admin_only_keys()` scanner (0 today — admin is hardcoded English). `es` in `SUPPORTED_LANGUAGES`/`LANGUAGE_META`, `app/locales/es.json`. Tool scoped to public keys.
+- Fixed hardcoded public text: Portuguese on the Match invoice pages + one English line on listing detail → 4 new keys (5 core langs). de fee label "Cachê*"→"Honorar*"; it "cachet"→"compenso" (3 strings). `permissions.py` docstring matches the moderator decision.
+- `docs/I18N.md` rewritten as the per-language implementation route (phases 0–5, order es→ro→zh→ko, glossary incl. fee terms). `CLAUDE.md` §1 language line updated.
+- Tests: +4 (admin scope unit + end-to-end, es registered, no admin keys in locale files). 288 passed + 10 retention, 0 failed.
+
 ## 2026-09-26 — Claude — a11y fixes, #52 bug, security scan, i18n groundwork, docs reorg
 - **A11y/visual (Codex's 25/09 list, browser-verified at 320px):** labelled vacancy fields (`listing_form.html`, `listing-form.js`, 2 new i18n keys); help-text overlap after file inputs/buttons (`style.css`); invoice preview amounts no longer break (`brand.css`); mobile header 251→130px (`base.html` `.nav-dup`). Cache version `20260926-1`, style.css + listing-form.js now versioned too.
 - **Bug (#52):** "publish anyway" did nothing — `requestSubmit()` inside the submit handler is ignored by browsers; now deferred. Verified 6 cases (de/en, job/self-ad, fee/no fee, OK/Cancel).

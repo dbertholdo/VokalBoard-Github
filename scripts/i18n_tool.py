@@ -27,20 +27,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.i18n import SUPPORTED_LANGUAGES, TRANSLATIONS  # noqa: E402
 from app.i18n_locales import (  # noqa: E402
-    CORE_LANGUAGES, SOURCE_LANGUAGE, coverage, load_locale, locale_files, save_locale, validate_entries,
+    CORE_LANGUAGES, SOURCE_LANGUAGE, admin_only_keys, coverage, load_locale, locale_files, save_locale,
+    validate_entries,
 )
+
+# Added languages cover the public site only; admin-only keys stay English.
+ADMIN_ONLY = admin_only_keys(TRANSLATIONS)
+PUBLIC_KEYS = sorted(k for k in TRANSLATIONS if k not in ADMIN_ONLY)
+
+
+def _scope_errors(entries: dict) -> list[str]:
+    return [f"{k}: admin-only key — admin stays English for added languages" for k in entries if k in ADMIN_ONLY]
 
 
 def cmd_status(_args) -> int:
     langs = list(dict.fromkeys(list(SUPPORTED_LANGUAGES) + locale_files()))
     problems = 0
     for lang in langs:
-        done, total = coverage(lang, TRANSLATIONS)
+        done, total = coverage(lang, TRANSLATIONS, None if lang in CORE_LANGUAGES else PUBLIC_KEYS)
         source = "inline" if lang in CORE_LANGUAGES else ("file" if lang in locale_files() else "MISSING FILE")
         registered = "" if lang in SUPPORTED_LANGUAGES else "  (not in SUPPORTED_LANGUAGES)"
         print(f"{lang:>3}  {done:>4}/{total}  {100 * done / total:5.1f}%  [{source}]{registered}")
         if lang not in CORE_LANGUAGES:
-            errors = validate_entries(load_locale(lang), TRANSLATIONS)
+            entries = load_locale(lang)
+            errors = validate_entries(entries, TRANSLATIONS) + _scope_errors(entries)
             problems += len(errors)
             for e in errors:
                 print(f"      ! {e}")
@@ -49,7 +59,7 @@ def cmd_status(_args) -> int:
 
 def cmd_todo(args) -> int:
     existing = load_locale(args.lang)
-    missing = [k for k in sorted(TRANSLATIONS) if not existing.get(k)]
+    missing = [k for k in PUBLIC_KEYS if not existing.get(k)]
     batch = {
         k: {"en": TRANSLATIONS[k].get(SOURCE_LANGUAGE, ""), "de": TRANSLATIONS[k].get("de", ""), "translation": ""}
         for k in missing[: args.limit]
@@ -67,7 +77,7 @@ def cmd_apply(args) -> int:
     raw = json.loads(Path(args.file).read_text(encoding="utf-8"))
     incoming = {k: (v.get("translation", "") if isinstance(v, dict) else v) for k, v in raw.items()}
     incoming = {k: v for k, v in incoming.items() if isinstance(v, str) and v.strip()}
-    errors = validate_entries(incoming, TRANSLATIONS)
+    errors = validate_entries(incoming, TRANSLATIONS) + _scope_errors(incoming)
     bad = {e.split(":", 1)[0] for e in errors}
     for e in errors:
         print(f"skipped  {e}")
@@ -75,15 +85,16 @@ def cmd_apply(args) -> int:
     good = {k: v.strip() for k, v in incoming.items() if k not in bad}
     locale.update(good)
     save_locale(args.lang, locale)
-    done = sum(1 for k in TRANSLATIONS if locale.get(k))
-    print(f"applied {len(good)} keys to app/locales/{args.lang}.json — now {done}/{len(TRANSLATIONS)}")
+    done = sum(1 for k in PUBLIC_KEYS if locale.get(k))
+    print(f"applied {len(good)} keys to app/locales/{args.lang}.json — now {done}/{len(PUBLIC_KEYS)} public keys")
     return 1 if errors else 0
 
 
 def cmd_check(_args) -> int:
     failed = False
     for lang in locale_files():
-        for e in validate_entries(load_locale(lang), TRANSLATIONS):
+        entries = load_locale(lang)
+        for e in validate_entries(entries, TRANSLATIONS) + _scope_errors(entries):
             print(f"{lang}: {e}")
             failed = True
     return 1 if failed else 0

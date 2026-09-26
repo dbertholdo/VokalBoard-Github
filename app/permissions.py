@@ -2,9 +2,10 @@
 Administrative access levels (see users.role_level in db/schema.sql):
 
     0 = common      — regular user, no access to /admin at all
-    1 = moderator   — only the reports/blocks queue (read + act on
-                       reports), no touching users or anything
-                       financial
+    1 = moderator   — can VIEW the reports/blocks queue only; no
+                       touching users or anything financial. Accepting/
+                       rejecting reports stays God Mode only (Daniel,
+                       2026-09-26: moderators do NOT act on reports).
     2 = admin       — everything the /admin panel already did before
                        levels existed: users, posts, analytics
     3 = god mode    — the only level that sees the Red Zone

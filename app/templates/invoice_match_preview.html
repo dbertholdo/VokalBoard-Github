@@ -4,7 +4,7 @@
 <a class="back-link" href="/rechnungmaker?tab=match">&larr; {{ t('nav_rechnungmaker') }}</a>
 <section class="card">
 <h1>Preview da Rechnung — {{ match.title }}</h1>
-{% if error %}<p class="form-error">Não foi possível confirmar — o rascunho pode ter expirado.</p>{% endif %}
+{% if error %}<p class="form-error">{{ t('invoice_match_confirm_failed') }}</p>{% endif %}
 <div class="invoice-preview-block">
 <p><strong>Rechnungsnummer:</strong> {{ preview.number }}</p>
 <p><strong>Ausstellungsdatum:</strong> {{ preview.issue_date }} · <strong>Leistungsdatum:</strong> {{ preview.service_date }}</p>
@@ -18,7 +18,7 @@
 {% if preview.payment_terms %}<p><strong>Zahlungsziel:</strong> {{ preview.payment_terms }}</p>{% endif %}
 {% if preview.iban %}<p><strong>IBAN:</strong> {{ preview.iban }} {% if preview.bic %}· <strong>BIC:</strong> {{ preview.bic }}{% endif %}</p>{% endif %}
 </div>
-<p class="field-help">Depois de confirmar, o PDF é gerado e enviado por e-mail para as duas partes — o VokalBoard não guarda nenhuma cópia, nem este rascunho.</p>
+<p class="field-help">{{ t('invoice_match_after_confirm_help') }}</p>
 {% if is_contractor %}
 <form method="post" action="/profile/matches/{{ match.id }}/invoice/confirm" class="stacked-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
