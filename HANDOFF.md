@@ -16,7 +16,7 @@
 ## 3. Next up
 1. **Notas v2 go-live (N6) — Daniel:** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
 2. **Messenger DONE (M1–M6)** — `docs/specs/MESSENGER.md` (as-built notes at the top). Goes live with the pending migration (§7). Suggested follow-up when Daniel wants: a browser pass on real phones.
-3. **Languages:** es DONE (694/694, AI draft — native review + e-mail copy still to do, see `docs/I18N.md` phases 3/5). Next: ro → zh → ko (694 public keys each).
+3. **Languages:** es DONE — UI 694/694 + all e-mails (AI draft; native review still to do). Next: ro → zh → ko (694 public keys each).
 4. Confirm the Railway `retention_worker` service runs — it now also does the account purge, Notas expiry and the 60-day conversation deletion.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
@@ -35,6 +35,7 @@
 
 ## 6. Backlog (not started without Daniel's go-ahead)
 - Dependency deprecation warnings (Starlette/httpx, passlib/crypt, ReportLab/ast) — not blocking.
+- **E-mail footer not localized:** signature/footer (`app/email_layout.py`, admin-editable `email_layout_signature/footer`) default to Portuguese and go to every recipient in that one language. Needs per-language footer text + `render_email(language)`.
 
 ## 7. Standing constraints
 - **No production migrations/deploy** without Daniel's explicit order. Pending schema: `db/migrations/CONSOLIDATED_2026-09-19_pending_since_0915.sql` (ready, NOT applied). `psql -v ON_ERROR_STOP=1 -f …` only, never Railway's Query box. New migrations must be folded in and re-verified. Details: `docs/MIGRATIONS.md`.

@@ -17,3 +17,13 @@ def test_transactional_emails_use_localized_copy_and_escape_user_input():
     message_subject, _ = new_message_email("fr", "Ana", "Béla", "https://example.test/messages")
     assert reset_subject == "Reset your password — VokalBoard"
     assert message_subject.startswith("Nouveau message de")
+
+
+def test_spanish_emails_and_fixed_sentences():
+    from app.email_localization import vacancy_filled_email
+    assert email_language("es") == "es"
+    subject, body = verification_email("es", "Ana", "https://example.test/v", 24)
+    assert subject.startswith("Confirma tu dirección de correo") and "válido durante 24 horas" in body
+    assert "Dieser Link ist 24 Stunden gültig." in verification_email("de", "Anna", "https://example.test/v", 24)[1]
+    assert "Die Vakanz in" in vacancy_filled_email("de", "Anna", "Requiem")[1]
+    assert "A vaga em" not in vacancy_filled_email("en", "Ann", "Requiem")[1]

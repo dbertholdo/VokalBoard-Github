@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Spanish e-mails (+ 2 e-mail bugs fixed)
+- `app/email_localization.py`: "es" copy in all 15 e-mail functions; `es` in `EMAIL_LANGUAGES` (guard test covers every function/variant).
+- Fixed: "vacancy filled" e-mail had hardcoded Portuguese ("A vaga em") for every language; verification/password-reset ended in English "N hours" for everyone ("Dieser Link ist 24 hours.") → one full sentence per language (`_VALID_FOR`).
+- Found, NOT fixed (in HANDOFF backlog): the shared e-mail footer/signature is a single admin setting defaulting to Portuguese.
+- Tests: +1; email/i18n tests pass.
+
 ## 2026-09-26 — Claude — #55 Match phase 2: one source for a listing's voice/fee
 - Job listings keep voice/fee only in `listing_vacancies`; the copy on `listings` is cleared and blocked by constraint `listings_job_terms_live_in_vacancies`. Self-ads keep their own columns (moving them to vacancies would have pulled them into invitations/slots). View `listing_terms` merges both; `app/listing_terms.py` has the card summary join (same display rules as the old copy).
 - Readers switched: card queries, fee ordering (`compatibility.py`), home matching, board voice filter, "search people for my listing", e-mail alerts + urgent reminder (now lists of voices). Behaviour fixes: multi-voice listings now match each voice (before: board filter never, home/alerts everyone); new-job alerts no longer go to every singer.

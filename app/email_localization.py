@@ -6,7 +6,19 @@ fall back to English deliberately.
 """
 from html import escape
 
-EMAIL_LANGUAGES = {"de", "en", "fr", "it", "pt"}
+# es (2026-09-26): added language — e-mails too (docs/I18N.md phase 3).
+EMAIL_LANGUAGES = {"de", "en", "fr", "it", "pt", "es"}
+
+# "This link is valid for N hours." as one sentence per language (it used to
+# end in English "hours" for everyone — "Dieser Link ist 24 hours.").
+_VALID_FOR = {
+    "de": "Dieser Link ist {hours} Stunden gültig.",
+    "en": "This link is valid for {hours} hours.",
+    "fr": "Ce lien est valable {hours} heures.",
+    "it": "Questo link è valido per {hours} ore.",
+    "pt": "Este link é válido por {hours} horas.",
+    "es": "Este enlace es válido durante {hours} horas.",
+}
 
 
 def email_language(preferred_language: str | None) -> str:
@@ -22,8 +34,9 @@ def verification_email(language: str | None, name: str, url: str, hours: int) ->
         "fr": ("Confirmez votre adresse e-mail", "Bonjour", "Veuillez confirmer votre adresse e-mail VokalBoard.", "Ce lien est valable"),
         "it": ("Conferma il tuo indirizzo e-mail", "Ciao", "Conferma il tuo indirizzo e-mail VokalBoard.", "Questo link è valido per"),
         "pt": ("Confirme seu e-mail", "Olá", "Confirme seu endereço de e-mail do VokalBoard.", "Este link é válido por"),
+        "es": ("Confirma tu dirección de correo", "Hola", "Confirma tu dirección de correo de VokalBoard.", ""),
     }[lang]
-    return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {safe_name},</p><p>{copy[2]}</p><p><a href=\"{safe_url}\">{safe_url}</a></p><p>{copy[3]} {hours} hours.</p>"
+    return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {safe_name},</p><p>{copy[2]}</p><p><a href=\"{safe_url}\">{safe_url}</a></p><p>{_VALID_FOR[lang].format(hours=hours)}</p>"
 
 
 def password_reset_email(language: str | None, name: str, url: str, hours: int) -> tuple[str, str]:
@@ -35,8 +48,9 @@ def password_reset_email(language: str | None, name: str, url: str, hours: int) 
         "fr": ("Réinitialisez votre mot de passe", "Bonjour", "Utilisez ce lien pour définir un nouveau mot de passe."),
         "it": ("Reimposta la password", "Ciao", "Usa questo link per impostare una nuova password."),
         "pt": ("Redefina sua senha", "Olá", "Use este link para definir uma nova senha."),
+        "es": ("Restablece tu contraseña", "Hola", "Usa este enlace para establecer una contraseña nueva."),
     }[lang]
-    return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {safe_name},</p><p>{copy[2]}</p><p><a href=\"{safe_url}\">{safe_url}</a></p><p>This link is valid for {hours} hours.</p>"
+    return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {safe_name},</p><p>{copy[2]}</p><p><a href=\"{safe_url}\">{safe_url}</a></p><p>{_VALID_FOR[lang].format(hours=hours)}</p>"
 
 
 def new_message_email(language: str | None, recipient_name: str, sender_name: str, inbox_url: str) -> tuple[str, str]:
@@ -48,6 +62,7 @@ def new_message_email(language: str | None, recipient_name: str, sender_name: st
         "fr": ("Nouveau message de", "Bonjour", "vous a envoyé un nouveau message sur VokalBoard."),
         "it": ("Nuovo messaggio da", "Ciao", "ti ha inviato un nuovo messaggio su VokalBoard."),
         "pt": ("Nova mensagem de", "Olá", "enviou uma nova mensagem no VokalBoard."),
+        "es": ("Nuevo mensaje de", "Hola", "te envió un mensaje nuevo en VokalBoard."),
     }[lang]
     return f"{copy[0]} {sender_name} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p><strong>{sender}</strong> {copy[2]}</p><p><a href=\"{url}\">{url}</a></p>"
 
@@ -63,6 +78,7 @@ def invitation_received_email(language: str | None, recipient_name: str, listing
         "fr": ("Nouvelle invitation", "Bonjour", "Vous avez été invité(e) à un poste :", "Répondez dans les 48 heures."),
         "it": ("Nuovo invito", "Ciao", "Sei stato/a invitato/a a un posto:", "Rispondi entro 48 ore."),
         "pt": ("Novo convite", "Olá", "Você foi convidado(a) para uma vaga:", "Responda em até 48 horas."),
+        "es": ("Nueva invitación", "Hola", "Te han invitado a una vacante:", "Responde en un plazo de 48 horas."),
     }[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p>{copy[2]} <strong>{title}</strong></p><p><a href=\"{safe_url}\">{safe_url}</a></p><p>{copy[3]}</p>"
 
@@ -77,6 +93,7 @@ def application_received_email(language: str | None, recipient_name: str, artist
         "fr": ("Nouvelle candidature", "Bonjour", "a postulé à un poste dans", "."),
         "it": ("Nuova candidatura", "Ciao", "si è candidato/a a un posto in", "."),
         "pt": ("Nova candidatura", "Olá", "se candidatou a uma vaga em", "."),
+        "es": ("Nueva candidatura", "Hola", "se postuló a una vacante en", "."),
     }[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p><strong>{artist}</strong> {copy[2]} <strong>{title}</strong>{copy[3]}</p><p><a href=\"{safe_url}\">{safe_url}</a></p>"
 
@@ -92,6 +109,7 @@ def invitation_response_email(language: str | None, recipient_name: str, listing
         "fr": "acceptée" if accepted else "refusée",
         "it": "accettata" if accepted else "rifiutata",
         "pt": "aceita" if accepted else "recusada",
+        "es": "aceptada" if accepted else "rechazada",
     }[lang]
     copy = {
         "de": ("Antwort erhalten", "Hallo", "Deine Anfrage für", "wurde"),
@@ -99,6 +117,7 @@ def invitation_response_email(language: str | None, recipient_name: str, listing
         "fr": ("Réponse reçue", "Bonjour", "Votre demande pour", "a été"),
         "it": ("Risposta ricevuta", "Ciao", "La tua richiesta per", "è stata"),
         "pt": ("Resposta recebida", "Olá", "Sua solicitação para", "foi"),
+        "es": ("Respuesta recibida", "Hola", "Tu solicitud para", "fue"),
     }[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p>{copy[2]} <strong>{title}</strong> {copy[3]} <strong>{status_word}</strong>.</p><p><a href=\"{safe_url}\">{safe_url}</a></p>"
 
@@ -116,8 +135,11 @@ def vacancy_filled_email(language: str | None, recipient_name: str, listing_titl
         "fr": ("Poste déjà pourvu", "Bonjour", "a depuis été pourvu par quelqu'un d'autre. Merci de votre intérêt !"),
         "it": ("Posto già assegnato", "Ciao", "è stato nel frattempo assegnato a qualcun altro. Grazie per l'interesse!"),
         "pt": ("Vaga já preenchida", "Olá", "já foi preenchida por outra pessoa. Obrigado pelo interesse!"),
+        "es": ("Vacante ya cubierta", "Hola", "ya fue cubierta por otra persona. ¡Gracias por tu interés!"),
     }[lang]
-    return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p>A vaga em <strong>{title}</strong> {copy[2]}</p>"
+    prefix = {"de": "Die Vakanz in", "en": "The vacancy in", "fr": "Le poste dans", "it": "Il posto in",
+              "pt": "A vaga em", "es": "La vacante en"}[lang]
+    return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p>{prefix} <strong>{title}</strong> {copy[2]}</p>"
 
 
 def match_evaluation_reminder_email(language: str | None, recipient_name: str, counterpart_first_name: str, url: str) -> tuple[str, str]:
@@ -137,6 +159,7 @@ def match_evaluation_reminder_email(language: str | None, recipient_name: str, c
         "fr": ("Comment s'est passée votre expérience ?", "Bonjour", f"Comment s'est passée votre expérience ? Évaluez {counterpart} !", "Évaluer"),
         "it": ("Com'è andata la tua esperienza?", "Ciao", f"Com'è andata la tua esperienza? Valuta {counterpart}!", "Valuta ora"),
         "pt": ("Como foi sua experiência?", "Olá", f"Como foi sua experiência? Avalie {counterpart}!", "Avaliar agora"),
+        "es": ("¿Qué tal fue tu experiencia?", "Hola", f"¿Qué tal fue tu experiencia? ¡Valora a {counterpart}!", "Valorar ahora"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -158,6 +181,7 @@ def match_invoice_requested_email(language: str | None, recipient_name: str, cou
         "fr": ("Facture demandée", "Bonjour", f"{counterpart} a demandé une facture pour « {title} ».", "Ouvrir"),
         "it": ("Fattura richiesta", "Ciao", f"{counterpart} ha richiesto una fattura per “{title}”.", "Apri"),
         "pt": ("Rechnung solicitada", "Olá", f"{counterpart} pediu uma Rechnung para “{title}”.", "Abrir"),
+        "es": ("Factura solicitada", "Hola", f"{counterpart} solicitó una factura para “{title}”.", "Abrir"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -178,6 +202,7 @@ def match_invoice_ready_for_review_email(language: str | None, recipient_name: s
         "fr": ("Facture prête à être vérifiée", "Bonjour", f"{counterpart} a préparé une facture pour « {title} » — merci de la vérifier et de la confirmer.", "Vérifier"),
         "it": ("Fattura pronta per la revisione", "Ciao", f"{counterpart} ha preparato una fattura per “{title}” — controllala e confermala.", "Rivedi"),
         "pt": ("Rechnung pronta para revisão", "Olá", f"{counterpart} preparou uma Rechnung para “{title}” — revise e confirme.", "Revisar"),
+        "es": ("Factura lista para revisar", "Hola", f"{counterpart} preparó una factura para “{title}”: revísala y confírmala.", "Revisar"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -197,6 +222,7 @@ def match_invoice_confirmed_email(language: str | None, recipient_name: str, pro
         "fr": ("Votre facture est prête", "Bonjour", f"Vous trouverez en pièce jointe la facture pour « {title} ». VokalBoard n'en conserve aucune copie."),
         "it": ("La tua fattura è pronta", "Ciao", f"In allegato la fattura per “{title}”. VokalBoard non conserva alcuna copia."),
         "pt": ("Sua Rechnung está pronta", "Olá", f"Em anexo está a Rechnung de “{title}”. O VokalBoard não guarda nenhuma cópia."),
+        "es": ("Tu factura está lista", "Hola", f"Adjunta encontrarás la factura de “{title}”. VokalBoard no guarda ninguna copia."),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -218,6 +244,7 @@ def match_invoice_expired_email(language: str | None, recipient_name: str, produ
         "fr": ("Brouillon de facture expiré", "Bonjour", f"Le brouillon de facture pour « {title} » n'a pas été confirmé dans les 7 jours et a été supprimé automatiquement. Vous pouvez en redemander une si besoin.", "Redemander"),
         "it": ("Bozza di fattura scaduta", "Ciao", f"La bozza di fattura per “{title}” non è stata confermata entro 7 giorni ed è stata eliminata automaticamente. Puoi richiederne una nuova se serve ancora.", "Richiedi di nuovo"),
         "pt": ("Rascunho de Rechnung expirado", "Olá", f"O rascunho de Rechnung de “{title}” não foi confirmado em 7 dias e foi apagado automaticamente. Você pode pedir uma nova, se ainda for necessário.", "Pedir de novo"),
+        "es": ("Borrador de factura caducado", "Hola", f"El borrador de factura de “{title}” no se confirmó en 7 días y se eliminó automáticamente. Puedes solicitar una nueva si todavía la necesitas.", "Solicitar de nuevo"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -240,6 +267,7 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
             "fr": f"votre signalement concernant « {title} » a été examiné et des mesures ont été prises. Merci de nous aider à garder VokalBoard sûr.",
             "it": f"la tua segnalazione su “{title}” è stata esaminata e sono state prese delle misure. Grazie per aiutarci a mantenere sicuro VokalBoard.",
             "pt": f"sua denúncia sobre “{title}” foi analisada e uma ação foi tomada. Obrigado por ajudar a manter o VokalBoard seguro.",
+            "es": f"tu denuncia sobre “{title}” ha sido revisada y se han tomado medidas. Gracias por ayudar a mantener VokalBoard seguro.",
         }[lang]
     else:
         body = {
@@ -248,6 +276,7 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
             "fr": f"votre signalement concernant « {title} » a été examiné. Nous n'avons constaté aucune infraction à nos règles.",
             "it": f"la tua segnalazione su “{title}” è stata esaminata. Non abbiamo riscontrato una violazione delle nostre regole.",
             "pt": f"sua denúncia sobre “{title}” foi analisada. Não encontramos uma violação das nossas regras nesse caso.",
+            "es": f"tu denuncia sobre “{title}” ha sido revisada. No encontramos ninguna infracción de nuestras normas.",
         }[lang]
     subject = {
         "de": "Deine Meldung wurde geprüft",
@@ -255,8 +284,9 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
         "fr": "Votre signalement a été examiné",
         "it": "La tua segnalazione è stata esaminata",
         "pt": "Sua denúncia foi analisada",
+        "es": "Tu denuncia ha sido revisada",
     }[lang]
-    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá"}[lang]
+    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola"}[lang]
     return f"{subject} — VokalBoard", f"<p>{greeting} {recipient},</p><p>{body}</p>"
 
 
@@ -295,6 +325,11 @@ def moderation_punishment_email(language: str | None, recipient_name: str, listi
             "suspend": f"após analisar uma denúncia sobre “{title}”, sua conta foi temporariamente suspensa. Você pode reativá-la fazendo login novamente.",
             "ban": "após analisar uma denúncia, sua conta foi banida permanentemente. Essa decisão é definitiva.",
         },
+        "es": {
+            "warning": f"revisamos una denuncia sobre “{title}” y emitimos una advertencia. Asegúrate de que tus próximos contenidos cumplan nuestras normas.",
+            "suspend": f"tras revisar una denuncia sobre “{title}”, tu cuenta ha sido suspendida temporalmente. Puedes reactivarla iniciando sesión de nuevo.",
+            "ban": "tras revisar una denuncia, tu cuenta ha sido bloqueada de forma permanente. Esta decisión es definitiva.",
+        },
     }
     subjects = {
         "de": {"warning": "Verwarnung erhalten", "suspend": "Konto vorübergehend deaktiviert", "ban": "Konto dauerhaft gesperrt"},
@@ -302,8 +337,9 @@ def moderation_punishment_email(language: str | None, recipient_name: str, listi
         "fr": {"warning": "Vous avez reçu un avertissement", "suspend": "Votre compte a été suspendu", "ban": "Votre compte a été banni"},
         "it": {"warning": "Hai ricevuto un avvertimento", "suspend": "Il tuo account è stato sospeso", "ban": "Il tuo account è stato bannato"},
         "pt": {"warning": "Você recebeu um aviso", "suspend": "Sua conta foi suspensa", "ban": "Sua conta foi banida"},
+        "es": {"warning": "Has recibido una advertencia", "suspend": "Tu cuenta ha sido suspendida", "ban": "Tu cuenta ha sido bloqueada"},
     }
-    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá"}[lang]
+    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola"}[lang]
     subject = subjects[lang][punishment]
     body = bodies[lang][punishment]
     return f"{subject} — VokalBoard", f"<p>{greeting} {recipient},</p><p>{body}</p>"
@@ -323,6 +359,7 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "fr": "Ce ticket est maintenant marqué comme résolu." if resolved else "Nous le laissons ouvert au cas où il resterait quelque chose à clarifier.",
         "it": "Questo ticket è ora contrassegnato come risolto." if resolved else "Lo lasciamo aperto nel caso ci sia ancora qualcosa da chiarire.",
         "pt": "Esse ticket agora está marcado como resolvido." if resolved else "Deixamos ele em aberto, caso ainda falte esclarecer algo.",
+        "es": "Este ticket ya está marcado como resuelto." if resolved else "Lo dejamos abierto por si queda algo por aclarar.",
     }[lang]
     intro = {
         "de": "wir haben auf dein Ticket geantwortet:",
@@ -330,6 +367,7 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "fr": "nous avons répondu à votre ticket :",
         "it": "abbiamo risposto al tuo ticket:",
         "pt": "respondemos seu ticket:",
+        "es": "respondimos a tu ticket:",
     }[lang]
     subject = {
         "de": "Antwort auf dein Ticket",
@@ -337,8 +375,9 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "fr": "Réponse à votre ticket",
         "it": "Risposta al tuo ticket",
         "pt": "Resposta ao seu ticket",
+        "es": "Respuesta a tu ticket",
     }[lang]
-    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá"}[lang]
+    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola"}[lang]
     return (
         f"{subject} — VokalBoard",
         f"<p>{greeting} {recipient},</p><p>{intro}</p><p>{response}</p><p>{closing}</p>",
@@ -358,6 +397,7 @@ def notas_expiring_email(language: str | None, recipient_name: str, amount: str,
         "fr": ("Vos Notas expirent bientôt", "Bonjour", f"{amount} de vos Notas gagnées expirent le {date}. Utilisez-les avant — les Notas achetées n'expirent jamais.", "Voir mes Notas"),
         "it": ("Le tue Notas scadono presto", "Ciao", f"{amount} delle tue Notas guadagnate scadono il {date}. Usale prima — le Notas acquistate non scadono mai.", "Vai alle mie Notas"),
         "pt": ("Suas Notas vão expirar em breve", "Olá", f"{amount} das suas Notas ganhas expiram em {date}. Use-as antes disso — Notas compradas nunca expiram.", "Ver minhas Notas"),
+        "es": ("Tus Notas caducan pronto", "Hola", f"{amount} de tus Notas ganadas caducan el {date}. Úsalas antes: las Notas compradas nunca caducan.", "Ver mis Notas"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
