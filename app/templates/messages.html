@@ -1,64 +1,122 @@
 {% extends "base.html" %}
-{% block title %}
-    {% if folder == "sent" %}{{ t('messages_sent_title') }}
-    {% elif folder == "trash" %}{{ t('messages_trash_title') }}
-    {% else %}{{ t('messages_inbox_title') }}
-    {% endif %} — VokalBoard
-{% endblock %}
+{% block title %}{{ t('messenger_title') }} — VokalBoard{% endblock %}
 
 {% block content %}
-<h1>
-    {% if folder == "sent" %}{{ t('messages_sent_title') }}
-    {% elif folder == "trash" %}{{ t('messages_trash_title') }}
-    {% else %}{{ t('messages_inbox_title') }}
-    {% endif %}
-</h1>
+{# Messenger (2026-09-26, docs/specs/MESSENGER.md): per-pair conversations,
+   Inbox | Requests, All | Unread. Rules live in app/messenger.py. "Seen"
+   is never shown — only the viewer's own unread counts. #}
+<h1>{{ t('messenger_title') }}</h1>
 
-<div class="message-tabs">
-    <a href="/messages" class="{{ 'active' if folder == 'inbox' else '' }}">{{ t('messages_tab_inbox') }}</a>
-    <a href="/messages/sent" class="{{ 'active' if folder == 'sent' else '' }}">{{ t('messages_tab_sent') }}</a>
-    <a href="/messages/trash" class="{{ 'active' if folder == 'trash' else '' }}">{{ t('messages_tab_trash') }}</a>
-</div>
+<div class="messenger {{ 'messenger-has-thread' if conversation else '' }}">
+    <aside class="messenger-list" aria-label="{{ t('messenger_title') }}">
+        <div class="message-tabs">
+            <a href="/messages" class="{{ 'active' if folder == 'inbox' else '' }}">{{ t('messages_tab_inbox') }}{% if counts.inbox %} <span class="badge-count">{{ counts.inbox }}</span>{% endif %}</a>
+            <a href="/messages?folder=requests" class="{{ 'active' if folder == 'requests' else '' }} {{ 'messenger-requests-new' if counts.requests else '' }}">{{ t('messenger_tab_requests') }}{% if counts.requests %} <span class="badge-count">{{ counts.requests }}</span>{% endif %}</a>
+        </div>
+        <div class="messenger-filters">
+            <a href="/messages?folder={{ folder }}" class="{{ '' if only_unread else 'active' }}">{{ t('messenger_filter_all') }}</a>
+            <a href="/messages?folder={{ folder }}&unread=1" class="{{ 'active' if only_unread else '' }}">{{ t('messenger_filter_unread') }}</a>
+        </div>
 
-{% if folder == "trash" and messages|length > 0 %}
-    <form method="post" action="/messages/trash/empty" data-confirm="{{ t('message_empty_trash_confirm') }}" style="margin-bottom:16px;">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-trash"></use></svg> {{ t('message_empty_trash_button') }}</button>
-    </form>
-{% endif %}
-
-{% if messages|length == 0 %}
-    <p class="empty-state">
-        {% if folder == "sent" %}{{ t('messages_empty_sent') }}
-        {% elif folder == "trash" %}{{ t('messages_empty_trash') }}
-        {% else %}{{ t('messages_empty_inbox') }}
+        {% if conversations|length == 0 %}
+            <p class="empty-state">{{ t('messenger_empty_requests') if folder == 'requests' else t('messenger_empty_inbox') }}</p>
+        {% else %}
+            <ul class="messenger-conversations">
+                {% for c in conversations %}
+                <li>
+                    <a class="messenger-conversation {{ 'active' if conversation and conversation.id == c.id else '' }} {{ 'unread' if c.unread else '' }}" href="/messages/c/{{ c.id }}">
+                        <span class="messenger-avatar" aria-hidden="true">{% if c.other_avatar %}<img src="{{ c.other_avatar }}" alt="">{% else %}{{ (c.other_name or '?')[:1] }}{% endif %}</span>
+                        <span class="messenger-conversation-body">
+                            <span class="messenger-conversation-name">
+                                {{ t('messenger_deactivated_user') if c.other_deactivated else c.other_name }}
+                                {% if c.pending_mine %}<span class="tag">{{ t('messenger_pending_label') }}</span>{% elif c.status == 'request' %}<span class="tag">{{ t('messenger_request_label') }}</span>{% endif %}
+                            </span>
+                            <span class="messenger-snippet">{% if c.last_sender_id == user.id %}{{ t('messenger_you') }}: {% endif %}{{ c.last_body[:80] }}{% if c.last_body|length > 80 %}…{% endif %}</span>
+                        </span>
+                        {% if c.unread %}<span class="badge-count">{{ c.unread }}</span>{% endif %}
+                    </a>
+                    {% set retention_days = c.days_left %}
+                    {% include '_retention_warning.html' %}
+                </li>
+                {% endfor %}
+            </ul>
         {% endif %}
-    </p>
-{% else %}
-    <ul class="message-list">
-        {% for m in messages %}
-        <li class="{{ 'message-list-item-trash' if folder == 'trash' else '' }}">
-            <a class="message-row {{ 'unread' if folder == 'inbox' and not m.read_at else '' }}" href="/messages/{{ m.id }}">
-                <span class="meta">
-                    {% if folder == "sent" %}{{ t('message_to') }} {{ m.other_name }}
-                    {% else %}{{ t('message_from') }} {{ m.other_name }}
-                    {% endif %}
-                    {% if m.listing_title %} · {{ t('message_about_listing') }}: {{ m.listing_title }}{% endif %}
-                    {% if folder == "inbox" and not m.read_at %} · <strong>{{ t('message_unread') }}</strong>{% endif %}
-                    · {{ m.created_at }}
+    </aside>
+
+    <section class="messenger-thread">
+        {% if not conversation %}
+            <p class="empty-state messenger-placeholder">{{ t('messenger_select_conversation') }}</p>
+        {% else %}
+            <header class="messenger-thread-header">
+                <a class="back-link messenger-back" href="/messages">&larr; {{ t('messenger_back') }}</a>
+                <strong>{% if other.deleted_at %}{{ t('messenger_deactivated_user') }}{% else %}<a href="/users/{{ other.id }}">{{ other.full_name }}</a>{% endif %}</strong>
+                {% set retention_days = conversation.days_left %}
+                {% include '_retention_warning.html' %}
+                <span class="messenger-thread-actions">
+                    <form method="post" action="/messages/c/{{ conversation.id }}/hide">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="link-button">{{ t('messenger_hide') }}</button>
+                    </form>
+                    <form method="post" action="/users/{{ other.id }}/block" data-confirm="{{ t('messenger_block') }}?">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="link-button danger">{{ t('messenger_block') }}</button>
+                    </form>
                 </span>
-                <p class="snippet">{{ m.body[:120] }}{% if m.body|length > 120 %}…{% endif %}</p>
-            </a>
-            {% set retention_days = m.retention_days %}
-            {% include '_retention_warning.html' %}
-            {% if folder == "trash" %}
-            <form method="post" action="/messages/{{ m.id }}/restore" class="message-restore-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="link-button"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-reply"></use></svg> {{ t('message_restore_button') }}</button>
-            </form>
+            </header>
+
+            {% if notice %}<p class="{{ 'success' if notice == 'report_reported' else 'field-help' }}">{{ t('messenger_notice_' ~ notice) }}</p>{% endif %}
+
+            {% if is_request_for_me %}
+                <div class="messenger-request-banner">
+                    <p>{{ t('messenger_request_banner').replace('{name}', other.full_name) }}</p>
+                    <form method="post" action="/messages/c/{{ conversation.id }}/accept">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit">{{ t('messenger_accept') }}</button>
+                    </form>
+                    <form method="post" action="/messages/c/{{ conversation.id }}/decline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn-secondary">{{ t('messenger_decline') }}</button>
+                    </form>
+                </div>
             {% endif %}
-        </li>
-        {% endfor %}
-    </ul>
-{% endif %}
+
+            <ol class="messenger-messages" data-conversation-id="{{ conversation.id }}" data-last-id="{{ thread[-1].id if thread else 0 }}">
+                {% for msg in thread %}
+                <li class="messenger-message {{ 'mine' if msg.mine else 'theirs' }}" data-message-id="{{ msg.id }}">
+                    {% if msg.listing_title %}<span class="messenger-context">{{ t('message_about_listing') }}: {{ msg.listing_title }}</span>{% endif %}
+                    <p class="messenger-bubble">{{ msg.body }}</p>
+                    <span class="messenger-time">{{ msg.created_at.strftime('%d.%m. %H:%M') }}</span>
+                    {% if not msg.mine %}
+                    <details class="messenger-report">
+                        <summary>{{ t('messenger_report') }}</summary>
+                        <form method="post" action="/messages/{{ msg.id }}/report" class="stacked-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <label>{{ t('messenger_report_reason_label') }}
+                                <textarea name="reason" rows="2" minlength="3" maxlength="500" required></textarea>
+                            </label>
+                            <button type="submit" class="danger">{{ t('messenger_report_submit') }}</button>
+                        </form>
+                    </details>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ol>
+
+            {% if is_pending_mine %}
+                <p class="field-help">{{ t('messenger_pending_mine').replace('{name}', other.full_name) }}</p>
+            {% elif not other.deleted_at %}
+                <form method="post" action="/messages/send" class="messenger-composer">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="recipient_id" value="{{ other.id }}">
+                    {% if compose_listing %}<input type="hidden" name="listing_id" value="{{ compose_listing.id }}"><p class="field-help">{{ t('message_about_listing') }}: {{ compose_listing.title }}</p>{% endif %}
+                    <label class="messenger-composer-label">
+                        <span class="sr-only">{{ t('message_body_label') }}</span>
+                        <textarea name="body" rows="2" maxlength="{{ max_message_length }}" placeholder="{{ t('messenger_composer_placeholder') }}" required></textarea>
+                    </label>
+                    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('message_send') }}</button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </section>
+</div>
 {% endblock %}

@@ -157,6 +157,17 @@ def conversation_for(user_id: int, conversation_id: int) -> dict | None:
     )
 
 
+def conversation_between(user_id: int, other_id: int) -> dict | None:
+    """The live conversation between two users, if any (for "send message" links)."""
+    lo, hi = _pair(user_id, other_id)
+    return fetch_one(
+        """SELECT * FROM conversations WHERE user_low_id = :lo AND user_high_id = :hi
+             AND last_activity_at + interval '60 days' > now()
+             AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = conversations.id)""",
+        {"lo": lo, "hi": hi},
+    )
+
+
 def accept_request(user_id: int, conversation_id: int) -> bool:
     conv = conversation_for(user_id, conversation_id)
     if not conv or conv["status"] != "request" or conv["requested_by"] == user_id:
@@ -244,6 +255,11 @@ _FOLDERS = {
     # Requests others sent me that I haven't declined.
     "requests": "(c.status = 'request' AND c.requested_by <> :u AND c.declined_at IS NULL)",
 }
+
+
+def days_left(last_activity_at) -> int | None:
+    """Days until deletion, only during the last 10 of 60 (the "!" warning)."""
+    return warning_days(last_activity_at, datetime.now(timezone.utc))
 
 
 def list_conversations(user_id: int, folder: str = "inbox", unread_only: bool = False) -> list[dict]:

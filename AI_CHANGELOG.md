@@ -9,6 +9,10 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Messenger M3: chat page
+- `messages.html` rebuilt: conversation list (Inbox | Requests with highlight, All | Unread, "!" in the last 10 days) + thread (bubbles, listing context, accept/decline banner, pending note, hide, block, report per message, composer). `app/routers/messages_routes.py` rewritten thin; `/messages/sent|trash|{id}` redirect; `/messages/new?to=` opens an existing conversation. `message_detail.html` removed; brand-contract baseline refreshed for these two templates only (deliberate redesign). Style: `style.css` Messenger block (tokens only), cache `20260926-2`. 26 i18n keys (5 langs); retention warning = Daniel's wording.
+- Tests: `tests/test_messenger_routes.py` (4). 321 passed + 10 retention. Next: M4.
+
 ## 2026-09-26 — Claude — Messenger M2: rules service
 - New `app/messenger.py`: block > contact/Match > request (1 message until accepted; reply = accept; declined stays silent), accept/decline/hide, report (recipient only, text snapshot), list/thread/unread in single queries, never exposes read status. `/messages/send` now uses it (rate limits unchanged, 429 kept).
 - Tests: `tests/test_messenger.py` (10); throttle test now seeds a contact pair (strangers are limited to 1 message anyway). Next: M3 chat page.

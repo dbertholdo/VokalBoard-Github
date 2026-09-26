@@ -517,22 +517,25 @@
     "[\"<textarea\", [[\"maxlength\", \"\\\"{{ max_message_length }}\\\"\"], [\"name\", \"\\\"body\\\"\"]], []]": 1,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
   },
-  "message_detail.html": {
-    "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/messages/new?to={{ other_id }}{% if message.listing_id %}&listing_id={{ message.listing_id }}{% endif %}\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/messages/{{ message.id }}/trash\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
-  },
   "messages.html": {
-    "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/messages/sent\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/messages/trash\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/messages/trash/empty\\\"\"], [\"data-confirm\", \"\\\"{{ t('message_empty_trash_confirm') }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/messages/{{ m.id }}\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/messages/{{ m.id }}/restore\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
+    "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 2,
+    "[\"<a\", [[\"href\", \"\\\"/messages?folder=requests\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/messages?folder={{ folder }}\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/messages?folder={{ folder }}&unread=1\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/messages/c/{{ c.id }}\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/users/{{ other.id }}\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/messages/c/{{ conversation.id }}/hide\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 6,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 6,
+    "[\"<form\", [[\"action\", \"\\\"/users/{{ other.id }}/block\\\"\"], [\"data-confirm\", \"\\\"{{ t('messenger_block') }}?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/messages/c/{{ conversation.id }}/accept\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/messages/c/{{ conversation.id }}/decline\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/messages/{{ msg.id }}/report\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<textarea\", [[\"maxlength\", \"\\\"500\\\"\"], [\"minlength\", \"\\\"3\\\"\"], [\"name\", \"\\\"reason\\\"\"]], [\"required\"]]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/messages/send\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"recipient_id\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"listing_id\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<textarea\", [[\"maxlength\", \"\\\"{{ max_message_length }}\\\"\"], [\"name\", \"\\\"body\\\"\"]], [\"required\"]]": 1
   },
   "my_favorites.html": {
     "[\"<a\", [[\"href\", \"\\\"/listings/{{ l.id }}\\\"\"], [\"rel\", \"\\\"noopener noreferrer\\\"\"], [\"target\", \"\\\"_blank\\\"\"]], []]": 1,

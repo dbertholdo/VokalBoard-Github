@@ -3626,3 +3626,48 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-size: 0.68rem;
     color: var(--muted);
 }
+
+/* ------------------------------------------------------------
+   Messenger (2026-09-26, docs/specs/MESSENGER.md) — list + thread.
+   Desktop: two columns. ≤860px: list OR thread (back link).
+   ------------------------------------------------------------ */
+.messenger { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: var(--space-4); align-items: start; }
+.messenger-list, .messenger-thread { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-card); padding: var(--space-3); min-width: 0; }
+.messenger-filters { display: flex; gap: var(--space-3); margin: var(--space-2) 0; font-size: 0.875rem; }
+.messenger-filters a { color: var(--muted); text-decoration: none; }
+.messenger-filters a.active { color: var(--accent); font-weight: 700; }
+.message-tabs a.messenger-requests-new { background: var(--attention-bg); color: var(--attention-text); }
+.messenger-conversations { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-1); }
+.messenger-conversations li { display: flex; align-items: center; gap: var(--space-1); }
+.messenger-conversation { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-control); color: inherit; text-decoration: none; }
+.messenger-conversation:hover, .messenger-conversation.active { background: var(--accent-light); }
+.messenger-conversation.unread .messenger-conversation-name { font-weight: 700; }
+.messenger-avatar { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; background: var(--ink); color: var(--card-bg); font-weight: 700; }
+.messenger-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.messenger-conversation-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.messenger-snippet { font-size: 0.875rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.messenger-placeholder { margin: var(--space-6) 0; text-align: center; }
+.messenger-thread-header { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); border-bottom: 1px solid var(--border); padding-bottom: var(--space-2); }
+.messenger-thread-actions { margin-left: auto; display: flex; gap: var(--space-2); }
+.messenger-thread-actions form { margin: 0; }
+.messenger-back { display: none; }
+.messenger-request-banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--radius-control); background: var(--attention-bg); color: var(--attention-text); }
+.messenger-request-banner p { flex: 1 1 100%; margin: 0; }
+.messenger-request-banner form { margin: 0; }
+.messenger-messages { list-style: none; padding: 0; margin: var(--space-3) 0; display: flex; flex-direction: column; gap: var(--space-2); max-height: 60vh; overflow-y: auto; }
+.messenger-message { display: flex; flex-direction: column; align-items: flex-start; max-width: 80%; }
+.messenger-message.mine { align-self: flex-end; align-items: flex-end; }
+.messenger-bubble { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-card); background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; }
+.messenger-message.mine .messenger-bubble { background: var(--accent); color: var(--card-bg); }
+.messenger-time, .messenger-context, .messenger-report summary { font-size: 0.75rem; color: var(--muted); }
+.messenger-report summary { cursor: pointer; }
+.messenger-composer { display: flex; align-items: flex-end; gap: var(--space-2); }
+.messenger-composer-label { flex: 1; margin: 0; }
+.messenger-composer textarea { width: 100%; }
+@media (max-width: 860px) {
+    .messenger { grid-template-columns: minmax(0, 1fr); }
+    .messenger-has-thread .messenger-list { display: none; }
+    .messenger:not(.messenger-has-thread) .messenger-thread { display: none; }
+    .messenger-back { display: inline; flex: 1 1 100%; }
+    .messenger-message { max-width: 92%; }
+}
