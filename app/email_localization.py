@@ -6,8 +6,8 @@ fall back to English deliberately.
 """
 from html import escape
 
-# es (2026-09-26): added language — e-mails too (docs/I18N.md phase 3).
-EMAIL_LANGUAGES = {"de", "en", "fr", "it", "pt", "es"}
+# es, ro (2026-09-26): added languages — e-mails too (docs/I18N.md phase 3).
+EMAIL_LANGUAGES = {"de", "en", "fr", "it", "pt", "es", "ro"}
 
 # "This link is valid for N hours." as one sentence per language (it used to
 # end in English "hours" for everyone — "Dieser Link ist 24 hours.").
@@ -18,6 +18,7 @@ _VALID_FOR = {
     "it": "Questo link è valido per {hours} ore.",
     "pt": "Este link é válido por {hours} horas.",
     "es": "Este enlace es válido durante {hours} horas.",
+    "ro": "Acest link este valabil {hours} ore.",
 }
 
 
@@ -35,6 +36,7 @@ def verification_email(language: str | None, name: str, url: str, hours: int) ->
         "it": ("Conferma il tuo indirizzo e-mail", "Ciao", "Conferma il tuo indirizzo e-mail VokalBoard.", "Questo link è valido per"),
         "pt": ("Confirme seu e-mail", "Olá", "Confirme seu endereço de e-mail do VokalBoard.", "Este link é válido por"),
         "es": ("Confirma tu dirección de correo", "Hola", "Confirma tu dirección de correo de VokalBoard.", ""),
+        "ro": ("Confirmă-ți adresa de e-mail", "Bună", "Confirmă-ți adresa de e-mail pentru VokalBoard.", ""),
     }[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {safe_name},</p><p>{copy[2]}</p><p><a href=\"{safe_url}\">{safe_url}</a></p><p>{_VALID_FOR[lang].format(hours=hours)}</p>"
 
@@ -49,6 +51,7 @@ def password_reset_email(language: str | None, name: str, url: str, hours: int) 
         "it": ("Reimposta la password", "Ciao", "Usa questo link per impostare una nuova password."),
         "pt": ("Redefina sua senha", "Olá", "Use este link para definir uma nova senha."),
         "es": ("Restablece tu contraseña", "Hola", "Usa este enlace para establecer una contraseña nueva."),
+        "ro": ("Resetează-ți parola", "Bună", "Folosește acest link pentru a seta o parolă nouă."),
     }[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {safe_name},</p><p>{copy[2]}</p><p><a href=\"{safe_url}\">{safe_url}</a></p><p>{_VALID_FOR[lang].format(hours=hours)}</p>"
 
@@ -63,6 +66,7 @@ def new_message_email(language: str | None, recipient_name: str, sender_name: st
         "it": ("Nuovo messaggio da", "Ciao", "ti ha inviato un nuovo messaggio su VokalBoard."),
         "pt": ("Nova mensagem de", "Olá", "enviou uma nova mensagem no VokalBoard."),
         "es": ("Nuevo mensaje de", "Hola", "te envió un mensaje nuevo en VokalBoard."),
+        "ro": ("Mesaj nou de la", "Bună", "ți-a trimis un mesaj nou pe VokalBoard."),
     }[lang]
     return f"{copy[0]} {sender_name} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p><strong>{sender}</strong> {copy[2]}</p><p><a href=\"{url}\">{url}</a></p>"
 
@@ -79,6 +83,7 @@ def invitation_received_email(language: str | None, recipient_name: str, listing
         "it": ("Nuovo invito", "Ciao", "Sei stato/a invitato/a a un posto:", "Rispondi entro 48 ore."),
         "pt": ("Novo convite", "Olá", "Você foi convidado(a) para uma vaga:", "Responda em até 48 horas."),
         "es": ("Nueva invitación", "Hola", "Te han invitado a una vacante:", "Responde en un plazo de 48 horas."),
+        "ro": ("Invitație nouă", "Bună", "Ai fost invitat(ă) la un post:", "Răspunde în 48 de ore."),
     }[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p>{copy[2]} <strong>{title}</strong></p><p><a href=\"{safe_url}\">{safe_url}</a></p><p>{copy[3]}</p>"
 
@@ -94,6 +99,7 @@ def application_received_email(language: str | None, recipient_name: str, artist
         "it": ("Nuova candidatura", "Ciao", "si è candidato/a a un posto in", "."),
         "pt": ("Nova candidatura", "Olá", "se candidatou a uma vaga em", "."),
         "es": ("Nueva candidatura", "Hola", "se postuló a una vacante en", "."),
+        "ro": ("Candidatură nouă", "Bună", "a aplicat la un post din", "."),
     }[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p><strong>{artist}</strong> {copy[2]} <strong>{title}</strong>{copy[3]}</p><p><a href=\"{safe_url}\">{safe_url}</a></p>"
 
@@ -110,6 +116,7 @@ def invitation_response_email(language: str | None, recipient_name: str, listing
         "it": "accettata" if accepted else "rifiutata",
         "pt": "aceita" if accepted else "recusada",
         "es": "aceptada" if accepted else "rechazada",
+        "ro": "acceptată" if accepted else "refuzată",
     }[lang]
     copy = {
         "de": ("Antwort erhalten", "Hallo", "Deine Anfrage für", "wurde"),
@@ -118,6 +125,7 @@ def invitation_response_email(language: str | None, recipient_name: str, listing
         "it": ("Risposta ricevuta", "Ciao", "La tua richiesta per", "è stata"),
         "pt": ("Resposta recebida", "Olá", "Sua solicitação para", "foi"),
         "es": ("Respuesta recibida", "Hola", "Tu solicitud para", "fue"),
+        "ro": ("Răspuns primit", "Bună", "Cererea ta pentru", "a fost"),
     }[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p>{copy[2]} <strong>{title}</strong> {copy[3]} <strong>{status_word}</strong>.</p><p><a href=\"{safe_url}\">{safe_url}</a></p>"
 
@@ -136,9 +144,10 @@ def vacancy_filled_email(language: str | None, recipient_name: str, listing_titl
         "it": ("Posto già assegnato", "Ciao", "è stato nel frattempo assegnato a qualcun altro. Grazie per l'interesse!"),
         "pt": ("Vaga já preenchida", "Olá", "já foi preenchida por outra pessoa. Obrigado pelo interesse!"),
         "es": ("Vacante ya cubierta", "Hola", "ya fue cubierta por otra persona. ¡Gracias por tu interés!"),
+        "ro": ("Post deja ocupat", "Bună", "a fost între timp ocupat de altcineva. Mulțumim pentru interes!"),
     }[lang]
     prefix = {"de": "Die Vakanz in", "en": "The vacancy in", "fr": "Le poste dans", "it": "Il posto in",
-              "pt": "A vaga em", "es": "La vacante en"}[lang]
+              "pt": "A vaga em", "es": "La vacante en", "ro": "Postul din"}[lang]
     return f"{copy[0]} — VokalBoard", f"<p>{copy[1]} {recipient},</p><p>{prefix} <strong>{title}</strong> {copy[2]}</p>"
 
 
@@ -160,6 +169,7 @@ def match_evaluation_reminder_email(language: str | None, recipient_name: str, c
         "it": ("Com'è andata la tua esperienza?", "Ciao", f"Com'è andata la tua esperienza? Valuta {counterpart}!", "Valuta ora"),
         "pt": ("Como foi sua experiência?", "Olá", f"Como foi sua experiência? Avalie {counterpart}!", "Avaliar agora"),
         "es": ("¿Qué tal fue tu experiencia?", "Hola", f"¿Qué tal fue tu experiencia? ¡Valora a {counterpart}!", "Valorar ahora"),
+        "ro": ("Cum a fost experiența ta?", "Bună", f"Cum a fost experiența ta? Evaluează-l/o pe {counterpart}!", "Evaluează acum"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -182,6 +192,7 @@ def match_invoice_requested_email(language: str | None, recipient_name: str, cou
         "it": ("Fattura richiesta", "Ciao", f"{counterpart} ha richiesto una fattura per “{title}”.", "Apri"),
         "pt": ("Rechnung solicitada", "Olá", f"{counterpart} pediu uma Rechnung para “{title}”.", "Abrir"),
         "es": ("Factura solicitada", "Hola", f"{counterpart} solicitó una factura para “{title}”.", "Abrir"),
+        "ro": ("Factură solicitată", "Bună", f"{counterpart} a solicitat o factură pentru „{title}”.", "Deschide"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -203,6 +214,7 @@ def match_invoice_ready_for_review_email(language: str | None, recipient_name: s
         "it": ("Fattura pronta per la revisione", "Ciao", f"{counterpart} ha preparato una fattura per “{title}” — controllala e confermala.", "Rivedi"),
         "pt": ("Rechnung pronta para revisão", "Olá", f"{counterpart} preparou uma Rechnung para “{title}” — revise e confirme.", "Revisar"),
         "es": ("Factura lista para revisar", "Hola", f"{counterpart} preparó una factura para “{title}”: revísala y confírmala.", "Revisar"),
+        "ro": ("Factură gata de verificare", "Bună", f"{counterpart} a pregătit o factură pentru „{title}” — verific-o și confirm-o.", "Verifică"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -223,6 +235,7 @@ def match_invoice_confirmed_email(language: str | None, recipient_name: str, pro
         "it": ("La tua fattura è pronta", "Ciao", f"In allegato la fattura per “{title}”. VokalBoard non conserva alcuna copia."),
         "pt": ("Sua Rechnung está pronta", "Olá", f"Em anexo está a Rechnung de “{title}”. O VokalBoard não guarda nenhuma cópia."),
         "es": ("Tu factura está lista", "Hola", f"Adjunta encontrarás la factura de “{title}”. VokalBoard no guarda ninguna copia."),
+        "ro": ("Factura ta este gata", "Bună", f"Găsești atașată factura pentru „{title}”. VokalBoard nu păstrează nicio copie."),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -245,6 +258,7 @@ def match_invoice_expired_email(language: str | None, recipient_name: str, produ
         "it": ("Bozza di fattura scaduta", "Ciao", f"La bozza di fattura per “{title}” non è stata confermata entro 7 giorni ed è stata eliminata automaticamente. Puoi richiederne una nuova se serve ancora.", "Richiedi di nuovo"),
         "pt": ("Rascunho de Rechnung expirado", "Olá", f"O rascunho de Rechnung de “{title}” não foi confirmado em 7 dias e foi apagado automaticamente. Você pode pedir uma nova, se ainda for necessário.", "Pedir de novo"),
         "es": ("Borrador de factura caducado", "Hola", f"El borrador de factura de “{title}” no se confirmó en 7 días y se eliminó automáticamente. Puedes solicitar una nueva si todavía la necesitas.", "Solicitar de nuevo"),
+        "ro": ("Ciorna facturii a expirat", "Bună", f"Ciorna facturii pentru „{title}” nu a fost confirmată în 7 zile și a fost ștearsă automat. Poți solicita una nouă dacă mai este nevoie.", "Solicită din nou"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",
@@ -268,6 +282,7 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
             "it": f"la tua segnalazione su “{title}” è stata esaminata e sono state prese delle misure. Grazie per aiutarci a mantenere sicuro VokalBoard.",
             "pt": f"sua denúncia sobre “{title}” foi analisada e uma ação foi tomada. Obrigado por ajudar a manter o VokalBoard seguro.",
             "es": f"tu denuncia sobre “{title}” ha sido revisada y se han tomado medidas. Gracias por ayudar a mantener VokalBoard seguro.",
+            "ro": f"raportul tău despre „{title}” a fost analizat și s-au luat măsuri. Mulțumim că ajuți la menținerea siguranței pe VokalBoard.",
         }[lang]
     else:
         body = {
@@ -277,6 +292,7 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
             "it": f"la tua segnalazione su “{title}” è stata esaminata. Non abbiamo riscontrato una violazione delle nostre regole.",
             "pt": f"sua denúncia sobre “{title}” foi analisada. Não encontramos uma violação das nossas regras nesse caso.",
             "es": f"tu denuncia sobre “{title}” ha sido revisada. No encontramos ninguna infracción de nuestras normas.",
+            "ro": f"raportul tău despre „{title}” a fost analizat. Nu am găsit o încălcare a regulilor noastre.",
         }[lang]
     subject = {
         "de": "Deine Meldung wurde geprüft",
@@ -285,8 +301,9 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
         "it": "La tua segnalazione è stata esaminata",
         "pt": "Sua denúncia foi analisada",
         "es": "Tu denuncia ha sido revisada",
+        "ro": "Raportul tău a fost analizat",
     }[lang]
-    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola"}[lang]
+    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola", "ro": "Bună"}[lang]
     return f"{subject} — VokalBoard", f"<p>{greeting} {recipient},</p><p>{body}</p>"
 
 
@@ -330,6 +347,11 @@ def moderation_punishment_email(language: str | None, recipient_name: str, listi
             "suspend": f"tras revisar una denuncia sobre “{title}”, tu cuenta ha sido suspendida temporalmente. Puedes reactivarla iniciando sesión de nuevo.",
             "ban": "tras revisar una denuncia, tu cuenta ha sido bloqueada de forma permanente. Esta decisión es definitiva.",
         },
+        "ro": {
+            "warning": f"am analizat un raport despre „{title}” și am emis un avertisment. Asigură-te că viitoarele conținuturi respectă regulile noastre.",
+            "suspend": f"după analizarea unui raport despre „{title}”, contul tău a fost suspendat temporar. Îl poți reactiva autentificându-te din nou.",
+            "ban": "după analizarea unui raport, contul tău a fost blocat definitiv. Această decizie este finală.",
+        },
     }
     subjects = {
         "de": {"warning": "Verwarnung erhalten", "suspend": "Konto vorübergehend deaktiviert", "ban": "Konto dauerhaft gesperrt"},
@@ -338,8 +360,9 @@ def moderation_punishment_email(language: str | None, recipient_name: str, listi
         "it": {"warning": "Hai ricevuto un avvertimento", "suspend": "Il tuo account è stato sospeso", "ban": "Il tuo account è stato bannato"},
         "pt": {"warning": "Você recebeu um aviso", "suspend": "Sua conta foi suspensa", "ban": "Sua conta foi banida"},
         "es": {"warning": "Has recibido una advertencia", "suspend": "Tu cuenta ha sido suspendida", "ban": "Tu cuenta ha sido bloqueada"},
+        "ro": {"warning": "Ai primit un avertisment", "suspend": "Contul tău a fost suspendat", "ban": "Contul tău a fost blocat"},
     }
-    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola"}[lang]
+    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola", "ro": "Bună"}[lang]
     subject = subjects[lang][punishment]
     body = bodies[lang][punishment]
     return f"{subject} — VokalBoard", f"<p>{greeting} {recipient},</p><p>{body}</p>"
@@ -360,6 +383,7 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "it": "Questo ticket è ora contrassegnato come risolto." if resolved else "Lo lasciamo aperto nel caso ci sia ancora qualcosa da chiarire.",
         "pt": "Esse ticket agora está marcado como resolvido." if resolved else "Deixamos ele em aberto, caso ainda falte esclarecer algo.",
         "es": "Este ticket ya está marcado como resuelto." if resolved else "Lo dejamos abierto por si queda algo por aclarar.",
+        "ro": "Acest tichet este acum marcat ca rezolvat." if resolved else "Îl lăsăm deschis în caz că mai este ceva de clarificat.",
     }[lang]
     intro = {
         "de": "wir haben auf dein Ticket geantwortet:",
@@ -368,6 +392,7 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "it": "abbiamo risposto al tuo ticket:",
         "pt": "respondemos seu ticket:",
         "es": "respondimos a tu ticket:",
+        "ro": "am răspuns la tichetul tău:",
     }[lang]
     subject = {
         "de": "Antwort auf dein Ticket",
@@ -376,8 +401,9 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "it": "Risposta al tuo ticket",
         "pt": "Resposta ao seu ticket",
         "es": "Respuesta a tu ticket",
+        "ro": "Răspuns la tichetul tău",
     }[lang]
-    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola"}[lang]
+    greeting = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola", "ro": "Bună"}[lang]
     return (
         f"{subject} — VokalBoard",
         f"<p>{greeting} {recipient},</p><p>{intro}</p><p>{response}</p><p>{closing}</p>",
@@ -398,6 +424,7 @@ def notas_expiring_email(language: str | None, recipient_name: str, amount: str,
         "it": ("Le tue Notas scadono presto", "Ciao", f"{amount} delle tue Notas guadagnate scadono il {date}. Usale prima — le Notas acquistate non scadono mai.", "Vai alle mie Notas"),
         "pt": ("Suas Notas vão expirar em breve", "Olá", f"{amount} das suas Notas ganhas expiram em {date}. Use-as antes disso — Notas compradas nunca expiram.", "Ver minhas Notas"),
         "es": ("Tus Notas caducan pronto", "Hola", f"{amount} de tus Notas ganadas caducan el {date}. Úsalas antes: las Notas compradas nunca caducan.", "Ver mis Notas"),
+        "ro": ("Notas tale expiră în curând", "Bună", f"{amount} dintre Notas câștigate expiră pe {date}. Folosește-le înainte — Notas cumpărate nu expiră niciodată.", "Vezi Notas mele"),
     }[lang]
     return (
         f"{copy[0]} — VokalBoard",

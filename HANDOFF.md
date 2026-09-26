@@ -1,11 +1,11 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-26 — Claude (#55 done: one source for listing voice/fee; Spanish UI 100%; Messenger + Notas v2 earlier today). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-26 — Claude (Spanish + Romanian complete: UI + e-mails; #55, Messenger, Notas v2 earlier today). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, not pushed. Everything below is committed.
-- **Tests GREEN:** 330 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
+- **Tests GREEN:** 332 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
 - Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — production deps clean; dev `pytest` bumped 8.3.3 → 9.0.3 (advisory PYSEC-2026-1845), suite passes on it.
 - Static assets are cache-versioned: style.css `?v=20260926-4`, brand.css `-1`, listing-form.js `-2`, messenger.js `-3`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
@@ -16,7 +16,7 @@
 ## 3. Next up
 1. **Notas v2 go-live (N6) — Daniel:** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
 2. **Messenger DONE (M1–M6)** — `docs/specs/MESSENGER.md` (as-built notes at the top). Goes live with the pending migration (§7). Suggested follow-up when Daniel wants: a browser pass on real phones.
-3. **Languages:** es DONE — UI 694/694 + all e-mails (AI draft; native review still to do). Next: ro → zh → ko (694 public keys each).
+3. **Languages:** es + ro DONE — UI 694/694 + all e-mails (AI drafts; native review still to do). Next: zh → ko (need a bundled CJK font first, `docs/I18N.md` phase 4).
 4. Confirm the Railway `retention_worker` service runs — it now also does the account purge, Notas expiry and the 60-day conversation deletion.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)

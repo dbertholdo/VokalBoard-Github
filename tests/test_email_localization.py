@@ -27,3 +27,9 @@ def test_spanish_emails_and_fixed_sentences():
     assert "Dieser Link ist 24 Stunden gültig." in verification_email("de", "Anna", "https://example.test/v", 24)[1]
     assert "Die Vakanz in" in vacancy_filled_email("de", "Anna", "Requiem")[1]
     assert "A vaga em" not in vacancy_filled_email("en", "Ann", "Requiem")[1]
+
+
+def test_romanian_emails():
+    assert email_language("ro") == "ro"
+    subject, body = verification_email("ro", "Ana", "https://example.test/v", 24)
+    assert subject.startswith("Confirmă-ți adresa de e-mail") and "valabil 24 ore" in body

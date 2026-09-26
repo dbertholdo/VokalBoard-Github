@@ -9,6 +9,10 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Romanian complete (UI 694/694 + e-mails)
+- `app/locales/ro.json`: all public keys in 6 validated batches; informal "tu", comma-below ș/ț, glossary kept, fee = "onorariu", "negociabil". `ro` added to `EMAIL_LANGUAGES` with copy in all e-mail functions.
+- Rendered /, /board, /login, /register in ro: no raw keys. Tests +1; 332 passed + 10 retention. AI draft — native review pending. Next languages: zh → ko (CJK font first).
+
 ## 2026-09-26 — Claude — Spanish e-mails (+ 2 e-mail bugs fixed)
 - `app/email_localization.py`: "es" copy in all 15 e-mail functions; `es` in `EMAIL_LANGUAGES` (guard test covers every function/variant).
 - Fixed: "vacancy filled" e-mail had hardcoded Portuguese ("A vaga em") for every language; verification/password-reset ended in English "N hours" for everyone ("Dieser Link ist 24 hours.") → one full sentence per language (`_VALID_FOR`).
