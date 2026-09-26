@@ -3676,3 +3676,26 @@ form button.link-button:hover { color: var(--accent-dark); }
 .badge-count.badge-alert { background: var(--error-text); color: var(--card-bg); }
 .sidebar-toggle { position: relative; }
 .sidebar-toggle-badge { position: absolute; top: -6px; right: -6px; margin: 0; }
+
+/* Messenger desktop dock (M5): popup bubble + small chat windows, bottom
+   right, clear of the floating "Report a bug" button. Desktop only. */
+.chat-dock { position: fixed; right: calc(var(--space-4) + 64px); bottom: 0; z-index: 900; display: flex; flex-direction: row-reverse; align-items: flex-end; gap: var(--space-2); pointer-events: none; }
+.chat-dock > * { pointer-events: auto; }
+.chat-bubble { display: flex; align-items: flex-start; gap: var(--space-1); max-width: 300px; margin-bottom: var(--space-4); padding: var(--space-2); background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: 0 12px 28px -14px rgba(23, 40, 63, 0.45); }
+.chat-bubble-open { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.chat-bubble-snippet { font-size: 0.875rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.chat-bubble-close, .chat-window-btn { min-width: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+.chat-window { display: flex; flex-direction: column; width: 320px; height: 420px; background: var(--card-bg); border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius-card) var(--radius-card) 0 0; box-shadow: 0 12px 28px -14px rgba(23, 40, 63, 0.45); }
+.chat-window.minimized { height: auto; }
+.chat-window.minimized .chat-window-messages, .chat-window.minimized .chat-window-composer { display: none; }
+.chat-window-header { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); background: var(--ink); color: var(--card-bg); border-radius: var(--radius-card) var(--radius-card) 0 0; cursor: pointer; }
+.chat-window-title { flex: 1; min-width: 0; color: inherit; font-weight: 700; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-window-title:visited, .chat-window-title:hover { color: inherit; }
+.chat-window-messages { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); }
+.chat-window-message { display: flex; flex-direction: column; align-items: flex-start; max-width: 85%; }
+.chat-window-message.mine { align-self: flex-end; align-items: flex-end; }
+.chat-window-message.mine .messenger-bubble { background: var(--accent); color: var(--card-bg); }
+.chat-window-error { font-size: 0.75rem; color: var(--error-text); }
+.chat-window-composer { display: flex; align-items: flex-end; gap: var(--space-1); padding: var(--space-2); border-top: 1px solid var(--border); }
+.chat-window-composer textarea { flex: 1; min-height: 40px; resize: none; }
+@media (max-width: 1023px) { .chat-dock { display: none; } }

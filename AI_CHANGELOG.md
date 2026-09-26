@@ -9,6 +9,10 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — Messenger M5: desktop bubble + chat windows
+- `messenger.js` dock: popup bubble on a new message → click opens a 320×420 chat window bottom-right (navy header: name, minimize, close), up to 3, restored across pages (sessionStorage) and when a window becomes wide; minimized windows only peek (`/since?peek=1`, nothing marked read). JSON send `POST /messages/c/{id}/post` (CSRF, same rules/side effects as the page). Dock not rendered on /messages pages; hidden < 1024 px. CSS cache `-4`, JS `-3`.
+- Browser-verified (Chromium 1280 px): bubble → window → reply (accepts the request) → minimize → survives navigation → close; dock hidden at 390 px. Tests +2. Next: M6.
+
 ## 2026-09-26 — Claude — Messenger M4: live updates
 - `messenger.poll_summary()` + `unread_messages_notification()` (synthetic, after 5 minutes unread); `render.py` uses them (header count = unread chats + requests). JSON `/messages/unread-count`, `/messages/c/{id}/since` (participants only). The immediate "new_message" bell entry is gone (Daniel: after 5 minutes).
 - `app/static/js/messenger.js`: badge every 60 s, open thread every 5 s → 30 s when idle, paused in background tabs; textContent only. Red `.badge-alert` on Messages links and on ☰ (phones). CSS cache `20260926-3`.

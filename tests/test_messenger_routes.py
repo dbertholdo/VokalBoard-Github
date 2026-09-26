@@ -111,3 +111,30 @@ def test_notification_center_shows_messages_unread_for_5_minutes_only():
 
     execute("UPDATE messages SET created_at = now() - interval '6 minutes' WHERE recipient_id = :b", {"b": b})
     assert "You have 1 unread message(s)." in bob.get("/board?lang=en").text
+
+
+def test_chat_window_json_post_and_peek():
+    alice, a = _person("Dock A")
+    bob, b = _person("Dock B")
+    m.send_message(a, b, "Hi")
+    _, conv = m.send_message(b, a, "Hello")
+    token = extract_csrf(alice.get("/board").text)
+
+    ok = alice.post(f"/messages/c/{conv}/post", data={"csrf_token": token, "body": "From the small window"})
+    assert ok.json() == {"status": "sent"}
+    # Bob's minimized window peeks: sees the new message but nothing becomes read.
+    unread_before = bob.get("/messages/unread-count").json()["total"]
+    peek = bob.get(f"/messages/c/{conv}/since?after=0&peek=1").json()
+    assert "From the small window" in [x["body"] for x in peek["messages"]] and peek["other_name"] == "Dock A"
+    assert bob.get("/messages/unread-count").json()["total"] == unread_before >= 1
+
+    eve, _ = _person("Dock Outsider")
+    eve_token = extract_csrf(eve.get("/board").text)
+    assert eve.post(f"/messages/c/{conv}/post", data={"csrf_token": eve_token, "body": "x"}).status_code == 404
+
+
+def test_dock_is_rendered_outside_messages_pages_only():
+    alice, _ = _person("Dock Render")
+    assert 'id="vb-chat-dock"' in alice.get("/board").text
+    assert 'id="vb-chat-dock"' not in alice.get("/messages").text
+    assert 'id="vb-chat-dock"' not in TestClient(app).get("/board").text  # logged out

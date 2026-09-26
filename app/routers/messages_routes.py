@@ -127,20 +127,24 @@ def send_message(
         return RedirectResponse(url=f"/messages/c/{conversation_id}?notice=request_pending", status_code=303)
     if status not in ("sent", "request_sent"):
         return RedirectResponse(url="/messages", status_code=303)
+    _after_send(request, background_tasks, user, recipient_id)
+    return RedirectResponse(url=f"/messages/c/{conversation_id}", status_code=303)
 
+
+def _after_send(request: Request, background_tasks: BackgroundTasks, user: dict, recipient_id: int) -> None:
+    """Side effects of a delivered message. No immediate bell notification:
+    the Notification Center shows unread messages after 5 minutes
+    (messenger.unread_messages_notification)."""
     recipient = fetch_one(
         "SELECT email, full_name, email_verified, notify_messages, preferred_language FROM users WHERE id = :id",
         {"id": recipient_id},
     )
-    # No immediate bell notification: the Notification Center shows unread
-    # messages after 5 minutes (messenger.unread_messages_notification).
     if recipient["email_verified"] and recipient["notify_messages"]:
         background_tasks.add_task(
             notify_new_message, str(request.base_url), recipient["email"],
             recipient["full_name"], user["full_name"], recipient.get("preferred_language"),
         )
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
-    return RedirectResponse(url=f"/messages/c/{conversation_id}", status_code=303)
 
 
 def _conversation_action(request: Request, conversation_id: int, csrf_token: str, action, done_url: str):
@@ -190,18 +194,43 @@ def unread_count(request: Request):
 
 
 @router.get("/messages/c/{conversation_id}/since")
-def conversation_since(request: Request, conversation_id: int, after: int = 0):
+def conversation_since(request: Request, conversation_id: int, after: int = 0, peek: int = 0):
+    """New messages after `after`. `peek=1` (minimized chat window) counts
+    without marking anything as read."""
     user = get_current_user(request)
     if not user:
         return JSONResponse({"error": "login"}, status_code=401)
     if not messenger.conversation_for(user["id"], conversation_id):
         return JSONResponse({"error": "not_found"}, status_code=404)
-    rows = messenger.thread(user["id"], conversation_id, after_id=after)
-    return JSONResponse({"messages": [
+    conversation = messenger.conversation_for(user["id"], conversation_id)
+    other_id = conversation["user_high_id"] if conversation["user_low_id"] == user["id"] else conversation["user_low_id"]
+    other = fetch_one("SELECT full_name FROM users WHERE id = :id", {"id": other_id})
+    rows = messenger.thread(user["id"], conversation_id, after_id=after, mark_read=not peek)
+    return JSONResponse({"other_name": other["full_name"] if other else "", "messages": [
         {"id": r["id"], "body": r["body"], "mine": r["mine"], "listing_title": r["listing_title"],
          "time": r["created_at"].strftime("%d.%m. %H:%M")}
         for r in rows
     ]})
+
+
+@router.post("/messages/c/{conversation_id}/post")
+def conversation_post(request: Request, background_tasks: BackgroundTasks, conversation_id: int,
+                      csrf_token: str = Form(""), body: str = Form("")):
+    """JSON send used by the desktop chat window (M5)."""
+    verify_csrf(request, csrf_token)
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"status": "login"}, status_code=401)
+    if not user["email_verified"]:
+        return JSONResponse({"status": "verify_required"}, status_code=403)
+    conversation = messenger.conversation_for(user["id"], conversation_id)
+    if not conversation:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    other_id = conversation["user_high_id"] if conversation["user_low_id"] == user["id"] else conversation["user_low_id"]
+    status, _ = messenger.send_message(user["id"], other_id, body)
+    if status in ("sent", "request_sent"):
+        _after_send(request, background_tasks, user, other_id)
+    return JSONResponse({"status": status}, status_code=429 if status.startswith("rate_limited") else 200)
 
 
 # ---- Old URLs (pre-Messenger folders / single messages) --------------------
