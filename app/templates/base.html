@@ -51,7 +51,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/img/brand/icon-small-navy.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/img/brand/icon-32.png">
     <link rel="apple-touch-icon" href="/static/img/brand/icon-256.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=20260926-2">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260926-3">
     <link rel="stylesheet" href="/static/css/brand.css?v=20260926-1">
 
     {# ------------------------------------------------------------
@@ -212,6 +212,8 @@
         {% if user %}
             <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="{{ t('nav_menu_toggle') }}" aria-expanded="false" aria-controls="side-nav">
                 <span></span><span></span><span></span>
+                {# Messenger: unread count on ☰ for phones, where Messages lives in the side menu. #}
+                <span class="badge-count badge-alert sidebar-toggle-badge" data-messages-badge {% if not unread_count %}hidden{% endif %}>{{ unread_count or 0 }}</span>
             </button>
         {% endif %}
         <a class="brand" href="/" aria-label="VokalBoard"><img class="brand-lockup" src="/static/img/brand/vokalboard-lockup-navy.svg" alt="VokalBoard" width="200" height="56"></a>
@@ -228,7 +230,7 @@
                     <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
                 </details>
                 <span class="nav-sep" aria-hidden="true">|</span>
-                <a class="nav-dup" href="/messages">{{ t('nav_messages') }}{% if unread_count and unread_count > 0 %} <span class="badge-count">{{ unread_count }}</span>{% endif %}</a>
+                <a class="nav-dup" href="/messages">{{ t('nav_messages') }}<span class="badge-count badge-alert" data-messages-badge {% if not unread_count %}hidden{% endif %}>{{ unread_count or 0 }}</span></a>
                 <span class="nav-sep" aria-hidden="true">|</span>
                 <a class="nav-dup" href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
                 {% if user.role_level and user.role_level >= 1 %}<span class="nav-sep" aria-hidden="true">|</span><a href="/admin">Admin</a>{% endif %}
@@ -605,5 +607,6 @@
             });
         })();
     </script>
+{% if user %}<script src="/static/js/messenger.js?v=20260926-1" defer></script>{% endif %}
 </body>
 </html>

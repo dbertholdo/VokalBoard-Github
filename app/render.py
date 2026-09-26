@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.i18n import translate, SUPPORTED_LANGUAGES, LANGUAGE_META
 from app.i18n_locales import page_language
+from app.messenger import unread_counts, unread_messages_notification
 from app.csrf import get_or_create_csrf_token
 from app.database import fetch_one, execute
 from app.captcha import HONEYPOT_FIELD, TURNSTILE_SITE_KEY, captcha_enabled
@@ -141,11 +142,9 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     context["has_active_subscription"] = False
     context["mascot_reminder_key"] = None
     if user_id:
-        row = fetch_one(
-            "SELECT count(*) AS n FROM visible_messages WHERE recipient_id = :id AND recipient_status = 'active' AND read_at IS NULL",
-            {"id": user_id},
-        )
-        context["unread_count"] = row["n"] if row else 0
+        # Messenger: unread chat messages + pending requests (app/messenger.py).
+        message_counts = unread_counts(user_id)
+        context["unread_count"] = message_counts["inbox"] + message_counts["requests"]
 
         # P3.B nav badge: convites recebidos (I'm the artist, someone
         # else started it) + candidaturas recebidas (I'm the
@@ -189,6 +188,11 @@ def render(request: Request, template_name: str, context: dict | None = None, st
         synthetic_notification = profile_incomplete_notification(context["user"]) if context.get("user") else None
         if synthetic_notification:
             notifications.insert(0, synthetic_notification)
+            context["notification_unread_count"] += 1
+        # Messenger: a message unread for 5+ minutes shows up here too.
+        unread_messages = unread_messages_notification(user_id)
+        if unread_messages:
+            notifications.insert(0, unread_messages)
             context["notification_unread_count"] += 1
         context["notifications"] = notifications
 

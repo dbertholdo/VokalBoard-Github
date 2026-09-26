@@ -80,7 +80,7 @@
                 </div>
             {% endif %}
 
-            <ol class="messenger-messages" data-conversation-id="{{ conversation.id }}" data-last-id="{{ thread[-1].id if thread else 0 }}">
+            <ol class="messenger-messages" data-conversation-id="{{ conversation.id }}" data-last-id="{{ thread[-1].id if thread else 0 }}" data-about-label="{{ t('message_about_listing') }}">
                 {% for msg in thread %}
                 <li class="messenger-message {{ 'mine' if msg.mine else 'theirs' }}" data-message-id="{{ msg.id }}">
                     {% if msg.listing_title %}<span class="messenger-context">{{ t('message_about_listing') }}: {{ msg.listing_title }}</span>{% endif %}

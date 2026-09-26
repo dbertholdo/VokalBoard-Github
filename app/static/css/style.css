@@ -3671,3 +3671,8 @@ form button.link-button:hover { color: var(--accent-dark); }
     .messenger-back { display: inline; flex: 1 1 100%; }
     .messenger-message { max-width: 92%; }
 }
+/* Messenger badges (M4): red count on Messages links and on ☰ for phones. */
+.badge-count[hidden] { display: none; }
+.badge-count.badge-alert { background: var(--error-text); color: var(--card-bg); }
+.sidebar-toggle { position: relative; }
+.sidebar-toggle-badge { position: absolute; top: -6px; right: -6px; margin: 0; }

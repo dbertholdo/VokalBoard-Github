@@ -1518,6 +1518,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "it": "\"{item}\" è stato riscattato.",
         "pt": "\"{item}\" foi resgatado.",
     },
+    "notification_unread_messages": {"de": "Du hast {n} ungelesene Nachricht(en).", "en": "You have {n} unread message(s).", "fr": "Vous avez {n} message(s) non lu(s).", "it": "Hai {n} messaggio/i non letto/i.", "pt": "Você tem {n} mensagem(ns) não lida(s)."},
     "notification_new_message": {
         "de": "Neue Nachricht von {name}.",
         "en": "New message from {name}.",

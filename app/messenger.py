@@ -312,3 +312,47 @@ def unread_counts(user_id: int) -> dict:
         {"u": user_id},
     )
     return {"inbox": row["inbox"], "requests": row["requests"]}
+
+
+# ---------------------------------------------------------------------------
+# Live updates (M4): polling summary + the 5-minute Notification Center entry
+# ---------------------------------------------------------------------------
+
+_UNREAD_FOR_ME = """
+    FROM messages m JOIN conversations c ON c.id = m.conversation_id
+    JOIN users s ON s.id = m.sender_id
+    WHERE m.recipient_id = :u AND m.read_at IS NULL
+      AND c.last_activity_at + interval '60 days' > now()
+      AND c.declined_at IS NULL
+      AND (CASE WHEN c.user_low_id = :u THEN c.low_hidden_at ELSE c.high_hidden_at END) IS NULL
+"""
+
+
+def poll_summary(user_id: int) -> dict:
+    """For the badge/bubble poll: counts + the newest unread message."""
+    counts = unread_counts(user_id)
+    latest = fetch_one(
+        "SELECT m.id, m.conversation_id, left(m.body, 120) AS snippet, s.full_name AS sender_name" + _UNREAD_FOR_ME
+        + " ORDER BY m.id DESC LIMIT 1",  # nosec B608 - fixed fragment
+        {"u": user_id},
+    )
+    return {**counts, "total": counts["inbox"] + counts["requests"], "latest": dict(latest) if latest else None}
+
+
+def unread_messages_notification(user_id: int) -> dict | None:
+    """Synthetic Notification Center item (never stored), shaped like
+    profile_incomplete_notification(): appears once a message has been
+    unread for 5 minutes (Daniel, 2026-09-26), disappears when read."""
+    row = fetch_one(
+        "SELECT count(*) AS n, min(m.conversation_id) AS conversation_id" + _UNREAD_FOR_ME
+        + " AND m.created_at <= now() - interval '5 minutes'",  # nosec B608 - fixed fragment
+        {"u": user_id},
+    )
+    if not row or not row["n"]:
+        return None
+    link = f"/messages/c/{row['conversation_id']}" if row["n"] == 1 else "/messages"
+    return {
+        "id": None, "type": "new_message", "title_key": "notification_unread_messages",
+        "title_params": {"n": row["n"]}, "link_url": link, "icon": "icon-mail",
+        "read_at": None, "created_at": None, "synthetic": True,
+    }

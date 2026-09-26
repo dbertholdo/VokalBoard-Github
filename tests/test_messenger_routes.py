@@ -79,3 +79,35 @@ def test_retention_warning_shows_in_the_last_10_days():
     execute("UPDATE conversations SET last_activity_at = now() - interval '55 days' WHERE id = :c", {"c": conv})
     page = alice.get(f"/messages/c/{conv}").text
     assert "retention-warning" in page and ("5 days" in page or "5 Tagen" in page)
+
+
+def test_polling_endpoints_counts_latest_and_since():
+    alice, a = _person("Poll A")
+    bob, b = _person("Poll B")
+    _, conv = m.send_message(a, b, "First")
+    m.accept_request(b, conv)
+    m.send_message(a, b, "Second")
+
+    summary = bob.get("/messages/unread-count").json()
+    assert summary["total"] == 2 and summary["latest"]["snippet"] == "Second"
+    assert TestClient(app).get("/messages/unread-count").status_code == 401
+
+    first_id = fetch_one("SELECT min(id) AS id FROM messages WHERE conversation_id = :c", {"c": conv})["id"]
+    since = bob.get(f"/messages/c/{conv}/since?after={first_id}").json()["messages"]
+    assert [x["body"] for x in since] == ["Second"] and since[0]["mine"] is False
+    assert bob.get("/messages/unread-count").json()["total"] == 0  # reading via polling marks read
+
+    eve, _ = _person("Poll Outsider")
+    assert eve.get(f"/messages/c/{conv}/since").status_code == 404
+
+
+def test_notification_center_shows_messages_unread_for_5_minutes_only():
+    alice, a = _person("Notify A")
+    bob, b = _person("Notify B")
+    m.send_message(a, b, "Fresh")
+    assert fetch_one("SELECT count(*) AS n FROM notifications WHERE user_id = :b AND type = 'new_message'", {"b": b})["n"] == 0
+    page = bob.get("/board?lang=en").text
+    assert "unread message(s)" not in page
+
+    execute("UPDATE messages SET created_at = now() - interval '6 minutes' WHERE recipient_id = :b", {"b": b})
+    assert "You have 1 unread message(s)." in bob.get("/board?lang=en").text

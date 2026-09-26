@@ -5,14 +5,15 @@ lives in app/messenger.py. Old URLs (/messages/sent, /messages/trash,
 e-mails and notifications keep working.
 """
 from fastapi import APIRouter, BackgroundTasks, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+
+from fastapi.encoders import jsonable_encoder
 
 from app import messenger
 from app.auth import get_current_user
 from app.badges import check_and_notify_new_badges
 from app.csrf import verify_csrf
 from app.database import fetch_one
-from app.notification_center import create_notification
 from app.notifications import notify_new_message
 from app.render import render
 
@@ -131,10 +132,8 @@ def send_message(
         "SELECT email, full_name, email_verified, notify_messages, preferred_language FROM users WHERE id = :id",
         {"id": recipient_id},
     )
-    create_notification(
-        recipient_id, "new_message", "notification_new_message",
-        {"name": user["full_name"]}, link_url=f"/messages/c/{conversation_id}",
-    )
+    # No immediate bell notification: the Notification Center shows unread
+    # messages after 5 minutes (messenger.unread_messages_notification).
     if recipient["email_verified"] and recipient["notify_messages"]:
         background_tasks.add_task(
             notify_new_message, str(request.base_url), recipient["email"],
@@ -178,6 +177,31 @@ def report(request: Request, message_id: int, csrf_token: str = Form(""), reason
     row = fetch_one("SELECT conversation_id FROM visible_messages WHERE id = :id", {"id": message_id})
     target = f"/messages/c/{row['conversation_id']}" if row else "/messages"
     return RedirectResponse(url=f"{target}?notice=report_{result}", status_code=303)
+
+
+# ---- Live updates (polled by app/static/js/messenger.js) -------------------
+
+@router.get("/messages/unread-count")
+def unread_count(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "login"}, status_code=401)
+    return JSONResponse(jsonable_encoder(messenger.poll_summary(user["id"])))
+
+
+@router.get("/messages/c/{conversation_id}/since")
+def conversation_since(request: Request, conversation_id: int, after: int = 0):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "login"}, status_code=401)
+    if not messenger.conversation_for(user["id"], conversation_id):
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    rows = messenger.thread(user["id"], conversation_id, after_id=after)
+    return JSONResponse({"messages": [
+        {"id": r["id"], "body": r["body"], "mine": r["mine"], "listing_title": r["listing_title"],
+         "time": r["created_at"].strftime("%d.%m. %H:%M")}
+        for r in rows
+    ]})
 
 
 # ---- Old URLs (pre-Messenger folders / single messages) --------------------
