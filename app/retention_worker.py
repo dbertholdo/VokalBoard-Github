@@ -24,11 +24,9 @@ def run_retention(connection=None, dry_run=False):
     counts = {}
     predicates = {
         'listings': "COALESCE(available_until,event_date)+30 <= CURRENT_DATE",
-        'messages': "activity_at + interval '30 days' <= now()",
     }
     archive_dates = {
         'listings': '(COALESCE(available_until,event_date)+30)::timestamptz',
-        'messages': "activity_at + interval '30 days'",
     }
     for table, predicate in predicates.items():
         counts[table+'_archive'] = conn.execute(text(f'SELECT count(*) FROM {table} WHERE archived_at IS NULL AND {predicate}')).scalar()
@@ -39,6 +37,12 @@ def run_retention(connection=None, dry_run=False):
     # this is a direct DELETE, not the archive-then-purge two-step the
     # tables above use (there's no "final snapshot" worth keeping for
     # a notification once it's been read and aged out).
+    # Messenger (2026-09-26): a conversation (and its messages) is deleted 60
+    # days after its last message; leftover pre-Messenger archived messages
+    # without a conversation go too; resolved reports after 60 days.
+    counts['conversations_purge'] = conn.execute(
+        text("SELECT count(*) FROM conversations WHERE last_activity_at + interval '60 days' <= now()")
+    ).scalar()
     counts['notifications_purge'] = conn.execute(
         text("SELECT count(*) FROM notifications WHERE read_at IS NOT NULL AND read_at + interval '30 days' <= now()")
     ).scalar()
@@ -57,10 +61,10 @@ def run_retention(connection=None, dry_run=False):
         OR l.archived_at+interval '60 days' <= now())'''))
     conn.execute(text('''UPDATE listings SET archived_at=(COALESCE(available_until,event_date)+30)::timestamptz,
         is_active=FALSE WHERE archived_at IS NULL AND COALESCE(available_until,event_date)+30<=CURRENT_DATE'''))
-    conn.execute(text("UPDATE messages SET archived_at=activity_at+interval '30 days' WHERE archived_at IS NULL AND activity_at+interval '30 days'<=now()"))
-    # Delete messages first to avoid changing their conversation association unnecessarily.
-    for table in ('messages', 'listings'):
-        conn.execute(text(f"DELETE FROM {table} WHERE archived_at+interval '60 days'<=now()"))
+    conn.execute(text("DELETE FROM conversations WHERE last_activity_at + interval '60 days' <= now()"))
+    conn.execute(text("DELETE FROM messages WHERE conversation_id IS NULL"))
+    conn.execute(text("DELETE FROM message_reports WHERE status <> 'open' AND resolved_at + interval '60 days' <= now()"))
+    conn.execute(text("DELETE FROM listings WHERE archived_at+interval '60 days'<=now()"))
     conn.execute(text("DELETE FROM notifications WHERE read_at IS NOT NULL AND read_at + interval '30 days' <= now()"))
     return counts
 

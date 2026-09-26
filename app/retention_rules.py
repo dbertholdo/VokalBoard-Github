@@ -11,6 +11,12 @@ def availability_valid(start, end):
         return False
 
 
+# Messenger (2026-09-26): a conversation is deleted 60 days after its last
+# message; the "!" warning shows from day 50 (the last 10 days).
+MESSAGE_RETENTION_DAYS = 60
+MESSAGE_WARNING_DAYS = 10
+
+
 def warning_days(activity, now):
-    days = ceil(((activity + timedelta(days=30))-now).total_seconds()/86400)
-    return days if 1 <= days <= 7 else None
+    days = ceil(((activity + timedelta(days=MESSAGE_RETENTION_DAYS)) - now).total_seconds() / 86400)
+    return days if 1 <= days <= MESSAGE_WARNING_DAYS else None

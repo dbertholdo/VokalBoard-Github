@@ -41,10 +41,11 @@ def test_period_and_warning_boundaries():
     assert not availability_valid('2026-09-02','2026-09-01')
     assert not availability_valid('bad','2026-09-01')
     now = datetime.now(timezone.utc)
-    assert warning_days(now-timedelta(days=23),now)==7
-    assert warning_days(now-timedelta(days=29),now)==1
-    assert warning_days(now-timedelta(days=22),now) is None
-    assert warning_days(now-timedelta(days=30),now) is None
+    # Messenger (2026-09-26): 60-day expiry, "!" during the last 10 days.
+    assert warning_days(now-timedelta(days=50),now)==10
+    assert warning_days(now-timedelta(days=59),now)==1
+    assert warning_days(now-timedelta(days=49),now) is None
+    assert warning_days(now-timedelta(days=60),now) is None
 
 
 def test_quota_and_edit_and_delete_slot(db):
@@ -133,24 +134,27 @@ def test_conversation_activity_and_no_resurrection(db):
     a,b=user(db),user(db)
     def send(age):
         return db.execute(text("INSERT INTO messages(sender_id,recipient_id,body,created_at) VALUES(:a,:b,'Test',now()-make_interval(days=>:days)) RETURNING id"),{'a':a,'b':b,'days':age}).scalar_one()
-    old=send(31)
+    old=send(61)  # conversation expired (60 days) — its history must not come back
     new=send(0)
-    assert db.execute(text('SELECT archived_at FROM messages WHERE id=:id'),{'id':old}).scalar() is not None
-    assert db.execute(text('SELECT id FROM visible_messages WHERE id=:id'),{'id':old}).scalar() is None
+    assert db.execute(text('SELECT id FROM messages WHERE id=:id'),{'id':old}).scalar() is None
     assert db.execute(text('SELECT id FROM visible_messages WHERE id=:id'),{'id':new}).scalar()==new
-    db.execute(text("UPDATE messages SET activity_at=now()-interval '91 days',archived_at=NULL WHERE id=:id"),{'id':new})
+    conv=db.execute(text('SELECT conversation_id FROM messages WHERE id=:id'),{'id':new}).scalar()
+    db.execute(text("UPDATE conversations SET last_activity_at=now()-interval '61 days' WHERE id=:id"),{'id':conv})
+    assert db.execute(text('SELECT id FROM visible_messages WHERE id=:id'),{'id':new}).scalar() is None
     run_retention(db)
     assert db.execute(text('SELECT id FROM messages WHERE id=:id'),{'id':new}).scalar() is None
+    assert db.execute(text('SELECT id FROM conversations WHERE id=:id'),{'id':conv}).scalar() is None
 
 
 def test_reply_resets_clock_read_does_not(db):
     a,b=user(db),user(db)
     old=db.execute(text("INSERT INTO messages(sender_id,recipient_id,body,created_at) VALUES(:a,:b,'Old',now()-interval '25 days') RETURNING id"),{'a':a,'b':b}).scalar_one()
-    before=db.execute(text('SELECT activity_at FROM messages WHERE id=:id'),{'id':old}).scalar()
+    clock=lambda: db.execute(text('SELECT c.last_activity_at FROM conversations c JOIN messages m ON m.conversation_id=c.id WHERE m.id=:id'),{'id':old}).scalar()
+    before=clock()
     db.execute(text('UPDATE messages SET read_at=now() WHERE id=:id'),{'id':old})
-    assert db.execute(text('SELECT activity_at FROM messages WHERE id=:id'),{'id':old}).scalar()==before
+    assert clock()==before
     db.execute(text("INSERT INTO messages(sender_id,recipient_id,body) VALUES(:b,:a,'Reply')"),{'a':a,'b':b})
-    assert db.execute(text('SELECT activity_at FROM messages WHERE id=:id'),{'id':old}).scalar()>before
+    assert clock()>before
 
 
 def test_availability_http_and_private_expired_urls(client, monkeypatch):
