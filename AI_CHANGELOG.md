@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history (2026-09-14 → 2026-09-19): `docs/changelog-archive/AI_CHANGELOG_until_2026-09-19.md` — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-26 — Claude — automatic account purge (6-month window)
+- New `app/account_purge.py`, called by the hourly `retention_worker` (no extra Railway service): erases accounts deactivated > 6 months ago — user row + cascades, their Matches (→ evaluations, Match invoice drafts) and avatar file. Per-account savepoint; logs counts only.
+- Bug found: the old manual script could never delete a user who had a Match (`job_matches` FKs are RESTRICT) and would abort the whole run there. `scripts/purge_deleted_accounts.py` is now a thin wrapper (`--dry-run`).
+- Deletion notice (`delete_account_help`, 5 langs) now says Notas are kept for 6 months, then erased. `docs/specs/NOTAS_V2.md`: Kleinunternehmer (§ 19 UStG, Stripe Tax off, invoice footer, thresholds), no lawyer review.
+- Tests: +3 (`tests/test_account_purge.py`). 291 passed + 10 retention, 0 failed.
+
 ## 2026-09-26 — Claude — Notas v2 + Messenger designed (docs only)
 - Reviewed a Gemini proposal against the real repo (it assumed Alembic/JWT/UUID/ORM models/WebSockets — none exist) and designed both features with Daniel instead.
 - New DRAFT specs: `docs/specs/NOTAS_V2.md` (purchased spent first + never expire; earned expire after 18 months per credit; 6-month reactivation then erasure; tax records kept by Stripe/accounting; Terms + withdrawal pages missing → prerequisite) and `docs/specs/MESSENGER.md` (per-pair chat, message requests, Match = consent, 60-day expiry with day-50 "!" tooltip, polling, desktop dock / mobile badge, never "seen").

@@ -1012,11 +1012,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     "danger_zone_title": {"de": "Gefahrenzone", "en": "Danger zone", "fr": "Zone de danger", "it": "Zona a rischio", "pt": "Zona de risco"},
     "delete_account_help": {
-        "de": "Dein Konto wird deaktiviert und für 6 Monate aufbewahrt (falls du es wiederherstellen möchtest). Danach wird es endgültig gelöscht.",
-        "en": "Your account will be deactivated and kept for 6 months (in case you want it back). After that it's permanently deleted.",
-        "fr": "Votre compte sera désactivé et conservé pendant 6 mois (au cas où vous souhaiteriez le récupérer). Après cela, il sera définitivement supprimé.",
-        "it": "Il tuo account verrà disattivato e conservato per 6 mesi (nel caso tu voglia recuperarlo). Dopodiché verrà eliminato definitivamente.",
-        "pt": "Sua conta será desativada e mantida por 6 meses (caso você queira recuperá-la). Depois disso, será excluída definitivamente.",
+        "de": "Dein Konto wird deaktiviert und für 6 Monate aufbewahrt — so lange kannst du es inklusive deiner Notas wiederherstellen. Danach werden alle deine Daten und verbleibenden Notas endgültig gelöscht.",
+        "en": "Your account will be deactivated and kept for 6 months — until then you can reactivate it, including your Notas. After that, all your data and remaining Notas are permanently deleted.",
+        "fr": "Votre compte sera désactivé et conservé pendant 6 mois — d'ici là, vous pouvez le réactiver, Notas comprises. Ensuite, toutes vos données et vos Notas restantes seront définitivement supprimées.",
+        "it": "Il tuo account verrà disattivato e conservato per 6 mesi — fino ad allora puoi riattivarlo, Notas incluse. Dopodiché tutti i tuoi dati e le Notas rimanenti verranno eliminati definitivamente.",
+        "pt": "Sua conta será desativada e mantida por 6 meses — até lá, você pode reativá-la, incluindo suas Notas. Depois disso, todos os seus dados e Notas restantes serão excluídos definitivamente.",
     },
     "delete_account_toggle": {"de": "Konto löschen", "en": "Delete account", "fr": "Supprimer le compte", "it": "Elimina account", "pt": "Excluir conta"},
     "delete_account_confirm": {

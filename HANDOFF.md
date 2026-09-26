@@ -1,11 +1,11 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-26 — Claude (Notas v2 + Messenger designed with Daniel → two draft specs in docs/specs/; no code changed). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-26 — Claude (automatic 6-month account purge live in the retention worker; Notas spec updated with tax status). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, not pushed. Everything below is committed.
-- **Tests GREEN:** 288 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
+- **Tests GREEN:** 291 passed + 10 retention, 0 failed. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
 - Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — production deps clean; dev `pytest` bumped 8.3.3 → 9.0.3 (advisory PYSEC-2026-1845), suite passes on it.
 - Static assets are cache-versioned `?v=20260926-1` (style.css, brand.css; listing-form.js `-2`). Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
@@ -14,9 +14,9 @@
 - Preserve each other's changes; check `git status` before editing.
 
 ## 3. Next up
-1. **Two DRAFT specs await Daniel's approval** (designed with him 2026-09-26, nothing built): `docs/specs/NOTAS_V2.md` (purchased/earned Notas, 18-month earned expiry, Stripe, Terms pages) and `docs/specs/MESSENGER.md` (#53: per-pair chat, requests, 60-day expiry, polling). Pending from Daniel: tax status (Kleinunternehmer / OSS) for the Stripe stage; lawyer review of the Terms/withdrawal text; the Messenger "open" defaults (e-mail throttle, toast, reporting).
+1. **Two DRAFT specs await Daniel's approval** (designed with him 2026-09-26, nothing built): `docs/specs/NOTAS_V2.md` (purchased/earned Notas, 18-month earned expiry, Stripe, Terms pages) and `docs/specs/MESSENGER.md` (#53: per-pair chat, requests, 60-day expiry, polling). Settled since: Daniel is Kleinunternehmer (§ 19 UStG → no VAT, Stripe Tax off) and wants no lawyer review. Still pending: approval of both specs + the Messenger "open" defaults (e-mail throttle, toast, reporting).
 2. **Languages es → ro → zh → ko** — route in `docs/I18N.md` (630 public keys each, 0% done).
-3. Needed by both specs: turn `scripts/purge_deleted_accounts.py` (manual today) into a scheduled worker.
+3. **Account purge is automatic** (done): `app/account_purge.py` runs hourly inside the retention worker — make sure the Railway `retention_worker` service is actually running in production.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
 - `/listings/new` vacancy rows: every control has a visible, associated label; conductor mode hides the whole labelled field.
