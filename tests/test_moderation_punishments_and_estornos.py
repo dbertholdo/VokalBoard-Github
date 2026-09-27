@@ -341,7 +341,8 @@ def test_financeiro_estornos_lists_notas_debits_and_refunds(client, god_user):
     )
     balance_before = get_credit_balance(target_id)
     resp = client.post(
-        f"/financeiro/estornos/notas/{ledger_row['id']}", data={"csrf_token": token}, follow_redirects=False,
+        f"/financeiro/estornos/notas/{ledger_row['id']}",
+        data={"csrf_token": token, "current_password": god_user["password"]}, follow_redirects=False,
     )
     assert resp.status_code == 303
     assert get_credit_balance(target_id) == balance_before + Decimal("2")

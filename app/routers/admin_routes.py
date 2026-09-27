@@ -275,7 +275,7 @@ def admin_unban_user(request: Request, user_id: int, csrf_token: str = Form(...)
 
     unban_user(user_id)
     log_audit_action(request, admin, "admin_unban_user", f"user_id={user_id}")
-    return RedirectResponse(url=f"/admin/users/{user_id}?unban_done=1", status_code=303)
+    return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger&unban_done=1", status_code=303)
 
 
 @router.get("/admin/users", response_class=HTMLResponse)
@@ -439,15 +439,15 @@ def admin_adjust_highlight_days(request: Request, user_id: int, days: int = Form
     verify_csrf(request, csrf_token)
 
     if abs(days) > MAX_HIGHLIGHT_DAYS_ADJUSTMENT:
-        return RedirectResponse(url=f"/admin/users/{user_id}?highlight_error=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=notas&highlight_error=1", status_code=303)
 
     adjust_highlight_days(user_id, days)
     log_audit_action(request, admin, "admin_highlight_days_adjust", f"user_id={user_id} days={days}")
-    return RedirectResponse(url=f"/admin/users/{user_id}?highlight_updated=1", status_code=303)
+    return RedirectResponse(url=f"/admin/users/{user_id}?tab=notas&highlight_updated=1", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/refund-notas/{ledger_id}")
-def admin_refund_notas(request: Request, user_id: int, ledger_id: int, csrf_token: str = Form(...)):
+def admin_refund_notas(request: Request, user_id: int, ledger_id: int, csrf_token: str = Form(...), current_password: str = Form("")):
     """"Reembolso" (pedido do Daniel, painel de Admin, P6) — credita de
     volta o valor de UMA linha de débito específica do extrato de
     Notas desse usuário (ex.: resgate de item da Loja que deu bug).
@@ -470,13 +470,16 @@ def admin_refund_notas(request: Request, user_id: int, ledger_id: int, csrf_toke
         {"id": ledger_id, "uid": user_id},
     )
     if not entry:
-        return RedirectResponse(url=f"/admin/users/{user_id}?refund_error=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=notas&refund_error=1", status_code=303)
 
+    # Money-like action: password re-check (CLAUDE.md §2.4), like Grants in the Red Zone.
+    if not _password_ok(request, admin, current_password, "admin_refund_notas", user_id):
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=notas&auth_failed=1", status_code=303)
     credited, _ = refund_ledger_entry(ledger_id, admin["id"])
     if not credited:
-        return RedirectResponse(url=f"/admin/users/{user_id}?refund_error=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=notas&refund_error=1", status_code=303)
     log_audit_action(request, admin, "admin_refund_notas", f"user_id={user_id} ledger_id={ledger_id}")
-    return RedirectResponse(url=f"/admin/users/{user_id}?refund_done=1", status_code=303)
+    return RedirectResponse(url=f"/admin/users/{user_id}?tab=notas&refund_done=1", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/verify-email")
@@ -538,13 +541,13 @@ def admin_toggle_admin(request: Request, user_id: int, csrf_token: str = Form(..
     # access from here (to avoid the last admin account accidentally
     # locking itself out). To remove yourself, another admin has to do it.
     if user_id == admin["id"]:
-        return RedirectResponse(url=f"/admin/users/{user_id}?self_demote_blocked=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger&self_demote_blocked=1", status_code=303)
 
     target = fetch_one("SELECT role_level FROM users WHERE id = :id", {"id": user_id})
     if not target:
         return RedirectResponse(url="/admin/users", status_code=303)
     if not _password_ok(request, admin, current_password, "toggle_admin", user_id):
-        return RedirectResponse(url=f"/admin/users/{user_id}?auth_failed=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger&auth_failed=1", status_code=303)
 
     # Toggles only between regular (0) and admin (2) — promoting
     # someone to god mode (3, with access to the Red Zone) is a
@@ -556,7 +559,7 @@ def admin_toggle_admin(request: Request, user_id: int, csrf_token: str = Form(..
     execute("UPDATE users SET role_level = :level WHERE id = :id", {"level": new_level, "id": user_id})
     sync_is_admin_flag(user_id, new_level)
     log_audit_action(request, admin, "toggle_admin", f"user_id={user_id} level {target['role_level']}->{new_level}")
-    return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
+    return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/toggle-god-mode")
@@ -572,22 +575,22 @@ def admin_toggle_god_mode(request: Request, user_id: int, csrf_token: str = Form
     verify_csrf(request, csrf_token)
 
     if user_id == admin["id"]:
-        return RedirectResponse(url=f"/admin/users/{user_id}?self_demote_blocked=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger&self_demote_blocked=1", status_code=303)
 
     target = fetch_one("SELECT role_level FROM users WHERE id = :id", {"id": user_id})
     if not target or target["role_level"] < LEVEL_ADMIN:
         # Only promotes/demotes someone who is already admin (2) — to
         # become god mode you first need to be a regular admin, one
         # step at a time.
-        return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger", status_code=303)
     if not _password_ok(request, admin, current_password, "toggle_god_mode", user_id):
-        return RedirectResponse(url=f"/admin/users/{user_id}?auth_failed=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger&auth_failed=1", status_code=303)
 
     new_level = LEVEL_ADMIN if target["role_level"] >= LEVEL_GOD else LEVEL_GOD
     execute("UPDATE users SET role_level = :level WHERE id = :id", {"level": new_level, "id": user_id})
     sync_is_admin_flag(user_id, new_level)
     log_audit_action(request, admin, "toggle_god_mode", f"user_id={user_id} level {target['role_level']}->{new_level}")
-    return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
+    return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/deactivate")
@@ -598,11 +601,11 @@ def admin_deactivate(request: Request, user_id: int, csrf_token: str = Form(...)
     verify_csrf(request, csrf_token)
 
     if user_id == admin["id"]:
-        return RedirectResponse(url=f"/admin/users/{user_id}?self_demote_blocked=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger&self_demote_blocked=1", status_code=303)
 
     execute("UPDATE users SET deleted_at = now() WHERE id = :id", {"id": user_id})
     log_audit_action(request, admin, "admin_deactivate_user", f"user_id={user_id}")
-    return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
+    return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/reactivate")
@@ -617,11 +620,11 @@ def admin_reactivate(request: Request, user_id: int, csrf_token: str = Form(...)
     # só POST /admin/users/{id}/unban (God Mode) faz isso.
     target = fetch_one("SELECT banned_at FROM users WHERE id = :id", {"id": user_id})
     if target and target["banned_at"]:
-        return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger", status_code=303)
 
     execute("UPDATE users SET deleted_at = NULL WHERE id = :id", {"id": user_id})
     log_audit_action(request, admin, "admin_reactivate_user", f"user_id={user_id}")
-    return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
+    return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/delete-forever")
@@ -632,12 +635,12 @@ def admin_delete_forever(request: Request, user_id: int, csrf_token: str = Form(
     verify_csrf(request, csrf_token)
 
     if user_id == admin["id"]:
-        return RedirectResponse(url=f"/admin/users/{user_id}?self_demote_blocked=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger&self_demote_blocked=1", status_code=303)
 
     # Irreversible: password re-check + audit (CLAUDE.md §2.4). Same erase as the
     # 6-month purge — Matches block a plain DELETE (that used to be a 500).
     if not _password_ok(request, admin, current_password, "admin_delete_forever", user_id):
-        return RedirectResponse(url=f"/admin/users/{user_id}?auth_failed=1", status_code=303)
+        return RedirectResponse(url=f"/admin/users/{user_id}?tab=danger&auth_failed=1", status_code=303)
     if not fetch_one("SELECT 1 FROM users WHERE id = :id", {"id": user_id}):
         return RedirectResponse(url="/admin/users", status_code=303)
     with transaction() as conn:

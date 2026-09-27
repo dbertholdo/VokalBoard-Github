@@ -36,7 +36,7 @@
     {% if notas_debits|length == 0 %}
         <p class="empty-state">No debits yet.</p>
     {% else %}
-        <table class="admin-users-table">
+        <div class="table-scroll"><table class="admin-users-table">
             <thead>
                 <tr>
                     <th>User</th>
@@ -57,16 +57,22 @@
                             {% if d.already_refunded %}
                                 <span class="field-help">Refunded</span>
                             {% else %}
-                                <form method="post" action="/financeiro/estornos/notas/{{ d.id }}" data-confirm="Refund {{ format_notas(-d.delta) }} Notas to {{ d.user_name }}?">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <button type="submit" class="button-link">Refund</button>
-                                </form>
+                                <details>
+                                    <summary class="block-user-summary">Refund</summary>
+                                    <form method="post" action="/financeiro/estornos/notas/{{ d.id }}" class="stacked-form narrow" data-confirm="Refund {{ format_notas(-d.delta) }} Notas to {{ d.user_name }}?">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <label>Confirm your current password
+                                            <input type="password" name="current_password" required autocomplete="current-password">
+                                        </label>
+                                        <button type="submit" class="button-link">Refund {{ format_notas(-d.delta) }} Notas</button>
+                                    </form>
+                                </details>
                             {% endif %}
                         </td>
                     </tr>
                 {% endfor %}
             </tbody>
-        </table>
+        </table></div>
     {% endif %}
 </div>
 
@@ -78,7 +84,7 @@
     {% if subscriptions_to_refund|length == 0 %}
         <p class="empty-state">No active subscriptions to refund.</p>
     {% else %}
-        <table class="admin-users-table">
+        <div class="table-scroll"><table class="admin-users-table">
             <thead>
                 <tr>
                     <th>User</th>
@@ -110,7 +116,7 @@
                     </tr>
                 {% endfor %}
             </tbody>
-        </table>
+        </table></div>
     {% endif %}
 </div>
 {% endblock %}

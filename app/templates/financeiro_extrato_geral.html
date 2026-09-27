@@ -1,68 +1,66 @@
 {% extends "base.html" %}
-{% block title %}Financeiro — Extrato Geral{% endblock %}
+{% block title %}Red Zone — General ledger{% endblock %}
 
 {% block content %}
-<a class="back-link" href="/financeiro">&larr; Red Zone</a>
-<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-bank"></use></svg> Extrato Geral</h1>
+<h1><svg class="icon" width="20" height="20" aria-hidden="true"><use href="/static/img/icons.svg#icon-bank"></use></svg> General ledger</h1>
 <p class="field-help">
-    Todo o dinheiro entrando e saindo da plataforma, num lugar só —
-    igual um extrato de banco. "Entra" = receita de assinatura
-    (dinheiro real, sem contar assinaturas já estornadas). "Sai" =
-    despesas lançadas no painel financeiro. O saldo corrente soma tudo
-    em ordem cronológica; os filtros abaixo valem pra tela E pro
-    export, sempre os dois batendo.
+    All money coming into and going out of the platform in one place — like a bank statement.
+    "In" = subscription revenue (real money, excluding refunded subscriptions). "Out" = expenses
+    logged in the financial dashboard. The running balance adds everything up in date order; the
+    filters below apply to this page AND to the export, so both always match.
 </p>
 
 <div class="admin-stats">
-    <div class="admin-stat"><strong>{{ total_in }} €</strong><span>Total entradas</span></div>
-    <div class="admin-stat"><strong>{{ total_out }} €</strong><span>Total saídas</span></div>
-    <div class="admin-stat"><strong>{{ net }} €</strong><span>Saldo líquido</span></div>
+    <div class="admin-stat"><strong>{{ total_in }} €</strong><span>Total in</span></div>
+    <div class="admin-stat"><strong>{{ total_out }} €</strong><span>Total out</span></div>
+    <div class="admin-stat"><strong>{{ net }} €</strong><span>Net balance</span></div>
 </div>
 
 <form method="get" action="/financeiro/extrato-geral" class="stacked-form narrow">
-    <label>De <input type="date" name="start" value="{{ period_start }}"></label>
-    <label>Até <input type="date" name="end" value="{{ period_end }}"></label>
-    <label>Tipo
+    <label>From <input type="date" name="start" value="{{ period_start }}"></label>
+    <label>To <input type="date" name="end" value="{{ period_end }}"></label>
+    <label>Type
         <select name="tipo">
-            <option value="" {% if tipo == "" %}selected{% endif %}>Entradas + saídas</option>
-            <option value="in" {% if tipo == "in" %}selected{% endif %}>Só entradas</option>
-            <option value="out" {% if tipo == "out" %}selected{% endif %}>Só saídas</option>
+            <option value="" {% if tipo == "" %}selected{% endif %}>In + out</option>
+            <option value="in" {% if tipo == "in" %}selected{% endif %}>Only in</option>
+            <option value="out" {% if tipo == "out" %}selected{% endif %}>Only out</option>
         </select>
     </label>
-    <label>Categoria (só afeta saídas)
+    <label>Category (only affects "out")
         <select name="categoria">
-            <option value="" {% if categoria == "" %}selected{% endif %}>Todas</option>
+            <option value="" {% if categoria == "" %}selected{% endif %}>All</option>
             {% for cat in categories %}
                 <option value="{{ cat }}" {% if categoria == cat %}selected{% endif %}>{{ cat }}</option>
             {% endfor %}
         </select>
     </label>
-    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Filtrar</button>
-    {% if period_start or period_end or tipo or categoria %}<a class="button-link" href="/financeiro/extrato-geral">Limpar filtros</a>{% endif %}
+    <button type="submit"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Filter</button>
+    {% if period_start or period_end or tipo or categoria %}<a class="button-link" href="/financeiro/extrato-geral">Clear filters</a>{% endif %}
 </form>
 
 <p>
-    Exportar o que está filtrado acima:
-    <a class="button-link" href="/financeiro/extrato-geral/export.csv?start={{ period_start | urlencode }}&amp;end={{ period_end | urlencode }}&amp;tipo={{ tipo | urlencode }}&amp;categoria={{ categoria | urlencode }}"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> CSV</a>
+    Export what's filtered above:
+    <a class="button-link" href="/financeiro/extrato-geral/export.csv?start={{ period_start | urlencode }}&amp;end={{ period_end | urlencode }}&amp;tipo={{ tipo | urlencode }}&amp;categoria={{ categoria | urlencode }}"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-download"></use></svg> CSV</a>
     ·
     <a class="button-link" href="/financeiro/extrato-geral/export.xlsx?start={{ period_start | urlencode }}&amp;end={{ period_end | urlencode }}&amp;tipo={{ tipo | urlencode }}&amp;categoria={{ categoria | urlencode }}">Excel</a>
     ·
     <a class="button-link" href="/financeiro/extrato-geral/export.pdf?start={{ period_start | urlencode }}&amp;end={{ period_end | urlencode }}&amp;tipo={{ tipo | urlencode }}&amp;categoria={{ categoria | urlencode }}">PDF</a>
 </p>
 
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-receipt"></use></svg> Movimentações</h2>
+<h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-receipt"></use></svg> Transactions</h2>
 {% if movements|length == 0 %}
-    <p class="empty-state">Nenhuma movimentação encontrada com esses filtros.</p>
+    <p class="empty-state">No transactions match these filters.</p>
 {% else %}
+    <div class="table-scroll">
     <table class="admin-table">
         <thead>
             <tr>
-                <th>Data</th>
-                <th>Tipo</th>
-                <th>Descrição</th>
-                <th>Categoria</th>
-                <th>Valor</th>
-                <th>Saldo corrente</th>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Amount</th>
+                <th>Running balance</th>
             </tr>
         </thead>
         <tbody>
@@ -71,9 +69,9 @@
                     <td>{{ m.date }}</td>
                     <td>
                         {% if m.type == "in" %}
-                            <span class="badge-success">Entra</span>
+                            <span class="badge-success">In</span>
                         {% else %}
-                            <span class="badge-danger">Sai</span>
+                            <span class="badge-danger">Out</span>
                         {% endif %}
                     </td>
                     <td>{{ m.description }}</td>
@@ -84,5 +82,6 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 {% endif %}
 {% endblock %}

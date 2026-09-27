@@ -2,6 +2,11 @@
 {% block title %}Admin — {{ target.full_name }}{% endblock %}
 
 {% block content %}
+{# Tabs (docs/specs/ADMIN_REORG.md, 2026-09-27): Account · Notas · Reviews · Moderation · Danger zone.
+   Plain links (?tab=…), no JavaScript; the header and messages show on every tab. #}
+{% set tab = request.query_params.get('tab') or 'account' %}
+{% set tab = tab if tab in ('account', 'notas', 'reviews', 'moderation', 'danger') else 'account' %}
+{% set qp = request.query_params %}
 <a class="back-link" href="/admin/users">&larr; Users</a>
 <h1>{{ target.full_name }}
     {% if target.role_level == 3 %} <span class="badge badge-danger">god mode</span>
@@ -10,189 +15,186 @@
     {% endif %}
 </h1>
 <p class="meta">
-    <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ target.email }} {% if target.email_verified %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg>{% else %}(not verified){% endif %}
-    {% if target.city %} · <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ target.city }}{% if target.state %}, {{ target.state }}{% endif %}{% endif %}
+    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ target.email }} {% if target.email_verified %}<svg class="icon" width="16" height="16" aria-label="verified"><use href="/static/img/icons.svg#icon-check"></use></svg>{% else %}(not verified){% endif %}
+    {% if target.city %} · <svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-location"></use></svg> {{ target.city }}{% if target.state %}, {{ target.state }}{% endif %}{% endif %}
     · {{ "Singer" if target.role == "singer" else "Conductor" }}
-    · since {{ target.created_at }}
-    {% if target.banned_at %} · <span class="badge-danger">banned on {{ target.banned_at }}</span>
-    {% elif target.deleted_at %} · <span class="badge-danger">account deactivated on {{ target.deleted_at }}</span>{% endif %}
+    · since {{ target.created_at | local_time('%d.%m.%Y') }}
+    {% if target.banned_at %} · <span class="badge-danger">banned on {{ target.banned_at | local_time('%d.%m.%Y') }}</span>
+    {% elif target.deleted_at %} · <span class="badge-danger">deactivated on {{ target.deleted_at | local_time('%d.%m.%Y') }}</span>{% endif %}
 </p>
 
-{% if request.query_params.get('self_demote_blocked') == '1' %}
-    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> You cannot remove your own admin access, deactivate, or delete your own account here. Ask another admin.</p>
-{% endif %}
-{% if request.query_params.get('reset_sent') == '1' %}
-    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Password reset email sent.</p>
-{% endif %}
-{% if request.query_params.get('highlight_updated') == '1' %}
-    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Highlight days updated.</p>
-{% endif %}
-{% if request.query_params.get('highlight_error') == '1' %}
-    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> That's too many days at once (max {{ max_highlight_days_adjustment }}/-{{ max_highlight_days_adjustment }}).</p>
-{% endif %}
-{% if request.query_params.get('refund_done') == '1' %}
-    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Refunded.</p>
-{% endif %}
-{% if request.query_params.get('refund_error') == '1' %}
-    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Couldn't refund that line (not a debit, or it isn't this user's).</p>
-{% endif %}
-{% if request.query_params.get('unban_done') == '1' %}
-    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Account unbanned and reactivated.</p>
-{% endif %}
+{% if qp.get('self_demote_blocked') == '1' %}<p class="error" role="alert">You cannot remove your own admin access, deactivate, or delete your own account here. Ask another admin.</p>{% endif %}
+{% if qp.get('auth_failed') %}<p class="error" role="alert">Wrong password — nothing was changed.</p>{% endif %}
+{% if qp.get('reset_sent') == '1' %}<p class="success">Password reset e-mail sent.</p>{% endif %}
+{% if qp.get('highlight_updated') == '1' %}<p class="success">Highlight days updated.</p>{% endif %}
+{% if qp.get('highlight_error') == '1' %}<p class="error" role="alert">That's too many days at once (max {{ max_highlight_days_adjustment }}/-{{ max_highlight_days_adjustment }}).</p>{% endif %}
+{% if qp.get('refund_done') == '1' %}<p class="success">Refunded.</p>{% endif %}
+{% if qp.get('refund_error') == '1' %}<p class="error" role="alert">Couldn't refund that line (not a debit, or it isn't this user's).</p>{% endif %}
+{% if qp.get('unban_done') == '1' %}<p class="success">Account unbanned and reactivated.</p>{% endif %}
 
-<!-- Mini card: resumo rápido pra quem tá gerenciando o perfil (pedido
-     do Daniel, painel de Admin, P6) — status/verificação/plano/saldo
-     de um olhar só, sem precisar ler as seções de baixo. -->
 <div class="admin-mini-card">
     {% if target.banned_at %}
         <span class="badge badge-danger">Banned</span>
     {% else %}
         <span class="badge {{ 'badge-danger' if target.deleted_at else '' }}">{{ 'Deactivated' if target.deleted_at else 'Active' }}</span>
     {% endif %}
-    <span class="badge {{ '' if target.email_verified else 'badge-danger' }}">{{ 'Email verified' if target.email_verified else 'Email not verified' }}</span>
-    <span class="badge"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ format_notas(notas_balance) }} Notas</span>
-    {% if target.profile_highlighted_until %}
-        <span class="badge"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-sparkle"></use></svg> Highlighted until {{ target.profile_highlighted_until }}</span>
-    {% else %}
-        <span class="badge">No active highlight</span>
+    <span class="badge {{ '' if target.email_verified else 'badge-danger' }}">{{ 'E-mail verified' if target.email_verified else 'E-mail not verified' }}</span>
+    <span class="badge">{{ format_notas(notas_balance) }} Notas</span>
+    <span class="badge">{% if target.profile_highlighted_until %}Highlighted until {{ target.profile_highlighted_until | local_time('%d.%m.%Y') }}{% else %}No active highlight{% endif %}</span>
+</div>
+
+<nav class="tool-tabs" aria-label="User sections">
+    {% for key, label in [('account', 'Account'), ('notas', 'Notas'), ('reviews', 'Reviews'), ('moderation', 'Moderation'), ('danger', 'Danger zone')] %}
+        <a class="tool-tab {{ 'active' if tab == key else '' }} {{ 'tool-tab-danger' if key == 'danger' else '' }}" href="/admin/users/{{ target.id }}?tab={{ key }}" {% if tab == key %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+</nav>
+
+{% if tab == 'account' %}
+    <div class="admin-stats">
+        <div class="admin-stat"><strong>{% if stats.avg_rating %}★ {{ stats.avg_rating }}{% else %}—{% endif %}</strong><span>Average rating ({{ stats.rating_count }} reviews)</span></div>
+        <div class="admin-stat"><strong>{{ stats.profile_views }}</strong><span>Profile views</span></div>
+        <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Active listings</span></div>
+        <div class="admin-stat"><strong>{{ stats.messages_received }}</strong><span>Messages received</span></div>
+        <div class="admin-stat"><strong>{{ stats.messages_sent }}</strong><span>Messages sent</span></div>
+    </div>
+    <h2>Account help</h2>
+    <div class="admin-actions">
+        {% if not target.email_verified %}
+            <form method="post" action="/admin/users/{{ target.id }}/verify-email">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="button-link">Confirm e-mail manually</button>
+            </form>
+        {% endif %}
+        <form method="post" action="/admin/users/{{ target.id }}/send-reset">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="button-link">Send password reset link</button>
+        </form>
+        <a class="button-link" href="/users/{{ target.id }}">Open public profile →</a>
+    </div>
+
+{% elif tab == 'notas' %}
+    <h2>Notas history</h2>
+    <p class="field-help">Balance: <strong>{{ format_notas(notas_balance) }} Notas</strong>. Last {{ notas_ledger|length }} transaction(s), from any source — shop, referrals, listing rewards, urgent listings.</p>
+    {% if user.role_level == 3 %}
+    <p><a class="button-link" href="/financeiro/conceder?user_id={{ target.id }}">Grant/debit Notas or a shop item to this user →</a></p>
     {% endif %}
-</div>
+    {% if notas_ledger|length == 0 %}
+        <p class="empty-state">No Notas transactions yet.</p>
+    {% else %}
+        <div class="table-scroll">
+        <table class="admin-users-table">
+            <thead><tr><th>Reason</th><th>Amount</th><th>Date</th><th></th></tr></thead>
+            <tbody>
+                {% for entry in notas_ledger %}
+                    <tr>
+                        <td><code>{{ entry.reason }}</code></td>
+                        <td>{{ format_notas(entry.delta) }}</td>
+                        <td>{{ entry.created_at | local_time('%d.%m.%Y %H:%M') }}</td>
+                        <td>
+                            {% if entry.delta < 0 and entry.reason != 'admin_refund' %}
+                                {% if entry.id in refunded_ledger_ids %}
+                                    <span class="field-help">Refunded</span>
+                                {% else %}
+                                    <details>
+                                        <summary class="block-user-summary">Refund</summary>
+                                        <form method="post" action="/admin/users/{{ target.id }}/refund-notas/{{ entry.id }}" class="stacked-form narrow" data-confirm="Refund {{ format_notas(-entry.delta) }} Notas to this user?">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                            <label>Your password
+                                                <input type="password" name="current_password" required autocomplete="current-password">
+                                            </label>
+                                            <button type="submit" class="button-link">Refund {{ format_notas(-entry.delta) }} Notas</button>
+                                        </form>
+                                    </details>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    {% endif %}
 
-<div class="admin-stats">
-    <div class="admin-stat"><strong>{% if stats.avg_rating %}<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ stats.avg_rating }}{% else %}—{% endif %}</strong><span>Average rating ({{ stats.rating_count }} reviews)</span></div>
-    <div class="admin-stat"><strong>{{ stats.profile_views }}</strong><span>Profile views</span></div>
-    <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Active listings</span></div>
-    <div class="admin-stat"><strong>{{ stats.messages_received }}</strong><span>Messages received</span></div>
-    <div class="admin-stat"><strong>{{ stats.messages_sent }}</strong><span>Messages sent</span></div>
-</div>
+    <h2>Profile highlight</h2>
+    <p class="field-help">
+        {% if target.profile_highlighted_until %}
+            Highlighted until <strong>{{ target.profile_highlighted_until | local_time('%d.%m.%Y %H:%M') }}</strong>.
+        {% else %}
+            No active highlight right now.
+        {% endif %}
+        Add days manually (or remove them with a negative number) — without going through the shop.
+    </p>
+    <form method="post" action="/admin/users/{{ target.id }}/highlight-days" class="stacked-form narrow">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Days (positive adds, negative removes)
+            <input type="number" name="days" step="1" min="-{{ max_highlight_days_adjustment }}" max="{{ max_highlight_days_adjustment }}" required>
+        </label>
+        <button type="submit" class="button-link">Apply</button>
+    </form>
 
-<h2>Reviews received</h2>
-{% if recent_ratings|length == 0 %}
-    <p class="empty-state">No reviews received yet.</p>
-{% else %}
+{% elif tab == 'reviews' %}
+    <h2>Reviews received</h2>
+    {% if recent_ratings|length == 0 %}
+        <p class="empty-state">No reviews received yet.</p>
+    {% else %}
+        <ul class="admin-list">
+            {% for r in recent_ratings %}
+                <li>
+                    <p>★ {{ r.stars }} — {{ r.rater_name }}</p>
+                    <p class="field-help">{% if r.comment %}"{{ r.comment }}" — {% endif %}{{ r.created_at | local_time('%d.%m.%Y') }}</p>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    <h2>{{ t_en('eval_quality_section_title') }}</h2>
+    <p class="field-help">{{ t_en('eval_quality_section_help') }}</p>
     <ul class="admin-list">
-        {% for r in recent_ratings %}
+        {% for cat, data in quality_tiers.items() %}
             <li>
-                <p><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-star"></use></svg> {{ r.stars }} — {{ r.rater_name }}</p>
-                {% if r.comment %}<p class="field-help">"{{ r.comment }}" — {{ r.created_at }}</p>{% else %}<p class="field-help">{{ r.created_at }}</p>{% endif %}
+                <p>{{ t_en('eval_category_' ~ cat) }} —
+                    {% if data.tier %}
+                        {{ t_en('eval_tier_' ~ data.tier) }} ({{ data.average }} ★, {{ data.count }})
+                    {% else %}
+                        {{ t_en('eval_quality_not_enough') }}
+                    {% endif %}
+                </p>
             </li>
         {% endfor %}
     </ul>
-{% endif %}
 
-<h2>{{ t_en('eval_quality_section_title') }}</h2>
-<p class="field-help">{{ t_en('eval_quality_section_help') }}</p>
-<ul class="admin-list">
-    {% for cat, data in quality_tiers.items() %}
-        <li>
-            <p>{{ t_en('eval_category_' ~ cat) }} —
-                {% if data.tier %}
-                    {{ t_en('eval_tier_' ~ data.tier) }} ({{ data.average }} ★, {{ data.count }})
-                {% else %}
-                    {{ t_en('eval_quality_not_enough') }}
-                {% endif %}
-            </p>
-        </li>
-    {% endfor %}
-</ul>
-
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> Notas — extrato</h2>
-<p class="field-help">Saldo atual: <strong>{{ format_notas(notas_balance) }} Notas</strong>. Últimas {{ notas_ledger|length }} transação(ões) (qualquer origem — loja, indicação, recompensa por vaga postada, urgência).</p>
-{% if user.role_level == 3 %}
-<p><a class="button-link" href="/financeiro/conceder?user_id={{ target.id }}">Grant/debit Notas or a shop item to this user →</a></p>
-{% endif %}
-{% if notas_ledger|length == 0 %}
-    <p class="empty-state">Nenhuma transação de Notas ainda.</p>
-{% else %}
-    <table class="admin-users-table">
-        <thead>
-            <tr>
-                <th>Motivo</th>
-                <th>Valor</th>
-                <th>Data</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for entry in notas_ledger %}
-                <tr>
-                    <td><code>{{ entry.reason }}</code></td>
-                    <td>{{ format_notas(entry.delta) }}</td>
-                    <td>{{ entry.created_at }}</td>
-                    <td>
-                        {% if entry.delta < 0 and entry.reason != 'admin_refund' %}
-                            {% if entry.id in refunded_ledger_ids %}
-                                <span class="field-help">Refunded</span>
-                            {% else %}
-                                <form method="post" action="/admin/users/{{ target.id }}/refund-notas/{{ entry.id }}" data-confirm="Refund {{ format_notas(-entry.delta) }} Notas to this user?">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <button type="submit" class="button-link">Refund</button>
-                                </form>
-                            {% endif %}
-                        {% endif %}
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% endif %}
-
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-sparkle"></use></svg> Destaque de perfil</h2>
-<p class="field-help">
-    {% if target.profile_highlighted_until %}
-        Destaque ativo até <strong>{{ target.profile_highlighted_until }}</strong>.
+{% elif tab == 'moderation' %}
+    <h2>Moderation history</h2>
+    {% if moderation_history|length == 0 %}
+        <p class="empty-state">No moderation actions for this account.</p>
     {% else %}
-        Sem destaque ativo no momento.
+        <ul class="admin-list">
+            {% for m in moderation_history %}
+                <li><p>{{ m.action_type|capitalize }} — {{ m.admin_name or 'Unknown admin' }} — {{ m.created_at | local_time('%d.%m.%Y %H:%M') }}</p></li>
+            {% endfor %}
+        </ul>
     {% endif %}
-    Adicione (ou remova, com um número negativo) dias manualmente — sem passar pela Loja/Notas.
-</p>
-<form method="post" action="/admin/users/{{ target.id }}/highlight-days" class="stacked-form narrow">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>Dias (positivo pra adicionar, negativo pra remover)
-        <input type="number" name="days" step="1" min="-{{ max_highlight_days_adjustment }}" max="{{ max_highlight_days_adjustment }}" required>
-    </label>
-    <button type="submit" class="button-link">Aplicar</button>
-</form>
+    <p><a class="button-link" href="/admin/reports">Open reports →</a></p>
 
-{% if moderation_history|length > 0 %}
-    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-flag"></use></svg> Moderation history</h2>
-    <ul class="admin-list">
-        {% for m in moderation_history %}
-            <li><p>{{ m.action_type|capitalize }} — {{ m.admin_name or 'Unknown admin' }} — {{ m.created_at }}</p></li>
-        {% endfor %}
-    </ul>
-{% endif %}
-
-<h2>Manage account</h2>
-{% if request.query_params.get('auth_failed') %}<p class="error" role="alert">Wrong password — nothing was changed.</p>{% endif %}
-<p class="field-help">Changing admin rights and deleting forever ask for your own password again.</p>
-<div class="admin-actions">
-    {% if not target.email_verified %}
-        <form method="post" action="/admin/users/{{ target.id }}/verify-email">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Manually confirm email</button>
-        </form>
-    {% endif %}
-
-    <form method="post" action="/admin/users/{{ target.id }}/send-reset">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> Send password reset link</button>
-    </form>
-
-    {% if not is_self %}
+{% else %}
+    <h2>Danger zone</h2>
+    <p class="field-help">Changing admin rights and deleting forever ask for your own password again. Everything here is written to the audit log.</p>
+    {% if is_self %}
+        <p class="field-help">These actions aren't available for your own account — ask another admin.</p>
+    {% else %}
+    <div class="danger-zone-list">
         {% if user.role_level == 3 %}
-        <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" data-confirm="{{ 'Remove admin access?' if target.role_level >= 2 else 'Make this person an admin?' }}">
+        <form method="post" action="/admin/users/{{ target.id }}/toggle-admin" class="stacked-form narrow" data-confirm="{{ 'Remove admin access?' if target.role_level >= 2 else 'Make this person an admin?' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="password" name="current_password" required autocomplete="current-password" placeholder="Your password" aria-label="Your password (required for this action)">
-            <button type="submit" class="button-link">{{ '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> Remove admin' if target.role_level >= 2 else '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-upload"></use></svg> Make admin' }}</button>
+            <label>Your password <input type="password" name="current_password" required autocomplete="current-password"></label>
+            <button type="submit" class="button-secondary">{{ 'Remove admin' if target.role_level >= 2 else 'Make admin' }}</button>
         </form>
         {% endif %}
 
         {% if user.role_level == 3 and target.role_level >= 2 %}
-        <form method="post" action="/admin/users/{{ target.id }}/toggle-god-mode" data-confirm="{{ 'Remove god mode (Red Zone access)?' if target.role_level == 3 else 'Grant god mode to this person? They will be able to see Capitalism Mode, pricing, and the financial dashboard.' }}">
+        <form method="post" action="/admin/users/{{ target.id }}/toggle-god-mode" class="stacked-form narrow" data-confirm="{{ 'Remove god mode (Red Zone access)?' if target.role_level == 3 else 'Grant god mode? They will see Capitalism Mode, prices and the financial dashboard.' }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="password" name="current_password" required autocomplete="current-password" placeholder="Your password" aria-label="Your password (required for this action)">
-            <button type="submit" class="button-link">{{ '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-download"></use></svg> Remove god mode' if target.role_level == 3 else '<svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-crown"></use></svg> Grant god mode (Red Zone)' }}</button>
+            <label>Your password <input type="password" name="current_password" required autocomplete="current-password"></label>
+            <button type="submit" class="button-secondary">{{ 'Remove god mode' if target.role_level == 3 else 'Grant god mode (Red Zone)' }}</button>
         </form>
         {% endif %}
 
@@ -200,7 +202,7 @@
             {% if user.role_level == 3 %}
                 <form method="post" action="/admin/users/{{ target.id }}/unban" data-confirm="Unban this account? It reactivates immediately and the person can log in again.">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Unban account</button>
+                    <button type="submit" class="button-secondary">Unban account</button>
                 </form>
             {% else %}
                 <p class="field-help">This account is banned — only God Mode can unban it.</p>
@@ -208,28 +210,25 @@
         {% elif target.deleted_at %}
             <form method="post" action="/admin/users/{{ target.id }}/reactivate">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Reactivate account</button>
+                <button type="submit" class="button-secondary">Reactivate account</button>
             </form>
         {% else %}
             <form method="post" action="/admin/users/{{ target.id }}/deactivate" data-confirm="Deactivate this account? The person can reactivate it by logging in.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="button-link button-danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> Deactivate account</button>
+                <button type="submit" class="danger">Deactivate account</button>
             </form>
         {% endif %}
 
-        <div class="danger-zone">
-            <details class="block-user-details">
-                <summary class="block-user-summary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-off"></use></svg> Delete account forever</summary>
-                <p class="field-help">This permanently deletes the account and everything related to it (listings, messages, reviews). It cannot be undone.</p>
-                <form method="post" action="/admin/users/{{ target.id }}/delete-forever" data-confirm="Are you ABSOLUTELY sure? This cannot be undone.">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="password" name="current_password" required autocomplete="current-password" placeholder="Your password" aria-label="Your password (required for this action)">
-                    <button type="submit" class="danger">Delete permanently</button>
-                </form>
-            </details>
-        </div>
-    {% else %}
-        <p class="field-help">Admin/deactivate/delete actions are not available for your own account here — ask another admin if you need this done.</p>
+        <details class="block-user-details">
+            <summary class="block-user-summary">Delete account forever</summary>
+            <p class="field-help">Permanently deletes the account and everything related to it (listings, messages, reviews, Matches). It cannot be undone.</p>
+            <form method="post" action="/admin/users/{{ target.id }}/delete-forever" class="stacked-form narrow" data-confirm="Are you ABSOLUTELY sure? This cannot be undone.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label>Your password <input type="password" name="current_password" required autocomplete="current-password"></label>
+                <button type="submit" class="danger">Delete permanently</button>
+            </form>
+        </details>
+    </div>
     {% endif %}
-</div>
+{% endif %}
 {% endblock %}

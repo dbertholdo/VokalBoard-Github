@@ -773,11 +773,14 @@ def financeiro_estornos(request: Request, start: str = "", end: str = ""):
 
 
 @router.post("/financeiro/estornos/notas/{ledger_id}")
-def financeiro_refund_notas(request: Request, ledger_id: int, csrf_token: str = Form(...)):
+def financeiro_refund_notas(request: Request, ledger_id: int, csrf_token: str = Form(...), current_password: str = Form("")):
     god = _god(request)
     if not god:
         return RedirectResponse(url="/", status_code=303)
     verify_csrf(request, csrf_token)
+    if not reauthenticate(request, god, current_password):
+        log_audit_action(request, god, "financeiro_refund_notas_failed_auth", f"ledger_id={ledger_id}")
+        return RedirectResponse(url="/financeiro/estornos?error=senha_incorreta", status_code=303)
 
     credited, user_id = refund_ledger_entry(ledger_id, god["id"])
     if not credited:
@@ -991,7 +994,7 @@ def export_extrato_geral_xlsx(request: Request, start: str = "", end: str = "", 
     data = _build_extrato_geral(start, end, tipo, categoria)
     wb = Workbook()
     ws = wb.active
-    ws.title = "Extrato Geral"
+    ws.title = "General ledger"
     ws.append(["Date", "Type", "Description", "Category", "Amount", "Currency", "Running balance"])
     for m in data["movements"]:
         ws.append([

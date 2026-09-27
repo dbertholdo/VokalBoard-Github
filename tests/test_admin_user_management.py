@@ -173,7 +173,7 @@ def test_admin_can_refund_a_debit_ledger_line_via_route(client):
 
     resp = client.post(
         f"/admin/users/{target_id}/refund-notas/{ledger_row['id']}",
-        data={"csrf_token": token},
+        data={"csrf_token": token, "current_password": admin_password},
         follow_redirects=False,
     )
     assert resp.status_code == 303
@@ -201,8 +201,8 @@ def test_admin_refund_is_idempotent_double_submit_does_not_double_credit(client)
     )
     balance_before = get_credit_balance(target_id)
 
-    client.post(f"/admin/users/{target_id}/refund-notas/{ledger_row['id']}", data={"csrf_token": token}, follow_redirects=False)
-    client.post(f"/admin/users/{target_id}/refund-notas/{ledger_row['id']}", data={"csrf_token": token}, follow_redirects=False)
+    client.post(f"/admin/users/{target_id}/refund-notas/{ledger_row['id']}", data={"csrf_token": token, "current_password": admin_password}, follow_redirects=False)
+    client.post(f"/admin/users/{target_id}/refund-notas/{ledger_row['id']}", data={"csrf_token": token, "current_password": admin_password}, follow_redirects=False)
 
     assert get_credit_balance(target_id) == balance_before + Decimal("2")
 
@@ -227,7 +227,7 @@ def test_admin_refund_rejects_a_credit_line(client):
 
     resp = client.post(
         f"/admin/users/{target_id}/refund-notas/{ledger_row['id']}",
-        data={"csrf_token": token},
+        data={"csrf_token": token, "current_password": admin_password},
         follow_redirects=False,
     )
     assert "refund_error=1" in resp.headers["location"]

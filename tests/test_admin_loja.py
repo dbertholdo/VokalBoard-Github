@@ -164,6 +164,6 @@ def test_admin_user_detail_shows_notas_extract(client):
     )
 
     _make_admin(client)
-    resp = client.get(f"/admin/users/{user_id}")
+    resp = client.get(f"/admin/users/{user_id}?tab=notas")
     assert resp.status_code == 200
     assert "referral_bonus" in resp.text
