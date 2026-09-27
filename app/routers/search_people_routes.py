@@ -19,7 +19,7 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 from app.database import fetch_all, fetch_one
 from app.auth import get_current_user
 from app.render import render
-from app.badges import top_badges
+from app.badges import top_badges_for_users
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 
 router = APIRouter()
@@ -62,11 +62,14 @@ def search_people(
         conditions.append("u.state = :state")
         params["state"] = state
     if city:
-        conditions.append("u.city ILIKE :city")
-        params["city"] = f"%{city}%"
+        # Escape LIKE wildcards: "%" or "_" typed by the user are literal characters.
+        conditions.append(r"u.city ILIKE :city ESCAPE '\'")
+        params["city"] = "%" + city.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_") + "%"
     if role in ("singer", "conductor"):
         conditions.append("u.role = :role")
         params["role"] = role
+    if voice_type_id and not voice_type_id.isdigit():
+        voice_type_id = ""  # tampered/stale value: ignore the filter instead of a 500
     if voice_type_id:
         # Match either the primary voice (singer_profiles.voice_type_id)
         # or any additional voice the singer registered
@@ -118,13 +121,9 @@ def search_people(
         {**params, "limit": PEOPLE_PAGE_SIZE, "offset": offset},
     )
 
-    # Top-3 badges per card — a handful of small COUNT queries each,
-    # acceptable at this project's scale (see app/badges.py:top_badges).
-    people = []
-    for row in rows:
-        person = dict(row)
-        person["badges"] = top_badges(row["id"], limit=3)
-        people.append(person)
+    # Top-3 badges per card, for the whole page in one query (CLAUDE.md §4).
+    badges_by_user = top_badges_for_users([r["id"] for r in rows], limit=3)
+    people = [{**row, "badges": badges_by_user.get(row["id"], [])} for row in rows]
 
     # "Buscar para meu anúncio" (19/09/2026, Daniel) — the shortcut link
     # only shows up when the viewer actually has an active seeking_*

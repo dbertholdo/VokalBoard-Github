@@ -9,6 +9,13 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-27 — Claude — cleanup section 2 (profile & people search)
+- New `app/profiles.py` (service; profile helpers moved out of `profile_routes.py`, 50→37 KB): `clean_profile_input` + `save_profile` in ONE transaction. Fixes: an invalid photo no longer skips bio/links/voice/repertoire (message said "rest saved"); bad `voice_type_id` / over-long city, fach, ensemble are form errors or truncated, not 500s; dead `social_whatsapp` param removed.
+- Ratings (`save_rating`): refused across a block (either way) and for unverified raters (widget hidden too); stale `listing_id` no longer an FK 500.
+- Share links: were hardcoded `vokalboard.de` and built `/u/users/ID` without a slug → `profile_public_url()` (SITE_BASE_URL, else request host); also used by the CV PDF.
+- People search: badges batched in one query (`top_badges_for_users`, CLAUDE.md §4 N+1); non-numeric voice filter ignored; `%`/`_` in city are literal. CV + e-mail share `badge_label()`.
+- Browser (375px, ko/zh): /profile, /users/{id}, /people — no overflow, translated. Tests: 353 passed + new `tests/test_profiles_cleanup.py`.
+
 ## 2026-09-27 — Claude — cleanup section 1 (account) + mascot size/duration
 - New `app/accounts.py` (service): e-mail trimmed+lowercased everywhere; lookups by `lower(email)`; login lockout can no longer be dodged by changing letter case; sign-up validates e-mail/name and creates user+profile in ONE transaction (`app/database.transaction()`); timing-equalized login; 2-min cooldown on resend-verification / forgot-password e-mails; password reset burns every open link + clears lockout; change-password / delete-account share the login lockout. Session cleared on login. Data export now includes works, spoken languages, Notas ledger, invitations, matches, state/country/language.
 - Forms: `autocomplete` hints (WCAG 1.3.5) + maxlength. New keys `register_error_invalid_email/_name` (9 languages; CJK fonts regenerated).

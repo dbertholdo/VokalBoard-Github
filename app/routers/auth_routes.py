@@ -20,7 +20,7 @@ from app.register_throttle import is_registration_throttled, record_registration
 from app.client_ip import get_client_ip
 from app.password_policy import password_error
 from app.referrals import generate_referral_code, resolve_referrer, record_referral_verification, get_referrer_preview
-from app.routers.profile_routes import parse_hashtags, parse_audio_links, MAX_BIO_LENGTH
+from app.profiles import parse_hashtags, parse_audio_links, MAX_BIO_LENGTH
 from app.captcha import is_bot, verify_turnstile
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 

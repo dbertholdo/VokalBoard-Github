@@ -38,10 +38,10 @@
                 {{ t('profile_share_button') }}
             </button>
             <div class="share-icons" id="profile-share-icons">
-                <a href="https://wa.me/?text={{ ('https://vokalboard.de/u/' ~ (profile_user.profile_slug if profile_user.profile_slug else 'users/' ~ profile_user.id)) | urlencode }}" target="_blank" rel="noopener noreferrer" title="WhatsApp">
+                <a href="https://wa.me/?text={{ profile_share_url | urlencode }}" target="_blank" rel="noopener noreferrer" title="WhatsApp">
                     <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-reply"></use></svg>
                 </a>
-                <a href="mailto:?body={{ ('https://vokalboard.de/u/' ~ (profile_user.profile_slug if profile_user.profile_slug else 'users/' ~ profile_user.id)) | urlencode }}" title="E-mail">
+                <a href="mailto:?body={{ profile_share_url | urlencode }}" title="E-mail">
                     <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg>
                 </a>
                 <button type="button" id="profile-share-copy" title="{{ t('referral_copy_button') }}">
@@ -55,7 +55,7 @@
                 var toggle = document.getElementById('profile-share-toggle');
                 var icons = document.getElementById('profile-share-icons');
                 var copyBtn = document.getElementById('profile-share-copy');
-                var shareUrl = "https://vokalboard.de/{{ ('u/' ~ profile_user.profile_slug) if profile_user.profile_slug else ('users/' ~ profile_user.id) }}";
+                var shareUrl = "{{ profile_share_url }}";
                 if (toggle && icons) {
                     toggle.addEventListener('click', function () { icons.classList.toggle('open'); });
                 }
@@ -109,7 +109,7 @@
                     </div>
 
                     <div class="profile-link-box">
-                        <code>vokalboard.de/{{ ('u/' ~ profile_user.profile_slug) if profile_user.profile_slug else ('users/' ~ profile_user.id) }}</code>
+                        <code>{{ profile_share_url.split('://', 1)[-1] }}</code>
                         <button type="button" id="profile-link-copy"><svg class="icon" width="11" height="11"><use href="/static/img/icons.svg#icon-link"></use></svg></button>
                     </div>
                     <script nonce="{{ csp_nonce }}">
@@ -117,7 +117,7 @@
                             var btn = document.getElementById('profile-link-copy');
                             if (btn) {
                                 btn.addEventListener('click', function () {
-                                    navigator.clipboard.writeText("https://vokalboard.de/{{ ('u/' ~ profile_user.profile_slug) if profile_user.profile_slug else ('users/' ~ profile_user.id) }}");
+                                    navigator.clipboard.writeText("{{ profile_share_url }}");
                                 });
                             }
                         })();

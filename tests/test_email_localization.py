@@ -54,10 +54,10 @@ def test_formerly_german_only_emails_follow_the_recipient_language():
 
 
 def test_badge_names_in_emails_are_localized():
-    from app.badges import _badge_name
-    assert _badge_name({"key": "listing"}, "fr") == "Première annonce"
-    assert _badge_name({"key": "anniversary", "years": 2}, "de") == "Jahrestag (2 Jahre)"
-    assert _badge_name({"key": "views", "threshold": 100}, "zh").endswith("(100+)")
+    from app.badges import badge_label
+    assert badge_label({"key": "listing"}, "fr") == "Première annonce"
+    assert badge_label({"key": "anniversary", "years": 2}, "de") == "Jahrestag (2 Jahre)"
+    assert badge_label({"key": "views", "threshold": 100}, "zh").endswith("(100+)")
 
 
 def test_email_footer_follows_the_recipient_language(client):

@@ -61,57 +61,40 @@ def _anniversary_medal(years: int) -> str:
     return ""
 
 
-def _referral_count(user_id: int) -> int:
-    return fetch_one(
-        "SELECT COUNT(*) AS n FROM users WHERE referred_by_user_id = :id AND email_verified = TRUE",
-        {"id": user_id},
-    )["n"]
-
-
-def _listing_count(user_id: int) -> int:
-    return fetch_one("SELECT COUNT(*) AS n FROM visible_listings WHERE author_id = :id", {"id": user_id})["n"]
-
-
-def _message_sent_count(user_id: int) -> int:
-    return fetch_one("SELECT COUNT(*) AS n FROM visible_messages WHERE sender_id = :id", {"id": user_id})["n"]
-
-
-def _view_count(user_id: int) -> int:
-    return fetch_one("SELECT COUNT(*) AS n FROM profile_views WHERE profile_user_id = :id", {"id": user_id})["n"]
-
-
-def _has_fast_response(user_id: int) -> bool:
-    """
-    Has replied to some message within 24h at least once: there exists
-    a message M1 received by this person and a message M2, from them
-    to whoever sent M1, created after M1 and within 24h.
-    """
-    row = fetch_one(
+def _badge_stats(user_ids: list[int]) -> dict[int, dict]:
+    """Every number the badges need, for MANY users in ONE query (CLAUDE.md §4:
+    no per-card queries in listings — the people search shows a page of cards).
+    Fast response = replied to some received message within 24 h at least once."""
+    rows = fetch_all(
         """
-        SELECT 1
-        FROM visible_messages m1
-        JOIN visible_messages m2
-            ON m2.sender_id = m1.recipient_id
-           AND m2.recipient_id = m1.sender_id
-           AND m2.created_at > m1.created_at
-           AND m2.created_at <= m1.created_at + INTERVAL '24 hours'
-        WHERE m1.recipient_id = :user_id
-        LIMIT 1
+        SELECT u.id,
+               (SELECT COUNT(*) FROM users r WHERE r.referred_by_user_id = u.id AND r.email_verified = TRUE) AS referrals,
+               (SELECT COUNT(*) FROM visible_listings l WHERE l.author_id = u.id) AS listings,
+               (SELECT COUNT(*) FROM visible_messages m WHERE m.sender_id = u.id) AS messages_sent,
+               (SELECT COUNT(*) FROM profile_views pv WHERE pv.profile_user_id = u.id) AS views,
+               EXISTS (
+                   SELECT 1 FROM visible_messages m1
+                   JOIN visible_messages m2
+                     ON m2.sender_id = m1.recipient_id AND m2.recipient_id = m1.sender_id
+                    AND m2.created_at > m1.created_at AND m2.created_at <= m1.created_at + INTERVAL '24 hours'
+                   WHERE m1.recipient_id = u.id
+               ) AS fast_response,
+               COALESCE(EXTRACT(YEAR FROM age(now(), u.created_at))::int, 0) AS years
+        FROM users u WHERE u.id = ANY(:ids)
         """,
-        {"user_id": user_id},
+        {"ids": list(user_ids)},
     )
-    return row is not None
+    return {r["id"]: r for r in rows}
 
 
-def _years_on_site(user_id: int) -> int:
-    row = fetch_one(
-        "SELECT EXTRACT(YEAR FROM age(now(), created_at))::int AS years FROM users WHERE id = :id",
-        {"id": user_id},
-    )
-    return row["years"] if row and row["years"] else 0
+_EMPTY_STATS = {"referrals": 0, "listings": 0, "messages_sent": 0, "views": 0, "fast_response": False, "years": 0}
 
 
 def get_user_badges(user_id: int) -> list[dict]:
+    return _build_badges(_badge_stats([user_id]).get(user_id, _EMPTY_STATS))
+
+
+def _build_badges(stats: dict) -> list[dict]:
     # "icon" holds a symbol id from app/static/img/icons.svg (our own
     # icon set — see app/templates/profile.html / public_profile.html,
     # which render it as <svg><use href="...#{{ b.icon }}"></svg>), not
@@ -121,7 +104,7 @@ def get_user_badges(user_id: int) -> list[dict]:
     # .badge-tier-* / .badge-key-* rules in style.css. It's separate
     # from "tier" (which is what check_and_notify_new_badges() uses as
     # the uniqueness key for "already notified this one").
-    referral_count = _referral_count(user_id)
+    referral_count = stats["referrals"]
     referral_medal = ""
     for threshold, medal in REFERRAL_MILESTONES:
         if referral_count >= threshold:
@@ -130,9 +113,9 @@ def get_user_badges(user_id: int) -> list[dict]:
 
     badges = [
         {"key": "referral", "icon": "icon-gift", "unlocked": referral_count > 0, "tier": referral_medal, "medal": referral_medal},
-        {"key": "listing", "icon": "icon-listings", "unlocked": _listing_count(user_id) > 0, "tier": "", "medal": ""},
-        {"key": "contact", "icon": "icon-mail", "unlocked": _message_sent_count(user_id) > 0, "tier": "", "medal": ""},
-        {"key": "fast_response", "icon": "icon-bolt", "unlocked": _has_fast_response(user_id), "tier": "", "medal": ""},
+        {"key": "listing", "icon": "icon-listings", "unlocked": stats["listings"] > 0, "tier": "", "medal": ""},
+        {"key": "contact", "icon": "icon-mail", "unlocked": stats["messages_sent"] > 0, "tier": "", "medal": ""},
+        {"key": "fast_response", "icon": "icon-bolt", "unlocked": bool(stats["fast_response"]), "tier": "", "medal": ""},
         # "profile_complete" is filled in by with_profile_complete() —
         # the caller already computes completeness for other purposes
         # (the progress bar on /profile), so there's no point computing
@@ -141,14 +124,14 @@ def get_user_badges(user_id: int) -> list[dict]:
     ]
 
     views_badge = {"key": "views", "icon": "icon-eye", "unlocked": False, "tier": None, "medal": ""}
-    view_count = _view_count(user_id)
+    view_count = stats["views"]
     for threshold, tier in VIEW_MILESTONES:
         if view_count >= threshold:
             views_badge = {"key": "views", "icon": "icon-eye", "unlocked": True, "tier": tier, "medal": tier, "threshold": threshold}
             break
     badges.append(views_badge)
 
-    years = _years_on_site(user_id)
+    years = stats["years"] or 0
     anniversary_badge = {
         "key": "anniversary", "icon": "icon-cake", "unlocked": years >= 1,
         "tier": str(years) if years >= 1 else "", "medal": _anniversary_medal(years), "years": years,
@@ -174,9 +157,19 @@ def top_badges(user_id: int, limit: int = 3) -> list[dict]:
     """The `limit` most noteworthy UNLOCKED badges for this user, for
     compact display (e.g. a search-result card) — highest medal tier
     first, then the more "impressive" badge types."""
-    badges = [b for b in get_user_badges(user_id) if b["unlocked"]]
-    badges.sort(key=lambda b: (_MEDAL_WEIGHT.get(b.get("medal") or "", 0), _KEY_WEIGHT.get(b["key"], 0)), reverse=True)
-    return badges[:limit]
+    return _top(get_user_badges(user_id), limit)
+
+
+def _top(badges: list[dict], limit: int) -> list[dict]:
+    unlocked = [b for b in badges if b["unlocked"]]
+    unlocked.sort(key=lambda b: (_MEDAL_WEIGHT.get(b.get("medal") or "", 0), _KEY_WEIGHT.get(b["key"], 0)), reverse=True)
+    return unlocked[:limit]
+
+
+def top_badges_for_users(user_ids: list[int], limit: int = 3) -> dict[int, list[dict]]:
+    """top_badges() for a whole result page in one query."""
+    stats = _badge_stats(user_ids)
+    return {uid: _top(_build_badges(stats.get(uid, _EMPTY_STATS)), limit) for uid in user_ids}
 
 
 def with_profile_complete(badges: list[dict], completeness_percent: int) -> list[dict]:
@@ -201,7 +194,7 @@ def check_and_notify_new_badges(user_id: int, base_url: str) -> None:
     from anywhere without needing everything recalculated manually
     beforehand.
     """
-    from app.routers.profile_routes import (
+    from app.profiles import (
         get_singer_profile, get_conductor_profile, get_composer_tags,
         get_audio_links, get_social_links, compute_profile_completeness,
     )
@@ -243,11 +236,11 @@ def check_and_notify_new_badges(user_id: int, base_url: str) -> None:
 
         profile_url = f"{base_url.rstrip('/')}/profile"
         lang = email_language(user["preferred_language"])
-        subject, html = badge_unlocked_email(lang, user["full_name"], _badge_name(b, lang), profile_url)
+        subject, html = badge_unlocked_email(lang, user["full_name"], badge_label(b, lang), profile_url)
         send_email(user["email"], subject, html)
 
 
-def _badge_name(b: dict, lang: str) -> str:
+def badge_label(b: dict, lang: str) -> str:
     """Localized badge label for e-mails — same i18n keys as the profile page."""
     name = translate(f"badge_{b['key']}_label", lang)
     if b["key"] == "views" and b.get("threshold"):

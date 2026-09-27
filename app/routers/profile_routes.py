@@ -1,8 +1,7 @@
 import json
-import re
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, Form, UploadFile, File, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Request, Form, BackgroundTasks, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse, Response
 
 from app.database import fetch_all, fetch_one, execute
@@ -12,11 +11,11 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.avatars import save_avatar, remove_existing_avatar, avatar_path_for
 from app.referrals import ensure_referral_code, get_referral_stats
-from app.badges import get_user_badges, with_profile_complete, check_and_notify_new_badges, top_badges
+from app.badges import get_user_badges, with_profile_complete, check_and_notify_new_badges, top_badges, badge_label
 from app.match_evaluations import get_quality_tiers
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 from app.password_policy import password_error
-from app.i18n import SUPPORTED_LANGUAGES, translate
+from app.i18n import translate
 from app.singer_works import (
     get_works,
     get_works_by_category,
@@ -34,281 +33,24 @@ from app.languages import (
     MAX_SPOKEN_LANGUAGES,
     get_spoken_languages,
     get_spoken_language_names,
-    set_spoken_languages,
     parse_spoken_languages_form,
 )
 
+from app.profiles import (
+    MAX_COMPOSER_TAGS, MAX_BIO_LENGTH, MAX_AUDIO_LINKS, SOCIAL_PLATFORMS,
+    ProfileError, clean_profile_input, save_profile, profile_public_url, save_rating,
+    get_singer_profile, get_extra_voice_types, get_all_voice_type_names, get_conductor_profile,
+    get_composer_tags, get_audio_links, get_social_links, get_my_ratings, get_rating_summary,
+    get_rating_given, compute_profile_completeness, get_blocked_users,
+)
+
 router = APIRouter()
-
-MAX_COMPOSER_TAGS = 10
-MAX_BIO_LENGTH = 1000
-MAX_AUDIO_LINKS = 3
-MAX_RATING_COMMENT = 500
-
-# Custom profile URL slug (/u/{slug}) — lowercase letters, digits and
-# hyphens only, 3-60 chars. Kept intentionally strict/simple (no
-# unicode, no leading/trailing hyphen edge cases to worry about) since
-# this becomes part of a public URL.
-PROFILE_SLUG_RE = re.compile(r"^[a-z0-9-]{3,60}$")
 
 # "Cooldown" window for profile view counting: the same session
 # (same browser) only generates a new row in profile_views per
 # profile every 12h, even if the person hits F5 several times.
 VIEW_COOLDOWN_SECONDS = 12 * 60 * 60
 
-# Accepted social network platforms — a fixed set (not a free-text
-# field) so we can always show just the network's name ("Instagram",
-# "Facebook"...) instead of the full link, and keep the profile view
-# uncluttered, as requested.
-SOCIAL_PLATFORMS = ["website", "facebook", "instagram", "twitter"]
-
-
-def parse_hashtags(raw: str) -> list[str]:
-    """
-    Takes something like "#Mozart, Verdi #Puccini" and returns a
-    clean list with no duplicates, with at most MAX_COMPOSER_TAGS items.
-
-    Accepts comma or space as separator, and the "#" is optional.
-    """
-    if not raw:
-        return []
-    parts = raw.replace(",", " ").split()
-    seen: dict[str, str] = {}
-    for part in parts:
-        tag = part.lstrip("#").strip()
-        if not tag:
-            continue
-        key = tag.lower()
-        if key not in seen:
-            seen[key] = tag[:50]
-    return list(seen.values())[:MAX_COMPOSER_TAGS]
-
-
-def parse_audio_links(raw: str) -> list[str]:
-    """
-    Takes "Audiobeispiel" links separated by comma and/or line break
-    (e.g. a YouTube link, SoundCloud etc.) and returns up to
-    MAX_AUDIO_LINKS valid URLs (starting with http:// or https://).
-    Invalid links are simply ignored, without blocking the signup.
-    """
-    if not raw:
-        return []
-    parts = raw.replace(",", "\n").splitlines()
-    links: list[str] = []
-    for part in parts:
-        url = part.strip()
-        if url.startswith("http://") or url.startswith("https://"):
-            links.append(url[:500])
-        if len(links) >= MAX_AUDIO_LINKS:
-            break
-    return links
-
-
-def get_singer_profile(user_id: int) -> dict | None:
-    return fetch_one(
-        """
-        SELECT sp.voice_type_id, sp.fach, sp.bio, vt.name AS voice_type_name
-        FROM singer_profiles sp
-        LEFT JOIN voice_types vt ON vt.id = sp.voice_type_id
-        WHERE sp.user_id = :user_id
-        """,
-        {"user_id": user_id},
-    )
-
-
-def get_extra_voice_types(user_id: int) -> list[dict]:
-    """Additional voice types the singer also sings, besides the primary
-    one in singer_profiles.voice_type_id (see singer_profile_voice_types
-    in db/schema.sql — foundation applied 17/09, UI added here in P2)."""
-    return fetch_all(
-        """
-        SELECT vt.id, vt.name
-        FROM singer_profile_voice_types spvt
-        JOIN voice_types vt ON vt.id = spvt.voice_type_id
-        WHERE spvt.user_id = :user_id
-        ORDER BY vt.sort_order
-        """,
-        {"user_id": user_id},
-    )
-
-
-def get_all_voice_type_names(user_id: int) -> list[str]:
-    """Primary voice + additional voices, deduplicated, in catalog order
-    — used for display on the person's own /profile and on the public
-    profile (/users/{id})."""
-    rows = fetch_all(
-        """
-        SELECT vt.id, vt.name
-        FROM voice_types vt
-        WHERE vt.id IN (
-            SELECT voice_type_id FROM singer_profiles WHERE user_id = :user_id AND voice_type_id IS NOT NULL
-            UNION
-            SELECT voice_type_id FROM singer_profile_voice_types WHERE user_id = :user_id
-        )
-        ORDER BY vt.sort_order
-        """,
-        {"user_id": user_id},
-    )
-    return [r["name"] for r in rows]
-
-
-# Not called from any route since 19/09/2026 (the "Weitere Stimmlagen"
-# fieldset was removed from profile.html/profile_wizard.html) — kept as
-# a working function rather than deleted, since get_extra_voice_types()
-# above still reads singer_profile_voice_types elsewhere (search
-# filtering, notification matching) and this is its natural write-side
-# counterpart if that UI ever comes back.
-def set_extra_voice_types(user_id: int, voice_type_ids: list[int]) -> None:
-    execute("DELETE FROM singer_profile_voice_types WHERE user_id = :user_id", {"user_id": user_id})
-    seen = set()
-    for vt_id in voice_type_ids:
-        if vt_id in seen:
-            continue
-        seen.add(vt_id)
-        execute(
-            """
-            INSERT INTO singer_profile_voice_types (user_id, voice_type_id)
-            VALUES (:user_id, :voice_type_id)
-            ON CONFLICT DO NOTHING
-            """,
-            {"user_id": user_id, "voice_type_id": vt_id},
-        )
-
-
-def get_conductor_profile(user_id: int) -> dict | None:
-    return fetch_one(
-        "SELECT ensemble_name, bio FROM conductor_profiles WHERE user_id = :user_id",
-        {"user_id": user_id},
-    )
-
-
-def get_composer_tags(user_id: int) -> list[str]:
-    rows = fetch_all(
-        "SELECT tag FROM singer_composer_tags WHERE user_id = :user_id ORDER BY tag",
-        {"user_id": user_id},
-    )
-    return [r["tag"] for r in rows]
-
-
-def get_audio_links(user_id: int) -> list[str]:
-    rows = fetch_all(
-        "SELECT url FROM singer_audio_links WHERE user_id = :user_id ORDER BY id",
-        {"user_id": user_id},
-    )
-    return [r["url"] for r in rows]
-
-
-def set_audio_links(user_id: int, links: list[str]) -> None:
-    execute("DELETE FROM singer_audio_links WHERE user_id = :user_id", {"user_id": user_id})
-    for url in links:
-        execute(
-            "INSERT INTO singer_audio_links (user_id, url) VALUES (:user_id, :url)",
-            {"user_id": user_id, "url": url},
-        )
-
-
-def get_social_links(user_id: int) -> dict[str, str]:
-    rows = fetch_all(
-        "SELECT platform, url FROM user_social_links WHERE user_id = :user_id",
-        {"user_id": user_id},
-    )
-    return {r["platform"]: r["url"] for r in rows}
-
-
-def set_social_links(user_id: int, links: dict[str, str]) -> None:
-    """
-    `links` is {platform: url}; missing platforms or ones with an
-    empty URL are removed. Only accepts http(s) — this avoids people
-    pasting "@username" without a real link, which would break the
-    button when displaying it.
-    """
-    execute("DELETE FROM user_social_links WHERE user_id = :user_id", {"user_id": user_id})
-    for platform, url in links.items():
-        url = (url or "").strip()
-        if platform not in SOCIAL_PLATFORMS or not url:
-            continue
-        if not (url.startswith("http://") or url.startswith("https://")):
-            continue
-        execute(
-            "INSERT INTO user_social_links (user_id, platform, url) VALUES (:user_id, :platform, :url)",
-            {"user_id": user_id, "platform": platform, "url": url[:500]},
-        )
-
-
-def get_my_ratings(user_id: int) -> list[dict]:
-    """
-    Ratings RECEIVED by this person — only called from /profile (the
-    person themselves seeing what they received). Never called from
-    /users/{id} (public profile) or anywhere else visible to third
-    parties.
-    """
-    return fetch_all(
-        """
-        SELECT r.stars, r.comment, r.created_at, u.full_name AS rater_name, r.rater_id
-        FROM ratings r
-        JOIN users u ON u.id = r.rater_id
-        WHERE r.rated_id = :user_id
-        ORDER BY r.created_at DESC
-        """,
-        {"user_id": user_id},
-    )
-
-
-def get_rating_summary(user_id: int) -> dict:
-    row = fetch_one(
-        "SELECT COUNT(*) AS n, AVG(stars)::numeric(3,1) AS avg_stars FROM ratings WHERE rated_id = :user_id",
-        {"user_id": user_id},
-    )
-    return {"count": row["n"] if row else 0, "avg_stars": row["avg_stars"] if row else None}
-
-
-def get_rating_given(rater_id: int, rated_id: int) -> dict | None:
-    return fetch_one(
-        "SELECT stars, comment FROM ratings WHERE rater_id = :rater_id AND rated_id = :rated_id",
-        {"rater_id": rater_id, "rated_id": rated_id},
-    )
-
-
-# Items that count toward the "complete profile" indicator in
-# /profile — each one carries the same weight (simple to explain: "8
-# of 10 items = 80%"). The idea (as requested) is to reinforce that a
-# more complete profile inspires more trust in visitors and improves
-# what the Home page can "match" automatically (voice, city, composer
-# tags factor into the matching).
-def compute_profile_completeness(user: dict, role_profile: dict | None, composer_tags: list,
-                                  audio_links: list, social_links: dict) -> dict:
-    items = [
-        ("avatar", bool(user.get("avatar_url"))),
-        ("city", bool(user.get("city"))),
-        ("phone", bool(user.get("phone"))),
-        ("bio", bool(role_profile and role_profile.get("bio"))),
-        ("social_link", bool(social_links)),
-    ]
-    if user["role"] == "singer":
-        items.append(("voice_type", bool(role_profile and role_profile.get("voice_type_id"))))
-        items.append(("composer_tags", bool(composer_tags)))
-        items.append(("audio_links", bool(audio_links)))
-    else:
-        items.append(("ensemble_name", bool(role_profile and role_profile.get("ensemble_name"))))
-
-    done = sum(1 for _, ok in items if ok)
-    total = len(items)
-    missing = [key for key, ok in items if not ok]
-    percent = round((done / total) * 100) if total else 0
-    return {"percent": percent, "done": done, "total": total, "missing": missing}
-
-
-def get_blocked_users(user_id: int) -> list[dict]:
-    return fetch_all(
-        """
-        SELECT u.id, u.full_name, bu.reason, bu.created_at
-        FROM blocked_users bu
-        JOIN users u ON u.id = bu.blocked_id
-        WHERE bu.blocker_id = :user_id
-        ORDER BY bu.created_at DESC
-        """,
-        {"user_id": user_id},
-    )
 
 
 def _my_profile_context(request: Request, user: dict, error: str | None = None, saved: bool = False) -> dict:
@@ -396,176 +138,33 @@ def my_profile(request: Request, background_tasks: BackgroundTasks):
 
 
 @router.post("/profile")
-async def update_profile(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    csrf_token: str = Form(""),
-    bio: str = Form(""),
-    city: str = Form(""),
-    state: str = Form(""),
-    country: str = Form("DE"),
-    voice_type_id: str = Form(""),
-    fach: str = Form(""),
-    ensemble_name: str = Form(""),
-    composer_hashtags: str = Form(""),
-    audio_links: str = Form(""),
-    social_website: str = Form(""),
-    social_facebook: str = Form(""),
-    social_instagram: str = Form(""),
-    social_twitter: str = Form(""),
-    social_whatsapp: str = Form(""),
-    notify_matches: str = Form(""),
-    notify_messages: str = Form(""),
-    preferred_language: str = Form("en"),
-    appear_in_search: str = Form(""),
-    profile_slug: str = Form(""),
-    phone: str = Form(""),
-    phone_visibility_public: str = Form(""),
-    remove_avatar: str = Form(""),
-    avatar: UploadFile | None = File(None),
-):
+async def update_profile(request: Request, background_tasks: BackgroundTasks, csrf_token: str = Form("")):
     verify_csrf(request, csrf_token)
-
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # FIX (19/09/2026, Daniel: "Remover 'Weitere Stimmlagen' do perfil"):
-    # the "extra_voice_type_ids" checkboxes were removed from
-    # profile.html/profile_wizard.html, so this form field no longer
-    # exists — this used to read it and then unconditionally call
-    # set_extra_voice_types() below on every save. Left as-is, that
-    # would've silently wiped out anyone's already-saved extra voice
-    # types the next time they touched their profile (an always-empty
-    # list from a field that no longer exists). get_extra_voice_types()/
-    # set_extra_voice_types() (app/routers/profile_routes.py) and the
-    # underlying singer_profile_voice_types table are untouched — search
-    # filtering and notification matching still honor whatever's already
-    # stored there; only the ability to add/remove it through the
-    # profile UI is gone, per the request.
     form = await request.form()
+    try:
+        data = clean_profile_input(user, form)
+    except ProfileError as exc:
+        return render(request, "profile.html", _my_profile_context(request, user, error=exc.key), status_code=400)
+    # Spoken languages (P2.B): parallel "spoken_language_code"/"spoken_language_custom" rows.
+    spoken = parse_spoken_languages_form(form.getlist("spoken_language_code"), form.getlist("spoken_language_custom"))
+    save_profile(user, data, spoken)
 
-    # Same pattern for the spoken-languages fields (P2.B): a repeated,
-    # parallel pair of fields per row — "spoken_language_code" (fixed
-    # list value or "other") and "spoken_language_custom" (free text,
-    # only meaningful when the code is "other").
-    spoken_language_entries = parse_spoken_languages_form(
-        form.getlist("spoken_language_code"),
-        form.getlist("spoken_language_custom"),
-    )
-
-    bio = bio.strip()[:MAX_BIO_LENGTH]
-
-    if country not in COUNTRY_OPTIONS:
-        context = _my_profile_context(request, user, error="register_error_invalid_country")
-        return render(request, "profile.html", context, status_code=400)
-    if preferred_language not in SUPPORTED_LANGUAGES:
-        preferred_language = "en"
-
-    # Custom profile slug: optional, but once set it must be well
-    # formed and not already taken by someone else. Blank clears it
-    # (falls back to /users/{id}).
-    profile_slug = profile_slug.strip().lower() or None
-    if profile_slug is not None:
-        if not PROFILE_SLUG_RE.match(profile_slug):
-            context = _my_profile_context(request, user, error="profile_slug_invalid")
-            return render(request, "profile.html", context, status_code=400)
-        taken = fetch_one(
-            "SELECT 1 FROM users WHERE profile_slug = :slug AND id != :id",
-            {"slug": profile_slug, "id": user["id"]},
-        )
-        if taken:
-            context = _my_profile_context(request, user, error="profile_slug_taken")
-            return render(request, "profile.html", context, status_code=400)
-
-    execute(
-        """
-        UPDATE users
-        SET notify_matches = :notify_matches, notify_messages = :notify_messages,
-            preferred_language = :preferred_language,
-            appear_in_search = :appear_in_search, profile_slug = :profile_slug,
-            city = :city, state = :state, country = :country,
-            phone = :phone, phone_visibility = :phone_visibility
-        WHERE id = :id
-        """,
-        {
-            "notify_matches": bool(notify_matches),
-            "notify_messages": bool(notify_messages),
-            "preferred_language": preferred_language,
-            "appear_in_search": bool(appear_in_search),
-            "profile_slug": profile_slug,
-            "city": city or None,
-            "state": state or None,
-            "country": country,
-            # P2.C — phone stays visible on the public profile only when
-            # the person opts in; it's ALWAYS shared with a Match
-            # counterpart regardless of this setting (see
-            # match_history_routes.py), since that reveal is a platform
-            # rule, not a per-user choice.
-            "phone": phone.strip()[:50] or None,
-            "phone_visibility": "public" if phone_visibility_public else "private",
-            "id": user["id"],
-        },
-    )
-
-    if remove_avatar:
+    # Photo last: an invalid file no longer stops the rest of the form from saving
+    # (the "profile_avatar_invalid" message promises exactly that).
+    avatar = form.get("avatar")
+    if form.get("remove_avatar"):
         remove_existing_avatar(user["id"])
         execute("UPDATE users SET avatar_url = NULL WHERE id = :id", {"id": user["id"]})
-    elif avatar is not None and avatar.filename:
+    elif avatar is not None and getattr(avatar, "filename", ""):
         new_avatar_url = await save_avatar(user["id"], avatar)
-        if new_avatar_url:
-            execute("UPDATE users SET avatar_url = :avatar_url WHERE id = :id", {"avatar_url": new_avatar_url, "id": user["id"]})
-        else:
-            # Invalid file (unsupported type or too large) — doesn't
-            # block the rest of the save, just skips the photo and warns.
+        if not new_avatar_url:
             context = _my_profile_context(request, get_current_user(request), error="profile_avatar_invalid")
             return render(request, "profile.html", context, status_code=400)
-
-    set_social_links(user["id"], {
-        "website": social_website,
-        "facebook": social_facebook,
-        "instagram": social_instagram,
-        "twitter": social_twitter,
-        "whatsapp": social_whatsapp,
-    })
-
-    if user["role"] == "singer":
-        execute(
-            """
-            UPDATE singer_profiles
-            SET voice_type_id = :voice_type_id, fach = :fach, bio = :bio
-            WHERE user_id = :user_id
-            """,
-            {
-                "voice_type_id": int(voice_type_id) if voice_type_id else None,
-                "fach": fach or None,
-                "bio": bio or None,
-                "user_id": user["id"],
-            },
-        )
-
-        tags = parse_hashtags(composer_hashtags)
-        execute("DELETE FROM singer_composer_tags WHERE user_id = :user_id", {"user_id": user["id"]})
-        for tag in tags:
-            execute(
-                "INSERT INTO singer_composer_tags (user_id, tag) VALUES (:user_id, :tag)",
-                {"user_id": user["id"], "tag": tag},
-            )
-
-        set_audio_links(user["id"], parse_audio_links(audio_links))
-    else:
-        execute(
-            """
-            UPDATE conductor_profiles
-            SET ensemble_name = :ensemble_name, bio = :bio
-            WHERE user_id = :user_id
-            """,
-            {"ensemble_name": ensemble_name or None, "bio": bio or None, "user_id": user["id"]},
-        )
-
-    # Spoken languages (P2.B) — not tied to a role, singers and
-    # conductors can both state them.
-    set_spoken_languages(user["id"], spoken_language_entries)
+        execute("UPDATE users SET avatar_url = :avatar_url WHERE id = :id", {"avatar_url": new_avatar_url, "id": user["id"]})
 
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
     return RedirectResponse(url="/profile?saved=1", status_code=303)
@@ -857,20 +456,12 @@ def download_cv_pdf(request: Request):
         headline = role_profile.get("ensemble_name") if role_profile else ""
 
     profile_slug = user.get("profile_slug")
-    profile_url = f"{str(request.base_url).rstrip('/')}/{'u/' + profile_slug if profile_slug else 'users/' + str(user['id'])}"
+    profile_url = profile_public_url(request.base_url, user["id"], profile_slug)
 
     # Same "top 3 unlocked badges" the public profile card shows (see
     # app/badges.py:top_badges + public_profile.html's badge-row),
     # resolved to display text here since the PDF has no t() available.
-    badge_labels = []
-    for b in top_badges(user["id"], limit=3):
-        label = translate(f"badge_{b['key']}_label", lang)
-        if b["key"] == "views" and b.get("threshold"):
-            label = f"{label} ({b['threshold']}+)"
-        if b["key"] == "anniversary" and b.get("years"):
-            unit = translate("year_singular", lang) if b["years"] == 1 else translate("year_plural", lang)
-            label = f"{label} ({b['years']} {unit})"
-        badge_labels.append(label)
+    badge_labels = [badge_label(b, lang) for b in top_badges(user["id"], limit=3)]
 
     is_highlighted = bool(
         account
@@ -975,33 +566,8 @@ def rate_user(
     viewer = get_current_user(request)
     if not viewer:
         return RedirectResponse(url="/login", status_code=303)
-    if viewer["id"] == user_id:
+    if not save_rating(viewer, user_id, stars, comment, listing_id):
         return RedirectResponse(url=f"/users/{user_id}", status_code=303)
-    if stars < 0 or stars > 5:
-        return RedirectResponse(url=f"/users/{user_id}", status_code=303)
-
-    rated_exists = fetch_one("SELECT id FROM users WHERE id = :id AND deleted_at IS NULL", {"id": user_id})
-    if not rated_exists:
-        return RedirectResponse(url="/board", status_code=303)
-
-    listing_id_val = int(listing_id) if listing_id.strip().isdigit() else None
-    comment_val = comment.strip()[:MAX_RATING_COMMENT] or None
-
-    execute(
-        """
-        INSERT INTO ratings (rater_id, rated_id, listing_id, stars, comment)
-        VALUES (:rater_id, :rated_id, :listing_id, :stars, :comment)
-        ON CONFLICT (rater_id, rated_id)
-        DO UPDATE SET stars = :stars, comment = :comment, listing_id = :listing_id, updated_at = now()
-        """,
-        {
-            "rater_id": viewer["id"],
-            "rated_id": user_id,
-            "listing_id": listing_id_val,
-            "stars": stars,
-            "comment": comment_val,
-        },
-    )
     return RedirectResponse(url=f"/users/{user_id}?rated=1", status_code=303)
 
 
@@ -1115,6 +681,8 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
             {"blocker_id": user_id, "blocked_id": viewer["id"]},
         )
         blocked_either_way = is_blocked or (blocked_other_way is not None)
+        # Same rule as save_rating(): no widget across a block or for unverified accounts.
+        can_rate = not blocked_either_way and bool(viewer.get("email_verified"))
 
     # Badges: only the unlocked ones show up on the public profile
     # (the profile doesn't get cluttered with "locked achievements"
@@ -1207,5 +775,6 @@ def public_profile(request: Request, user_id: int, background_tasks: BackgroundT
             if profile_user and profile_user["role"] == "singer" and viewer is not None
             else {"solo": [], "choir": []}
         ),
+        "profile_share_url": profile_public_url(request.base_url, profile_user["id"], profile_user["profile_slug"]),
     }
     return render(request, "public_profile.html", context)
