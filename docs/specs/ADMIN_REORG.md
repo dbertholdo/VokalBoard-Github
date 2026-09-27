@@ -23,12 +23,13 @@ only navigation, grouping and page layout change.
                  Users (list → user page in tabs: Account · Notas · Reviews · Moderation · Danger zone)
                  Support tickets
 📣 Content       Announcements (Posts) · Banners · E-mails (send · periodic · design)
-🎁 Shop          Shop catalog (was "Loja") · Vouchers to deliver (new)
+🎁 Shop          Shop catalog (was "Loja")
 🔴 Red Zone      Money: financial dashboard · general ledger · bank import · closings
  (God Mode,      Refunds · Grants (Notas / items)
   password       Settings: Capitalism Mode · prices · feature switches
   re-check)      Audit log (own page)
 ```
-- Red count badges on menu items (open reports, tickets, vouchers to deliver).
+- Red count badges on menu items (open reports, tickets).
+- **Vouchers to deliver: not built** (Daniel, 2026-09-27) — new shop items are implemented in code, not created by admins. The admin catalog (create/edit/turn off) stays as it is; don't delete it.
 - Admin-rights / God Mode switches move into the user page's "Danger zone" tab (password re-check).
 - Phone: the sidebar collapses into the ☰ menu; tables scroll inside their card; no page-wide sideways scroll.
