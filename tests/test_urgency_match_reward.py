@@ -36,6 +36,8 @@ def _clear(user_id: int):
 
 def test_urgent_listing_match_credits_half_a_nota_to_the_publisher(client):
     contractor_id, _, _ = register_test_user(client, full_name="Reward Contractor")
+    # Only verified accounts can invite (app/match_service.py, 2026-09-27).
+    execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": contractor_id})
     artist_id, _, _ = register_test_user(client, full_name="Reward Artist")
     _clear(contractor_id)
 
@@ -52,6 +54,7 @@ def test_urgent_listing_match_credits_half_a_nota_to_the_publisher(client):
 
 def test_non_urgent_listing_match_does_not_credit_reward(client):
     contractor_id, _, _ = register_test_user(client, full_name="No Reward Contractor")
+    execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": contractor_id})
     artist_id, _, _ = register_test_user(client, full_name="No Reward Artist")
     _clear(contractor_id)
 

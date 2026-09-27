@@ -54,6 +54,22 @@ class InvoiceDraftNotAllowed(ValueError):
     """Wrong participant, wrong status, or the request window is closed."""
 
 
+def get_drafts(match_ids: list[int]) -> dict[int, dict]:
+    """get_draft() for a whole page of Matches in one query (CLAUDE.md §4)."""
+    if not match_ids:
+        return {}
+    rows = fetch_all(
+        """
+        SELECT id, match_id, requested_by_user_id, issuer_user_id, contractor_user_id,
+               status, expires_at, created_at, updated_at
+        FROM invoice_match_drafts
+        WHERE match_id = ANY(:ids) AND status IN ('awaiting_issuer', 'awaiting_contractor')
+        """,
+        {"ids": list(match_ids)},
+    )
+    return {r["match_id"]: dict(r) for r in rows}
+
+
 def get_draft(match_id: int) -> dict | None:
     row = fetch_one(
         """

@@ -101,6 +101,7 @@
   "error_500_message": "发生了意外错误。我们已收到通知——请稍后再试。",
   "error_500_title": "出错了",
   "error_back_home": "返回首页",
+  "error_event_date_required": "请填写有效的演出日期。",
   "error_generic_message": "请求无法处理（错误 {status}）。",
   "error_generic_title": "出错了",
   "error_listing_rate_limited": "短时间内发布的信息过多——请等几分钟后再试。",

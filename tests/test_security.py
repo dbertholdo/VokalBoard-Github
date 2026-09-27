@@ -37,7 +37,7 @@ def job_vacancy_fields(fee_amount="100", fee_currency="EUR") -> dict:
     """One valid vacancy row for a seeking_singer listing form.
 
     Since 19/09/2026 the vacancy rows are the only place a job listing's
-    voice type and fee are entered, and _job_fields_valid() requires at
+    voice type and fee are entered, and clean_listing_form() (app/listings_service.py) requires at
     least one row with a real voice type (see app/vacancies.py).
     """
     voice = fetch_one("SELECT id FROM voice_types ORDER BY id LIMIT 1")

@@ -21,7 +21,7 @@ def _base_listing_data(csrf_token, is_urgent=False):
         "ensemble_type": "",
         **job_vacancy_fields(),
         # seeking_singer/seeking_conductor exigem event_date válido
-        # (ver create_listing() -> _valid_event_date()).
+        # (see clean_listing_form() in app/listings_service.py).
         "event_date": (date.today() + timedelta(days=10)).isoformat(),
     }
     if is_urgent:

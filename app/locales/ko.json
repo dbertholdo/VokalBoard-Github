@@ -101,6 +101,7 @@
   "error_500_message": "예상치 못한 오류가 발생했어요. 저희에게 알림이 왔으니 잠시 후 다시 시도해 주세요.",
   "error_500_title": "문제가 발생했어요",
   "error_back_home": "홈으로 돌아가기",
+  "error_event_date_required": "올바른 공연 날짜를 입력하세요.",
   "error_generic_message": "요청을 처리할 수 없었어요 (오류 {status}).",
   "error_generic_title": "문제가 발생했어요",
   "error_listing_rate_limited": "짧은 시간에 공고를 너무 많이 올렸어요 — 몇 분 후에 다시 시도해 주세요.",

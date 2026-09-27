@@ -58,6 +58,25 @@ def create_invitation(vacancy_id: int, artist_user_id: int, initiated_by_user_id
             # own author (convite) may ever start a row for this vacancy.
             return {"ok": False, "reason": "invitation_error_not_allowed"}
 
+        # 2026-09-27 cleanup: rules that only the UI used to enforce.
+        people = {r["id"]: r for r in conn.execute(
+            text("SELECT id, role, email_verified, deleted_at FROM users WHERE id = ANY(:ids)"),
+            {"ids": [artist_user_id, initiated_by_user_id]},
+        ).mappings()}
+        artist, initiator = people.get(artist_user_id), people.get(initiated_by_user_id)
+        expected_role = "singer" if vacancy["listing_type"] == "seeking_singer" else "conductor"
+        if not artist or artist["deleted_at"] or artist["role"] != expected_role:
+            return {"ok": False, "reason": "invitation_error_not_allowed"}
+        if not initiator or not initiator["email_verified"]:
+            return {"ok": False, "reason": "invitation_error_not_allowed"}
+        blocked = conn.execute(
+            text("""SELECT 1 FROM blocked_users WHERE (blocker_id = :a AND blocked_id = :b)
+                    OR (blocker_id = :b AND blocked_id = :a)"""),
+            {"a": artist_user_id, "b": vacancy["author_id"]},
+        ).first()
+        if blocked:
+            return {"ok": False, "reason": "invitation_error_not_allowed"}
+
         existing = conn.execute(
             text("SELECT id FROM job_invitations WHERE vacancy_id=:vacancy_id AND artist_user_id=:artist_id AND status='pending'"),
             {"vacancy_id": vacancy_id, "artist_id": artist_user_id},
@@ -76,6 +95,9 @@ def create_invitation(vacancy_id: int, artist_user_id: int, initiated_by_user_id
             text("SELECT LEAST(now() + interval '48 hours', (CAST(:event_date AS date) - interval '6 hours'))"),
             {"event_date": vacancy["event_date"]},
         ).scalar_one()
+        if expires_at is None or conn.execute(text("SELECT CAST(:e AS timestamptz) <= now()"), {"e": expires_at}).scalar_one():
+            # The event is (almost) here: an invitation would be born expired.
+            return {"ok": False, "reason": "invitation_error_vacancy_closed"}
 
         invitation_id = conn.execute(
             text(

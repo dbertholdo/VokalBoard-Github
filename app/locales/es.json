@@ -101,6 +101,7 @@
   "error_500_message": "Se produjo un error inesperado. Ya nos hemos enterado: inténtalo de nuevo más tarde.",
   "error_500_title": "Algo salió mal",
   "error_back_home": "Volver a la página de inicio",
+  "error_event_date_required": "Indica una fecha válida para el evento.",
   "error_generic_message": "No se pudo procesar la solicitud (error {status}).",
   "error_generic_title": "Algo salió mal",
   "error_listing_rate_limited": "Demasiados anuncios en poco tiempo: espera unos minutos e inténtalo de nuevo.",

@@ -38,6 +38,11 @@ class MatchHistoryTests(unittest.TestCase):
             'CATEGORIES': {'punctuality': 'eval_category_punctuality'},
             'can_evaluate': lambda *a, **k: False,
             'get_my_evaluation': lambda *a, **k: None,
+            # 2026-09-27: batched per-page lookups + fee formatting.
+            'get_my_evaluations': lambda *a, **k: {},
+            'get_drafts': lambda *a, **k: {},
+            'translate': lambda key, lang: key,
+            'format_fee': lambda *a, **k: None,
         }
         exec(compile(ast.Module(body=[fn], type_ignores=[]), '<history route>', 'exec'), namespace)
         return namespace['match_history'], calls

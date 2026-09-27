@@ -126,11 +126,13 @@ def get_weekly_highlights(viewer_id: int, limit: int = WEEKLY_HIGHLIGHTS_LIMIT) 
     )
 
     picked = fallback_sorted[:remaining]
-    for row in picked:
+    if picked:
+        # One statement for the whole rotation (runs on every home page view).
         execute(
-            "UPDATE users SET highlight_shown_count = highlight_shown_count + 1, last_highlighted_at = now() WHERE id = :id",
-            {"id": row["id"]},
+            "UPDATE users SET highlight_shown_count = highlight_shown_count + 1, last_highlighted_at = now() WHERE id = ANY(:ids)",
+            {"ids": [row["id"] for row in picked]},
         )
+    for row in picked:
         highlights.append(
             {
                 "id": row["id"],

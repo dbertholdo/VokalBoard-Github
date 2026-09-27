@@ -69,6 +69,21 @@ def can_evaluate(status: str, event_date, today: date | None = None) -> bool:
     return opens_at <= today <= closes_at
 
 
+def get_my_evaluations(match_ids: list[int], rater_id: int) -> dict[int, dict]:
+    """get_my_evaluation() for a whole page of Matches in one query (CLAUDE.md §4)."""
+    if not match_ids:
+        return {}
+    rows = fetch_all(
+        """
+        SELECT match_id, punctuality, preparation, musicality, communication, collaboration
+        FROM match_evaluations
+        WHERE match_id = ANY(:ids) AND rater_id = :rater_id
+        """,
+        {"ids": list(match_ids), "rater_id": rater_id},
+    )
+    return {r["match_id"]: {k: v for k, v in r.items() if k != "match_id"} for r in rows}
+
+
 def get_my_evaluation(match_id: int, rater_id: int) -> dict | None:
     """A própria avaliação que ESTE usuário deu nesse Match (pra
     pré-preencher o formulário se ele quiser revisar) — nunca a do outro

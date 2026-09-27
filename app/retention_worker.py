@@ -55,7 +55,11 @@ def run_retention(connection=None, dry_run=False):
         return counts
     # Capture final job details before removal; the Match itself and participants remain.
     conn.execute(text('''UPDATE job_matches m SET listing_snapshot=jsonb_build_object(
-        'title',l.title,'event_date',l.event_date,'fee',l.fee)
+        'title',l.title,'event_date',l.event_date,'fee',l.fee,
+        -- #55: job fees live on the vacancy, not the listing.
+        'fee_amount',(SELECT v.fee_amount FROM listing_vacancies v WHERE v.id=m.vacancy_id),
+        'fee_currency',(SELECT v.fee_currency FROM listing_vacancies v WHERE v.id=m.vacancy_id),
+        'fee_negotiable',(SELECT v.fee_negotiable FROM listing_vacancies v WHERE v.id=m.vacancy_id))
         FROM listings l WHERE l.id=m.listing_id AND (
         (l.archived_at IS NULL AND COALESCE(l.available_until,l.event_date)+30 <= CURRENT_DATE)
         OR l.archived_at+interval '60 days' <= now())'''))

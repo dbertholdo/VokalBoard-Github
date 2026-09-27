@@ -78,6 +78,10 @@ def test_listing_with_a_match_already_is_not_reminded(client):
     from app.match_service import create_invitation, respond_invitation
 
     user_id, _, _ = register_test_user(client, full_name="Reminder Contractor")
+
+    # Only verified accounts can invite (app/match_service.py, 2026-09-27).
+
+    execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
     artist_id, _, _ = register_test_user(client, full_name="Reminder Artist")
     listing_id = _make_urgent_listing(user_id, marked_hours_ago=7)
 

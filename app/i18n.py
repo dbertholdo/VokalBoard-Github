@@ -420,6 +420,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "listing_form_country_label": {"de": "Land", "en": "Country", "fr": "Pays", "it": "Paese", "pt": "País"},
     "listing_form_submit": {"de": "Veröffentlichen", "en": "Publish", "fr": "Publier", "it": "Pubblica", "pt": "Publicar"},
     "listing_form_update_submit": {"de": "Aktualisieren", "en": "Update", "fr": "Mettre à jour", "it": "Aggiorna", "pt": "Atualizar"},
+    "error_event_date_required": {"de": "Bitte gib ein gültiges Veranstaltungsdatum an.", "en": "Please enter a valid event date.", "fr": "Veuillez indiquer une date d'événement valide.", "it": "Inserisci una data valida per l'evento.", "pt": "Informe uma data válida para o evento."},
     "error_required_fields": {
         "de": "Bitte füllen Sie Werk und Stadt aus und fügen Sie mindestens eine offene Stelle hinzu.",
         "en": "Please fill in work and city, and add at least one vacancy below.",

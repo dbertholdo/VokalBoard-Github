@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-27 — Claude — cleanup section 3 (jobs & Matches)
+- New `app/listings_service.py`: form validation + create/update with vacancies in ONE transaction (`set_vacancies(conn=)`); `listings_routes.py` 60→44 KB. Fixes: tampered type/voice, both fee+negotiable on self-ads, availability-trigger errors → form errors (were 500 / raw JSON); missing event date has its own message (`error_event_date_required`, 9 langs); vacancy rows + checkboxes survive a form error; `sheet_music_url` http(s) only; slots capped at 100; edit can't change the listing type; one report per person; deleting a listing expires its pending invitations.
+- `create_invitation`: artist role must fit the vacancy, initiator verified, no block either way, no invitation born expired. `next` redirects same-site only (open redirect).
+- Match history: fee from the matched vacancy (was legacy `listings.fee`, empty since #55; retention snapshot stores it too); evaluations/drafts batched per page; bad score → redirect, not JSON 400. Home highlights: one UPDATE.
+- Browser (375px, ko): create (error path keeps rows) → my listings → detail/board/invitations/matches. Tests: 361 passed + 10 retention (new `tests/test_jobs_cleanup.py`; 3 fixtures now verify their contractor).
+
 ## 2026-09-27 — Claude — cleanup section 2 (profile & people search)
 - New `app/profiles.py` (service; profile helpers moved out of `profile_routes.py`, 50→37 KB): `clean_profile_input` + `save_profile` in ONE transaction. Fixes: an invalid photo no longer skips bio/links/voice/repertoire (message said "rest saved"); bad `voice_type_id` / over-long city, fach, ensemble are form errors or truncated, not 500s; dead `social_whatsapp` param removed.
 - Ratings (`save_rating`): refused across a block (either way) and for unverified raters (widget hidden too); stale `listing_id` no longer an FK 500.

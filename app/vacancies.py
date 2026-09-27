@@ -15,10 +15,14 @@ seeking_conductor has no naipe at all, so its vacancy row always has
 voice_type_id = NULL (see parse_vacancies_form's listing_type branch
 below) — conductors are matched by role only, not by voice.
 """
-from app.database import fetch_all, fetch_one, execute
+from sqlalchemy import text
+
+from app.database import fetch_all, transaction
 from app.fees import parse_fee_amount, CURRENCIES, DEFAULT_CURRENCY
 
 MAX_VACANCIES_PER_LISTING = 10
+# Slots per vacancy: the column is a SMALLINT; anything above this was a typo or abuse.
+MAX_SLOTS_PER_VACANCY = 100
 
 
 def get_vacancies(listing_id: int) -> list[dict]:
@@ -89,7 +93,7 @@ def parse_vacancies_form(
         if currency not in CURRENCIES:
             currency = DEFAULT_CURRENCY
         try:
-            total_slots = max(1, int(slots[0])) if slots and slots[0] else 1
+            total_slots = min(MAX_SLOTS_PER_VACANCY, max(1, int(slots[0]))) if slots and slots[0] else 1
         except (TypeError, ValueError):
             total_slots = 1
         return [{
@@ -122,7 +126,7 @@ def parse_vacancies_form(
         if currency not in CURRENCIES:
             currency = DEFAULT_CURRENCY
         try:
-            total_slots = max(1, int(slots[i])) if i < len(slots) and slots[i] else 1
+            total_slots = min(MAX_SLOTS_PER_VACANCY, max(1, int(slots[i]))) if i < len(slots) and slots[i] else 1
         except (TypeError, ValueError):
             total_slots = 1
         result.append({
@@ -134,7 +138,7 @@ def parse_vacancies_form(
     return result
 
 
-def set_vacancies(listing_id: int, vacancies: list[dict]) -> None:
+def set_vacancies(listing_id: int, vacancies: list[dict], conn=None) -> None:
     """
     Replaces the listing's vacancies with `vacancies`. Existing rows for
     a voice type that's still present keep their `filled_slots` count
@@ -150,7 +154,14 @@ def set_vacancies(listing_id: int, vacancies: list[dict]) -> None:
     never have more than one implicit vacancy); this would silently
     collapse multiple conductor rows into one if that ever changed.
     """
-    existing = {r["voice_type_id"]: r["id"] for r in fetch_all(
+    if conn is None:
+        with transaction() as own_conn:
+            return set_vacancies(listing_id, vacancies, conn=own_conn)
+
+    def run(sql: str, params: dict):
+        return conn.execute(text(sql), params)
+
+    existing = {r.voice_type_id: r.id for r in run(
         "SELECT id, voice_type_id FROM listing_vacancies WHERE listing_id = :id", {"id": listing_id}
     )}
     incoming_voice_ids = {v["voice_type_id"] for v in vacancies}
@@ -161,18 +172,18 @@ def set_vacancies(listing_id: int, vacancies: list[dict]) -> None:
     # destroying a confirmed Match's history).
     for voice_id, vacancy_id in existing.items():
         if voice_id not in incoming_voice_ids:
-            has_match = fetch_one("SELECT 1 FROM job_matches WHERE vacancy_id = :id", {"id": vacancy_id})
+            has_match = run("SELECT 1 FROM job_matches WHERE vacancy_id = :id", {"id": vacancy_id}).first()
             if has_match:
                 continue
-            execute("DELETE FROM job_invitations WHERE vacancy_id = :id", {"id": vacancy_id})
-            execute("DELETE FROM listing_vacancies WHERE id = :id", {"id": vacancy_id})
+            run("DELETE FROM job_invitations WHERE vacancy_id = :id", {"id": vacancy_id})
+            run("DELETE FROM listing_vacancies WHERE id = :id", {"id": vacancy_id})
 
     for v in vacancies:
         if v["voice_type_id"] in existing:
             # total_slots can never drop below what's already filled
             # (the table's own CHECK constraint would reject that update
             # anyway) — clamp instead of letting the edit fail outright.
-            execute(
+            run(
                 """
                 UPDATE listing_vacancies
                 SET fee_amount = :fee_amount, fee_currency = :fee_currency, fee_negotiable = :fee_negotiable,
@@ -185,7 +196,7 @@ def set_vacancies(listing_id: int, vacancies: list[dict]) -> None:
                 },
             )
         else:
-            execute(
+            run(
                 """
                 INSERT INTO listing_vacancies (listing_id, voice_type_id, fee_amount, fee_currency, fee_negotiable, total_slots)
                 VALUES (:listing_id, :voice_type_id, :fee_amount, :fee_currency, :fee_negotiable, :total_slots)

@@ -101,6 +101,7 @@
   "error_500_message": "A apărut o eroare neașteptată. Am fost anunțați — încearcă din nou mai târziu.",
   "error_500_title": "Ceva nu a funcționat",
   "error_back_home": "Înapoi la pagina principală",
+  "error_event_date_required": "Introdu o dată validă pentru eveniment.",
   "error_generic_message": "Cererea nu a putut fi procesată (eroarea {status}).",
   "error_generic_title": "Ceva nu a funcționat",
   "error_listing_rate_limited": "Prea multe anunțuri într-un timp scurt — așteaptă câteva minute și încearcă din nou.",

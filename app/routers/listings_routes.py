@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Form, BackgroundTasks, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 
-from app.database import fetch_all, fetch_one, execute, execute_returning
+from app.database import fetch_all, fetch_one, execute
 from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
@@ -12,44 +12,20 @@ from app.urgency import ListingNotEligible, UrgencyUnavailable, get_urgency_stat
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 from app.richtext import html_to_excerpt
 from app.highlights import get_weekly_highlights
-from app.retention_rules import availability_valid
-from app.vacancies import get_vacancies, parse_vacancies_form, set_vacancies
-from app.fees import fee_valid, format_fee, CURRENCIES, DEFAULT_CURRENCY
+from app.vacancies import get_vacancies
+from app.listings_service import (
+    LISTING_TYPE_KEYS, ENSEMBLE_TYPE_KEYS, JOB_TYPES, ListingFormError, clean_listing_form, form_values,
+    create_listing as create_listing_row, update_listing as update_listing_row,
+)
+from app.fees import format_fee, CURRENCIES, DEFAULT_CURRENCY
 from app.compatibility import FEE_COMPATIBILITY_ORDER_SQL, RATING_JOIN_SQL, viewer_location_params
 from app.mascot_moments import profile_incomplete
 from app.i18n import translate
 from app.listing_pdf import ListingFlyerDocument, render_listing_flyer_pdf
-from datetime import date
-from sqlalchemy.exc import IntegrityError
 
-
-def _persist_listing(query, params, returning=False):
-    try:
-        return execute_returning(query, params) if returning else execute(query, params)
-    except IntegrityError as exc:
-        reason = getattr(getattr(exc.orig, 'diag', None), 'message_primary', '')
-        if reason in ('availability_limit', 'availability_invalid'):
-            raise HTTPException(status_code=400, detail=reason) from exc
-        raise
-
-
-def _valid_event_date(value):
-    try:
-        date.fromisoformat(value)
-        return True
-    except (ValueError, TypeError):
-        return False
 
 router = APIRouter()
 
-LISTING_TYPE_KEYS = [
-    "seeking_singer",
-    "seeking_conductor",
-    "singer_available",
-    "conductor_available",
-]
-
-ENSEMBLE_TYPE_KEYS = ["solo", "choir", "both"]
 
 # "event_status" is calculated right in the SQL (CASE), it isn't
 # stored in the database — this way it changes on its own as days go
@@ -99,47 +75,6 @@ def _listing_creation_throttled(author_id: int) -> bool:
         {"id": author_id, "window": LISTING_WINDOW_MINUTES},
     )
     return bool(row and row["n"] >= MAX_LISTINGS_PER_WINDOW)
-
-
-def _job_fields_valid(listing_type: str, city: str, repertoire: str, has_vacancy: bool) -> bool:
-    """
-    Hiring a singer or conductor requires Repertoire, City, and at
-    least one vacancy.
-
-    FIX (19/09/2026, Daniel: "duas formas de adicionar vagas, fica
-    confuso, inclusive para o código e db") — supersedes the previous
-    same-day fix that made a standalone `voice_type_id` field required.
-    That standalone field is GONE now for seeking_singer/
-    seeking_conductor: the vacancy list (app/vacancies.py) is the only
-    place voice type and fee are entered for these two types, so "at
-    least one voice" and "at least one vacancy" are now the same
-    requirement. Fee is intentionally NOT required here anymore either
-    — it moved to being a per-vacancy field, same leniency vacancies
-    already had (see parse_vacancies_form's docstring: a vaga's fee
-    isn't strictly validated, it can be added/edited later).
-
-    `has_vacancy` is computed by the caller from the already-parsed
-    vacancies list: for seeking_singer, at least one row with a real
-    voice type; for seeking_conductor, always True — a conductor
-    listing always gets exactly one implicit vacancy synthesized by
-    parse_vacancies_form(), since conductors have no naipe to choose.
-    """
-    if listing_type not in ("seeking_singer", "seeking_conductor"):
-        return True
-    return bool(city.strip()) and bool(repertoire.strip()) and has_vacancy
-
-
-def _derive_listing_fields_from_vacancies(vacancies: list[dict], fallback_currency: str) -> tuple:
-    """
-    #55 (2026-09-26): job listings keep their voice type and fee ONLY in
-    listing_vacancies — nothing is copied onto `listings` any more (a DB
-    constraint keeps those columns empty for job listings). Readers go
-    through `listing_terms` / LISTING_SUMMARY_JOIN (app/listing_terms.py).
-    Returns the values to store: (voice_type_id, fee_amount, fee_currency,
-    fee_negotiable) — empty, plus the form's currency as a harmless default.
-    """
-    currency = fallback_currency if fallback_currency in CURRENCIES else DEFAULT_CURRENCY
-    return None, None, currency, False
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -530,261 +465,81 @@ def new_listing_form(request: Request):
         return RedirectResponse(url="/login", status_code=303)
     if not user["email_verified"]:
         return RedirectResponse(url="/?verify_required=1", status_code=303)
-    voice_types = fetch_all("SELECT id, name FROM voice_types ORDER BY sort_order")
-    context = {
-        "user": user,
-        "voice_types": voice_types,
-        "listing_type_keys": LISTING_TYPE_KEYS,
-        "ensemble_type_keys": ENSEMBLE_TYPE_KEYS,
-        "country_options": COUNTRY_OPTIONS,
-        "state_options": STATE_OPTIONS,
-        "city_options": get_city_options(),
-        "currencies": CURRENCIES,
-        "values": {"country": "DE", "fee_currency": DEFAULT_CURRENCY},
-        "is_edit": False,
-        "listing_id": None,
-        "error": None,
-        "vacancies": [],
-    }
+    context = _listing_form_context(user, {"country": "DE", "fee_currency": DEFAULT_CURRENCY},
+                                    is_edit=False, listing_id=None, error=None, vacancies=[])
     return render(request, "listing_form.html", context)
 
 
-def _listing_form_error_context(user, listing_type, title, description, city, state, country,
-                                 voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable,
-                                 ensemble_type, event_date,
-                                 is_edit, listing_id, available_from="", available_until=""):
-    voice_types = fetch_all("SELECT id, name FROM voice_types ORDER BY sort_order")
+def _listing_form_context(user, values: dict, *, is_edit: bool, listing_id, error, vacancies) -> dict:
     return {
         "user": user,
-        "voice_types": voice_types,
+        "voice_types": fetch_all("SELECT id, name FROM voice_types ORDER BY sort_order"),
         "listing_type_keys": LISTING_TYPE_KEYS,
         "ensemble_type_keys": ENSEMBLE_TYPE_KEYS,
         "country_options": COUNTRY_OPTIONS,
         "state_options": STATE_OPTIONS,
         "city_options": get_city_options(),
         "currencies": CURRENCIES,
-        "values": {
-            "listing_type": listing_type,
-            "title": title,
-            "description": description,
-            "city": city,
-            "state": state,
-            "country": country,
-            "voice_type_id": voice_type_id,
-            "repertoire": repertoire,
-            "venue": venue,
-            "fee_amount": fee_amount,
-            "fee_currency": fee_currency,
-            "fee_negotiable": fee_negotiable,
-            "ensemble_type": ensemble_type,
-            "event_date": event_date,
-            "available_from": available_from,
-            "available_until": available_until,
-        },
+        "values": values,
         "is_edit": is_edit,
         "listing_id": listing_id,
-        "error": "error_required_fields",
-        # Known rough edge: vacancy rows and the logistics checkboxes
-        # aren't threaded back through this specific error path yet, so
-        # they reset to empty on a validation error — the person just
-        # re-checks them, nothing is lost from the database.
-        "vacancies": [],
+        "error": error,
+        "vacancies": vacancies,
     }
 
 
-@router.post("/listings/new")
-async def create_listing(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    csrf_token: str = Form(""),
-    listing_type: str = Form(...),
-    title: str = Form(...),
-    description: str = Form(...),
-    city: str = Form(""),
-    state: str = Form(""),
-    country: str = Form("DE"),
-    voice_type_id: str = Form(""),
-    repertoire: str = Form(""),
-    venue: str = Form(""),
-    fee_amount: str = Form(""),
-    fee_currency: str = Form(DEFAULT_CURRENCY),
-    fee_negotiable: str = Form(""),
-    ensemble_type: str = Form(""),
-    event_date: str = Form(""),
-    available_from: str = Form(""),
-    available_until: str = Form(""),
-    travel_cost_covered: str = Form(""),
-    sheet_music_available: str = Form(""),
-    sheet_music_url: str = Form(""),
-    rehearsal_schedule_available: str = Form(""),
-    is_urgent: str = Form(""),
-):
-    verify_csrf(request, csrf_token)
+def _form_error(request, user, exc: ListingFormError, *, is_edit=False, listing_id=None, status=400):
+    # Vacancy rows and checkboxes are threaded back now (they used to reset to empty).
+    context = _listing_form_context(user, form_values(exc.data), is_edit=is_edit, listing_id=listing_id,
+                                    error=exc.key, vacancies=exc.data.get("vacancies", []))
+    return render(request, "listing_form.html", context, status_code=status)
 
+
+@router.post("/listings/new")
+async def create_listing(request: Request, background_tasks: BackgroundTasks, csrf_token: str = Form("")):
+    verify_csrf(request, csrf_token)
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     if not user["email_verified"]:
         return RedirectResponse(url="/?verify_required=1", status_code=303)
 
-    # P3.E: valor numérico + moeda + "a negociar" — ver app/fees.py.
-    # fee_amount_parsed é o Decimal já pronto pro INSERT — só é
-    # realmente usado quando listing_type NÃO é seeking_singer/
-    # seeking_conductor (esses dois passaram a derivar cachê da lista
-    # de vagas, ver _derive_listing_fields_from_vacancies abaixo).
-    # fee_ok fica sem uso pra esses dois tipos desde a mudança de
-    # 19/09/2026 (fee deixou de ser obrigatório no nível do anúncio).
-    fee_negotiable_bool = bool(fee_negotiable)
-    if fee_currency not in CURRENCIES:
-        fee_currency = DEFAULT_CURRENCY
-    fee_ok, fee_amount_parsed = fee_valid(fee_amount, fee_negotiable_bool)
-
-    # P3.A / FIX 19/09/2026: vacancies (naipe + cotas + cachê) are now
-    # the ONLY way to enter voice type/fee for seeking_singer/
-    # seeking_conductor — see app/vacancies.py's module docstring.
     form = await request.form()
-    vacancies = parse_vacancies_form(
-        form.getlist("vacancy_voice_type_id"),
-        form.getlist("vacancy_fee_amount"),
-        form.getlist("vacancy_fee_currency"),
-        lambda i: form.get(f"vacancy_fee_negotiable_{i}"),
-        form.getlist("vacancy_total_slots"),
-        listing_type,
-    )
+    try:
+        data = clean_listing_form(form)
+    except ListingFormError as exc:
+        return _form_error(request, user, exc)
 
-    # P2.C: e-mail (já garantido acima, precisa estar verificado) e
-    # telefone são obrigatórios para publicar um anúncio — nenhum dos
-    # dois aparece em nenhum lugar até acontecer um Match (ver
-    # match_history_routes.py); aqui só garantimos que existem.
+    # P2.C: a phone is required to publish (only revealed after a Match — see match_history_routes.py).
     if not (user.get("phone") or "").strip():
-        context = _listing_form_error_context(
-            user, listing_type, title, description, city, state, country,
-            voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, False, None, available_from, available_until,
-        )
-        context["error"] = "error_phone_required_for_listing"
-        return render(request, "listing_form.html", context, status_code=400)
-
-    if country not in COUNTRY_OPTIONS:
-        country = "DE"
-    if ensemble_type not in ENSEMBLE_TYPE_KEYS:
-        ensemble_type = None
-
+        return _form_error(request, user, ListingFormError("error_phone_required_for_listing", data))
     if _listing_creation_throttled(user["id"]):
-        context = _listing_form_error_context(
-            user, listing_type, title, description, city, state, country,
-            voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, False, None, available_from, available_until,
-        )
-        context["error"] = "error_listing_rate_limited"
-        return render(request, "listing_form.html", context, status_code=429)
+        return _form_error(request, user, ListingFormError("error_listing_rate_limited", data), status=429)
 
-    # "State" is required for any listing (not just openings) —
-    # together with Repertoire/City/at-least-one-vacancy in the
-    # specific case of seeking_singer/seeking_conductor (see
-    # _job_fields_valid's FIX note).
-    available = listing_type == 'singer_available'
-    has_vacancy = bool(vacancies)
-    if (available and not availability_valid(available_from, available_until)) or (not available and (not state.strip() or not _job_fields_valid(listing_type, city, repertoire, has_vacancy))):
-        context = _listing_form_error_context(
-            user, listing_type, title, description, city, state, country,
-            voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, False, None, available_from, available_until,
-        )
-        return render(request, "listing_form.html", context, status_code=400)
+    try:
+        listing_id = create_listing_row(user["id"], data)
+    except ListingFormError as exc:
+        return _form_error(request, user, exc)
 
-    if listing_type in ('seeking_singer', 'seeking_conductor') and not _valid_event_date(event_date):
-        raise HTTPException(status_code=400, detail='Event date required')
-    if available:
-        event_date = ''
-        if not state.strip() and not city.strip():
-            country = None
-
-    # FIX 19/09/2026: for seeking_singer/seeking_conductor, the
-    # top-level voice_type_id/fee_* columns are no longer filled from
-    # the (now-removed) standalone form fields — they're derived from
-    # the vacancy rows instead, see _derive_listing_fields_from_vacancies.
-    if listing_type in ('seeking_singer', 'seeking_conductor'):
-        derived_voice_type_id, derived_fee_amount, derived_fee_currency, derived_fee_negotiable = \
-            _derive_listing_fields_from_vacancies(vacancies, fee_currency)
-    else:
-        derived_voice_type_id = int(voice_type_id) if voice_type_id else None
-        derived_fee_amount, derived_fee_currency, derived_fee_negotiable = fee_amount_parsed, fee_currency, fee_negotiable_bool
-
-    new_listing = _persist_listing(
-        """
-        INSERT INTO listings (author_id, listing_type, title, description, city, state, country, voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable, ensemble_type, event_date, available_from, available_until,
-                               travel_cost_covered, sheet_music_available, sheet_music_url, rehearsal_schedule_available)
-        VALUES (:author_id, :listing_type, :title, :description, :city, :state, :country, :voice_type_id, :repertoire, :venue, :fee_amount, :fee_currency, :fee_negotiable, :ensemble_type, :event_date, :available_from, :available_until,
-                :travel_cost_covered, :sheet_music_available, :sheet_music_url, :rehearsal_schedule_available)
-        RETURNING id
-        """,
-        {
-            "author_id": user["id"],
-            "listing_type": listing_type,
-            "title": title,
-            "description": description,
-            "city": city or None,
-            "state": state.strip() or None,
-            "country": country,
-            "voice_type_id": derived_voice_type_id,
-            "repertoire": repertoire or None,
-            "venue": venue or None,
-            "fee_amount": derived_fee_amount,
-            "fee_currency": derived_fee_currency,
-            "fee_negotiable": derived_fee_negotiable,
-            "ensemble_type": ensemble_type,
-            "event_date": event_date or None,
-            "available_from": available_from if available else None,
-            "available_until": available_until if available else None,
-            "travel_cost_covered": bool(travel_cost_covered),
-            # Zero-Storage: the link is only kept when "available" is
-            # checked — an unchecked box discards any leftover URL text.
-            "sheet_music_available": bool(sheet_music_available),
-            "sheet_music_url": (sheet_music_url.strip()[:500] or None) if sheet_music_available else None,
-            "rehearsal_schedule_available": bool(rehearsal_schedule_available),
-        }, returning=True,
-    )
-
-    if listing_type in ('seeking_singer', 'seeking_conductor') and vacancies:
-        set_vacancies(new_listing["id"], vacancies)
-
-    # P5 Etapa 2 (18/09/2026): checkbox "marcar como urgente" já na
-    # criação — mesma função usada pelo botão "depois" em
-    # mark_listing_urgent_route(). Síncrono (não background_task) de
-    # propósito: se faltar Notas pra comprar, a pessoa precisa saber
-    # na hora (vira um aviso na página seguinte), não descobrir depois
-    # que a vaga simplesmente não ficou urgente.
+    # P5 Etapa 2: "mark as urgent" at creation — synchronous on purpose, so a
+    # missing-Notas problem shows up on the next page instead of silently failing.
     urgent_error = ""
-    if is_urgent and listing_type in URGENCY_ELIGIBLE_LISTING_TYPES:
+    if data["is_urgent"] and data["listing_type"] in URGENCY_ELIGIBLE_LISTING_TYPES:
         try:
-            mark_listing_urgent(user["id"], new_listing["id"])
+            mark_listing_urgent(user["id"], listing_id)
         except UrgencyUnavailable:
             urgent_error = "insufficient_balance"
         except ListingNotEligible:
-            pass  # não deveria acontecer aqui — vaga recém-criada, tipo já validado acima
+            pass
 
-    # Matching-listing alert: sends an e-mail to whoever has the
-    # right profile (a singer with the voice being sought, or a
-    # conductor) — in the background, so as not to delay the
-    # redirect for whoever posted.
-    background_tasks.add_task(
-        notify_matching_users,
-        str(request.base_url),
-        new_listing["id"],
-        listing_type,
-        title,
-        city or None,
-        user["id"],
-        # #55: every vacancy voice (job listings) or the self-ad's own voice.
-        [v["voice_type_id"] for v in vacancies if v["voice_type_id"]]
-        if listing_type in ('seeking_singer', 'seeking_conductor')
-        else ([int(voice_type_id)] if voice_type_id else []),
-    )
-
+    # Matching-listing alert (background): #55 every vacancy voice, or the self-ad's own voice.
+    voice_ids = ([v["voice_type_id"] for v in data["vacancies"] if v["voice_type_id"]]
+                 if data["listing_type"] in JOB_TYPES
+                 else ([data["db_voice_type_id"]] if data["db_voice_type_id"] else []))
+    background_tasks.add_task(notify_matching_users, str(request.base_url), listing_id, data["listing_type"],
+                              data["title"], data["city"] or None, user["id"], voice_ids)
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
-    # Recompensa de Notas por anúncio publicado: REDESENHADA 19/09/2026 —
-    # não credita mais na hora daqui. app/listing_reward_worker.py (rodando
-    # de hora em hora) é quem credita agora, depois que a vaga fica 48h no
-    # ar (ou na hora, se marcada urgente) — ver app/listing_rewards.py pro
-    # design completo. Nada a chamar aqui.
+    # Notas reward for posting: credited later by app/listing_reward_worker.py (see app/listing_rewards.py).
 
     redirect_url = "/my-listings?urgent_error=insufficient_balance" if urgent_error else "/my-listings?created=1"
     return RedirectResponse(url=redirect_url, status_code=303)
@@ -994,6 +749,10 @@ def report_listing(request: Request, listing_id: int, csrf_token: str = Form("")
     reason = reason.strip()
     if not listing or listing["author_id"] == user["id"] or len(reason) < 10:
         return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
+    # One report per person per listing (the page hides the form, but a direct POST could repeat it).
+    if fetch_one("SELECT 1 FROM listing_reports WHERE listing_id = :l AND reporter_id = :u", {"l": listing_id, "u": user["id"]}):
+        return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
+    reason = reason[:500]
 
     execute(
         "INSERT INTO listing_reports (listing_id, reporter_id, reason) VALUES (:listing_id, :reporter_id, :reason)",
@@ -1012,144 +771,29 @@ def edit_listing_form(request: Request, listing_id: int):
     if not listing or listing["author_id"] != user["id"]:
         return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
 
-    voice_types = fetch_all("SELECT id, name FROM voice_types ORDER BY sort_order")
-    context = {
-        "user": user,
-        "voice_types": voice_types,
-        "listing_type_keys": LISTING_TYPE_KEYS,
-        "ensemble_type_keys": ENSEMBLE_TYPE_KEYS,
-        "country_options": COUNTRY_OPTIONS,
-        "state_options": STATE_OPTIONS,
-        "city_options": get_city_options(),
-        "currencies": CURRENCIES,
-        "values": listing,
-        "is_edit": True,
-        "listing_id": listing_id,
-        "error": None,
-        "vacancies": get_vacancies(listing_id) if listing["listing_type"] in ("seeking_singer", "seeking_conductor") else [],
-    }
+    vacancies = get_vacancies(listing_id) if listing["listing_type"] in JOB_TYPES else []
+    context = _listing_form_context(user, listing, is_edit=True, listing_id=listing_id, error=None, vacancies=vacancies)
     return render(request, "listing_form.html", context)
 
 
 @router.post("/listings/{listing_id}/edit")
-async def update_listing(
-    request: Request,
-    listing_id: int,
-    csrf_token: str = Form(""),
-    listing_type: str = Form(...),
-    title: str = Form(...),
-    description: str = Form(...),
-    city: str = Form(""),
-    state: str = Form(""),
-    country: str = Form("DE"),
-    voice_type_id: str = Form(""),
-    repertoire: str = Form(""),
-    venue: str = Form(""),
-    fee_amount: str = Form(""),
-    fee_currency: str = Form(DEFAULT_CURRENCY),
-    fee_negotiable: str = Form(""),
-    ensemble_type: str = Form(""),
-    event_date: str = Form(""),
-    available_from: str = Form(""),
-    available_until: str = Form(""),
-    travel_cost_covered: str = Form(""),
-    sheet_music_available: str = Form(""),
-    sheet_music_url: str = Form(""),
-    rehearsal_schedule_available: str = Form(""),
-):
+async def update_listing(request: Request, listing_id: int, csrf_token: str = Form("")):
     verify_csrf(request, csrf_token)
-
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    existing = fetch_one("SELECT author_id FROM visible_listings WHERE id = :id", {"id": listing_id})
+    existing = fetch_one("SELECT author_id, listing_type FROM visible_listings WHERE id = :id", {"id": listing_id})
     if not existing or existing["author_id"] != user["id"]:
         return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
 
-    fee_negotiable_bool = bool(fee_negotiable)
-    if fee_currency not in CURRENCIES:
-        fee_currency = DEFAULT_CURRENCY
-    fee_ok, fee_amount_parsed = fee_valid(fee_amount, fee_negotiable_bool)
-
     form = await request.form()
-    vacancies = parse_vacancies_form(
-        form.getlist("vacancy_voice_type_id"),
-        form.getlist("vacancy_fee_amount"),
-        form.getlist("vacancy_fee_currency"),
-        lambda i: form.get(f"vacancy_fee_negotiable_{i}"),
-        form.getlist("vacancy_total_slots"),
-        listing_type,
-    )
-
-    if country not in COUNTRY_OPTIONS:
-        country = "DE"
-    if ensemble_type not in ENSEMBLE_TYPE_KEYS:
-        ensemble_type = None
-
-    available = listing_type == 'singer_available'
-    has_vacancy = bool(vacancies)
-    if (available and not availability_valid(available_from, available_until)) or (not available and (not state.strip() or not _job_fields_valid(listing_type, city, repertoire, has_vacancy))):
-        context = _listing_form_error_context(
-            user, listing_type, title, description, city, state, country,
-            voice_type_id, repertoire, venue, fee_amount, fee_currency, fee_negotiable_bool, ensemble_type, event_date, True, listing_id, available_from, available_until,
-        )
-        return render(request, "listing_form.html", context, status_code=400)
-
-    if listing_type in ('seeking_singer', 'seeking_conductor') and not _valid_event_date(event_date):
-        raise HTTPException(status_code=400, detail='Event date required')
-    if available:
-        event_date = ''
-        if not state.strip() and not city.strip():
-            country = None
-
-    # FIX 19/09/2026 — see the matching comment in create_listing().
-    if listing_type in ('seeking_singer', 'seeking_conductor'):
-        derived_voice_type_id, derived_fee_amount, derived_fee_currency, derived_fee_negotiable = \
-            _derive_listing_fields_from_vacancies(vacancies, fee_currency)
-    else:
-        derived_voice_type_id = int(voice_type_id) if voice_type_id else None
-        derived_fee_amount, derived_fee_currency, derived_fee_negotiable = fee_amount_parsed, fee_currency, fee_negotiable_bool
-
-    _persist_listing(
-        """
-        UPDATE listings
-        SET listing_type = :listing_type, title = :title, description = :description,
-            city = :city, state = :state, country = :country, voice_type_id = :voice_type_id, repertoire = :repertoire,
-            venue = :venue, fee_amount = :fee_amount, fee_currency = :fee_currency, fee_negotiable = :fee_negotiable,
-            ensemble_type = :ensemble_type, event_date = :event_date,
-            available_from = :available_from, available_until = :available_until,
-            travel_cost_covered = :travel_cost_covered, sheet_music_available = :sheet_music_available,
-            sheet_music_url = :sheet_music_url, rehearsal_schedule_available = :rehearsal_schedule_available,
-            updated_at = now()
-        WHERE id = :id
-        """,
-        {
-            "id": listing_id,
-            "listing_type": listing_type,
-            "title": title,
-            "description": description,
-            "city": city or None,
-            "state": state.strip() or None,
-            "country": country,
-            "voice_type_id": derived_voice_type_id,
-            "repertoire": repertoire or None,
-            "venue": venue or None,
-            "fee_amount": derived_fee_amount,
-            "fee_currency": derived_fee_currency,
-            "fee_negotiable": derived_fee_negotiable,
-            "ensemble_type": ensemble_type,
-            "event_date": event_date or None,
-            "available_from": available_from if available else None,
-            "available_until": available_until if available else None,
-            "travel_cost_covered": bool(travel_cost_covered),
-            "sheet_music_available": bool(sheet_music_available),
-            "sheet_music_url": (sheet_music_url.strip()[:500] or None) if sheet_music_available else None,
-            "rehearsal_schedule_available": bool(rehearsal_schedule_available),
-        },
-    )
-    if listing_type in ('seeking_singer', 'seeking_conductor'):
-        set_vacancies(listing_id, vacancies)
+    try:
+        # The type stays what it was: switching a job listing to a self-ad would orphan its vacancies/Matches.
+        data = clean_listing_form(form, existing_type=existing["listing_type"])
+        update_listing_row(listing_id, data)
+    except ListingFormError as exc:
+        return _form_error(request, user, exc, is_edit=True, listing_id=listing_id)
     return RedirectResponse(url=f"/listings/{listing_id}", status_code=303)
 
 
@@ -1164,6 +808,12 @@ def delete_listing(request: Request, listing_id: int, csrf_token: str = Form("")
     listing = fetch_one("SELECT author_id FROM visible_listings WHERE id = :id", {"id": listing_id})
     if listing and listing["author_id"] == user["id"]:
         execute("UPDATE listings SET deleted_at=now(), archived_at=now(), is_active=FALSE WHERE id = :id", {"id": listing_id})
+        # Pending invitations/applications can no longer turn into a Match on a deleted listing.
+        execute(
+            """UPDATE job_invitations SET status = 'expired', responded_at = now()
+               WHERE status = 'pending' AND vacancy_id IN (SELECT id FROM listing_vacancies WHERE listing_id = :id)""",
+            {"id": listing_id},
+        )
     return RedirectResponse(url="/", status_code=303)
 
 

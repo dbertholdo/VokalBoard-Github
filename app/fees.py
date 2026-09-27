@@ -53,7 +53,7 @@ def parse_fee_amount(raw: str) -> Decimal | None:
 def fee_valid(fee_amount: str, fee_negotiable: bool) -> tuple[bool, Decimal | None]:
     """
     The P3.E rule, confirmed by Daniel: for a listing_type that requires
-    a fee at all (see _job_fields_valid in listings_routes.py, unchanged
+    a fee at all (see clean_listing_form in app/listings_service.py, unchanged
     scope), exactly ONE of "a value" or "a negociar" must be given —
     never both, never neither. Returns (is_valid, parsed_amount) so the
     caller doesn't have to re-parse.
