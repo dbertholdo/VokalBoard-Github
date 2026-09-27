@@ -14,7 +14,7 @@
 - Preserve each other's changes; check `git status` before editing.
 
 ## 3. Next up
-1. **Notas v2 go-live (N6) — Daniel:** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
+1. **Notas v2 go-live (N6) — Daniel, LAST (decision 2026-09-27: payments only after every section/feature is clean):** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.
 2. **Messenger DONE (M1–M6)** — `docs/specs/MESSENGER.md` (as-built notes at the top). Goes live with the pending migration (§7). Suggested follow-up when Daniel wants: a browser pass on real phones.
 3. **Languages:** es, ro, zh, ko DONE — UI 694/694 + all e-mails; zh/ko have a self-hosted CJK font (`app/static/fonts/noto-cjk/MANIFEST.md`; rerun `scripts/subset_cjk_fonts.py` after editing zh/ko.json). All AI drafts; native review still to do.
 4. Confirm the Railway `retention_worker` service runs — it now also does the account purge, Notas expiry and the 60-day conversation deletion.
