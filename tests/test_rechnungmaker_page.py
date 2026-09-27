@@ -81,8 +81,10 @@ def test_rechnungmaker_route_renders_both_tabs_and_defaults_to_match(client):
     assert 'action="/rechnungen/pdf"' in avulso.text
     # To-do do P4 (18/09/2026): país+tributação vira um único <select>,
     # não mais radios separados de status por baixo do país.
-    assert 'name="tax_preset"' not in avulso.text  # select não manda esse name direto pro backend...
-    assert 'id="tax_preset_avulso"' in avulso.text  # ...os hidden inputs abaixo é que mandam
+    # 2026-09-27: the select itself is submitted (the old inline-onchange copy into
+    # hidden fields was blocked by the CSP) — no inline handlers on the page.
+    assert 'name="tax_preset"' in avulso.text
+    assert 'onchange=' not in avulso.text
     assert 'type="radio" name="tax_status"' not in avulso.text
     assert 'Deutschland — Kleinunternehmer' in avulso.text
 

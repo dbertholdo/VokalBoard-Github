@@ -25,18 +25,30 @@ TAX_STATUSES = ("kleinunternehmer", "cultural", "standard", "other")
 # (tax_country/tax_status), então resolve_tax() nem precisa mudar.
 # "Outro" continua sendo texto livre (campo tax_custom_text já existe).
 TAX_PRESET_OPTIONS = (
-    ("DE:kleinunternehmer", "Deutschland — Kleinunternehmer (§19 UStG, sem imposto)"),
-    ("DE:cultural", "Deutschland — Isenção cultural (§4 Nr.20 UStG, sem imposto)"),
-    ("DE:standard", "Deutschland — Tributação padrão"),
-    ("AT:kleinunternehmer", "Österreich — Kleinunternehmerregelung (sem imposto)"),
-    ("AT:cultural", "Österreich — Isenção cultural (sem imposto)"),
-    ("AT:standard", "Österreich — Tributação padrão"),
-    ("CH:kleinunternehmer", "Schweiz — Von der Mehrwertsteuer befreit (sem imposto)"),
-    ("CH:cultural", "Schweiz — Isenção cultural (sem imposto)"),
-    ("CH:standard", "Schweiz — Tributação padrão"),
-    ("OTHER:other", "Outro país (fora DE/AT/CH — digitar abaixo)"),
+    # (value "COUNTRY:status", i18n label key) — labels are translated in the template.
+    ("DE:kleinunternehmer", "inv_tax_de_klein"),
+    ("DE:cultural", "inv_tax_de_cultural"),
+    ("DE:standard", "inv_tax_de_standard"),
+    ("AT:kleinunternehmer", "inv_tax_at_klein"),
+    ("AT:cultural", "inv_tax_at_cultural"),
+    ("AT:standard", "inv_tax_at_standard"),
+    ("CH:kleinunternehmer", "inv_tax_ch_exempt"),
+    ("CH:cultural", "inv_tax_ch_cultural"),
+    ("CH:standard", "inv_tax_ch_standard"),
+    ("OTHER:other", "inv_tax_other"),
 )
 TAX_PRESET_DEFAULT = "DE:standard"
+
+
+def parse_tax_preset(value: str | None) -> tuple[str, str, str]:
+    """(country, status, preset) from the form's single "tax_preset" select.
+    FIX 2026-09-27: the select used an inline onchange handler to copy the
+    choice into two hidden fields — blocked by our CSP, so every invoice was
+    silently "DE:standard" (19 % VAT, even for Kleinunternehmer). The server
+    now reads the select itself; unknown values fall back to the default."""
+    preset = value if value in dict(TAX_PRESET_OPTIONS) else TAX_PRESET_DEFAULT
+    country, status = preset.split(":")
+    return country, status, preset
 
 # Alíquota padrão sugerida (editável pelo usuário) quando "standard" é
 # escolhido — não é aconselhamento fiscal, só um ponto de partida.

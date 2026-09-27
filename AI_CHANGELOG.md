@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-27 — Claude — cleanup section 5 (Rechnungmaker)
+- **Tax bug:** the country/tax select copied its value into hidden fields via an inline `onchange` — blocked by our CSP, so EVERY invoice was DE standard 19 % VAT (also for Kleinunternehmer/CH/AT). Now a named `tax_preset` select parsed server-side (`parse_tax_preset`); the Match draft remembers it (encrypted `EXTRA_FIELDS`).
+- Forms were hardcoded Portuguese/German → shared translated macro `_invoice_fields.html` (37 `inv_*` keys × 9 langs); the invoice paper/PDF stays German by design. `.form-grid` never existed (labels ran inline) → defined; preview table no longer clipped (scroll wrapper, 480px pane); `.form-error` → `.error`; secondary buttons stay secondary in stacked forms.
+- Standalone errors re-render the form with the typed values (stateless echo, never stored) and separate "invalid" / "no allowance" messages. Download name ASCII-safe (umlaut/quote in the number crashed/broke the header). `no-store` on Match form/preview/PDF. No invoice work on cancelled or already-invoiced Matches.
+- Screenshot demo (Playwright + local Chrome, test DB): scratchpad `demo/01…07`. Tests: 371 passed + 10 retention (new `tests/test_rechnungmaker_cleanup.py`).
+
 ## 2026-09-27 — Claude — cleanup section 4 (Messenger & notifications)
 - Clock times were printed in UTC (1–2 h off): `messenger.local_time()` (Europe/Berlin) for the chat page, chat-window JSON and the admin report list (Jinja filter `local_time`).
 - `send_message`: a stale/tampered `listing_id` is dropped instead of an FK 500. Report redirect lookup scoped to the recipient; duplicate conversation lookup removed.

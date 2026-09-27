@@ -1,0 +1,35 @@
+{# ------------------------------------------------------------
+   Invoice form fields shared by the Standalone Generator (rechnungmaker.html)
+   and Match invoices (invoice_match_form.html) — 2026-09-27 cleanup: labels
+   translated (were hardcoded Portuguese/German), and the tax preset is a plain
+   named <select> read by the server (the old inline onchange handler was
+   blocked by the CSP, so every invoice silently used DE standard VAT).
+   `v` = values to re-fill (the Match draft, or the stateless form echo after
+   an error — never stored, CLAUDE.md §2).
+------------------------------------------------------------ #}
+{% macro invoice_fields(v, defaults) %}
+{% set preset = v.tax_preset or defaults.tax_preset %}
+<label>{{ t('inv_number') }}<input name="number" value="{{ v.number or defaults.number }}" required maxlength="60"></label>
+<label>{{ t('inv_issue_date') }}<input type="date" name="issue_date" value="{{ v.issue_date or defaults.issue_date }}" required></label>
+<label>{{ t('inv_service_date') }}<input type="date" name="service_date" value="{{ v.service_date or '' }}" required></label>
+<label>{{ t('inv_issuer_name') }}<input name="issuer_name" value="{{ v.issuer_name or defaults.issuer_name or '' }}" required autocomplete="name"></label>
+<label>{{ t('inv_issuer_address') }}<textarea name="issuer_address" required autocomplete="street-address">{{ v.issuer_address or '' }}</textarea></label>
+<label>{{ t('inv_issuer_tax_id') }}<input name="issuer_tax_id" value="{{ v.issuer_tax_id or '' }}" required></label>
+<label>{{ t('inv_recipient_name') }}<input name="recipient_name" value="{{ v.recipient_name or defaults.recipient_name or '' }}" required></label>
+<label>{{ t('inv_recipient_address') }}<textarea name="recipient_address" required>{{ v.recipient_address or '' }}</textarea></label>
+<label>{{ t('inv_service') }}<textarea name="service_description" required>{{ v.service_description or defaults.service_description or '' }}</textarea></label>
+<label>{{ t('inv_net_amount') }}<input name="net_amount" inputmode="decimal" value="{{ v.net_amount or '' }}" required></label>
+<label>{{ t('inv_currency') }}<select name="currency">
+    {% for c in ('EUR', 'CHF') %}<option value="{{ c }}" {% if (v.currency or 'EUR') == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+</select></label>
+<label>{{ t('inv_tax_preset') }}<select name="tax_preset">
+    {% for value, label_key in tax_preset_options %}<option value="{{ value }}" {% if value == preset %}selected{% endif %}>{{ t(label_key) }}</option>{% endfor %}
+</select></label>
+<label>{{ t('inv_tax_rate_override') }}<input name="tax_rate_override" inputmode="decimal" value="{{ v.tax_rate_override or '' }}" placeholder="{{ t('inv_tax_rate_placeholder') }}"></label>
+<label>{{ t('inv_tax_custom_text') }}<textarea name="tax_custom_text" placeholder="{{ t('inv_tax_custom_placeholder') }}">{{ v.tax_custom_text or v.tax_note or '' }}</textarea></label>
+<label>{{ t('inv_travel') }}<input name="expense_travel_amount" inputmode="decimal" value="{{ v.expense_travel_amount or '0' }}"></label>
+<label>{{ t('inv_lodging') }}<input name="expense_lodging_amount" inputmode="decimal" value="{{ v.expense_lodging_amount or '0' }}"></label>
+<label>{{ t('inv_payment_terms') }}<textarea name="payment_terms">{{ v.payment_terms or '' }}</textarea></label>
+<label>IBAN<input name="iban" value="{{ v.iban or '' }}" autocomplete="off"></label>
+<label>BIC<input name="bic" value="{{ v.bic or '' }}" autocomplete="off"></label>
+{% endmacro %}

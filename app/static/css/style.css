@@ -962,7 +962,8 @@ button, .button-primary, .button-secondary, .button-danger, .button-link {
     color: var(--muted);
 }
 
-.stacked-form input, .stacked-form select, .stacked-form textarea {
+.stacked-form input, .stacked-form select, .stacked-form textarea,
+.form-grid input, .form-grid select, .form-grid textarea {
     padding: 10px;
     border: 1px solid var(--border-control);
     border-radius: var(--radius-control);
@@ -985,6 +986,13 @@ button, .button-primary, .button-secondary, .button-danger, .button-link {
     border-radius: var(--radius-control);
     font-size: 1rem;
     cursor: pointer;
+}
+
+/* A secondary button inside a stacked form keeps its secondary look (was forced to primary). */
+.stacked-form button.button-secondary {
+    background: var(--card-bg);
+    color: var(--accent-dark);
+    border: 1px solid var(--accent);
 }
 
 .stacked-form button.danger, button.danger {
@@ -3473,9 +3481,37 @@ form button.link-button:hover { color: var(--accent-dark); }
    sync with the PDF by hand — same navy/violet/mineral tokens, same
    column order.
    ------------------------------------------------------------ */
+/* 2026-09-27: `.form-grid` was used by the invoice forms but never defined, so
+   every label ran inline with its field. Label above field; short fields pair
+   up, long ones (textareas, the tax select, the button) take the full row. */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-3) var(--space-4);
+    align-items: start;
+}
+.form-grid > label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-weight: 600;
+}
+.form-grid > label input,
+.form-grid > label select,
+.form-grid > label textarea {
+    width: 100%;
+    font-weight: 400;
+}
+.form-grid > label:has(textarea),
+.form-grid > label:has(select[name="tax_preset"]),
+.form-grid > button {
+    grid-column: 1 / -1;
+}
+.form-grid > button { justify-self: start; }
+
 .invoice-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 480px);
     gap: var(--space-5);
     align-items: start;
 }
@@ -3583,6 +3619,10 @@ form button.link-button:hover { color: var(--accent-dark); }
     display: block;
     color: var(--ink);
     font-size: 0.86rem;
+}
+/* Never clipped: if the six columns don't fit the preview pane, the wrapper scrolls. */
+.invoice-paper-table-wrap {
+    overflow-x: auto;
 }
 .invoice-paper-table {
     width: 100%;

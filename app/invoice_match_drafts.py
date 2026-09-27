@@ -44,6 +44,9 @@ FORM_FIELDS = (
     "tax_rate", "tax_note", "payment_terms", "iban", "bic",
     "expense_travel_amount", "expense_lodging_amount",
 )
+# Stored with the (encrypted) draft only so the form can re-open with the same
+# tax choice; not an InvoiceDocument field.
+EXTRA_FIELDS = ("tax_preset",)
 
 
 class InvoiceDraftNotFound(ValueError):
@@ -123,7 +126,7 @@ def save_issuer_form(match_id: int, issuer_id: int, contractor_id: int, payload:
     today = today or date.today()
     now = datetime.now(timezone.utc)
     existing = get_draft(match_id)
-    encrypted = encrypt_invoice_draft({key: payload.get(key, "") for key in FORM_FIELDS})
+    encrypted = encrypt_invoice_draft({key: payload.get(key, "") for key in FORM_FIELDS + EXTRA_FIELDS})
     with engine.begin() as conn:
         if existing:
             if issuer_id != existing["issuer_user_id"]:
@@ -165,7 +168,7 @@ def get_form_for_issuer(match_id: int, issuer_id: int) -> dict:
         return {}
     row = fetch_one("SELECT encrypted_payload FROM invoice_match_drafts WHERE id = :id", {"id": draft["id"]})
     payload = decrypt_invoice_draft(row["encrypted_payload"])
-    return {key: payload.get(key, "") for key in FORM_FIELDS}
+    return {key: payload.get(key, "") for key in FORM_FIELDS + EXTRA_FIELDS}
 
 
 def get_preview(match_id: int, viewer_id: int) -> dict | None:

@@ -3,6 +3,8 @@
 from datetime import date
 
 from fastapi import APIRouter, Form, HTTPException, Request
+import re
+
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
 from app.auth import get_current_user
@@ -31,10 +33,31 @@ from app.invoice_service import (
     record_invoice_number,
     suggested_invoice_number,
 )
-from app.invoice_tax_presets import STANDARD_RATE_DEFAULT, TAX_COUNTRIES, TAX_PRESET_OPTIONS, resolve_tax
+from app.invoice_tax_presets import (
+    STANDARD_RATE_DEFAULT, TAX_COUNTRIES, TAX_PRESET_DEFAULT, TAX_PRESET_OPTIONS, parse_tax_preset, resolve_tax,
+)
 from app.render import render
 
 router = APIRouter()
+
+# Pages that show decrypted tax/bank data must never be cached (Zero-Storage, CLAUDE.md §2).
+NO_STORE = {"Cache-Control": "private, no-store"}
+AVULSO_FIELDS = ("number", "issue_date", "service_date", "issuer_name", "issuer_address", "issuer_tax_id",
+                 "recipient_name", "recipient_address", "service_description", "net_amount", "currency",
+                 "tax_preset", "tax_custom_text", "tax_rate_override", "payment_terms", "iban", "bic",
+                 "expense_travel_amount", "expense_lodging_amount")
+
+
+def _pdf_filename(number: str) -> str:
+    """ASCII-only, header-safe: the invoice number is free text (an umlaut or a
+    quote in it used to crash or break the download header)."""
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", number or "").strip("-.")[:60]
+    return f"Rechnung-{safe or 'VokalBoard'}.pdf"
+
+
+def _match_closed(m: dict) -> bool:
+    """No invoice work on a cancelled Match or one whose invoice was already sent."""
+    return m["status"] == "cancelled" or bool(m.get("invoice_sent_at"))
 
 
 def _member(request: Request):
@@ -49,7 +72,7 @@ def _match_context(match_id: int, viewer_id: int) -> dict:
     404s unless the viewer is one of the two participants."""
     row = fetch_one(
         """
-        SELECT m.id, m.status, m.artist_user_id, m.contractor_user_id,
+        SELECT m.id, m.status, m.artist_user_id, m.contractor_user_id, m.invoice_sent_at,
                COALESCE(m.listing_snapshot->>'title', l.title) AS title,
                COALESCE((m.listing_snapshot->>'event_date')::date, l.event_date) AS event_date,
                artist.full_name AS artist_name, artist.email AS artist_email, artist.preferred_language AS artist_lang,
@@ -82,12 +105,7 @@ def invoice_generator_legacy_redirect(request: Request, error: str = ""):
     return RedirectResponse(f"/rechnungmaker?tab=avulso{suffix}", status_code=303)
 
 
-@router.get("/rechnungmaker", response_class=HTMLResponse)
-def rechnungmaker(request: Request, tab: str = "match", error: str = ""):
-    user = _member(request)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    tab = tab if tab in ("match", "avulso") else "match"
+def _rechnungmaker_page(request: Request, user: dict, tab: str, error: str = "", values: dict | None = None, status: int = 200):
     today = date.today()
     context = {
         "user": user, "tab": tab, "error": error,
@@ -96,40 +114,52 @@ def rechnungmaker(request: Request, tab: str = "match", error: str = ""):
         "suggested_number": suggested_invoice_number(user["id"], today.year),
         "today": today.isoformat(),
         "tax_countries": TAX_COUNTRIES, "standard_rate_default": STANDARD_RATE_DEFAULT,
-        "tax_preset_options": TAX_PRESET_OPTIONS,
+        "tax_preset_options": TAX_PRESET_OPTIONS, "tax_preset_default": TAX_PRESET_DEFAULT,
+        # Zero-Storage: after an error the typed values are echoed back in THIS
+        # response only (never stored), so nobody has to retype the whole invoice.
+        "values": values or {},
     }
     if tab == "match":
         context["matches"] = list_invoice_matches_for_user(user["id"], today)
-    return render(request, "rechnungmaker.html", context)
+    return render(request, "rechnungmaker.html", context, status_code=status)
+
+
+@router.get("/rechnungmaker", response_class=HTMLResponse)
+def rechnungmaker(request: Request, tab: str = "match", error: str = ""):
+    user = _member(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    return _rechnungmaker_page(request, user, tab if tab in ("match", "avulso") else "match", error)
 
 
 @router.post("/rechnungen/pdf")
-def create_invoice_pdf(
-    request: Request, csrf_token: str = Form(...), number: str = Form(...), issue_date: str = Form(...), service_date: str = Form(...),
-    issuer_name: str = Form(...), issuer_address: str = Form(...), issuer_tax_id: str = Form(...),
-    recipient_name: str = Form(...), recipient_address: str = Form(...), service_description: str = Form(...),
-    net_amount: str = Form(...), currency: str = Form("EUR"),
-    tax_country: str = Form("DE"), tax_status: str = Form("standard"), tax_custom_text: str = Form(""), tax_rate_override: str = Form(""),
-    payment_terms: str = Form(""), iban: str = Form(""), bic: str = Form(""),
-    expense_travel_amount: str = Form("0"), expense_lodging_amount: str = Form("0"),
-):
+async def create_invoice_pdf(request: Request, csrf_token: str = Form(...)):
     verify_csrf(request, csrf_token)
     user = _member(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
+    form = await request.form()
+    values = {k: (form.get(k) or "") for k in AVULSO_FIELDS}
+    country, status, values["tax_preset"] = parse_tax_preset(values["tax_preset"])
     try:
-        tax_rate, tax_note = resolve_tax(tax_country, tax_status, tax_custom_text, tax_rate_override)
+        tax_rate, tax_note = resolve_tax(country, status, values["tax_custom_text"], values["tax_rate_override"])
         document = InvoiceDocument(
-            number, issue_date, service_date, issuer_name, issuer_address, issuer_tax_id,
-            recipient_name, recipient_address, service_description, net_amount, currency, tax_rate, tax_note,
-            payment_terms, iban, bic, expense_travel_amount, expense_lodging_amount,
+            values["number"], values["issue_date"], values["service_date"], values["issuer_name"],
+            values["issuer_address"], values["issuer_tax_id"], values["recipient_name"], values["recipient_address"],
+            values["service_description"], values["net_amount"], values["currency"] or "EUR", tax_rate, tax_note,
+            values["payment_terms"], values["iban"], values["bic"],
+            values["expense_travel_amount"] or "0", values["expense_lodging_amount"] or "0",
         )
         pdf = render_invoice_pdf(document)
+    except InvoiceValidationError:
+        return _rechnungmaker_page(request, user, "avulso", "inv_form_error", values, status=400)
+    try:
         consume_invoice_generation(user["id"], date.today())
-        record_invoice_number(user["id"], number)
-    except (InvoiceValidationError, InvoiceCreditUnavailable):
-        return RedirectResponse("/rechnungmaker?tab=avulso&error=invalid_or_no_credit", status_code=303)
-    return StreamingResponse(iter([pdf]), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="Rechnung-{number}.pdf"'})
+    except InvoiceCreditUnavailable:
+        return _rechnungmaker_page(request, user, "avulso", "inv_no_credit", values, status=402)
+    record_invoice_number(user["id"], values["number"])
+    return StreamingResponse(iter([pdf]), media_type="application/pdf", headers={
+        **NO_STORE, "Content-Disposition": f'attachment; filename="{_pdf_filename(values["number"])}"'})
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +175,8 @@ def request_match_invoice(request: Request, match_id: int, csrf_token: str = For
     if not viewer:
         return RedirectResponse("/login", status_code=303)
     m = _match_context(match_id, viewer["id"])
+    if _match_closed(m):
+        return RedirectResponse("/rechnungmaker?tab=match&invoice_error=1", status_code=303)
     try:
         result = request_invoice(match_id, viewer["id"], m["artist_user_id"], m["contractor_user_id"], m["event_date"])
     except InvoiceDraftNotAllowed:
@@ -168,16 +200,18 @@ def match_invoice_form(request: Request, match_id: int, error: str = ""):
     m = _match_context(match_id, viewer["id"])
     if viewer["id"] != m["artist_user_id"]:
         raise HTTPException(status_code=403)
-    if not can_request_match_invoice(m["event_date"], date.today()) and not get_draft(match_id):
+    if _match_closed(m) or (not can_request_match_invoice(m["event_date"], date.today()) and not get_draft(match_id)):
         return RedirectResponse("/rechnungmaker?tab=match&invoice_error=1", status_code=303)
     existing = get_form_for_issuer(match_id, viewer["id"])
-    return render(request, "invoice_match_form.html", {
+    response = render(request, "invoice_match_form.html", {
         "user": viewer, "match": m, "error": error, "existing": existing,
         "suggested_number": existing.get("number") or suggested_invoice_number(viewer["id"], date.today().year),
         "today": date.today().isoformat(),
         "tax_countries": TAX_COUNTRIES, "standard_rate_default": STANDARD_RATE_DEFAULT,
-        "tax_preset_options": TAX_PRESET_OPTIONS,
+        "tax_preset_options": TAX_PRESET_OPTIONS, "tax_preset_default": TAX_PRESET_DEFAULT,
     })
+    response.headers.update(NO_STORE)
+    return response
 
 
 @router.post("/profile/matches/{match_id}/invoice")
@@ -186,7 +220,7 @@ def save_match_invoice_form(
     issuer_name: str = Form(...), issuer_address: str = Form(...), issuer_tax_id: str = Form(...),
     recipient_name: str = Form(...), recipient_address: str = Form(...), service_description: str = Form(...),
     net_amount: str = Form(...), currency: str = Form("EUR"),
-    tax_country: str = Form("DE"), tax_status: str = Form("standard"), tax_custom_text: str = Form(""), tax_rate_override: str = Form(""),
+    tax_preset: str = Form(""), tax_custom_text: str = Form(""), tax_rate_override: str = Form(""),
     payment_terms: str = Form(""), iban: str = Form(""), bic: str = Form(""),
     expense_travel_amount: str = Form("0"), expense_lodging_amount: str = Form("0"),
 ):
@@ -197,6 +231,9 @@ def save_match_invoice_form(
     m = _match_context(match_id, viewer["id"])
     if viewer["id"] != m["artist_user_id"]:
         raise HTTPException(status_code=403)
+    if _match_closed(m):
+        return RedirectResponse("/rechnungmaker?tab=match&invoice_error=1", status_code=303)
+    tax_country, tax_status, tax_preset = parse_tax_preset(tax_preset)
     tax_rate, tax_note = resolve_tax(tax_country, tax_status, tax_custom_text, tax_rate_override)
     payload = {
         "number": number, "issue_date": issue_date, "service_date": service_date,
@@ -210,7 +247,7 @@ def save_match_invoice_form(
         # Validate right away so the issuer sees a mistake immediately,
         # instead of only when the contractor tries to confirm it later.
         InvoiceDocument(**payload).validate()
-        save_issuer_form(match_id, viewer["id"], m["contractor_user_id"], payload, m["event_date"])
+        save_issuer_form(match_id, viewer["id"], m["contractor_user_id"], {**payload, "tax_preset": tax_preset}, m["event_date"])
     except (InvoiceValidationError, InvoiceDraftNotAllowed):
         return RedirectResponse(f"/profile/matches/{match_id}/invoice?error=1", status_code=303)
     issuer_first_name = (viewer["full_name"] or "").split(" ")[0] or viewer["full_name"]
@@ -230,10 +267,12 @@ def match_invoice_preview(request: Request, match_id: int, error: str = ""):
     preview = get_preview(match_id, viewer["id"])
     if not preview:
         return RedirectResponse("/rechnungmaker?tab=match&invoice_error=1", status_code=303)
-    return render(request, "invoice_match_preview.html", {
+    response = render(request, "invoice_match_preview.html", {
         "user": viewer, "match": m, "preview": preview, "error": error,
         "is_contractor": viewer["id"] == m["contractor_user_id"],
     })
+    response.headers.update(NO_STORE)
+    return response
 
 
 @router.post("/profile/matches/{match_id}/invoice/confirm")
@@ -243,6 +282,8 @@ def confirm_match_invoice(request: Request, match_id: int, csrf_token: str = For
     if not viewer:
         return RedirectResponse("/login", status_code=303)
     m = _match_context(match_id, viewer["id"])
+    if _match_closed(m):
+        return RedirectResponse("/rechnungmaker?tab=match&invoice_error=1", status_code=303)
     try:
         confirm_and_send(
             match_id, viewer["id"], date.today(),

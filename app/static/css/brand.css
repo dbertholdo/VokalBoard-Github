@@ -169,7 +169,7 @@ table { max-width:100%; }
 .invoice-paper-kicker { text-transform:none; letter-spacing:normal; font-weight:600; }
 .invoice-paper-party p { line-height:1.5rem; }
 .invoice-paper-grandtotal { font-size:1rem; line-height:1.5rem; padding-top:var(--space-2); }
-.invoice-paper-table th, .invoice-paper-table td { padding:var(--space-2); }
+.invoice-paper-table th, .invoice-paper-table td { padding:var(--space-2) var(--space-1); }
 .invoice-paper-table th, .invoice-paper-table td:nth-child(n+3), .invoice-paper-totals > div > :last-child { white-space:nowrap; }
 /* Intentional exception: raw HTML source is monospaced, still 16px for input. */
 .stacked-form textarea.code-editor { font-family:ui-monospace,'SF Mono',Consolas,Menlo,monospace; font-size:1rem; line-height:1.5rem; white-space:pre; tab-size:4; }

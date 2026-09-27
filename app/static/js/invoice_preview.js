@@ -68,9 +68,11 @@
             var net = num(field(form, "net_amount"));
             var travel = num(field(form, "expense_travel_amount"));
             var lodging = num(field(form, "expense_lodging_amount"));
+            // One "COUNTRY:status" select (the server parses the same value).
+            var preset = (field(form, "tax_preset") || "DE:standard").split(":");
             var tax = resolveTax(
-                field(form, "tax_country") || "DE",
-                field(form, "tax_status") || "standard",
+                preset[0] || "DE",
+                preset[1] || "standard",
                 field(form, "tax_custom_text"),
                 field(form, "tax_rate_override")
             );
