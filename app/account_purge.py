@@ -35,6 +35,15 @@ _PRE_DELETE = (
 )
 
 
+def erase_account(conn, user_id: int) -> None:
+    """Hard-deletes one account (and its Matches/Match invoices first — they
+    block the delete on purpose). Shared by the 6-month purge and the admin's
+    "Delete forever"."""
+    for statement in _PRE_DELETE:
+        conn.execute(text(statement), {"uid": user_id})
+    conn.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
+
+
 def expired_account_ids(conn) -> list[int]:
     rows = conn.execute(
         text(f"SELECT id FROM users WHERE deleted_at IS NOT NULL "
@@ -53,9 +62,7 @@ def purge_expired_accounts(conn, dry_run: bool = False) -> dict:
     for user_id in ids:
         try:
             with conn.begin_nested():
-                for statement in _PRE_DELETE:
-                    conn.execute(text(statement), {"uid": user_id})
-                conn.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
+                erase_account(conn, user_id)
             remove_existing_avatar(user_id)
             purged += 1
         except Exception:

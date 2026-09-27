@@ -21,7 +21,9 @@ from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Request, Form, UploadFile, File
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 
-from app.database import fetch_all, fetch_one, execute, execute_returning
+from app.database import fetch_all, fetch_one, execute, execute_returning, transaction
+from app.account_purge import erase_account
+from app.avatars import remove_existing_avatar
 from app.match_evaluations import get_quality_tiers
 from app.referrals import record_referral_verification, get_credit_ledger
 from app.notas_wallet import get_credit_balance, refund_ledger_entry
@@ -45,7 +47,7 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.routers.auth_routes import send_password_reset_email
 from app import messenger
-from app.permissions import require_level, sync_is_admin_flag, log_audit_action, LEVEL_COMMON, LEVEL_MODERATOR, LEVEL_ADMIN, LEVEL_GOD
+from app.permissions import require_level, sync_is_admin_flag, log_audit_action, reauthenticate, LEVEL_COMMON, LEVEL_MODERATOR, LEVEL_ADMIN, LEVEL_GOD
 from app.richtext import sanitize_post_body
 from app.post_images import save_post_image
 from app.system_flags import is_compatibility_score_visible, set_compatibility_score_visible
@@ -89,6 +91,15 @@ ADMIN_USER_SORT_OPTIONS = {
     "engagement": "messages_received DESC",
     "name": "u.full_name ASC",
 }
+
+
+def _password_ok(request: Request, admin: dict, password: str, action: str, user_id: int) -> bool:
+    """Step-up auth for privilege changes and irreversible actions (CLAUDE.md §2.4);
+    failed attempts are audited too."""
+    if reauthenticate(request, admin, password):
+        return True
+    log_audit_action(request, admin, f"{action}_failed_auth", f"user_id={user_id}")
+    return False
 
 
 def require_admin(request: Request) -> dict | None:
@@ -477,6 +488,7 @@ def admin_verify_email(request: Request, user_id: int, csrf_token: str = Form(..
 
     execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
     record_referral_verification(user_id)
+    log_audit_action(request, admin, "admin_verify_email", f"user_id={user_id}")
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
 
 
@@ -490,6 +502,7 @@ def admin_send_reset(request: Request, user_id: int, csrf_token: str = Form(...)
     target = fetch_one("SELECT id, email, full_name, preferred_language FROM users WHERE id = :id", {"id": user_id})
     if target:
         send_password_reset_email(request, target["id"], target["email"], target["full_name"], target.get("preferred_language"))
+        log_audit_action(request, admin, "admin_send_password_reset", f"user_id={user_id}")
     return RedirectResponse(url=f"/admin/users/{user_id}?reset_sent=1", status_code=303)
 
 
@@ -508,11 +521,12 @@ def admin_toggle_compatibility_score_visible(request: Request, csrf_token: str =
     verify_csrf(request, csrf_token)
 
     set_compatibility_score_visible(not is_compatibility_score_visible(), admin["id"])
+    log_audit_action(request, admin, "toggle_compatibility_score_visible", f"now={is_compatibility_score_visible()}")
     return RedirectResponse(url="/admin", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/toggle-admin")
-def admin_toggle_admin(request: Request, user_id: int, csrf_token: str = Form(...)):
+def admin_toggle_admin(request: Request, user_id: int, csrf_token: str = Form(...), current_password: str = Form("")):
     # Raising or removing privileges is a God Mode action.  A regular admin
     # must never be able to create another admin account.
     admin = require_level(request, LEVEL_GOD)
@@ -529,6 +543,8 @@ def admin_toggle_admin(request: Request, user_id: int, csrf_token: str = Form(..
     target = fetch_one("SELECT role_level FROM users WHERE id = :id", {"id": user_id})
     if not target:
         return RedirectResponse(url="/admin/users", status_code=303)
+    if not _password_ok(request, admin, current_password, "toggle_admin", user_id):
+        return RedirectResponse(url=f"/admin/users/{user_id}?auth_failed=1", status_code=303)
 
     # Toggles only between regular (0) and admin (2) — promoting
     # someone to god mode (3, with access to the Red Zone) is a
@@ -539,11 +555,12 @@ def admin_toggle_admin(request: Request, user_id: int, csrf_token: str = Form(..
     new_level = LEVEL_COMMON if target["role_level"] >= LEVEL_ADMIN else LEVEL_ADMIN
     execute("UPDATE users SET role_level = :level WHERE id = :id", {"level": new_level, "id": user_id})
     sync_is_admin_flag(user_id, new_level)
+    log_audit_action(request, admin, "toggle_admin", f"user_id={user_id} level {target['role_level']}->{new_level}")
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/toggle-god-mode")
-def admin_toggle_god_mode(request: Request, user_id: int, csrf_token: str = Form(...)):
+def admin_toggle_god_mode(request: Request, user_id: int, csrf_token: str = Form(...), current_password: str = Form("")):
     """Promotes/demotes between admin (2) and god mode (3) — the Red Zone
     is only visible at level 3. Intentionally only another god mode
     user can do this (being a regular admin isn't enough), so it
@@ -563,10 +580,13 @@ def admin_toggle_god_mode(request: Request, user_id: int, csrf_token: str = Form
         # become god mode you first need to be a regular admin, one
         # step at a time.
         return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
+    if not _password_ok(request, admin, current_password, "toggle_god_mode", user_id):
+        return RedirectResponse(url=f"/admin/users/{user_id}?auth_failed=1", status_code=303)
 
     new_level = LEVEL_ADMIN if target["role_level"] >= LEVEL_GOD else LEVEL_GOD
     execute("UPDATE users SET role_level = :level WHERE id = :id", {"level": new_level, "id": user_id})
     sync_is_admin_flag(user_id, new_level)
+    log_audit_action(request, admin, "toggle_god_mode", f"user_id={user_id} level {target['role_level']}->{new_level}")
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
 
 
@@ -581,6 +601,7 @@ def admin_deactivate(request: Request, user_id: int, csrf_token: str = Form(...)
         return RedirectResponse(url=f"/admin/users/{user_id}?self_demote_blocked=1", status_code=303)
 
     execute("UPDATE users SET deleted_at = now() WHERE id = :id", {"id": user_id})
+    log_audit_action(request, admin, "admin_deactivate_user", f"user_id={user_id}")
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
 
 
@@ -599,11 +620,12 @@ def admin_reactivate(request: Request, user_id: int, csrf_token: str = Form(...)
         return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
 
     execute("UPDATE users SET deleted_at = NULL WHERE id = :id", {"id": user_id})
+    log_audit_action(request, admin, "admin_reactivate_user", f"user_id={user_id}")
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/delete-forever")
-def admin_delete_forever(request: Request, user_id: int, csrf_token: str = Form(...)):
+def admin_delete_forever(request: Request, user_id: int, csrf_token: str = Form(...), current_password: str = Form("")):
     admin = require_admin(request)
     if not admin:
         return RedirectResponse(url="/", status_code=303)
@@ -612,11 +634,16 @@ def admin_delete_forever(request: Request, user_id: int, csrf_token: str = Form(
     if user_id == admin["id"]:
         return RedirectResponse(url=f"/admin/users/{user_id}?self_demote_blocked=1", status_code=303)
 
-    # Actual deletion (DELETE, not soft-delete) — the FOREIGN KEYs on
-    # listings/messages/ratings/reports are already ON DELETE CASCADE
-    # or SET NULL (see db/schema.sql), so this automatically cleans up
-    # everything related to the account. Irreversible.
-    execute("DELETE FROM users WHERE id = :id", {"id": user_id})
+    # Irreversible: password re-check + audit (CLAUDE.md §2.4). Same erase as the
+    # 6-month purge — Matches block a plain DELETE (that used to be a 500).
+    if not _password_ok(request, admin, current_password, "admin_delete_forever", user_id):
+        return RedirectResponse(url=f"/admin/users/{user_id}?auth_failed=1", status_code=303)
+    if not fetch_one("SELECT 1 FROM users WHERE id = :id", {"id": user_id}):
+        return RedirectResponse(url="/admin/users", status_code=303)
+    with transaction() as conn:
+        erase_account(conn, user_id)
+    remove_existing_avatar(user_id)
+    log_audit_action(request, admin, "admin_delete_forever", f"user_id={user_id}")
     return RedirectResponse(url="/admin/users?deleted=1", status_code=303)
 
 
