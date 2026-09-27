@@ -517,7 +517,7 @@
   "notas_redeem_confirm": "{cost}로 \"{item}\"을(를) 교환할까요? 잔액에서 바로 차감돼요.",
   "notas_redeemed_success": "교환했어요! 변경 사항이 적용되었어요.",
   "notas_rules_hint": "구매한 Notas는 만료되지 않고 먼저 사용돼요. 적립한 Notas는 적립 후 18개월이 지나면 만료돼요.",
-  "notas_subtitle": "친구 초대로 받은 보상 — 여기에서 확인하고 교환하세요.",
+  "notas_subtitle": "내 Notas: 친구 초대와 공고 게시로 적립하거나 구매할 수 있어요 — 여기에서 확인하고 교환하세요.",
   "notas_title": "Notas",
   "notas_unit": "Notas",
   "notification_candidatura_received": "{name} 님이 내 공고에 지원했어요.",

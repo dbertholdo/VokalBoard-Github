@@ -298,3 +298,43 @@ def count_shop_history() -> int:
         {"prefix": f"{_SHOP_REASON_PREFIX}%", "fixed_reasons": list(_SHOP_FIXED_REASONS)},
     )
     return row["n"] if row else 0
+
+
+def redeem_item(user_id: int, item_key: str, idempotency_token: str = "") -> tuple[str, dict | None]:
+    """Redeems a catalog item in ONE transaction (2026-09-27 cleanup): debit +
+    the item's effect commit together, so a failure can no longer leave Notas
+    spent without the reward. The user row is locked before the double-submit
+    check, so two quick clicks serialize: the second sees the first's key and
+    is a no-op (it used to be able to stack a second 7-day highlight).
+    Returns (status, item) — status: 'redeemed', 'replay', 'not_found', 'insufficient'."""
+    from app.notas_wallet import debit_in_tx  # local import: notas_wallet imports this module
+
+    idem_key = f"redeem_{item_key}_{idempotency_token}" if idempotency_token else None
+    with engine.begin() as conn:
+        item = conn.execute(
+            text("SELECT item_key, cost, title FROM shop_catalog_items WHERE item_key = :key AND active = TRUE"),
+            {"key": item_key},
+        ).mappings().first()
+        if not item:
+            return "not_found", None
+        item = dict(item)
+        conn.execute(text("SELECT 1 FROM users WHERE id = :id FOR UPDATE"), {"id": user_id})
+        if idem_key and conn.execute(
+            text("SELECT 1 FROM credit_ledger WHERE user_id = :uid AND idempotency_key = :key"),
+            {"uid": user_id, "key": idem_key},
+        ).first():
+            return "replay", item
+        if not debit_in_tx(conn, user_id, item["cost"], reason=f"redeem_{item_key}", idempotency_key=idem_key):
+            return "insufficient", item
+        effect = ITEM_EFFECTS.get(item_key)
+        if effect and "days" in effect:
+            # Profile highlight: extends a running highlight, otherwise starts now.
+            conn.execute(
+                text(
+                    """UPDATE users SET profile_highlighted_until =
+                           GREATEST(COALESCE(profile_highlighted_until, now()), now()) + make_interval(days => :days)
+                       WHERE id = :id"""
+                ),
+                {"days": effect["days"], "id": user_id},
+            )
+    return "redeemed", item

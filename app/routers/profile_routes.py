@@ -38,7 +38,7 @@ from app.languages import (
 
 from app.profiles import (
     MAX_COMPOSER_TAGS, MAX_BIO_LENGTH, MAX_AUDIO_LINKS, SOCIAL_PLATFORMS,
-    ProfileError, clean_profile_input, save_profile, profile_public_url, save_rating,
+    ProfileError, clean_profile_input, save_profile, profile_public_url, public_base_url, save_rating,
     get_singer_profile, get_extra_voice_types, get_all_voice_type_names, get_conductor_profile,
     get_composer_tags, get_audio_links, get_social_links, get_my_ratings, get_rating_summary,
     get_rating_given, compute_profile_completeness, get_blocked_users,
@@ -64,7 +64,7 @@ def _my_profile_context(request: Request, user: dict, error: str | None = None, 
 
     referral_code = ensure_referral_code(user["id"], user.get("referral_code"))
     user["referral_code"] = referral_code
-    referral_url = f"{str(request.base_url).rstrip('/')}/register?ref={referral_code}"
+    referral_url = f"{public_base_url(request)}/register?ref={referral_code}"
 
     completeness = compute_profile_completeness(user, role_profile, composer_tags, audio_links, social_links)
     badges = with_profile_complete(get_user_badges(user["id"]), completeness["percent"])

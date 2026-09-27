@@ -9,6 +9,14 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-27 — Claude — cleanup section 6 (Notas, no live payments)
+- Shop redeem now ONE transaction (`shop_catalog.redeem_item`): debit + the item's effect commit together (the highlight used to be applied in a second transaction), user row locked before the double-submit check (two quick clicks could stack a second 7-day highlight).
+- Stripe webhook (still off): sessions without our metadata return "not_ours" instead of a 500 Stripe retries for days; refund/dispute amounts computed after locking the user (two events at once could debit twice).
+- Invite links (Hall of Fame, profile) + checkout return URL use `profiles.public_base_url()` (SITE_BASE_URL). Notas subtitle no longer says "rewards for inviting friends" only (9 langs).
+- Reviewed OK: urgency purchase, listing rewards (weekly cap, live listings only), referral credit idempotency, expiry.
+- Docs: `docs/specs/ADMIN_REORG.md` (Daniel's decisions for section 7); RECHNUNGMAKER_V2 decisions updated.
+- Browser (390 zh + 1440 pt): balance/split/expiry, redeem, history, Hall of Fame. Tests: 375 passed + 10 retention (new `tests/test_notas_cleanup.py`).
+
 ## 2026-09-27 — Claude — cleanup section 5 (Rechnungmaker)
 - **Tax bug:** the country/tax select copied its value into hidden fields via an inline `onchange` — blocked by our CSP, so EVERY invoice was DE standard 19 % VAT (also for Kleinunternehmer/CH/AT). Now a named `tax_preset` select parsed server-side (`parse_tax_preset`); the Match draft remembers it (encrypted `EXTRA_FIELDS`).
 - Forms were hardcoded Portuguese/German → shared translated macro `_invoice_fields.html` (37 `inv_*` keys × 9 langs); the invoice paper/PDF stays German by design. `.form-grid` never existed (labels ran inline) → defined; preview table no longer clipped (scroll wrapper, 480px pane); `.form-error` → `.error`; secondary buttons stay secondary in stacked forms.

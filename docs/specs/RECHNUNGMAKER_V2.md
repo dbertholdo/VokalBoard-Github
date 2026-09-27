@@ -17,6 +17,17 @@ Builds on the 2026-09-27 cleanup (server-side tax preset, translated forms, `_in
 - **"?" help on every field** (see Phase 1.9).
 - **No Steuerberater review** (Daniel). A short "most common format — not tax advice" note stays on the page.
 - **Phase 2 (QR codes): yes.**
+- **Client outside the EU:** extra tax option for DE/AT ("not taxable in Germany/Austria", 0 %).
+- **Currencies:** EUR > CHF > USD > GBP > BRL (dropdown order); default from the country (CH → CHF, else EUR).
+- **Remember + pre-fill:** last country and invoice language saved as an account preference (not sensitive).
+  Pre-filled from the profile: name, country (→ template); Match invoices also the client's name and the job
+  title as the service. Street address, tax ID and IBAN are never stored (Zero-Storage) — typed each time
+  (browser autofill still works: fields are labelled with `autocomplete`).
+- **Match invoice language:** defaults from the issuer's country, changeable.
+- **"?" texts written natively per language** (how a native speaker would say it, with a familiar comparison
+  where useful — e.g. pt: the Steuernummer "works like a CPF/CNPJ for taxes"), not translated word for word.
+  AI drafts → native review stays a go-live item.
+- **Order:** cleanup sections 6 → 7 (with docs/specs/ADMIN_REORG.md) → Rechnungmaker v2 phase 1 → phase 2.
 
 ## Phase 1 — country templates
 

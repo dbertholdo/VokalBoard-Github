@@ -279,6 +279,13 @@ def get_blocked_users(user_id: int) -> list[dict]:
     )
 
 
+def public_base_url(request) -> str:
+    """The site's public address for links people copy or share (SITE_BASE_URL,
+    else the request's host)."""
+    from app.email_layout import SITE_BASE_URL
+    return (SITE_BASE_URL or str(request.base_url)).rstrip("/")
+
+
 def profile_public_url(request_base_url: str, user_id: int, slug: str | None) -> str:
     """The shareable profile link. SITE_BASE_URL (the public domain) wins over the
     request's host, so links copied behind a proxy/preview still point at the real site."""

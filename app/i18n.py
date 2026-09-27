@@ -1210,13 +1210,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # --- notas (banco de créditos) -------------------------------------------
     "notas_title": {"de": "Notas", "en": "Notas", "fr": "Notas", "it": "Notas", "pt": "Notas"},
-    "notas_subtitle": {
-        "de": "Deine Prämien fürs Einladen von Freunden — hier ansehen und einlösen.",
-        "en": "Your rewards for inviting friends — view and redeem them here.",
-        "fr": "Vos récompenses pour avoir invité des amis — consultez-les et échangez-les ici.",
-        "it": "Le tue ricompense per aver invitato amici — vedile e riscattale qui.",
-        "pt": "Suas recompensas por indicar amigos — veja e resgate aqui.",
-    },
+    "notas_subtitle": {"de": "Deine Notas: Du verdienst sie durch Einladungen und Anzeigen oder kaufst sie — und löst sie hier ein.", "en": "Your Notas: earn them by inviting friends and posting listings, or buy them — and redeem them here.", "fr": "Vos Notas : gagnez-en en invitant des amis et en publiant des annonces, ou achetez-en — et échangez-les ici.", "it": "Le tue Notas: guadagnale invitando amici e pubblicando annunci, oppure comprale — e riscattale qui.", "pt": "Suas Notas: ganhe indicando amigos e publicando anúncios, ou compre — e resgate aqui."},
     "notas_balance_label": {"de": "verfügbare Notas", "en": "Notas available", "fr": "Notas disponibles", "it": "Notas disponibili", "pt": "Notas disponíveis"},
     "notas_next_credit_hint": {
         "de": "Noch {n} bestätigte Einladung(en) bis zur nächsten Nota.",

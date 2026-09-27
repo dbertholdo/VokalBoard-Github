@@ -1,11 +1,11 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-27 — Claude (cleanup sweep sections 1–5: account, profile/search, jobs/Matches, Messenger/notifications, Rechnungmaker; mascot size + 3 s minimum). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-27 — Claude (cleanup sweep sections 1–6: account, profile/search, jobs/Matches, Messenger/notifications, Rechnungmaker, Notas; mascot size + 3 s minimum). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, not pushed. Everything below is committed.
-- **Tests GREEN:** 371 passed + 10 retention, 0 failed, **0 warnings**. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
+- **Tests GREEN:** 375 passed + 10 retention, 0 failed, **0 warnings**. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
 - Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — prod + dev clean (2026-09-26). passlib removed (bcrypt direct, hashes compatible), ReportLab 4.5.1, httpx2 for tests.
 - Static assets are cache-versioned: style.css `?v=20260927-4`, brand.css `20260927-2`, listing-form.js `-2`, messenger.js `20260927-1`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
@@ -14,7 +14,7 @@
 - Preserve each other's changes; check `git status` before editing.
 
 ## 3. Next up
-0. **Cleanup sweep (Daniel, 2026-09-27: payments only after every section is clean).** Done: 1 account, 2 profile & people search, 3 jobs & Matches, 4 Messenger & notifications, 5 Rechnungmaker (details in `AI_CHANGELOG.md`). Next: **6 Notas (no live payments) → 7 Admin/God Mode/Red Zone.** Per section: bugs/edge cases in the browser (a Latin + a CJK language, 375px), security, move logic out of routers into `app/*` services (pattern: `app/accounts.py`, `app/profiles.py`, `app/listings_service.py`; redirects from user/header input go through `app/safe_redirect.safe_path`), no per-row queries (§4), a11y. Browser checks: throwaway server on the test DB (never the dev/prod DB); the local `web` container is a stale 2026-09-17 image.
+0. **Cleanup sweep (Daniel, 2026-09-27: payments only after every section is clean).** Done: 1 account, 2 profile & people search, 3 jobs & Matches, 4 Messenger & notifications, 5 Rechnungmaker, 6 Notas (details in `AI_CHANGELOG.md`). Next: **7 Admin/God Mode/Red Zone together with `docs/specs/ADMIN_REORG.md`** (waiting for Daniel's go). Per section: bugs/edge cases in the browser (a Latin + a CJK language, 375px), security, move logic out of routers into `app/*` services (pattern: `app/accounts.py`, `app/profiles.py`, `app/listings_service.py`; redirects from user/header input go through `app/safe_redirect.safe_path`), no per-row queries (§4), a11y. Browser checks: throwaway server on the test DB (never the dev/prod DB); the local `web` container is a stale 2026-09-17 image.
    - **Rechnungmaker v2 — PLAN ONLY, not started:** `docs/specs/RECHNUNGMAKER_V2.md` (country templates, invoice language, reverse charge, "?" help on every field, phase 2 QR-bill/GiroCode). Build only after Daniel's go.
    - **Deploy note:** set `SITE_BASE_URL` (the public https domain) in Railway — share links and the CV now use it (before, they were hardcoded to `vokalboard.de`).
 1. **Notas v2 go-live (N6) — Daniel, LAST (decision 2026-09-27: payments only after every section/feature is clean):** Stripe test mode first → add `STRIPE_SECRET_KEY` (restricted) + `STRIPE_WEBHOOK_SECRET` in Railway; webhook `https://<domain>/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`; test with card 4242…; then live keys + **Capitalism Mode ON** (Red Zone). Needs the pending migration applied first (§7). Spec + as-built notes: `docs/specs/NOTAS_V2.md`.

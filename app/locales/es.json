@@ -517,7 +517,7 @@
   "notas_redeem_confirm": "¿Canjear \"{item}\" por {cost}? Se descontará de tu saldo de inmediato.",
   "notas_redeemed_success": "¡Canjeado! El cambio ya está activo.",
   "notas_rules_hint": "Las Notas compradas nunca caducan y se usan primero. Las Notas ganadas caducan 18 meses después de su abono.",
-  "notas_subtitle": "Tus recompensas por invitar a amigos: consúltalas y canjéalas aquí.",
+  "notas_subtitle": "Tus Notas: gánalas invitando a amigos y publicando anuncios, o cómpralas, y canjéalas aquí.",
   "notas_title": "Notas",
   "notas_unit": "Notas",
   "notification_candidatura_received": "{name} se postuló a tu anuncio.",

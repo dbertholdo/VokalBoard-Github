@@ -15,22 +15,18 @@ Both pages are members-only + verified-only, same gate as /people.
 """
 import random
 import secrets
-from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 
-from sqlalchemy import text
-
-from app.database import engine, fetch_one
 from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
-from app.notas_wallet import get_balances, get_credit_balance, format_notas, debit_notas_atomic
+from app.notas_wallet import get_balances, get_credit_balance, format_notas
 from app.notas_purchase import BUNDLES, create_checkout_url, currency_for, purchases_available
-from app.email_layout import SITE_BASE_URL
-from app.shop_catalog import get_active_catalog, get_catalog_titles_by_key, ITEM_EFFECTS
+from app.profiles import public_base_url
+from app.shop_catalog import get_active_catalog, get_catalog_titles_by_key, redeem_item
 from app.notification_center import create_notification
 from app.i18n import translate
 from app.referrals import (
@@ -97,78 +93,20 @@ def redeem_notas(
     if not user["email_verified"]:
         return RedirectResponse(url="/?verify_required=1", status_code=303)
 
-    # Preço e ativo/inativo lidos aqui, fora da transação de débito, mas
-    # isso é seguro: debit_notas_atomic() só decide com base no saldo real
-    # dentro da SUA PRÓPRIA transação (trava a linha do usuário primeiro),
-    # então mesmo que o Admin desative o item entre este SELECT e o débito
-    # abaixo, o pior caso é debitar por um `cost` que acabou de ficar
-    # obsoleto — não um débito sem lock ou um saldo negativo. A checagem
-    # "active = TRUE" aqui só evita iniciar o resgate de algo já desligado.
-    item_row = fetch_one(
-        "SELECT cost, title FROM shop_catalog_items WHERE item_key = :key AND active = TRUE",
-        {"key": item_key},
-    )
-    if not item_row:
+    # Debit + effect in one transaction, double-submit safe (app/shop_catalog.redeem_item).
+    status, item = redeem_item(user["id"], item_key, idempotency_token)
+    if status == "not_found":
         return RedirectResponse(url="/notas?error=notas_item_not_found", status_code=303)
-    cost = item_row["cost"]
-
-    # Migrated 19/09/2026 to go through app/notas_wallet.py's shared
-    # atomic-debit-with-idempotency helper (see that module's docstring —
-    # this endpoint was the one deliberately-deferred exception) instead of
-    # hand-rolled SQL, so this flow gets the same race-condition and
-    # double-submit protection as every other Notas debit in the app.
-    idem_key = f"redeem_{item_key}_{idempotency_token}" if idempotency_token else None
-    # debit_notas_atomic() returns True both for a fresh debit AND for a
-    # replay of an already-used idempotency_key (its whole point is to make
-    # a replay a safe no-op) — checked BEFORE calling it, so the side
-    # effect below only runs once, on the actual first debit. Without this
-    # check, a double-click on profile_highlight_7d would correctly skip
-    # the second debit but still stack a second 7-day extension for free.
-    already_processed = bool(
-        idem_key and fetch_one(
-            "SELECT id FROM credit_ledger WHERE user_id = :uid AND idempotency_key = :key",
-            {"uid": user["id"], "key": idem_key},
-        )
-    )
-    debited = debit_notas_atomic(
-        user["id"], cost, reason=f"redeem_{item_key}", idempotency_key=idem_key,
-    )
-    if not debited:
+    if status == "insufficient":
         return RedirectResponse(url="/notas?error=notas_insufficient_balance", status_code=303)
-
-    if not already_processed:
-        # Central de Notificações (task #50) — only on the actual
-        # first debit, same guard used for the profile_highlight_7d
-        # side effect below, so a double-click/replay never stacks a
-        # second bell notification either.
+    if status == "redeemed":
+        # Bell notification only for the real first redeem, never for a replay.
         lang = getattr(request.state, "lang", "de")
-        item_title = item_row["title"] or translate(f"notas_item_{item_key}_title", lang)
+        item_title = item["title"] or translate(f"notas_item_{item_key}_title", lang)
         create_notification(
             user["id"], "loja_redeemed", "notification_loja_redeemed",
             {"item": item_title}, link_url="/notas",
         )
-
-    if item_key == "profile_highlight_7d" and not already_processed:
-        # Extends from the current highlight if there's still time left on
-        # it (redeeming twice stacks the days), otherwise starts now. Its
-        # own short transaction — the Notas debit above already committed,
-        # so a failure here would leave Notas spent without the reward
-        # applied; kept as a separate step (not folded into
-        # debit_notas_atomic) because that helper is intentionally
-        # side-effect-free and shared by callers that have no such reward.
-        with engine.begin() as conn:
-            account = conn.execute(
-                text("SELECT profile_highlighted_until FROM users WHERE id = :id FOR UPDATE"),
-                {"id": user["id"]},
-            ).mappings().first()
-            now = datetime.now(timezone.utc)
-            current_until = account["profile_highlighted_until"] if account else None
-            base = current_until if current_until and current_until > now else now
-            conn.execute(
-                text("UPDATE users SET profile_highlighted_until = :until WHERE id = :id"),
-                {"until": base + timedelta(days=ITEM_EFFECTS["profile_highlight_7d"]["days"]), "id": user["id"]},
-            )
-
     return RedirectResponse(url=f"/notas?redeemed={item_key}", status_code=303)
 
 
@@ -230,7 +168,7 @@ def comprar_notas_checkout(
         return RedirectResponse(url="/notas/comprar-notas", status_code=303)
     if accept_terms_waiver != "1":
         return _buy_page(request, user, None, error="notas_buy_waiver_required")
-    base_url = SITE_BASE_URL or str(request.base_url).rstrip("/")
+    base_url = public_base_url(request)
     try:
         url = create_checkout_url(user, bundle, getattr(request.state, "lang", "de"), base_url)
     except Exception:
@@ -284,7 +222,7 @@ def hall_da_fama(request: Request):
     context = {
         "user": user,
         "referred_people": get_hall_of_fame(user["id"]),
-        "referral_url": f"{str(request.base_url).rstrip('/')}/register?ref={referral_code}",
+        "referral_url": f"{public_base_url(request)}/register?ref={referral_code}",
         "incentive_key": incentive_key,
     }
     return render(request, "hall_da_fama.html", context)

@@ -517,7 +517,7 @@
   "notas_redeem_confirm": "用 {cost} 兑换“{item}”？将立即从你的余额中扣除。",
   "notas_redeemed_success": "已兑换！更改现已生效。",
   "notas_rules_hint": "购买的 Notas 永不过期，并优先使用。赚取的 Notas 在入账 18 个月后过期。",
-  "notas_subtitle": "你邀请朋友获得的奖励——在这里查看和兑换。",
+  "notas_subtitle": "你的 Notas：通过邀请朋友和发布信息获得，或直接购买——在这里查看和兑换。",
   "notas_title": "Notas",
   "notas_unit": "Notas",
   "notification_candidatura_received": "{name} 申请了你的信息。",

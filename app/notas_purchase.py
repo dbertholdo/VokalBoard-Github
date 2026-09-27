@@ -116,18 +116,30 @@ def _purchase_row(payment_intent: str):
     )
 
 
-def _removed_so_far(user_id: int, prefix: str) -> Decimal:
-    row = fetch_one(
-        "SELECT COALESCE(SUM(-delta), 0) AS n FROM credit_ledger WHERE user_id = :u AND idempotency_key LIKE :p",
+def _removed_so_far(conn, user_id: int, prefix: str) -> Decimal:
+    """Sum already removed for this purchase. Call it AFTER locking the user row
+    in the same transaction: two refund/dispute events arriving at once used to
+    both see "0 removed" and debit twice."""
+    n = conn.execute(
+        text("SELECT COALESCE(SUM(-delta), 0) FROM credit_ledger WHERE user_id = :u AND idempotency_key LIKE :p"),
         {"u": user_id, "p": f"{prefix}%"},
-    )
-    return Decimal(row["n"])
+    ).scalar_one()
+    return Decimal(n)
+
+
+def _lock_user(conn, user_id: int) -> None:
+    conn.execute(text("SELECT 1 FROM users WHERE id = :id FOR UPDATE"), {"id": user_id})
 
 
 def _handle_paid_session(session) -> str:
     if session.get("payment_status") != "paid":
         return "not_paid_yet"
     meta = session.get("metadata") or {}
+    if not {"user_id", "notas"} <= set(meta) or not session.get("payment_intent"):
+        # Not from our checkout (e.g. a payment link made in the Stripe dashboard):
+        # acknowledge it instead of a 500 that Stripe would retry for days.
+        log.warning("Stripe session without VokalBoard metadata — ignored")
+        return "not_ours"
     user_id, notas, payment_intent = int(meta["user_id"]), Decimal(meta["notas"]), session["payment_intent"]
     if not fetch_one("SELECT id FROM users WHERE id = :id", {"id": user_id}):
         log.warning("Paid Stripe session for missing user id %s — refund manually in Stripe", user_id)
@@ -145,10 +157,11 @@ def _handle_refund(charge) -> str:
     notas = purchase["delta"]
     target = (notas * Decimal(charge["amount_refunded"]) / Decimal(charge["amount"])).quantize(Decimal("0.01"), ROUND_DOWN)
     prefix = f"stripe_refund:{charge['payment_intent']}:"
-    remove = target - _removed_so_far(purchase["user_id"], prefix)
-    if remove <= 0:
-        return "nothing_to_remove"
     with engine.begin() as conn:
+        _lock_user(conn, purchase["user_id"])
+        remove = target - _removed_so_far(conn, purchase["user_id"], prefix)
+        if remove <= 0:
+            return "nothing_to_remove"
         debit_in_tx(conn, purchase["user_id"], remove, "stripe_refund",
                     idempotency_key=f"{prefix}{charge['amount_refunded']}", allow_negative=True)
     return "debited"
@@ -158,11 +171,12 @@ def _handle_dispute_created(dispute) -> str:
     purchase = _purchase_row(dispute["payment_intent"])
     if not purchase:
         return "unknown_purchase"
-    refunded = _removed_so_far(purchase["user_id"], f"stripe_refund:{dispute['payment_intent']}:")
-    remove = purchase["delta"] - refunded
-    if remove <= 0:
-        return "nothing_to_remove"
     with engine.begin() as conn:
+        _lock_user(conn, purchase["user_id"])
+        refunded = _removed_so_far(conn, purchase["user_id"], f"stripe_refund:{dispute['payment_intent']}:")
+        remove = purchase["delta"] - refunded
+        if remove <= 0:
+            return "nothing_to_remove"
         debit_in_tx(conn, purchase["user_id"], remove, "stripe_dispute",
                     idempotency_key=f"stripe_dispute:{dispute['id']}", allow_negative=True)
     return "debited"
@@ -174,10 +188,11 @@ def _handle_dispute_closed(dispute) -> str:
     purchase = _purchase_row(dispute["payment_intent"])
     if not purchase:
         return "unknown_purchase"
-    removed = _removed_so_far(purchase["user_id"], f"stripe_dispute:{dispute['id']}")
-    if removed <= 0:
-        return "nothing_to_restore"
     with engine.begin() as conn:
+        _lock_user(conn, purchase["user_id"])
+        removed = _removed_so_far(conn, purchase["user_id"], f"stripe_dispute:{dispute['id']}")
+        if removed <= 0:
+            return "nothing_to_restore"
         credit_in_tx(conn, purchase["user_id"], removed, "stripe_dispute_won", category=PURCHASED,
                      idempotency_key=f"stripe_dispute_won:{dispute['id']}")
     return "restored"
