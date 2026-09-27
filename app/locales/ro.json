@@ -618,6 +618,7 @@
   "rechnungmaker_match_empty": "Nimic de făcut acum — nicio factură deschisă sau care poate fi solicitată.",
   "rechnungmaker_personal_counter_help": "Vizibil doar pentru tine — generator independent + facturi de Match la un loc.",
   "rechnungmaker_personal_counter_title": "Facturile tale emise",
+  "rechnungmaker_subtitle": "generator de facturi",
   "rechnungmaker_tab_avulso": "Generator independent",
   "rechnungmaker_tab_match": "Facturi de Match",
   "referral_copied": "Copiat!",

@@ -51,7 +51,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/img/brand/icon-small-navy.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/img/brand/icon-32.png">
     <link rel="apple-touch-icon" href="/static/img/brand/icon-256.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=20260927-5">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260927-6">
     <link rel="stylesheet" href="/static/css/brand.css?v=20260927-2">
     {% if lang in ("zh", "ko") %}<link rel="stylesheet" href="/static/css/fonts-cjk.css?v=20260927-4">{% endif %}
 
@@ -233,6 +233,9 @@
                    the header to one row (Codex QA 25/09: ~250px tall at 320px). #}
                 <a class="nav-dup" href="/">{{ t('nav_home') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
+                {# Daniel 2026-09-27: Rechnungmaker is the site's highlight tool — purple pill. #}
+                <a class="nav-dup nav-highlight {{ 'active' if request.url.path.startswith('/rechnungmaker') else '' }}" href="/rechnungmaker" title="{{ t('rechnungmaker_subtitle') }}">{{ t('nav_rechnungmaker') }}{% if pending_invoice_actions_count and pending_invoice_actions_count > 0 %} <span class="badge-count">{{ pending_invoice_actions_count }}</span>{% endif %}</a>
+                <span class="nav-sep" aria-hidden="true">|</span>
                 <a class="nav-dup" href="/board">{{ t('nav_board') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
                 <details class="profile-menu nav-dup">
@@ -304,6 +307,8 @@
                     {{ user.full_name.split(' ')[0] if user.full_name else '' }} ({{ t('role_singer') if user.role == "singer" else t('role_conductor') }})
                 </span>
             {% else %}
+                <a class="nav-highlight" href="/rechnungmaker" title="{{ t('rechnungmaker_subtitle') }}">{{ t('nav_rechnungmaker') }}</a>
+                <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/board">{{ t('nav_board') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
                 <a href="/login">{{ t('nav_login') }}</a>
@@ -351,6 +356,11 @@
             {% if is_admin_area %}
                 {% include "_admin_nav.html" %}
             {% else %}
+                <a class="side-nav-row side-nav-highlight {{ 'active' if request.url.path.startswith('/rechnungmaker') else '' }}" href="/rechnungmaker">
+                    <svg class="icon side-nav-icon" width="20" height="20" aria-hidden="true"><use href="/static/img/icons.svg#icon-receipt"></use></svg>
+                    <span class="side-nav-highlight-text">{{ t('nav_rechnungmaker') }}<small>{{ t('rechnungmaker_subtitle') }}</small></span>
+                    {% if pending_invoice_actions_count and pending_invoice_actions_count > 0 %}<span class="badge-count">{{ pending_invoice_actions_count }}</span>{% endif %}
+                </a>
                 <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path == '/' else '' }}" href="/">
                     <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-home"></use></svg>{{ t('nav_home') }}
                 </a>

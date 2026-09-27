@@ -4,4 +4,3 @@
 <a href="/my-favorites">{{ t('nav_favorites') }}</a>
 <a href="/messages">{{ t('nav_messages') }}<span class="badge-count badge-alert" data-messages-badge {% if not unread_count %}hidden{% endif %}>{{ unread_count or 0 }}</span></a>
 <a href="/profile/matches">{{ t('nav_match_history') }}{% if pending_evaluations_count and pending_evaluations_count > 0 %} <span class="badge-count">{{ pending_evaluations_count }}</span>{% endif %}</a>
-<a href="/rechnungmaker">{{ t('nav_rechnungmaker') }}{% if pending_invoice_actions_count and pending_invoice_actions_count > 0 %} <span class="badge-count">{{ pending_invoice_actions_count }}</span>{% endif %}</a>

@@ -2022,6 +2022,33 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 
 /* Admin reorganization (docs/specs/ADMIN_REORG.md, 2026-09-27). */
+/* Rechnungmaker = the site's highlight tool (Daniel, 2026-09-27): purple pill in
+   the top bar, purple first row in the side menu (phones). */
+.site-header nav a.nav-highlight {
+    background: var(--accent);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    text-decoration: none;
+}
+.site-header nav a.nav-highlight:hover,
+.site-header nav a.nav-highlight:focus-visible,
+.site-header nav a.nav-highlight.active { background: var(--accent-dark); color: #fff; }
+.site-header nav a.nav-highlight .badge-count { background: #fff; color: var(--accent-dark); }
+.side-nav a.side-nav-highlight {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 12px;
+    margin: var(--space-2) var(--space-2) var(--space-3);
+}
+.side-nav a.side-nav-highlight:hover,
+.side-nav a.side-nav-highlight:focus-visible,
+.side-nav a.side-nav-highlight.active { background: var(--accent-dark); color: #fff; }
+.side-nav a.side-nav-highlight .side-nav-icon { color: #fff; }
+.side-nav-highlight-text { display: flex; flex-direction: column; line-height: 1.2; font-weight: 700; }
+.side-nav-highlight-text small { font-weight: 400; font-size: 0.75rem; opacity: 0.9; }
+
 .side-nav-group {
     margin: var(--space-4) var(--space-3) var(--space-1);
     font-size: 0.75rem;

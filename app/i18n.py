@@ -186,6 +186,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "invoice_fill_now": {"de": "Jetzt ausfüllen", "en": "Fill in now", "fr": "Remplir maintenant", "it": "Compila ora", "pt": "Preencher agora"},
     "invoice_generate": {"de": "Rechnung erstellen", "en": "Generate invoice", "fr": "Générer la facture", "it": "Genera fattura", "pt": "Gerar Rechnung"},
     "invoice_request": {"de": "Rechnung anfordern", "en": "Request invoice", "fr": "Demander une facture", "it": "Richiedi fattura", "pt": "Solicitar Rechnung"},
+    "rechnungmaker_subtitle": {"de": "Rechnungen erstellen", "en": "invoice maker", "fr": "créateur de factures", "it": "generatore di fatture", "pt": "Gerador de Faturas (NF)"},
     "nav_rechnungmaker": {"de": "Rechnungmaker", "en": "Rechnungmaker", "fr": "Rechnungmaker", "it": "Rechnungmaker", "pt": "Rechnungmaker"},
     "rechnungmaker_tab_match": {"de": "Match-Rechnungen", "en": "Match invoices", "fr": "Factures de Match", "it": "Fatture da Match", "pt": "Rechnungen de Match"},
     "rechnungmaker_tab_avulso": {"de": "Freier Rechnungsgenerator", "en": "Standalone generator", "fr": "Générateur libre", "it": "Generatore libero", "pt": "Gerador Avulso"},

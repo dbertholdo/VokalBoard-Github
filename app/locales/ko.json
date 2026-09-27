@@ -618,6 +618,7 @@
   "rechnungmaker_match_empty": "지금은 할 일이 없어요 — 열려 있거나 요청할 수 있는 인보이스가 없어요.",
   "rechnungmaker_personal_counter_help": "나만 볼 수 있어요 — 독립 생성기 + Match 인보이스 합계예요.",
   "rechnungmaker_personal_counter_title": "발행한 인보이스",
+  "rechnungmaker_subtitle": "인보이스 생성기",
   "rechnungmaker_tab_avulso": "독립 생성기",
   "rechnungmaker_tab_match": "Match 인보이스",
   "referral_copied": "복사했어요!",

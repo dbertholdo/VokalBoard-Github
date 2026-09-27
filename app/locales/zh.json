@@ -618,6 +618,7 @@
   "rechnungmaker_match_empty": "目前无需操作——没有打开或可申请的发票。",
   "rechnungmaker_personal_counter_help": "仅你可见——独立生成器与 Match 发票合计。",
   "rechnungmaker_personal_counter_title": "你开具的发票",
+  "rechnungmaker_subtitle": "发票生成器",
   "rechnungmaker_tab_avulso": "独立生成器",
   "rechnungmaker_tab_match": "Match 发票",
   "referral_copied": "已复制！",

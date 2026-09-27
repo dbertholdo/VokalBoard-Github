@@ -618,6 +618,7 @@
   "rechnungmaker_match_empty": "Nada que hacer ahora: no hay facturas abiertas ni solicitables.",
   "rechnungmaker_personal_counter_help": "Solo lo ves tú: generador independiente + facturas de Match en total.",
   "rechnungmaker_personal_counter_title": "Tus facturas emitidas",
+  "rechnungmaker_subtitle": "generador de facturas",
   "rechnungmaker_tab_avulso": "Generador independiente",
   "rechnungmaker_tab_match": "Facturas de Match",
   "referral_copied": "¡Copiado!",
