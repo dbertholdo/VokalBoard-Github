@@ -8,6 +8,7 @@ Start with `HANDOFF.md` at the repo root (current state), per the hierarchy in `
 | `MIGRATIONS.md` | Production migration rules + the consolidated pending migration | Touching `db/schema.sql` or `db/migrations/` |
 | `specs/NOTAS_V2.md` | Notas v2 (implemented): purchased vs. earned, 18-month expiry, Stripe, Terms pages | Before any Notas/payment work |
 | `specs/MESSENGER.md` | DRAFT spec: per-pair chat, requests, 60-day expiry, polling (#53) | Before any messaging work |
+| `specs/RECHNUNGMAKER_V2.md` | PLAN (not started): country templates, invoice language, reverse charge, "?" help per field, QR-bill/GiroCode | Before any Rechnungmaker work |
 | `VISUAL_ROLLOUT.md` | Visual identity v1 rollout inventory (Codex) | Visual/CSS work |
 | `changelog-archive/` | Old `AI_CHANGELOG` entries, verbatim | Grep only — never read whole |
 | `archive/` | Obsolete deliverables: old screenshots, early migration drafts, a pre-rebrand mockup | Almost never (excluded from search by `.ignore`) |
