@@ -80,12 +80,12 @@
                 </div>
             {% endif %}
 
-            <ol class="messenger-messages" data-conversation-id="{{ conversation.id }}" data-last-id="{{ thread[-1].id if thread else 0 }}" data-about-label="{{ t('message_about_listing') }}">
+            <ol class="messenger-messages" aria-live="polite" data-conversation-id="{{ conversation.id }}" data-last-id="{{ thread[-1].id if thread else 0 }}" data-about-label="{{ t('message_about_listing') }}">
                 {% for msg in thread %}
                 <li class="messenger-message {{ 'mine' if msg.mine else 'theirs' }}" data-message-id="{{ msg.id }}">
                     {% if msg.listing_title %}<span class="messenger-context">{{ t('message_about_listing') }}: {{ msg.listing_title }}</span>{% endif %}
                     <p class="messenger-bubble">{{ msg.body }}</p>
-                    <span class="messenger-time">{{ msg.created_at.strftime('%d.%m. %H:%M') }}</span>
+                    <span class="messenger-time">{{ msg.time }}</span>
                     {% if not msg.mine %}
                     <details class="messenger-report">
                         <summary>{{ t('messenger_report') }}</summary>

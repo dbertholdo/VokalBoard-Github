@@ -13,6 +13,8 @@ from app.auth import get_current_user
 from app.csrf import verify_csrf
 from app.notification_center import mark_as_read, mark_all_as_read
 
+from app.safe_redirect import safe_path
+
 router = APIRouter()
 
 
@@ -26,7 +28,7 @@ def open_notification(request: Request, notification_id: int):
         return RedirectResponse(url="/login", status_code=303)
 
     link_url = mark_as_read(user["id"], notification_id)
-    return RedirectResponse(url=link_url or "/", status_code=303)
+    return RedirectResponse(url=safe_path(link_url), status_code=303)
 
 
 @router.post("/notifications/mark-all-read")
@@ -37,5 +39,4 @@ def mark_all_read(request: Request, csrf_token: str = Form("")):
         return RedirectResponse(url="/login", status_code=303)
 
     mark_all_as_read(user["id"])
-    referer = request.headers.get("referer") or "/"
-    return RedirectResponse(url=referer, status_code=303)
+    return RedirectResponse(url=safe_path(request.headers.get("referer")), status_code=303)

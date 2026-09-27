@@ -16,6 +16,7 @@ Routers stay thin; every rule lives here. List/thread queries are single
 statements (no N+1).
 """
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 
@@ -26,6 +27,17 @@ MAX_MESSAGE_LENGTH = 2000
 MAX_MESSAGES_PER_HOUR = 20
 MAX_MESSAGES_PER_RECIPIENT_PER_HOUR = 5
 REPORT_REASON_MIN, REPORT_REASON_MAX = 3, 500
+# Clock times are shown in the site's zone (DE/AT/CH all use CET/CEST);
+# the database stores UTC, which used to be printed as-is (1–2 h off).
+SITE_TZ = ZoneInfo("Europe/Berlin")
+
+
+def local_time(dt, fmt: str = "%d.%m. %H:%M") -> str:
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(SITE_TZ).strftime(fmt)
 
 
 def _pair(a: int, b: int) -> tuple[int, int]:
@@ -98,6 +110,8 @@ def send_message(sender_id: int, recipient_id: int, body: str, listing_id: int |
     limited = _rate_limited(sender_id, recipient_id)
     if limited:
         return limited, None
+    if listing_id is not None and not fetch_one("SELECT 1 FROM visible_listings WHERE id = :id", {"id": listing_id}):
+        listing_id = None  # stale/tampered reference: send the message without it (was an FK 500)
     lo, hi = _pair(sender_id, recipient_id)
     with engine.begin() as conn:
         # Same pair lock the message trigger takes — serializes two first
@@ -289,6 +303,8 @@ def thread(user_id: int, conversation_id: int, after_id: int = 0, mark_read: boo
         """,
         {"u": user_id, "c": conversation_id, "after": after_id},
     )
+    for r in rows:
+        r["time"] = local_time(r["created_at"])
     if mark_read and any(not r["mine"] for r in rows):
         with engine.begin() as conn:
             conn.execute(

@@ -169,6 +169,8 @@
         header.appendChild(minimize);
         header.appendChild(close);
         var list = el('ol', 'chat-window-messages');
+        // Screen readers announce messages as they arrive.
+        list.setAttribute('aria-live', 'polite');
         var form = el('form', 'chat-window-composer');
         var input = el('textarea');
         input.name = 'body';
@@ -185,7 +187,7 @@
         win.appendChild(form);
         dock.appendChild(win);
 
-        var state = { el: win, list: list, title: title, badge: badge, lastId: 0, minimized: false,
+        var state = { el: win, list: list, title: title, badge: badge, minimize: minimize, lastId: 0, minimized: false,
                       timer: null, delay: FAST, lastNew: Date.now() };
         windows[id] = state;
 
@@ -226,6 +228,7 @@
         var state = windows[id];
         state.minimized = value;
         state.el.classList.toggle('minimized', value);
+        state.minimize.setAttribute('aria-expanded', String(!value));
         if (!value) {
             state.badge.hidden = true;
             state.delay = FAST;
@@ -271,6 +274,7 @@
             .then(function (data) {
                 if (!data || !windows[id]) return;
                 state.title.textContent = data.other_name;
+                state.el.setAttribute('aria-label', data.other_name);
                 if (state.minimized) {
                     var fresh = data.messages.filter(function (m) { return !m.mine; }).length;
                     state.badge.textContent = fresh;

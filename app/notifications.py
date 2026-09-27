@@ -33,6 +33,12 @@ from app.email_localization import (
 )
 
 
+# A block (either direction) also stops job alerts between the two people.
+_NOT_BLOCKED = """NOT EXISTS (SELECT 1 FROM blocked_users bu
+    WHERE (bu.blocker_id = users.id AND bu.blocked_id = :author_id)
+       OR (bu.blocker_id = :author_id AND bu.blocked_id = users.id))"""
+
+
 def _matching_recipients(listing_type: str, author_id: int, voice_type_ids: list[int]) -> list[dict]:
     """Quem tem o perfil compatível com essa vaga e quer receber
     alerta — extraído de notify_matching_users() pra ser reaproveitado
@@ -45,6 +51,7 @@ def _matching_recipients(listing_type: str, author_id: int, voice_type_ids: list
             "notify_matches = TRUE",
             "deleted_at IS NULL",
             "id != :author_id",
+            _NOT_BLOCKED,
         ]
         params = {"author_id": author_id}
         # #55: the listing may seek several voices (one per vacancy).
@@ -74,8 +81,8 @@ def _matching_recipients(listing_type: str, author_id: int, voice_type_ids: list
             """
             SELECT email, full_name, preferred_language FROM users
             WHERE role = 'conductor' AND email_verified = TRUE AND notify_matches = TRUE
-                AND deleted_at IS NULL AND id != :author_id
-            """,
+                AND deleted_at IS NULL AND id != :author_id AND """ + _NOT_BLOCKED + """
+            """,  # nosec B608 - _NOT_BLOCKED is a fixed fragment
             {"author_id": author_id},
         )
     return []

@@ -34,6 +34,9 @@ from app.notification_center import (
 )
 
 templates = Jinja2Templates(directory="app/templates")
+# Clock times in the site's zone (the DB stores UTC) — see app/messenger.local_time.
+from app.messenger import local_time as _local_time  # noqa: E402
+templates.env.filters["local_time"] = _local_time
 
 # "Active users now" (the admin's Analytics panel) uses
 # users.last_seen_at. Updating this on EVERY page load would be one

@@ -97,7 +97,7 @@
     <ul class="admin-list">
         {% for r in message_reports %}
             <li>
-                <p><a href="/admin/users/{{ r.reported_user_id }}">{{ r.reported_name }}</a> — reported by {{ r.reporter_name }} · {{ r.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                <p><a href="/admin/users/{{ r.reported_user_id }}">{{ r.reported_name }}</a> — reported by {{ r.reporter_name }} · {{ r.created_at | local_time('%d.%m.%Y %H:%M') }}</p>
                 <p class="field-help">Reason: "{{ r.reason }}"</p>
                 <blockquote class="message-body-box">{{ r.body_snapshot }}</blockquote>
                 {% if not r.message_id %}<p class="field-help">The message itself has already expired.</p>{% endif %}

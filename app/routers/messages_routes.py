@@ -179,7 +179,8 @@ def report(request: Request, message_id: int, csrf_token: str = Form(""), reason
     if redirect:
         return redirect
     result = messenger.report_message(user["id"], message_id, reason)
-    row = fetch_one("SELECT conversation_id FROM visible_messages WHERE id = :id", {"id": message_id})
+    row = fetch_one("SELECT conversation_id FROM visible_messages WHERE id = :id AND recipient_id = :u",
+                    {"id": message_id, "u": user["id"]})
     target = f"/messages/c/{row['conversation_id']}" if row else "/messages"
     return RedirectResponse(url=f"{target}?notice=report_{result}", status_code=303)
 
@@ -201,15 +202,15 @@ def conversation_since(request: Request, conversation_id: int, after: int = 0, p
     user = get_current_user(request)
     if not user:
         return JSONResponse({"error": "login"}, status_code=401)
-    if not messenger.conversation_for(user["id"], conversation_id):
-        return JSONResponse({"error": "not_found"}, status_code=404)
     conversation = messenger.conversation_for(user["id"], conversation_id)
+    if not conversation:
+        return JSONResponse({"error": "not_found"}, status_code=404)
     other_id = conversation["user_high_id"] if conversation["user_low_id"] == user["id"] else conversation["user_low_id"]
     other = fetch_one("SELECT full_name FROM users WHERE id = :id", {"id": other_id})
     rows = messenger.thread(user["id"], conversation_id, after_id=after, mark_read=not peek)
     return JSONResponse({"other_name": other["full_name"] if other else "", "messages": [
         {"id": r["id"], "body": r["body"], "mine": r["mine"], "listing_title": r["listing_title"],
-         "time": r["created_at"].strftime("%d.%m. %H:%M")}
+         "time": r["time"]}
         for r in rows
     ]})
 

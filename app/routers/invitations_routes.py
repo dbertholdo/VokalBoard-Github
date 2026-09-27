@@ -22,13 +22,9 @@ from app.match_service import create_invitation, respond_invitation
 from app.notifications import notify_invitation_created, notify_invitation_responded, notify_vacancy_filled_elsewhere
 from app.notification_center import create_notification
 
+from app.safe_redirect import safe_path
+
 router = APIRouter()
-
-
-def _safe_next(nxt: str, default: str) -> str:
-    """Only same-site paths: a full URL in `next` would be an open redirect."""
-    nxt = (nxt or "").strip()
-    return nxt if nxt.startswith("/") and not nxt.startswith("//") and "\\" not in nxt else default
 
 
 @router.post("/vacancies/{vacancy_id}/apply")
@@ -74,7 +70,7 @@ def invite_artist(
         return RedirectResponse(url="/login", status_code=303)
 
     listing = fetch_one("SELECT author_id FROM listings WHERE id = :id", {"id": listing_id})
-    fallback = _safe_next(next, f"/users/{artist_user_id}")
+    fallback = safe_path(next, f"/users/{artist_user_id}")
     if not listing or listing["author_id"] != user["id"]:
         return RedirectResponse(url=f"{fallback}?invite_error=invitation_error_not_allowed", status_code=303)
 
@@ -215,7 +211,7 @@ def respond_to_invitation(
         return RedirectResponse(url="/login", status_code=303)
 
     result = respond_invitation(invitation_id, acting_user_id=user["id"], action=action)
-    fallback = _safe_next(next, "/invitations")
+    fallback = safe_path(next, "/invitations")
     if result["ok"]:
         accepted = bool(result.get("match_id"))
         background_tasks.add_task(notify_invitation_responded, str(request.base_url), invitation_id, accepted)
