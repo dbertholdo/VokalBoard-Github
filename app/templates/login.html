@@ -13,10 +13,10 @@
 <form method="post" action="/login" class="stacked-form narrow">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>{{ t('login_email_label') }}
-        <input type="email" name="email" required>
+        <input type="email" name="email" required autocomplete="email" maxlength="255">
     </label>
     <label>{{ t('login_password_label') }}
-        <input type="password" name="password" required>
+        <input type="password" name="password" required autocomplete="current-password">
     </label>
     <button type="submit">{{ t('login_submit') }}</button>
 </form>

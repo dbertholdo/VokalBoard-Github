@@ -601,6 +601,8 @@
   "register_error_duplicate": "Există deja un cont cu acest e-mail.",
   "register_error_invalid_category": "Alege o categorie validă.",
   "register_error_invalid_country": "Alege o țară validă.",
+  "register_error_invalid_email": "Introdu o adresă de e-mail validă.",
+  "register_error_invalid_name": "Introdu numele tău (maximum 150 de caractere).",
   "register_error_missing_location": "Indică statul/cantonul și orașul.",
   "register_error_rate_limited": "Prea multe conturi noi din această rețea într-un timp scurt. Încearcă din nou puțin mai târziu.",
   "register_error_too_many_tags": "Sunt permise cel mult 10 hashtaguri de compozitori.",

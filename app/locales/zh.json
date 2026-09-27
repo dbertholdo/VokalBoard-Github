@@ -601,6 +601,8 @@
   "register_error_duplicate": "此电子邮件已注册账户。",
   "register_error_invalid_category": "请选择有效的类别。",
   "register_error_invalid_country": "请选择有效的国家。",
+  "register_error_invalid_email": "请输入有效的邮箱地址。",
+  "register_error_invalid_name": "请输入你的姓名（最多 150 个字符）。",
   "register_error_missing_location": "请填写你的州/州区和城市。",
   "register_error_rate_limited": "此网络短时间内新建账户过多。请稍后再试。",
   "register_error_too_many_tags": "最多允许 10 个作曲家话题标签。",

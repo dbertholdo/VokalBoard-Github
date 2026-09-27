@@ -4,8 +4,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Form, UploadFile, File
 from fastapi.responses import RedirectResponse, HTMLResponse
 
-from app.database import fetch_one, execute_returning, execute
-from app.auth import hash_password, verify_password, get_current_user
+from app.database import fetch_one, execute
+from app.auth import hash_password, get_current_user
+from app.accounts import (
+    normalize_email, is_valid_email, clean_full_name, find_user_by_email, check_password_for,
+    token_recently_sent, create_account,
+)
 from app.render import render
 from app.csrf import verify_csrf
 from app.email import send_email
@@ -16,7 +20,7 @@ from app.register_throttle import is_registration_throttled, record_registration
 from app.client_ip import get_client_ip
 from app.password_policy import password_error
 from app.referrals import generate_referral_code, resolve_referrer, record_referral_verification, get_referrer_preview
-from app.routers.profile_routes import parse_hashtags, parse_audio_links, set_audio_links, MAX_BIO_LENGTH
+from app.routers.profile_routes import parse_hashtags, parse_audio_links, MAX_BIO_LENGTH
 from app.captcha import is_bot, verify_turnstile
 from app.locations import COUNTRY_OPTIONS, STATE_OPTIONS, get_city_options
 
@@ -143,12 +147,18 @@ async def register_submit(
     if not city.strip() or not state.strip():
         return render(request, "register.html", _register_context(request, error="register_error_missing_location", ref=ref), status_code=400)
 
+    email = normalize_email(email)
+    if not is_valid_email(email):
+        return render(request, "register.html", _register_context(request, error="register_error_invalid_email", ref=ref), status_code=400)
+    full_name = clean_full_name(full_name)
+    if not full_name:
+        return render(request, "register.html", _register_context(request, error="register_error_invalid_name", ref=ref), status_code=400)
+
     pw_error = password_error(password)
     if pw_error:
         return render(request, "register.html", _register_context(request, error=pw_error, ref=ref), status_code=400)
 
-    existing = fetch_one("SELECT id FROM users WHERE email = :email", {"email": email})
-    if existing:
+    if find_user_by_email(email):
         return render(
             request,
             "register.html",
@@ -157,30 +167,15 @@ async def register_submit(
         )
 
     role = CATEGORY_TO_ROLE[category]
-    bio = bio.strip()[:MAX_BIO_LENGTH]
-    referred_by_user_id = resolve_referrer(ref)
-
-    new_user = execute_returning(
-        """
-        INSERT INTO users (email, password_hash, full_name, role, city, state, country, phone, preferred_language, referral_code, referred_by_user_id)
-        VALUES (:email, :password_hash, :full_name, :role, :city, :state, :country, :phone, :preferred_language, :referral_code, :referred_by_user_id)
-        RETURNING id
-        """,
-        {
-            "email": email,
-            "password_hash": hash_password(password),
-            "full_name": full_name,
-            "role": role,
-            "city": city or None,
-            "state": state or None,
-            "country": country,
-            "phone": phone or None,
-            "preferred_language": getattr(request.state, "lang", "en"),
-            "referral_code": generate_referral_code(),
-            "referred_by_user_id": referred_by_user_id,
-        },
+    user_id = create_account(
+        email=email, password=password, full_name=full_name, role=role,
+        voice_type_name=CATEGORY_TO_VOICE_NAME.get(category), city=city.strip(), state=state.strip(),
+        country=country, phone=phone.strip(), bio=bio.strip()[:MAX_BIO_LENGTH], ensemble_name=ensemble_name.strip(),
+        preferred_language=getattr(request.state, "lang", "en"), referral_code=generate_referral_code(),
+        referred_by_user_id=resolve_referrer(ref),
+        composer_tags=parse_hashtags(composer_hashtags) if role == "singer" else [],
+        audio_links=parse_audio_links(audio_links) if role == "singer" else [],
     )
-    user_id = new_user["id"]
     record_registration(client_ip)
 
     # Profile photo is optional at signup — if an invalid file comes in
@@ -191,38 +186,6 @@ async def register_submit(
         avatar_url = await save_avatar(user_id, avatar)
         if avatar_url:
             execute("UPDATE users SET avatar_url = :avatar_url WHERE id = :id", {"avatar_url": avatar_url, "id": user_id})
-
-    if role == "singer":
-        voice_type = fetch_one(
-            "SELECT id FROM voice_types WHERE name = :name", {"name": CATEGORY_TO_VOICE_NAME[category]}
-        )
-        execute(
-            """
-            INSERT INTO singer_profiles (user_id, voice_type_id, bio)
-            VALUES (:user_id, :voice_type_id, :bio)
-            """,
-            {
-                "user_id": user_id,
-                "voice_type_id": voice_type["id"] if voice_type else None,
-                "bio": bio or None,
-            },
-        )
-
-        for tag in parse_hashtags(composer_hashtags):
-            execute(
-                "INSERT INTO singer_composer_tags (user_id, tag) VALUES (:user_id, :tag)",
-                {"user_id": user_id, "tag": tag},
-            )
-
-        set_audio_links(user_id, parse_audio_links(audio_links))
-    else:
-        execute(
-            """
-            INSERT INTO conductor_profiles (user_id, ensemble_name, bio)
-            VALUES (:user_id, :ensemble_name, :bio)
-            """,
-            {"user_id": user_id, "ensemble_name": ensemble_name or None, "bio": bio or None},
-        )
 
     send_verification_email(request, user_id, email, full_name, getattr(request.state, "lang", "en"))
 
@@ -238,6 +201,8 @@ def login_form(request: Request):
 @router.post("/login")
 def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form(...), password: str = Form(...)):
     verify_csrf(request, csrf_token)
+    # Normalized first: the lockout is keyed by e-mail, so "A@x.de" vs "a@x.de" must not dodge it.
+    email = normalize_email(email)
 
     # Progressive lockout against brute force (see app/login_throttle.py):
     # checked BEFORE touching the users table, so we don't even spend
@@ -255,10 +220,8 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
     # Note: we intentionally look up accounts with deleted_at set too,
     # so the next step can distinguish "wrong password" from "this
     # account was deleted, do you want to reactivate it?".
-    user = fetch_one(
-        "SELECT id, password_hash, deleted_at, banned_at FROM users WHERE email = :email", {"email": email}
-    )
-    if not user or not verify_password(password, user["password_hash"]):
+    user = find_user_by_email(email, "id, password_hash, deleted_at, banned_at")
+    if not check_password_for(user, password):
         record_failure(email)
         return render(request, "login.html", {"user": None, "error": "login_error"}, status_code=400)
 
@@ -277,6 +240,8 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
         request.session["pending_reactivation_user_id"] = user["id"]
         return RedirectResponse(url="/reactivate-account", status_code=303)
 
+    # Fresh session on login: nothing from the anonymous session carries over.
+    request.session.clear()
     request.session["user_id"] = user["id"]
     # Acolhedor mascot toast (Part 2 backlog item 4, 19/09/2026): fires
     # every login, not just the first ever — Daniel was explicit about
@@ -348,7 +313,7 @@ def resend_verification(request: Request, csrf_token: str = Form("")):
     verify_csrf(request, csrf_token)
 
     user = get_current_user(request)
-    if user and not user["email_verified"]:
+    if user and not user["email_verified"] and not token_recently_sent("email_verification_tokens", user["id"]):
         send_verification_email(request, user["id"], user["email"], user["full_name"], user.get("preferred_language"))
     return RedirectResponse(url="/", status_code=303)
 
@@ -380,9 +345,9 @@ def forgot_password_submit(
         }
         return render(request, "auth_message.html", context)
 
-    user = fetch_one("SELECT id, full_name, preferred_language FROM users WHERE email = :email", {"email": email})
-    if user:
-        send_password_reset_email(request, user["id"], email, user["full_name"], user.get("preferred_language"))
+    user = find_user_by_email(email, "id, email, full_name, preferred_language")
+    if user and not token_recently_sent("password_reset_tokens", user["id"]):
+        send_password_reset_email(request, user["id"], user["email"], user["full_name"], user.get("preferred_language"))
 
     # Same message always, whether or not the account exists — prevents
     # someone from using this form to find out which emails are registered.
@@ -447,7 +412,11 @@ def reset_password_submit(request: Request, csrf_token: str = Form(""), token: s
         "UPDATE users SET password_hash = :password_hash WHERE id = :id",
         {"password_hash": hash_password(password), "id": row["user_id"]},
     )
-    execute("UPDATE password_reset_tokens SET used_at = now() WHERE id = :id", {"id": row["id"]})
+    # Burns this AND any other still-open reset link for the account.
+    execute("UPDATE password_reset_tokens SET used_at = now() WHERE user_id = :uid AND used_at IS NULL", {"uid": row["user_id"]})
+    owner = fetch_one("SELECT email FROM users WHERE id = :id", {"id": row["user_id"]})
+    if owner:
+        reset_login_lockout(normalize_email(owner["email"]))
 
     context = {
         "user": None,

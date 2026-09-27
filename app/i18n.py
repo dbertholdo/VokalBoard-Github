@@ -580,6 +580,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "register_error_invalid_category": {"de": "Bitte wählen Sie eine gültige Kategorie.", "en": "Please choose a valid category.", "fr": "Veuillez choisir une catégorie valide.", "it": "Scegli una categoria valida.", "pt": "Escolha uma categoria válida."},
     "register_error_invalid_country": {"de": "Bitte wählen Sie ein gültiges Land.", "en": "Please choose a valid country.", "fr": "Veuillez choisir un pays valide.", "it": "Scegli un paese valido.", "pt": "Escolha um país válido."},
     "register_error_missing_location": {"de": "Bitte geben Sie Bundesland/Kanton und Stadt an.", "en": "Please provide your state/canton and city.", "fr": "Veuillez indiquer votre région/canton et votre ville.", "it": "Indica regione/cantone e città.", "pt": "Informe seu estado/cantão e cidade."},
+    "register_error_invalid_email": {"de": "Bitte gib eine gültige E-Mail-Adresse ein.", "en": "Please enter a valid email address.", "fr": "Veuillez saisir une adresse e-mail valide.", "it": "Inserisci un indirizzo e-mail valido.", "pt": "Informe um endereço de e-mail válido."},
+    "register_error_invalid_name": {"de": "Bitte gib deinen Namen ein (höchstens 150 Zeichen).", "en": "Please enter your name (up to 150 characters).", "fr": "Veuillez saisir votre nom (150 caractères maximum).", "it": "Inserisci il tuo nome (massimo 150 caratteri).", "pt": "Informe seu nome (até 150 caracteres)."},
     "register_error_too_many_tags": {
         "de": "Maximal 10 Komponisten-Hashtags erlaubt.",
         "en": "A maximum of 10 composer hashtags is allowed.",

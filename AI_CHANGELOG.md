@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-27 — Claude — cleanup section 1 (account) + mascot size/duration
+- New `app/accounts.py` (service): e-mail trimmed+lowercased everywhere; lookups by `lower(email)`; login lockout can no longer be dodged by changing letter case; sign-up validates e-mail/name and creates user+profile in ONE transaction (`app/database.transaction()`); timing-equalized login; 2-min cooldown on resend-verification / forgot-password e-mails; password reset burns every open link + clears lockout; change-password / delete-account share the login lockout. Session cleared on login. Data export now includes works, spoken languages, Notas ledger, invitations, matches, state/country/language.
+- Forms: `autocomplete` hints (WCAG 1.3.5) + maxlength. New keys `register_error_invalid_email/_name` (9 languages; CJK fonts regenerated).
+- Mascot (Daniel): fluid size tokens `--mascot-*` (rem + clamp, e.g. toast ~72px phone → ~105px 1440 → 136px max); bubble no longer wraps word-per-line; side toasts sit above the Report-bug button; every toast fully visible ≥3 s (`VB_MASCOT_MIN_MS`); link toast is now clickable + keyboard-focusable (was `pointer-events:none`). style.css/brand.css `?v=20260927-1`; brand contract baseline regenerated (attributes added only).
+- Tests: 349 passed, 7 skipped + 10 retention (new `tests/test_accounts.py`).
+
 ## 2026-09-26 — Claude — zh/ko e-mails; last German-only e-mails localized
 - `app/email_localization.py`: zh + ko copy in every function (`EMAIL_LANGUAGES` now 9); `_hello()` renders greetings (zh/ko name-first; other languages unchanged). New `listing_match_alert_email`, `urgent_listing_reminder_email`, `badge_unlocked_email` in all 9 languages.
 - `app/notifications.py` (match alert + urgent reminder) and `app/badges.py` (badge unlocked) no longer send hardcoded German+EN; they use the recipient's `preferred_language` (English fallback). Badge names reuse the `badge_*_label` i18n keys.

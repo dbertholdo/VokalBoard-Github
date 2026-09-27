@@ -6,7 +6,8 @@ from fastapi import APIRouter, Request, Form, UploadFile, File, BackgroundTasks,
 from fastapi.responses import RedirectResponse, HTMLResponse, Response
 
 from app.database import fetch_all, fetch_one, execute
-from app.auth import get_current_user, hash_password, verify_password
+from app.accounts import confirm_current_password
+from app.auth import get_current_user, hash_password
 from app.render import render
 from app.csrf import verify_csrf
 from app.avatars import save_avatar, remove_existing_avatar, avatar_path_for
@@ -590,8 +591,7 @@ def change_password_submit(
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    row = fetch_one("SELECT password_hash FROM users WHERE id = :id", {"id": user["id"]})
-    if not row or not verify_password(current_password, row["password_hash"]):
+    if not confirm_current_password(user, current_password):
         return render(
             request, "change_password.html",
             {"user": user, "error": "change_password_wrong_current"},
@@ -621,17 +621,15 @@ def delete_account_submit(request: Request, csrf_token: str = Form(""), current_
     filter on deleted_at IS NULL) but the data stays in the database
     for 6 months — if the person tries to log in again during that
     period, they fall into the reactivation flow (see
-    /reactivate-account in auth_routes.py). After 6 months, an
-    external script (scripts/purge_deleted_accounts.py) deletes it
-    for good — no cron inside the app, like the rest of the project.
+    /reactivate-account in auth_routes.py). After 6 months the
+    retention worker deletes it for good (app/account_purge.py).
     """
     verify_csrf(request, csrf_token)
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    row = fetch_one("SELECT password_hash FROM users WHERE id = :id", {"id": user["id"]})
-    if not row or not verify_password(current_password, row["password_hash"]):
+    if not confirm_current_password(user, current_password):
         context = _my_profile_context(request, user, error="delete_account_wrong_password")
         return render(request, "profile.html", context, status_code=400)
 
@@ -657,7 +655,7 @@ def export_my_data(request: Request):
     user_id = user["id"]
 
     account = fetch_one(
-        "SELECT id, email, full_name, role, city, phone, email_verified, avatar_url, notify_matches, notify_messages, created_at FROM users WHERE id = :id",
+        "SELECT id, email, full_name, role, city, state, country, phone, phone_visibility, email_verified, avatar_url, notify_matches, notify_messages, preferred_language, profile_slug, appear_in_search, created_at FROM users WHERE id = :id",
         {"id": user_id},
     )
     listings = fetch_all(
@@ -682,6 +680,37 @@ def export_my_data(request: Request):
         {"id": user_id},
     )
 
+    works = fetch_all(
+        "SELECT title, composer, category, video_url, audio_url, created_at FROM singer_works WHERE user_id = :id ORDER BY sort_order, id",
+        {"id": user_id},
+    )
+    spoken_languages = fetch_all(
+        "SELECT language_code, custom_name FROM user_spoken_languages WHERE user_id = :id ORDER BY sort_order, id",
+        {"id": user_id},
+    )
+    notas_ledger = fetch_all(
+        "SELECT delta, reason, category, expires_at, created_at FROM credit_ledger WHERE user_id = :id ORDER BY created_at, id",
+        {"id": user_id},
+    )
+    # Own side only: the other party appears as a user id, like messages above.
+    invitations = fetch_all(
+        """
+        SELECT ji.vacancy_id, lv.listing_id, ji.artist_user_id, ji.initiated_by_user_id, ji.status,
+               ji.created_at, ji.responded_at
+        FROM job_invitations ji JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
+        WHERE :id IN (ji.artist_user_id, ji.initiated_by_user_id)
+        ORDER BY ji.created_at
+        """,
+        {"id": user_id},
+    )
+    matches = fetch_all(
+        """
+        SELECT listing_id, artist_user_id, contractor_user_id, status, created_at, completed_at
+        FROM job_matches WHERE :id IN (artist_user_id, contractor_user_id) ORDER BY created_at
+        """,
+        {"id": user_id},
+    )
+
     export = {
         "account": account,
         "singer_profile": get_singer_profile(user_id) if user["role"] == "singer" else None,
@@ -695,6 +724,11 @@ def export_my_data(request: Request):
         "ratings_received": ratings_received,
         "ratings_given": ratings_given,
         "saved_listings": saved_listings,
+        "works": works,
+        "spoken_languages": spoken_languages,
+        "notas_ledger": notas_ledger,
+        "invitations_and_applications": invitations,
+        "matches": matches,
     }
 
     body = json.dumps(export, indent=2, ensure_ascii=False, default=str)

@@ -601,6 +601,8 @@
   "register_error_duplicate": "Ya existe una cuenta con este correo.",
   "register_error_invalid_category": "Elige una categoría válida.",
   "register_error_invalid_country": "Elige un país válido.",
+  "register_error_invalid_email": "Introduce una dirección de correo válida.",
+  "register_error_invalid_name": "Introduce tu nombre (máximo 150 caracteres).",
   "register_error_missing_location": "Indica tu estado/cantón y tu ciudad.",
   "register_error_rate_limited": "Demasiadas cuentas nuevas desde esta red en poco tiempo. Inténtalo de nuevo un poco más tarde.",
   "register_error_too_many_tags": "Se permiten como máximo 10 hashtags de compositores.",

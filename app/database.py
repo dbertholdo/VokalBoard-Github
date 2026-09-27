@@ -8,6 +8,8 @@ that you practice real SQL — SELECTs, JOINs, dynamic WHEREs, etc —
 instead of letting an ORM generate everything for you.
 """
 import os
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
@@ -40,6 +42,14 @@ def execute(query: str, params: dict | None = None) -> None:
     """Executes an INSERT/UPDATE/DELETE (no rows returned)."""
     with engine.begin() as conn:
         conn.execute(text(query), params or {})
+
+
+@contextmanager
+def transaction():
+    """One connection, one transaction: commits on success, rolls back on any error.
+    Use `conn.execute(text(...), params)` inside."""
+    with engine.begin() as conn:
+        yield conn
 
 
 def execute_returning(query: str, params: dict | None = None) -> dict | None:

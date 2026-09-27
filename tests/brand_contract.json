@@ -30,12 +30,15 @@
     "[\"<a\", [[\"href\", \"\\\"/admin/users\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"http://localhost:8080\\\"\"], [\"rel\", \"\\\"noopener noreferrer\\\"\"], [\"target\", \"\\\"_blank\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/toggle-compatibility-score-visible\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 3,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 5,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 5,
     "[\"<a\", [[\"href\", \"\\\"/listings/{{ r.listing_id }}\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/reports/{{ r.id }}/accept\\\"\"], [\"data-confirm\", \"\\\"Accept this report? The person who reported it \u2014 and, if you pick a punishment level, the listing's author \u2014 will be notified by email.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<select\", [[\"name\", \"\\\"punishment\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/reports/{{ r.id }}/reject\\\"\"], [\"data-confirm\", \"\\\"Reject this report? The person who reported it will be notified by email.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
+    "[\"<form\", [[\"action\", \"\\\"/admin/reports/{{ r.id }}/reject\\\"\"], [\"data-confirm\", \"\\\"Reject this report? The person who reported it will be notified by email.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ r.reported_user_id }}\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/message-reports/{{ r.id }}/remove\\\"\"], [\"data-confirm\", \"\\\"Remove this message for both people?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/message-reports/{{ r.id }}/dismiss\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
   },
   "admin_analytics.html": {
     "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
@@ -164,6 +167,11 @@
     "[\"<a\", [[\"href\", \"\\\"/admin/users?q={{ q }}&sort={{ sort }}&active_only={{ '1' if active_only else '' }}&page={{ page - 1 }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/users?q={{ q }}&sort={{ sort }}&active_only={{ '1' if active_only else '' }}&page={{ page + 1 }}\\\"\"]], []]": 1
   },
+  "agb.html": {
+    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2,
+    "[\"<a\", [[\"href\", \"\\\"/code-of-conduct\\\"\"]], []]": 2,
+    "[\"<a\", [[\"href\", \"\\\"/widerruf\\\"\"]], []]": 2
+  },
   "assinar_stub.html": {
     "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 1
   },
@@ -207,6 +215,8 @@
     "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/datenschutz\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/code-of-conduct\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/agb\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/widerruf\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/contato\\\"\"]], []]": 1,
     "[\"<button\", [[\"id\", \"\\\"bug-report-fab\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/support/report-bug\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
@@ -361,7 +371,7 @@
   "forgot_password.html": {
     "[\"<form\", [[\"action\", \"\\\"/forgot-password\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"email\\\"\"], [\"type\", \"\\\"email\\\"\"]], [\"required\"]]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"255\\\"\"], [\"name\", \"\\\"email\\\"\"], [\"type\", \"\\\"email\\\"\"]], [\"required\"]]": 1,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/login\\\"\"]], []]": 1
   },
@@ -492,7 +502,7 @@
   "login.html": {
     "[\"<form\", [[\"action\", \"\\\"/login\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"email\\\"\"], [\"type\", \"\\\"email\\\"\"]], [\"required\"]]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"255\\\"\"], [\"name\", \"\\\"email\\\"\"], [\"type\", \"\\\"email\\\"\"]], [\"required\"]]": 1,
     "[\"<input\", [[\"name\", \"\\\"password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\"]]": 1,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/forgot-password\\\"\"]], []]": 1,
@@ -555,6 +565,7 @@
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
   },
   "notas.html": {
+    "[\"<a\", [[\"href\", \"\\\"/agb\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/notas/comprar-notas?faltam={{ item.cost - balance }}\\\"\"]], []]": 1,
     "[\"<form\", [[\"data-confirm\", \"\\\"...\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/notas/redeem\\\"\"], [\"data-confirm\", \"\\\"{{ t('notas_redeem_confirm').replace('{item}', item_title).replace('{cost}', format_notas(item.cost) ~ ' ' ~ t('notas_unit')) }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
@@ -563,6 +574,15 @@
     "[\"<input\", [[\"name\", \"\\\"idempotency_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/hall-da-fama\\\"\"]], []]": 1
+  },
+  "notas_comprar.html": {
+    "[\"<form\", [[\"action\", \"\\\"/notas/comprar-notas\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"accept_terms_waiver\\\"\"], [\"type\", \"\\\"checkbox\\\"\"]], [\"required\"]]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/agb\\\"\"], [\"rel\", \"\\\"noopener\\\"\"], [\"target\", \"\\\"_blank\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/widerruf\\\"\"], [\"rel\", \"\\\"noopener\\\"\"], [\"target\", \"\\\"_blank\\\"\"]], []]": 1,
+    "[\"<button\", [[\"name\", \"\\\"bundle\\\"\"], [\"type\", \"\\\"submit\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/notas\\\"\"]], []]": 1
   },
   "notas_comprar_stub.html": {
     "[\"<a\", [[\"href\", \"\\\"/notas\\\"\"]], []]": 1
@@ -707,10 +727,10 @@
     "[\"<input\", [[\"name\", \"\\\"ref\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"avatar\\\"\"], [\"type\", \"\\\"file\\\"\"]], []]": 1,
     "[\"<select\", [[\"id\", \"\\\"category-select\\\"\"], [\"name\", \"\\\"category\\\"\"]], [\"required\"]]": 1,
-    "[\"<input\", [[\"name\", \"\\\"full_name\\\"\"], [\"type\", \"\\\"text\\\"\"]], [\"required\"]]": 1,
-    "[\"<input\", [[\"name\", \"\\\"email\\\"\"], [\"type\", \"\\\"email\\\"\"]], [\"required\"]]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"150\\\"\"], [\"name\", \"\\\"full_name\\\"\"], [\"type\", \"\\\"text\\\"\"]], [\"required\"]]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"255\\\"\"], [\"name\", \"\\\"email\\\"\"], [\"type\", \"\\\"email\\\"\"]], [\"required\"]]": 1,
     "[\"<input\", [[\"minlength\", \"\\\"6\\\"\"], [\"name\", \"\\\"password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\"]]": 1,
-    "[\"<input\", [[\"name\", \"\\\"phone\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"50\\\"\"], [\"name\", \"\\\"phone\\\"\"], [\"type\", \"\\\"tel\\\"\"]], []]": 1,
     "[\"<textarea\", [[\"id\", \"\\\"bio-field\\\"\"], [\"maxlength\", \"\\\"{{ max_bio_length }}\\\"\"], [\"name\", \"\\\"bio\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"composer_hashtags\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1,
     "[\"<textarea\", [[\"name\", \"\\\"audio_links\\\"\"]], []]": 1,
@@ -740,6 +760,9 @@
     "[\"<a\", [[\"href\", \"\\\"{{ '/u/' ~ p.profile_slug if p.profile_slug else '/users/' ~ p.id }}\\\"\"], [\"rel\", \"\\\"noopener noreferrer\\\"\"], [\"target\", \"\\\"_blank\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"{{ request.url.include_query_params(page=page - 1) }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"{{ request.url.include_query_params(page=page + 1) }}\\\"\"]], []]": 1
+  },
+  "widerruf.html": {
+    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2
   },
   "zona_vermelha.html": {
     "[\"<form\", [[\"action\", \"\\\"/financeiro/toggle-capitalismo\\\"\"], [\"data-confirm\", \"\\\"{{ 'Are you sure you want to turn OFF Capitalism Mode?' if capitalismo_enabled else 'Are you sure you want to turn ON Capitalism Mode? The subscription banner will show to everyone, everywhere.' }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,

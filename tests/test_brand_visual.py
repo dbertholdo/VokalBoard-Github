@@ -15,7 +15,7 @@ def test_brand_functional_markup_preserved():
 
 def test_brand_assets_and_template_coverage():
     base=(ROOT/'app/templates/base.html').read_text(encoding='utf-8')
-    assert '/static/css/brand.css?v=20260926-1' in base
+    assert '/static/css/brand.css?v=20260927-1' in base
     assert 'vokalboard-lockup-navy.svg' in base
     for path in (ROOT/'app/templates').glob('*.html'):
         if not path.name.startswith('_') and path.name != 'base.html':
@@ -54,4 +54,4 @@ def test_brand_authenticated_page_families(client):
     for route in routes:
         response=client.get(route)
         assert response.status_code==200, (route,response.status_code)
-        assert '/static/css/brand.css?v=20260926-1' in response.text, route
+        assert '/static/css/brand.css?v=20260927-1' in response.text, route

@@ -51,9 +51,9 @@
     <link rel="icon" type="image/svg+xml" href="/static/img/brand/icon-small-navy.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/img/brand/icon-32.png">
     <link rel="apple-touch-icon" href="/static/img/brand/icon-256.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=20260926-4">
-    <link rel="stylesheet" href="/static/css/brand.css?v=20260926-1">
-    {% if lang in ("zh", "ko") %}<link rel="stylesheet" href="/static/css/fonts-cjk.css?v=20260926-1">{% endif %}
+    <link rel="stylesheet" href="/static/css/style.css?v=20260927-1">
+    <link rel="stylesheet" href="/static/css/brand.css?v=20260927-1">
+    {% if lang in ("zh", "ko") %}<link rel="stylesheet" href="/static/css/fonts-cjk.css?v=20260927-1">{% endif %}
 
     {# ------------------------------------------------------------
        Mascot moment toast helper (Part 2 backlog item 4, 19/09/2026) —
@@ -66,8 +66,13 @@
        design writeup and app/mascot_moments.py.
     ------------------------------------------------------------ #}
     <script nonce="{{ csp_nonce }}">
+        // Daniel, 2026-09-27: every mascot stays fully visible for at least 3 s.
+        window.VB_MASCOT_MIN_MS = 3000;
+        window.VB_MASCOT_FADE_MS = 400;
         window.vbShowMascotToast = function (src, message, holdMs, opts) {
             opts = opts || {};
+            // Counted from the end of the fade-in, never shorter than the minimum.
+            var visibleMs = Math.max(holdMs || 0, window.VB_MASCOT_MIN_MS) + window.VB_MASCOT_FADE_MS;
             var edges = ['edge-left', 'edge-right', 'edge-bottom'];
             var edge = opts.edge || edges[Math.floor(Math.random() * edges.length)];
 
@@ -79,10 +84,17 @@
             // links to the Profile Wizard instead of being a dead
             // toast — opts.href, when given, makes the whole toast
             // clickable (still keyboard-reachable via the button role).
+            // tabindex + Enter: a div with role=link isn't focusable by itself.
+            function hide() {
+                wrap.classList.remove('vb-mascot-toast-visible');
+                setTimeout(function () { wrap.remove(); }, 400);
+            }
             if (opts.href) {
                 wrap.setAttribute('role', 'link');
+                wrap.tabIndex = 0;
                 wrap.style.cursor = 'pointer';
                 wrap.addEventListener('click', function () { window.location.href = opts.href; });
+                wrap.addEventListener('keydown', function (e) { if (e.key === 'Enter') window.location.href = opts.href; });
             }
 
             var img = document.createElement('img');
@@ -107,10 +119,7 @@
                         wrap.classList.add('vb-mascot-toast-visible');
                     });
                 });
-                setTimeout(function () {
-                    wrap.classList.remove('vb-mascot-toast-visible');
-                    setTimeout(function () { wrap.remove(); }, 400);
-                }, holdMs);
+                setTimeout(hide, visibleMs);
             }
             if (document.body) attach();
             else document.addEventListener('DOMContentLoaded', attach);
@@ -580,14 +589,14 @@
             queue.push([
                 '/static/img/mascot/mascot-welcoming.png',
                 {{ t('mascot_welcome_balloon').replace('{name}', mascot_welcome_name) | tojson }},
-                2000,
+                3000,
             ]);
             {% endif %}
             {% if mascot_reminder_key %}
             queue.push([
                 '/static/img/mascot/mascot-attentive.png',
                 {{ t(mascot_reminder_key).replace('{name}', (user.full_name if user else '')) | tojson }},
-                2000,
+                3000,
                 {# P2 cluster (19/09/2026): the "incomplete profile" nudge
                    is the one reminder with somewhere useful to send you —
                    opens the Profile Wizard instead of just disappearing. #}
@@ -604,7 +613,7 @@
                 setTimeout(function () {
                     window.vbShowMascotToast(item[0], item[1], item[2], item[3]);
                 }, delay);
-                delay += item[2] + 500;
+                delay += Math.max(item[2], window.VB_MASCOT_MIN_MS) + window.VB_MASCOT_FADE_MS * 2 + 300;
             });
         })();
     </script>

@@ -44,6 +44,15 @@
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
+    /* Mascot sizes (Daniel, 2026-09-27: "too small, especially on desktop").
+       Fluid between phone and large desktop; rem-based so they also follow
+       browser zoom and the user's font size. */
+    --mascot-toast: clamp(4.5rem, 3rem + 4vw, 8.5rem);   /* ~72px phone, ~105px 1440, 136px max */
+    --mascot-sm: clamp(3rem, 2.5rem + 1vw, 4rem);         /* inline next to text */
+    --mascot-md: clamp(5rem, 4rem + 3vw, 8rem);           /* banners, empty states */
+    --mascot-lg: clamp(7rem, 5rem + 5vw, 11rem);          /* celebration, 404-style pages */
+    --mascot-bubble-max: clamp(10rem, 8rem + 8vw, 17rem);
+    --mascot-side-bottom: 5rem; /* side toasts sit above the floating "Report a bug" button */
     --space-4: 16px;
     --space-5: 24px;
     --space-6: 32px;
@@ -2300,9 +2309,15 @@ form button.link-button:hover { color: var(--accent-dark); }
     opacity: 1;
 }
 
+/* Toasts let clicks pass through (above), except the ones that ARE a link
+   (the "complete your profile" nudge) — those must be clickable. */
+.vb-mascot-toast[role="link"].vb-mascot-toast-visible {
+    pointer-events: auto;
+}
+
 .vb-mascot-toast-img {
     display: block;
-    width: 88px;
+    width: var(--mascot-toast);
     height: auto;
     filter: drop-shadow(0 3px 8px rgba(28, 31, 46, 0.22));
 }
@@ -2315,7 +2330,10 @@ form button.link-button:hover { color: var(--accent-dark); }
     border-radius: 14px;
     font-size: 0.88rem;
     font-weight: 600;
-    max-width: 200px;
+    /* max-content: an absolute box otherwise shrinks to the mascot's width
+       and wraps every word onto its own line. */
+    width: max-content;
+    max-width: var(--mascot-bubble-max);
     white-space: normal;
     box-shadow: 0 3px 10px rgba(28, 31, 46, 0.2);
 }
@@ -2342,7 +2360,7 @@ form button.link-button:hover { color: var(--accent-dark); }
    then retreats back out to the left (never crosses to the right). */
 .vb-mascot-toast-edge-left {
     left: 0;
-    bottom: 24px;
+    bottom: var(--mascot-side-bottom);
     transform: translateX(-100%);
 }
 .vb-mascot-toast-edge-left.vb-mascot-toast-visible {
@@ -2357,7 +2375,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 /* Right edge: mirror of the left one. */
 .vb-mascot-toast-edge-right {
     right: 0;
-    bottom: 24px;
+    bottom: var(--mascot-side-bottom);
     transform: translateX(100%);
 }
 .vb-mascot-toast-edge-right.vb-mascot-toast-visible {
@@ -2380,8 +2398,7 @@ form button.link-button:hover { color: var(--accent-dark); }
 }
 
 @media (max-width: 860px) {
-    .vb-mascot-toast-img { width: 64px; }
-    .vb-mascot-toast-bubble { max-width: 150px; font-size: 0.82rem; padding: 6px 10px; }
+    .vb-mascot-toast-bubble { font-size: 0.82rem; padding: 6px 10px; }
 }
 
 /* ------------------------------------------------------------
@@ -3363,11 +3380,11 @@ form button.link-button:hover { color: var(--accent-dark); }
     height: auto;
     flex-shrink: 0;
 }
-.mascot-inline-alert { width: 88px; }
-.mascot-inline-celebrate { width: 152px; }
-.mascot-inline-empty { width: 112px; margin: 0 auto var(--space-3); }
-.mascot-inline-wink { width: 56px; display: inline-block; vertical-align: middle; margin-right: 8px; }
-.mascot-inline-lost { width: 128px; margin: 0 auto var(--space-3); }
+.mascot-inline-alert { width: var(--mascot-md); }
+.mascot-inline-celebrate { width: var(--mascot-lg); }
+.mascot-inline-empty { width: var(--mascot-md); margin: 0 auto var(--space-3); }
+.mascot-inline-wink { width: var(--mascot-sm); display: inline-block; vertical-align: middle; margin-right: 8px; }
+.mascot-inline-lost { width: var(--mascot-lg); margin: 0 auto var(--space-3); }
 
 /* Piscadinha (wink) on Hall da Fama's invite box — a playful,
    low-stakes incentive line, never near billing/security/terms per

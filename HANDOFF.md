@@ -7,7 +7,7 @@
 - Branch `main`, not pushed. Everything below is committed.
 - **Tests GREEN:** 333 passed + 10 retention, 0 failed, **0 warnings**. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
 - Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — prod + dev clean (2026-09-26). passlib removed (bcrypt direct, hashes compatible), ReportLab 4.5.1, httpx2 for tests.
-- Static assets are cache-versioned: style.css `?v=20260926-4`, brand.css `-1`, listing-form.js `-2`, messenger.js `-3`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
+- Static assets are cache-versioned: style.css `?v=20260927-1`, brand.css `20260927-1`, listing-form.js `-2`, messenger.js `-3`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
 ## 2. Work split (Daniel's decision, 2026-09-24)
 - **Codex:** visual/CSS. **Claude:** functional code, tests, business flows. On 2026-09-26 Daniel had Claude take Codex's open a11y list (done, §4).

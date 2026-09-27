@@ -601,6 +601,8 @@
   "register_error_duplicate": "이 이메일로 가입된 계정이 이미 있어요.",
   "register_error_invalid_category": "올바른 분류를 선택하세요.",
   "register_error_invalid_country": "올바른 국가를 선택하세요.",
+  "register_error_invalid_email": "올바른 이메일 주소를 입력하세요.",
+  "register_error_invalid_name": "이름을 입력하세요 (최대 150자).",
   "register_error_missing_location": "주/칸톤과 도시를 입력하세요.",
   "register_error_rate_limited": "이 네트워크에서 짧은 시간에 새 계정이 너무 많이 만들어졌어요. 잠시 후 다시 시도하세요.",
   "register_error_too_many_tags": "작곡가 해시태그는 최대 10개까지 쓸 수 있어요.",

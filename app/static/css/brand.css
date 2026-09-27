@@ -197,7 +197,6 @@ table { max-width:100%; }
     .invoice-paper-head, .notas-balance-box { flex-wrap:wrap; }
     .match-celebrate { align-items:flex-start; flex-direction:column; padding:16px; }
     .alert-zone-banner { align-items:flex-start; }
-    .mascot-inline-alert { width:80px; }
     .red-zone-hero { flex-wrap:wrap; }
     .referral-link-row input { min-width:0; flex-basis:100%; }
     .profile-link-box { flex-wrap:wrap; }
