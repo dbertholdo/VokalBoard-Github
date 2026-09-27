@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Audit log — Red Zone{% endblock %}
+
+{% block content %}
+<h1>Audit log</h1>
+<p class="field-help">Every sensitive admin action, newest first — including failed password checks.</p>
+<form method="get" action="/financeiro/audit" class="admin-filter-row">
+    <label>Action contains <input name="q" value="{{ q }}" maxlength="60"></label>
+    <button type="submit" class="button-secondary">Filter</button>
+    {% if q %}<a href="/financeiro/audit">Clear</a>{% endif %}
+</form>
+{% if entries|length == 0 %}
+    <p class="empty-state">No actions recorded.</p>
+{% else %}
+    <div class="table-scroll">
+    <table class="admin-table">
+        <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th><th>IP</th></tr></thead>
+        <tbody>
+        {% for a in entries %}
+            <tr>
+                <td>{{ a.created_at | local_time('%d.%m.%Y %H:%M') }}</td>
+                <td>{{ a.actor_name or "?" }}</td>
+                <td><strong>{{ a.action }}</strong></td>
+                <td>{{ a.details }}</td>
+                <td>{{ a.ip_address }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <nav class="pagination" aria-label="Pages">
+        {% if page > 1 %}<a href="/financeiro/audit?page={{ page - 1 }}{% if q %}&q={{ q | urlencode }}{% endif %}">← Newer</a>{% endif %}
+        {% if has_next %}<a href="/financeiro/audit?page={{ page + 1 }}{% if q %}&q={{ q | urlencode }}{% endif %}">Older →</a>{% endif %}
+    </nav>
+{% endif %}
+{% endblock %}

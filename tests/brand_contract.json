@@ -1,4 +1,8 @@
 {
+  "_admin_nav.html": {
+    "[\"<a\", [[\"href\", \"\\\"{{ href }}\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 1
+  },
   "_captcha_fields.html": {
     "[\"<input\", [[\"id\", \"\\\"website-field\\\"\"], [\"name\", \"\\\"{{ honeypot_field }}\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1
   },
@@ -49,24 +53,23 @@
     "[\"<a\", [[\"href\", \"\\\"{{ request.url }}\\\"\"]], []]": 1
   },
   "admin.html": {
-    "[\"<a\", [[\"href\", \"\\\"/admin/users\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"http://localhost:8080\\\"\"], [\"rel\", \"\\\"noopener noreferrer\\\"\"], [\"target\", \"\\\"_blank\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/toggle-compatibility-score-visible\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 5,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 5,
-    "[\"<a\", [[\"href\", \"\\\"/listings/{{ r.listing_id }}\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/reports/{{ r.id }}/accept\\\"\"], [\"data-confirm\", \"\\\"Accept this report? The person who reported it \u2014 and, if you pick a punishment level, the listing's author \u2014 will be notified by email.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<select\", [[\"name\", \"\\\"punishment\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/reports/{{ r.id }}/reject\\\"\"], [\"data-confirm\", \"\\\"Reject this report? The person who reported it will be notified by email.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ r.reported_user_id }}\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/message-reports/{{ r.id }}/remove\\\"\"], [\"data-confirm\", \"\\\"Remove this message for both people?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/message-reports/{{ r.id }}/dismiss\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
+    "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=listings\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=messages\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/tickets\\\"\"]], []]": 1
   },
   "admin_analytics.html": {
     "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
     "[\"<button\", [[\"type\", \"\\\"bar\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 2,
     "[\"<button\", [[\"type\", \"\\\"button\\\"\"], [\"type\", \"\\\"pizza\\\"\"]], []]": 2,
     "[\"<button\", [[\"type\", \"\\\"button\\\"\"], [\"type\", \"\\\"linha\\\"\"]], []]": 2
+  },
+  "admin_audit.html": {
+    "[\"<form\", [[\"action\", \"\\\"/financeiro/audit\\\"\"], [\"method\", \"\\\"get\\\"\"]], []]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"60\\\"\"], [\"name\", \"\\\"q\\\"\"]], []]": 1,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/financeiro/audit\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/financeiro/audit?page={{ page - 1 }}{% if q %}&q={{ q | urlencode }}{% endif %}\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/financeiro/audit?page={{ page + 1 }}{% if q %}&q={{ q | urlencode }}{% endif %}\\\"\"]], []]": 1
   },
   "admin_banners.html": {
     "[\"<form\", [[\"action\", \"\\\"/admin/banners/save\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
@@ -82,12 +85,11 @@
     "[\"<a\", [[\"href\", \"\\\"/admin/banners\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/banners?state={{ key }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/banners?state={{ state }}&edit={{ banner.id }}\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/banners/{{ banner.id }}/{{ action }}\\\"\"], [\"data-confirm\", \"\\\"Excluir este banner? Ele ficar\u00e1 dispon\u00edvel na lista de exclu\u00eddos.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/banners/{{ banner.id }}/{{ action }}\\\"\"], [\"data-confirm\", \"\\\"Delete this banner? It stays available under Deleted.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/banners?state={{ state }}&page={{ page - 1 }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/banners?state={{ state }}&page={{ page + 1 }}\\\"\"]], []]": 1
   },
   "admin_emails.html": {
-    "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/emails?tab=form\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/emails?tab=code\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/emails?tab=periodic\\\"\"]], []]": 1,
@@ -101,15 +103,14 @@
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 6,
     "[\"<form\", [[\"action\", \"\\\"/admin/emails/template\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<textarea\", [[\"maxlength\", \"\\\"20000\\\"\"], [\"name\", \"\\\"template_html\\\"\"]], [\"required\"]]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/emails/template/reset\\\"\"], [\"data-confirm\", \"\\\"Restaurar o molde padr\u00e3o? Isso substitui o c\u00f3digo atual.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/emails/template/reset\\\"\"], [\"data-confirm\", \"\\\"Restore the default frame? This replaces the current code.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/emails/periodic/new\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/emails/periodic/{{ mail.id }}/edit\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/emails/periodic/{{ mail.id }}/toggle\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"is_active\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/admin/emails/periodic/{{ mail.id }}/delete\\\"\"], [\"data-confirm\", \"\\\"Excluir o e-mail peri\u00f3dico &quot;{{ mail.name }}&quot;? N\u00e3o tem como desfazer.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
+    "[\"<form\", [[\"action\", \"\\\"/admin/emails/periodic/{{ mail.id }}/delete\\\"\"], [\"data-confirm\", \"\\\"Delete the periodic e-mail &quot;{{ mail.name }}&quot;? This can't be undone.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
   },
   "admin_loja.html": {
-    "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/users\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/loja/catalog/{{ item.id }}/toggle-active\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
@@ -148,6 +149,20 @@
     "[\"<form\", [[\"action\", \"\\\"/admin/posts/{{ p.id }}/toggle-publish\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/posts/{{ p.id }}/delete\\\"\"], [\"data-confirm\", \"\\\"Delete this post for good?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
   },
+  "admin_reports.html": {
+    "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=listings\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=messages\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=blocks\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/listings/{{ r.listing_id }}\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/reports/{{ r.id }}/accept\\\"\"], [\"data-confirm\", \"\\\"Accept this report? The reporter \u2014 and, with a punishment, the listing's author \u2014 will be notified by e-mail.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 4,
+    "[\"<select\", [[\"name\", \"\\\"punishment\\\"\"]], []]": 1,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 4,
+    "[\"<form\", [[\"action\", \"\\\"/admin/reports/{{ r.id }}/reject\\\"\"], [\"data-confirm\", \"\\\"Reject this report? The reporter will be notified by e-mail.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ r.reported_user_id }}\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/message-reports/{{ r.id }}/remove\\\"\"], [\"data-confirm\", \"\\\"Remove this message for both people?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/message-reports/{{ r.id }}/dismiss\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
+  },
   "admin_tickets.html": {
     "[\"<form\", [[\"action\", \"\\\"/admin/tickets\\\"\"], [\"method\", \"\\\"get\\\"\"]], []]": 1,
     "[\"<select\", [[\"name\", \"\\\"status\\\"\"]], []]": 1,
@@ -172,6 +187,7 @@
     "[\"<form\", [[\"action\", \"\\\"/admin/users/{{ target.id }}/verify-email\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/users/{{ target.id }}/send-reset\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/users/{{ target.id }}/toggle-admin\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"current_password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\", \"required\"]]": 3,
     "[\"<form\", [[\"action\", \"\\\"/admin/users/{{ target.id }}/toggle-god-mode\\\"\"], [\"data-confirm\", \"\\\"{{ 'Remove god mode (Red Zone access)?' if target.role_level == 3 else 'Grant god mode to this person? They will be able to see Capitalism Mode, pricing, and the financial dashboard.' }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/users/{{ target.id }}/unban\\\"\"], [\"data-confirm\", \"\\\"Unban this account? It reactivates immediately and the person can log in again.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/users/{{ target.id }}/reactivate\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
@@ -203,11 +219,11 @@
   "base.html": {
     "[\"<form\", [[\"data-confirm\", \"\\\"message\\\"\"]], []]": 1,
     "[\"<button\", [[\"id\", \"\\\"sidebar-toggle\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 4,
+    "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 3,
     "[\"<a\", [[\"href\", \"\\\"/board\\\"\"]], []]": 3,
     "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/invitations\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 3,
+    "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/notifications/mark-all-read\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 3,
@@ -216,14 +232,6 @@
     "[\"<a\", [[\"href\", \"\\\"/login\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/register\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"{{ lang_urls[code] }}\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/admin/users\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/admin/analytics\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/admin/posts\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/admin/loja\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/admin/emails\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/admin/tickets\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/admin/banners\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/financeiro\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"/assinar\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/resend-verification\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/people\\\"\"]], []]": 1,
@@ -325,9 +333,9 @@
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 3,
     "[\"<a\", [[\"href\", \"\\\"/financeiro/estornos\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ d.user_id }}\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/financeiro/estornos/notas/{{ d.id }}\\\"\"], [\"data-confirm\", \"\\\"Estornar {{ format_notas(-d.delta) }} Notas pra {{ d.user_name }}?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/financeiro/estornos/notas/{{ d.id }}\\\"\"], [\"data-confirm\", \"\\\"Refund {{ format_notas(-d.delta) }} Notas to {{ d.user_name }}?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
-    "[\"<form\", [[\"action\", \"\\\"/financeiro/estornos/assinatura/{{ s.id }}\\\"\"], [\"data-confirm\", \"\\\"Estornar essa assinatura? Isso tira da receita de fechamentos futuros \u2014 n\u00e3o devolve dinheiro de verdade sozinho.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/financeiro/estornos/assinatura/{{ s.id }}\\\"\"], [\"data-confirm\", \"\\\"Refund this subscription? It is removed from future closings \u2014 no real money is returned automatically.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"current_password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\"]]": 1
   },
   "financeiro_extrato_geral.html": {
@@ -746,16 +754,13 @@
   },
   "zona_vermelha.html": {
     "[\"<form\", [[\"action\", \"\\\"/financeiro/toggle-capitalismo\\\"\"], [\"data-confirm\", \"\\\"{{ 'Are you sure you want to turn OFF Capitalism Mode?' if capitalismo_enabled else 'Are you sure you want to turn ON Capitalism Mode? The subscription banner will show to everyone, everywhere.' }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
     "[\"<input\", [[\"name\", \"\\\"current_password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\"]]": 2,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 2,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 3,
     "[\"<form\", [[\"action\", \"\\\"/financeiro/set-price\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"min\", \"\\\"0.01\\\"\"], [\"name\", \"\\\"price_eur\\\"\"], [\"type\", \"\\\"number\\\"\"]], [\"required\"]]": 1,
     "[\"<input\", [[\"min\", \"\\\"0.01\\\"\"], [\"name\", \"\\\"price_chf\\\"\"], [\"type\", \"\\\"number\\\"\"]], [\"required\"]]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/financeiro/painel\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/financeiro/extrato-geral\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/financeiro/extrato\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/financeiro/estornos\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/financeiro/conceder\\\"\"]], []]": 1
+    "[\"<form\", [[\"action\", \"\\\"/admin/toggle-compatibility-score-visible\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/financeiro/audit\\\"\"]], []]": 1
   }
 }

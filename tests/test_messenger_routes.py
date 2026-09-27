@@ -170,8 +170,8 @@ def test_message_reports_queue_moderator_views_god_acts():
     god, god_id = _person("Queue God")
     execute("UPDATE users SET role_level = 3 WHERE id = :id", {"id": god_id})
 
-    token = extract_csrf(god.get("/admin").text)
-    assert "Nasty words" in god.get("/admin").text
+    token = extract_csrf(god.get("/admin/reports?tab=messages").text)
+    assert "Nasty words" in god.get("/admin/reports?tab=messages").text
     mod.post(f"/admin/message-reports/{report}/remove", data={"csrf_token": extract_csrf(mod.get("/board").text)})
     assert fetch_one("SELECT status FROM message_reports WHERE id = :r", {"r": report})["status"] == "open"
 

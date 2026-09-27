@@ -1,47 +1,50 @@
 {% extends 'base.html' %}
+{% block title %}Banners — Admin{% endblock %}
 {% block content %}
 <h1>Banners</h1>
-<p>Escolha o público e gerencie os avisos exibidos no site. Restaurar mantém o banner inativo até você ativá-lo.</p>
+<p class="field-help">Choose the audience and manage the notices shown on the site. Restoring keeps a banner inactive until you activate it.</p>
 <section class="listing-form-card">
-<h2>{{ 'Editar banner' if editing else 'Criar banner' }}</h2>
+<h2>{{ 'Edit banner' if editing else 'Create banner' }}</h2>
 <form method="post" action="/admin/banners/save" class="stacked-form">
  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
  <input type="hidden" name="banner_id" value="{{ editing.id if editing else 0 }}">
- <label>Título<input name="title" required maxlength="150" value="{{ editing.title if editing else '' }}"></label>
- <label>Texto<textarea name="body" required maxlength="500">{{ editing.body if editing else '' }}</textarea></label>
- <label>Link opcional (HTTPS ou /pagina)<input name="link_url" maxlength="500" value="{{ editing.link_url or '' if editing else '' }}"></label>
- <label>Público<select name="audience">
+ <label>Title<input name="title" required maxlength="150" value="{{ editing.title if editing else '' }}"></label>
+ <label>Text<textarea name="body" required maxlength="500">{{ editing.body if editing else '' }}</textarea></label>
+ <label>Optional link (HTTPS or /page)<input name="link_url" maxlength="500" value="{{ editing.link_url or '' if editing else '' }}"></label>
+ <label>Audience<select name="audience">
  {% for key, label in audiences.items() %}<option value="{{ key }}" {% if editing and editing.audience == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
  </select></label>
- <label>Voz (somente para Cantores)<select name="voice_type_id">
- <option value="">Todas as vozes</option>
+ <label>Voice type (singers only)<select name="voice_type_id">
+ <option value="">All voice types</option>
  {% for voice in voices %}<option value="{{ voice.id }}" {% if editing and editing.voice_type_id == voice.id %}selected{% endif %}>{{ voice.name }}</option>{% endfor %}
  </select></label>
- <label class="checkbox-label"><input type="checkbox" name="is_active" value="1" {% if editing and editing.is_active %}checked{% endif %}>Ativo</label>
- <button type="submit">Salvar banner</button>
- {% if editing %}<a href="/admin/banners">Cancelar edição</a>{% endif %}
+ <label class="checkbox-label"><input type="checkbox" name="is_active" value="1" {% if editing and editing.is_active %}checked{% endif %}>Active</label>
+ <button type="submit">Save banner</button>
+ {% if editing %}<a href="/admin/banners">Cancel editing</a>{% endif %}
 </form>
 </section>
-<nav aria-label="Estado dos banners">{% for key,label in states.items() %}
- <a href="/admin/banners?state={{ key }}" {% if state == key %}aria-current="page"{% endif %}>{{ label }}</a>
+<nav class="tool-tabs" aria-label="Banner state">{% for key,label in states.items() %}
+ <a class="tool-tab {{ 'active' if state == key else '' }}" href="/admin/banners?state={{ key }}" {% if state == key %}aria-current="page"{% endif %}>{{ label }}</a>
 {% endfor %}</nav>
 {% for banner in banners %}
 <article class="listing-form-card">
  <h2>{{ banner.title }}</h2><p>{{ banner.body }}</p>
  <p>{{ audiences[banner.audience] }}{% for voice in voices %}{% if voice.id == banner.voice_type_id %} · {{ voice.name }}{% endif %}{% endfor %}
- — {{ 'Excluído' if banner.deleted_at else ('Ativo' if banner.is_active else 'Inativo') }}</p>
+ — {{ 'Deleted' if banner.deleted_at else ('Active' if banner.is_active else 'Inactive') }}</p>
  {% if banner.link_url %}<p>{{ banner.link_url }}</p>{% endif %}
- {% if not banner.deleted_at %}<a href="/admin/banners?state={{ state }}&edit={{ banner.id }}">Editar</a>{% endif %}
- {% set actions = [('restore','Restaurar')] if banner.deleted_at else [('deactivate','Desativar') if banner.is_active else ('activate','Ativar'), ('delete','Excluir')] %}
+ <div class="admin-actions">
+ {% if not banner.deleted_at %}<a href="/admin/banners?state={{ state }}&edit={{ banner.id }}">Edit</a>{% endif %}
+ {% set actions = [('restore','Restore')] if banner.deleted_at else [('deactivate','Deactivate') if banner.is_active else ('activate','Activate'), ('delete','Delete')] %}
  {% for action,label in actions %}
- <form method="post" action="/admin/banners/{{ banner.id }}/{{ action }}" {% if action == 'delete' %}data-confirm="Excluir este banner? Ele ficará disponível na lista de excluídos."{% endif %}>
- <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">{{ label }}</button>
+ <form method="post" action="/admin/banners/{{ banner.id }}/{{ action }}" {% if action == 'delete' %}data-confirm="Delete this banner? It stays available under Deleted."{% endif %}>
+ <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="{{ 'danger' if action == 'delete' else 'button-secondary' }}">{{ label }}</button>
  </form>{% endfor %}
+ </div>
 </article>
-{% else %}<p>Nenhum banner neste estado.</p>{% endfor %}
-<nav aria-label="Páginas de banners">
-{% if page > 1 %}<a href="/admin/banners?state={{ state }}&page={{ page - 1 }}">Anterior</a>{% endif %}
-{% if has_next %}<a href="/admin/banners?state={{ state }}&page={{ page + 1 }}">Próxima</a>{% endif %}
+{% else %}<p class="empty-state">No banners in this state.</p>{% endfor %}
+<nav class="pagination" aria-label="Banner pages">
+{% if page > 1 %}<a href="/admin/banners?state={{ state }}&page={{ page - 1 }}">← Previous</a>{% endif %}
+{% if has_next %}<a href="/admin/banners?state={{ state }}&page={{ page + 1 }}">Next →</a>{% endif %}
 </nav>
-<p>Os avisos de confirmação de e-mail, assinatura e a dica semanal mantêm suas regras próprias; não são campanhas criadas nesta tela.</p>
+<p class="field-help">The e-mail confirmation, subscription and weekly tip notices keep their own rules; they are not campaigns created here.</p>
 {% endblock %}

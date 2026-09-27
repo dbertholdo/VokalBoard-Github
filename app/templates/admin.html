@@ -2,39 +2,20 @@
 {% block title %}Admin{% endblock %}
 
 {% block content %}
-<h1>Admin</h1>
-<p class="field-help">
-    Read-only overview. To actually manage accounts
-    (confirm email, reset password, promote to admin, deactivate or
-    delete), see <a href="/admin/users">Users</a>. For deeper/one-off
-    edits to the database, use Adminer
-    (<code>docker compose --profile admin up</code>,
-    <a href="http://localhost:8080" target="_blank" rel="noopener noreferrer">localhost:8080</a>)
-    or a direct database query.
-</p>
+<h1>Dashboard</h1>
+{% set c = admin_counts or {} %}
+<h2>Needs attention</h2>
+<div class="admin-stats">
+    <a class="admin-stat admin-stat-link {{ 'admin-stat-alert' if c.listing_reports }}" href="/admin/reports?tab=listings"><strong>{{ c.listing_reports or 0 }}</strong><span>Open listing reports</span></a>
+    <a class="admin-stat admin-stat-link {{ 'admin-stat-alert' if c.message_reports }}" href="/admin/reports?tab=messages"><strong>{{ c.message_reports or 0 }}</strong><span>Reported messages</span></a>
+    <a class="admin-stat admin-stat-link {{ 'admin-stat-alert' if c.tickets }}" href="/admin/tickets"><strong>{{ c.tickets or 0 }}</strong><span>Open support tickets</span></a>
+</div>
+<h2>At a glance</h2>
 <div class="admin-stats">
     <div class="admin-stat"><strong>{{ stats.users }}</strong><span>Active users</span></div>
     <div class="admin-stat"><strong>{{ stats.listings }}</strong><span>Active listings</span></div>
     <div class="admin-stat"><strong>{{ stats.messages }}</strong><span>Messages exchanged</span></div>
     <div class="admin-stat"><strong>{{ stats.blocked_pairs }}</strong><span>Blocked pairs</span></div>
-    <div class="admin-stat"><strong>{{ stats.open_reports }}</strong><span>Open reports</span></div>
-</div>
-
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-bolt"></use></svg> Feature toggles</h2>
-<div class="admin-toggle-row">
-    <div>
-        <strong>Compatibility score visible</strong>
-        <p class="field-help">
-            Whether the "% compatibilidade" signal (voice type &gt; city
-            proximity &gt; internal rating) is shown to end users, on
-            top of already being used to sort the Home page. Currently
-            <strong>{{ "ON" if compatibility_score_visible else "OFF" }}</strong>.
-        </p>
-    </div>
-    <form method="post" action="/admin/toggle-compatibility-score-visible">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="btn-secondary">{{ "Turn off" if compatibility_score_visible else "Turn on" }}</button>
-    </form>
 </div>
 
 <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-bolt"></use></svg> Most-used tools</h2>
@@ -48,87 +29,4 @@
     </div>
 {% endif %}
 
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-flag"></use></svg> Recent reports</h2>
-{% if reports|length == 0 %}
-    <p class="empty-state">No reports filed.</p>
-{% else %}
-    <ul class="admin-list">
-        {% for r in reports %}
-            <li>
-                <p>
-                    <a href="/listings/{{ r.listing_id }}">{{ r.listing_title }}</a>
-                    ({{ t_en('by_author') }} {{ r.author_name }})
-                    — {{ t_en('report_listing_button') }}: {{ r.reporter_name }}
-                    {% if r.status == 'accepted' %} <span class="badge">accepted</span>
-                    {% elif r.status == 'rejected' %} <span class="badge badge-danger">rejected</span>
-                    {% endif %}
-                </p>
-                <p class="field-help">"{{ r.reason }}" — {{ r.created_at }}</p>
-                {% if r.status == 'open' %}
-                    <div class="admin-actions">
-                        <form method="post" action="/admin/reports/{{ r.id }}/accept" class="report-accept-form" data-confirm="Accept this report? The person who reported it — and, if you pick a punishment level, the listing's author — will be notified by email.">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <label class="field-help">Punishment for the author (optional)
-                                <select name="punishment">
-                                    <option value="">None — accept only</option>
-                                    <option value="warning">Warning</option>
-                                    <option value="suspend">Suspend (reactivates on next login)</option>
-                                    <option value="ban">Ban (permanent)</option>
-                                </select>
-                            </label>
-                            <button type="submit" class="button-link"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-check"></use></svg> Accept</button>
-                        </form>
-                        <form method="post" action="/admin/reports/{{ r.id }}/reject" data-confirm="Reject this report? The person who reported it will be notified by email.">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button type="submit" class="btn-secondary">Reject</button>
-                        </form>
-                    </div>
-                {% endif %}
-            </li>
-        {% endfor %}
-    </ul>
-{% endif %}
-
-{# Messenger (2026-09-26): reported messages. Admin area is English-only. #}
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-flag"></use></svg> Reported messages</h2>
-{% if message_reports|length == 0 %}
-    <p class="empty-state">No open message reports.</p>
-{% else %}
-    <ul class="admin-list">
-        {% for r in message_reports %}
-            <li>
-                <p><a href="/admin/users/{{ r.reported_user_id }}">{{ r.reported_name }}</a> — reported by {{ r.reporter_name }} · {{ r.created_at | local_time('%d.%m.%Y %H:%M') }}</p>
-                <p class="field-help">Reason: "{{ r.reason }}"</p>
-                <blockquote class="message-body-box">{{ r.body_snapshot }}</blockquote>
-                {% if not r.message_id %}<p class="field-help">The message itself has already expired.</p>{% endif %}
-                {% if user.role_level and user.role_level >= 3 %}
-                    <div class="admin-actions">
-                        <form method="post" action="/admin/message-reports/{{ r.id }}/remove" data-confirm="Remove this message for both people?">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button type="submit" class="danger">Remove message</button>
-                        </form>
-                        <form method="post" action="/admin/message-reports/{{ r.id }}/dismiss">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button type="submit" class="btn-secondary">Dismiss</button>
-                        </form>
-                    </div>
-                {% endif %}
-            </li>
-        {% endfor %}
-    </ul>
-{% endif %}
-
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-ban"></use></svg> Recent blocks</h2>
-{% if blocks|length == 0 %}
-    <p class="empty-state">No blocks recorded.</p>
-{% else %}
-    <ul class="admin-list">
-        {% for b in blocks %}
-            <li>
-                <p>{{ b.blocker_name }} blocked {{ b.blocked_name }}</p>
-                {% if b.reason %}<p class="field-help">"{{ b.reason }}" — {{ b.created_at }}</p>{% else %}<p class="field-help">{{ b.created_at }}</p>{% endif %}
-            </li>
-        {% endfor %}
-    </ul>
-{% endif %}
 {% endblock %}

@@ -1,37 +1,35 @@
 {% extends "base.html" %}
-{% block title %}Admin — Loja{% endblock %}
+{% block title %}Admin — Shop catalog{% endblock %}
 
 {% block content %}
-<a class="back-link" href="/admin">&larr; Admin</a>
-<h1>Loja</h1>
+<h1>Shop catalog</h1>
 <p class="field-help">
-    Controle dos itens da loja de Notas e histórico geral das compras.
-    Pra ver o extrato de Notas de um usuário específico, busque-o em
-    <a href="/admin/users">Users</a> e abra o perfil dele — o extrato
-    aparece lá.
+    The items people can redeem with Notas, and the shop's full history. To see one person's Notas
+    history, find them in <a href="/admin/users">Users</a> and open their page.
 </p>
 
 {% if created == '1' %}
-    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Item criado.</p>
+    <p class="success"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-check"></use></svg> Item created.</p>
 {% endif %}
 {% if updated == '1' %}
-    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Item atualizado.</p>
+    <p class="success"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-check"></use></svg> Item updated.</p>
 {% endif %}
 {% if error == 'invalid_item' %}
-    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Título, descrição e preço (número positivo) são obrigatórios.</p>
+    <p class="error" role="alert"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-warning"></use></svg> Title, description and a positive price are required.</p>
 {% endif %}
 
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> Catálogo</h2>
+<h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-gift"></use></svg> Catalog</h2>
 {% if catalog_items|length == 0 %}
-    <p class="empty-state">Nenhum item cadastrado.</p>
+    <p class="empty-state">No items yet.</p>
 {% else %}
+    <div class="table-scroll">
     <table class="admin-users-table">
         <thead>
             <tr>
                 <th>Item</th>
-                <th>Preço (Notas)</th>
+                <th>Price (Notas)</th>
                 <th>Status</th>
-                <th>Atualizado em</th>
+                <th>Updated</th>
                 <th></th>
             </tr>
         </thead>
@@ -39,103 +37,103 @@
             {% for item in catalog_items %}
                 <tr>
                     <td>
-                        <strong>{{ item.title or ('(usa texto padrão — ' ~ item.item_key ~ ')') }}</strong><br>
+                        <strong>{{ item.title or ('(uses the default text — ' ~ item.item_key ~ ')') }}</strong><br>
                         <span class="field-help">{{ item.description or '—' }}</span>
                     </td>
                     <td>{{ format_notas(item.cost) }}</td>
                     <td>
                         {% if item.active %}
-                            <span class="success">Ativo</span>
+                            <span class="success">Active</span>
                         {% else %}
-                            <span class="error">Desativado</span>
+                            <span class="error">Off</span>
                         {% endif %}
                     </td>
-                    <td>{{ item.updated_at }}</td>
+                    <td>{{ item.updated_at | local_time('%d.%m.%Y') }}</td>
                     <td>
-                        <form method="post" action="/admin/loja/catalog/{{ item.id }}/toggle-active" style="display:inline;">
+                        <div class="admin-actions">
+                        <form method="post" action="/admin/loja/catalog/{{ item.id }}/toggle-active">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button type="submit" class="btn-secondary">
-                                {{ "Desativar" if item.active else "Ativar" }}
+                            <button type="submit" class="button-secondary">
+                                {{ "Turn off" if item.active else "Turn on" }}
                             </button>
                         </form>
-                        <details class="block-user-details" style="display:inline-block; margin-left:8px;">
-                            <summary class="block-user-summary" style="display:inline;"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-edit"></use></svg> Editar</summary>
+                        <details class="block-user-details">
+                            <summary class="block-user-summary"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-edit"></use></svg> Edit</summary>
                             <form method="post" action="/admin/loja/catalog/{{ item.id }}/edit" class="stacked-form narrow">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <label>Título
+                                <label>Title
                                     <input type="text" name="title" value="{{ item.title or '' }}" maxlength="150" required>
                                 </label>
-                                <label>Descrição
+                                <label>Description
                                     <textarea name="description" maxlength="500" required>{{ item.description or '' }}</textarea>
                                 </label>
-                                <label>Preço (Notas)
+                                <label>Price (Notas)
                                     <input type="text" name="cost" value="{{ format_notas(item.cost) }}" required>
                                 </label>
-                                <label>Ícone
+                                <label>Icon
                                     <select name="icon">
                                         {% for icon_id in allowed_icons %}
                                             <option value="{{ icon_id }}" {{ 'selected' if icon_id == item.icon else '' }}>{{ icon_id }}</option>
                                         {% endfor %}
                                     </select>
                                 </label>
-                                <button type="submit" class="button-link">Salvar</button>
+                                <button type="submit" class="button-link">Save</button>
                             </form>
                         </details>
+                        </div>
                     </td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
     <p class="field-help">
-        Desativar um item só bloqueia NOVOS resgates — quem já resgatou
-        antes mantém o benefício normalmente (ex.: destaque de perfil
-        já ativo continua até expirar). Um item sem título/descrição
-        próprios ainda usa o texto padrão do site (é o caso do item
-        original, "Destaque de perfil") — ao editar, o texto digitado
-        aqui passa a valer pra todo mundo, em qualquer idioma.
+        Turning an item off only blocks NEW redeems — people who already redeemed keep the benefit
+        (e.g. a running profile highlight lasts until it expires). An item without its own title/description
+        uses the site's default text (the original "Profile highlight" item) — once you edit it, your text
+        applies to everyone, in every language.
     </p>
 {% endif %}
 
-<h3>Adicionar item novo</h3>
+<h3>Add a new item</h3>
 <p class="field-help">
-    Um item novo é um <strong>voucher genérico</strong>: só debita
-    Notas e fica registrado no histórico — não faz nada automático no
-    sistema. Quem cumpre é o Admin, manualmente (ex.: entrar em
-    contato com quem resgatou).
+    A new item is a <strong>generic voucher</strong>: it only takes the Notas and shows up in the history —
+    nothing happens automatically. An admin delivers it by hand (e.g. by contacting the person who redeemed it).
 </p>
 <form method="post" action="/admin/loja/catalog/new" class="stacked-form narrow">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>Título
-        <input type="text" name="title" maxlength="150" required placeholder="Ex.: Revisão de perfil por um maestro">
+    <label>Title
+        <input type="text" name="title" maxlength="150" required placeholder="e.g. Profile review by a conductor">
     </label>
-    <label>Descrição
-        <textarea name="description" maxlength="500" required placeholder="O que a pessoa recebe ao resgatar."></textarea>
+    <label>Description
+        <textarea name="description" maxlength="500" required placeholder="What the person gets when redeeming it."></textarea>
     </label>
-    <label>Preço (Notas)
-        <input type="text" name="cost" required placeholder="Ex.: 5">
+    <label>Price (Notas)
+        <input type="text" name="cost" required placeholder="e.g. 5">
     </label>
-    <label>Ícone
+    <label>Icon
         <select name="icon">
             {% for icon_id in allowed_icons %}
                 <option value="{{ icon_id }}">{{ icon_id }}</option>
             {% endfor %}
         </select>
     </label>
-    <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> Criar item</button>
+    <button type="submit" class="button-link"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-gift"></use></svg> Create item</button>
 </form>
 
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-scroll"></use></svg> Histórico geral da loja</h2>
-<p class="field-help">{{ total_history }} transação(ões) — resgates de catálogo e compras de urgência.</p>
+<h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-scroll"></use></svg> Shop history</h2>
+<p class="field-help">{{ total_history }} transaction(s) — catalog redeems and urgent-listing purchases.</p>
 {% if history|length == 0 %}
-    <p class="empty-state">Nenhuma transação ainda.</p>
+    <p class="empty-state">No transactions yet.</p>
 {% else %}
+    <div class="table-scroll">
     <table class="admin-users-table">
         <thead>
             <tr>
-                <th>Usuário</th>
-                <th>Motivo</th>
-                <th>Valor</th>
-                <th>Data</th>
+                <th>User</th>
+                <th>Reason</th>
+                <th>Amount</th>
+                <th>Date</th>
             </tr>
         </thead>
         <tbody>
@@ -144,15 +142,16 @@
                     <td><a href="/admin/users/{{ h.user_id }}">{{ h.user_name }}</a><br><span class="field-help">{{ h.user_email }}</span></td>
                     <td><code>{{ h.reason }}</code></td>
                     <td>{{ format_notas(h.delta) }}</td>
-                    <td>{{ h.created_at }}</td>
+                    <td>{{ h.created_at | local_time('%d.%m.%Y %H:%M') }}</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
-    <div class="admin-pagination">
+    </div>
+    <nav class="pagination" aria-label="History pages">
         {% if has_prev %}<a href="/admin/loja?page={{ page - 1 }}">&larr; Previous</a>{% endif %}
         <span>Page {{ page }}</span>
         {% if has_next %}<a href="/admin/loja?page={{ page + 1 }}">Next &rarr;</a>{% endif %}
-    </div>
+    </nav>
 {% endif %}
 {% endblock %}

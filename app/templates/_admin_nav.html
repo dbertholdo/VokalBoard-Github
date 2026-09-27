@@ -1,0 +1,46 @@
+{# ------------------------------------------------------------
+   Admin sidebar (docs/specs/ADMIN_REORG.md, 2026-09-27): grouped, English,
+   admins (level 2+) only — moderators (level 1) see no admin area for now.
+   Red counts = what's waiting (app/admin_nav.py). On phones this is the
+   ☰ side menu. Every URL is unchanged.
+------------------------------------------------------------ #}
+{% set p = request.url.path %}
+{% macro item(href, icon, label, active, count=0) -%}
+<a class="side-nav-row {{ 'active' if active else '' }}" href="{{ href }}" {% if active %}aria-current="page"{% endif %}>
+    <svg class="icon side-nav-icon" width="20" height="20" aria-hidden="true"><use href="/static/img/icons.svg#{{ icon }}"></use></svg>{{ label }}
+    {%- if count %} <span class="badge-count badge-alert" aria-label="{{ count }} waiting">{{ count }}</span>{% endif %}
+</a>
+{%- endmacro %}
+<a class="side-nav-row" href="/">
+    <svg class="icon side-nav-icon" width="20" height="20" aria-hidden="true"><use href="/static/img/icons.svg#icon-back"></use></svg>Back to site
+</a>
+{% if user.role_level >= 2 %}
+{% set c = admin_counts or {} %}
+<p class="side-nav-group">Overview</p>
+{{ item('/admin', 'icon-home', 'Dashboard', p == '/admin') }}
+{{ item('/admin/analytics', 'icon-analytics', 'Analytics', p == '/admin/analytics') }}
+
+<p class="side-nav-group">Community</p>
+{{ item('/admin/reports', 'icon-flag', 'Reports', p.startswith('/admin/reports'), c.reports) }}
+{{ item('/admin/users', 'icon-users', 'Users', p.startswith('/admin/users')) }}
+{{ item('/admin/tickets', 'icon-mail', 'Support tickets', p.startswith('/admin/tickets'), c.tickets) }}
+
+<p class="side-nav-group">Content</p>
+{{ item('/admin/posts', 'icon-posts', 'Announcements', p.startswith('/admin/posts')) }}
+{% if user.role_level >= 3 %}{{ item('/admin/banners', 'icon-sparkle', 'Banners', p.startswith('/admin/banners')) }}{% endif %}
+{{ item('/admin/emails', 'icon-mail', 'E-mails', p.startswith('/admin/emails')) }}
+
+<p class="side-nav-group">Shop</p>
+{{ item('/admin/loja', 'icon-gift', 'Shop catalog', p.startswith('/admin/loja')) }}
+
+{% if user.role_level >= 3 %}
+<p class="side-nav-group side-nav-group-danger">Red Zone</p>
+{{ item('/financeiro', 'icon-redzone', 'Settings', p == '/financeiro') }}
+{{ item('/financeiro/painel', 'icon-book', 'Financial dashboard', p.startswith('/financeiro/painel')) }}
+{{ item('/financeiro/extrato-geral', 'icon-scroll', 'General ledger', p.startswith('/financeiro/extrato-geral')) }}
+{{ item('/financeiro/extrato', 'icon-upload', 'Bank import', p == '/financeiro/extrato') }}
+{{ item('/financeiro/estornos', 'icon-refresh', 'Refunds', p.startswith('/financeiro/estornos')) }}
+{{ item('/financeiro/conceder', 'icon-gift', 'Grants', p.startswith('/financeiro/conceder')) }}
+{{ item('/financeiro/audit', 'icon-scroll', 'Audit log', p.startswith('/financeiro/audit')) }}
+{% endif %}
+{% endif %}

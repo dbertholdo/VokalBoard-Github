@@ -126,6 +126,10 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     # once, instead of in every route.
     path = request.url.path
     context["is_admin_area"] = path.startswith("/admin") or path.startswith("/financeiro")
+    admin_user = context.get("user")
+    if context["is_admin_area"] and admin_user and (admin_user.get("role_level") or 0) >= 2:
+        from app.admin_nav import admin_attention_counts
+        context.setdefault("admin_counts", admin_attention_counts())
     context["site_banners"] = [] if context["is_admin_area"] else visible_banners(context.get("user"))
 
     # Part 2 backlog item 4 (19/09/2026) — Acolhedor mascot toast: a

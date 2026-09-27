@@ -9,7 +9,7 @@ from app.render import render
 from app.banners import AUDIENCES, safe_banner_link
 
 router = APIRouter()
-STATES = {'active': 'Ativos', 'inactive': 'Inativos', 'deleted': 'Excluídos', 'all': 'Todos'}
+STATES = {'active': 'Active', 'inactive': 'Inactive', 'deleted': 'Deleted', 'all': 'All'}
 
 def authorize(request):
     user = require_level(request, LEVEL_GOD)

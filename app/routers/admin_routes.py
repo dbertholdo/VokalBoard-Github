@@ -47,6 +47,7 @@ from app.render import render
 from app.csrf import verify_csrf
 from app.routers.auth_routes import send_password_reset_email
 from app import messenger
+from app.admin_nav import admin_attention_counts
 from app.permissions import require_level, sync_is_admin_flag, log_audit_action, reauthenticate, LEVEL_COMMON, LEVEL_MODERATOR, LEVEL_ADMIN, LEVEL_GOD
 from app.richtext import sanitize_post_body
 from app.post_images import save_post_image
@@ -146,54 +147,53 @@ def admin_dashboard(request: Request):
         "open_reports": fetch_one("SELECT COUNT(*) AS n FROM listing_reports WHERE status = 'open'")["n"],
     }
 
-    reports = fetch_all(
-        """
-        SELECT lr.id, lr.reason, lr.created_at, lr.status,
-               l.id AS listing_id, l.title AS listing_title,
-               ru.full_name AS reporter_name,
-               au.full_name AS author_name
-        FROM listing_reports lr
-        JOIN visible_listings l ON l.id = lr.listing_id
-        JOIN users ru ON ru.id = lr.reporter_id
-        JOIN users au ON au.id = l.author_id
-        ORDER BY (lr.status = 'open') DESC, lr.created_at DESC
-        LIMIT 50
-        """
-    )
-
-    blocks = fetch_all(
-        """
-        SELECT bu.id, bu.reason, bu.created_at,
-               bkr.full_name AS blocker_name, bkd.full_name AS blocked_name
-        FROM blocked_users bu
-        JOIN users bkr ON bkr.id = bu.blocker_id
-        JOIN users bkd ON bkd.id = bu.blocked_id
-        ORDER BY bu.created_at DESC
-        LIMIT 50
-        """
-    )
-
     context = {
         "user": admin,
         "stats": stats,
-        "reports": reports,
-        # Messenger (2026-09-26): reported messages — viewing like listing reports, acting God Mode only.
-        "message_reports": messenger.open_message_reports(),
-        "blocks": blocks,
-        # P3.E: on/off for the "% compatibilidade" signal (see
-        # app/compatibility.py) — off by default, Daniel wants to
-        # discuss the actual display before turning it on for real
-        # users. Sorting by it (fee > cidade > nota) already happens
-        # on the Home regardless of this flag; this only controls
-        # whether the number itself is ever shown.
-        "compatibility_score_visible": is_compatibility_score_visible(),
-        # P4 Etapa 3 (18/09/2026): "quais ferramentas do site são mais
-        # usadas" — pedido do Daniel, junto do badge de pendência do
-        # Rechnungmaker. Genérico (app/feature_usage.py); Rechnungmaker é
-        # só o primeiro a alimentar isso.
         "feature_usage": get_feature_usage_totals(),
     }
     return render(request, "admin.html", context)
+
+
+@router.get("/admin/reports", response_class=HTMLResponse)
+def admin_reports(request: Request, tab: str = "listings"):
+    """Moderation in one place (docs/specs/ADMIN_REORG.md): listing reports,
+    reported messages, blocks. Admins review; only God Mode acts."""
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    tab = tab if tab in ("listings", "messages", "blocks") else "listings"
+    context = {"user": admin, "tab": tab, "can_act": (admin.get("role_level") or 0) >= LEVEL_GOD,
+               "counts": admin_attention_counts(), "reports": [], "message_reports": [], "blocks": []}
+    if tab == "listings":
+        context["reports"] = fetch_all(
+            """
+            SELECT lr.id, lr.reason, lr.created_at, lr.status,
+                   l.id AS listing_id, l.title AS listing_title,
+                   ru.full_name AS reporter_name, au.full_name AS author_name
+            FROM listing_reports lr
+            JOIN visible_listings l ON l.id = lr.listing_id
+            JOIN users ru ON ru.id = lr.reporter_id
+            JOIN users au ON au.id = l.author_id
+            ORDER BY (lr.status = 'open') DESC, lr.created_at DESC
+            LIMIT 50
+            """
+        )
+    elif tab == "messages":
+        context["message_reports"] = messenger.open_message_reports()
+    else:
+        context["blocks"] = fetch_all(
+            """
+            SELECT bu.id, bu.reason, bu.created_at,
+                   bkr.full_name AS blocker_name, bkd.full_name AS blocked_name
+            FROM blocked_users bu
+            JOIN users bkr ON bkr.id = bu.blocker_id
+            JOIN users bkd ON bkd.id = bu.blocked_id
+            ORDER BY bu.created_at DESC
+            LIMIT 50
+            """
+        )
+    return render(request, "admin_reports.html", context)
 
 
 @router.post("/admin/reports/{report_id}/accept")
@@ -213,7 +213,7 @@ def admin_accept_report(request: Request, report_id: int, csrf_token: str = Form
 
     report = resolve_report(report_id, accepted=True, admin_id=admin["id"])
     if not report:
-        return RedirectResponse(url="/admin", status_code=303)
+        return RedirectResponse(url="/admin/reports", status_code=303)
 
     subject, html = report_resolved_email(
         report.get("preferred_language"), report["reporter_name"], report["listing_title"], True,
@@ -228,7 +228,7 @@ def admin_accept_report(request: Request, report_id: int, csrf_token: str = Form
         send_email(report["author_email"], subject, html)
         log_audit_action(request, admin, "moderation_punishment", f"user_id={report['author_id']} punishment={punishment} report_id={report_id}")
 
-    return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url="/admin/reports", status_code=303)
 
 
 @router.post("/admin/reports/{report_id}/reject")
@@ -247,7 +247,7 @@ def admin_reject_report(request: Request, report_id: int, csrf_token: str = Form
             report.get("preferred_language"), report["reporter_name"], report["listing_title"], False,
         )
         send_email(report["reporter_email"], subject, html)
-    return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url="/admin/reports", status_code=303)
 
 
 @router.post("/admin/message-reports/{report_id}/{action}")
@@ -256,11 +256,11 @@ def admin_resolve_message_report(request: Request, report_id: int, action: str, 
     reports (Daniel, 2026-09-26: moderators don't act on reports)."""
     admin = require_level(request, LEVEL_GOD)
     if not admin or action not in ("dismiss", "remove"):
-        return RedirectResponse(url="/admin", status_code=303)
+        return RedirectResponse(url="/admin/reports?tab=messages", status_code=303)
     verify_csrf(request, csrf_token)
     if messenger.resolve_message_report(report_id, admin["id"], remove_message=action == "remove"):
         log_audit_action(request, admin, f"message_report_{action}", f"message_report_id={report_id}")
-    return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url="/admin/reports?tab=messages", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/unban")
@@ -522,7 +522,7 @@ def admin_toggle_compatibility_score_visible(request: Request, csrf_token: str =
 
     set_compatibility_score_visible(not is_compatibility_score_visible(), admin["id"])
     log_audit_action(request, admin, "toggle_compatibility_score_visible", f"now={is_compatibility_score_visible()}")
-    return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url="/financeiro?saved=1", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/toggle-admin")

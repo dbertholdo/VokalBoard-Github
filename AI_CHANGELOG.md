@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-27 — Claude — cleanup section 7 (admin), part B in progress
+- Grouped English admin sidebar (`_admin_nav.html`, counts via `app/admin_nav.py`, level 2+ only; duplicate subnav removed); new `/admin/reports` (listings/messages/blocks; only God Mode sees action buttons) and `/financeiro/audit`; compatibility switch moved to Red Zone settings; slim dashboard ("Needs attention").
+- English: banners (+ labels in `app/banners.py`), e-mails, periodic mail form, shop catalog, refunds. Tables wrapped in `.table-scroll`. style.css `?v=20260927-5`.
+- Tests: 378 passed + 10 retention. Remaining items listed in HANDOFF §3.
+
 ## 2026-09-27 — Claude — cleanup section 6 (Notas, no live payments)
 - Shop redeem now ONE transaction (`shop_catalog.redeem_item`): debit + the item's effect commit together (the highlight used to be applied in a second transaction), user row locked before the double-submit check (two quick clicks could stack a second 7-day highlight).
 - Stripe webhook (still off): sessions without our metadata return "not_ours" instead of a 500 Stripe retries for days; refund/dispute amounts computed after locking the user (two events at once could debit twice).

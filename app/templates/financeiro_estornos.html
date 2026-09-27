@@ -1,50 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Financeiro — Estornos{% endblock %}
+{% block title %}Red Zone — Refunds{% endblock %}
 
 {% block content %}
 <a class="back-link" href="/financeiro">&larr; Red Zone</a>
-<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Estornos</h1>
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Refunds</h1>
 <p class="field-help">
-    Reverter uma compra — da Loja (Notas) ou de uma Assinatura paga em
-    dinheiro. O lado Notas credita o valor de volta na hora. O lado
-    dinheiro ainda não tem gateway conectado — "estornar" aqui só marca
-    o registro interno (tira da receita de um fechamento futuro);
-    devolver o dinheiro de verdade, quando aplicável, é feito por fora.
+    Reverse a purchase — from the shop (Notas) or a subscription paid in money. Notas are credited
+    back immediately. Money refunds only mark the internal record (removed from future closings);
+    returning real money, when needed, is done outside the site.
 </p>
 
 {% if refund_done == '1' %}
-    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Estornado.</p>
+    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Refunded.</p>
 {% endif %}
 {% if error == 'notas_invalido' %}
-    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Não deu pra estornar essa linha (já foi estornada, ou não é um débito).</p>
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> This entry can't be refunded (already refunded, or not a debit).</p>
 {% endif %}
 {% if error == 'assinatura_invalida' %}
-    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Essa assinatura não existe ou já foi estornada.</p>
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> This subscription doesn't exist or was already refunded.</p>
 {% endif %}
 {% if error == 'senha_incorreta' %}
-    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> Senha incorreta — nada foi estornado.</p>
+    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> Wrong password — nothing was refunded.</p>
 {% endif %}
 
 <form method="get" action="/financeiro/estornos" class="inline-form period-filter">
-    <label>De <input type="date" name="start" value="{{ period_start }}"></label>
-    <label>Até <input type="date" name="end" value="{{ period_end }}"></label>
-    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Filtrar por período</button>
-    {% if period_start or period_end %}<a class="button-link" href="/financeiro/estornos">Limpar</a>{% endif %}
+    <label>From <input type="date" name="start" value="{{ period_start }}"></label>
+    <label>To <input type="date" name="end" value="{{ period_end }}"></label>
+    <button type="submit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Filter by period</button>
+    {% if period_start or period_end %}<a class="button-link" href="/financeiro/estornos">Clear</a>{% endif %}
 </form>
 
 <div class="red-zone-box">
-    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> Loja (Notas)</h2>
-    <p class="field-help">Últimos 50 débitos de Notas de todos os usuários (resgates da Loja, urgências pagas com Notas, etc.).</p>
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> Shop (Notas)</h2>
+    <p class="field-help">Last 50 Notas debits of all users (shop redeems, urgent listings paid with Notas, …).</p>
     {% if notas_debits|length == 0 %}
-        <p class="empty-state">Nenhum débito registrado ainda.</p>
+        <p class="empty-state">No debits yet.</p>
     {% else %}
         <table class="admin-users-table">
             <thead>
                 <tr>
-                    <th>Usuário</th>
-                    <th>Motivo</th>
-                    <th>Valor</th>
-                    <th>Data</th>
+                    <th>User</th>
+                    <th>Reason</th>
+                    <th>Amount</th>
+                    <th>Date</th>
                     <th></th>
                 </tr>
             </thead>
@@ -57,11 +55,11 @@
                         <td>{{ d.created_at }}</td>
                         <td>
                             {% if d.already_refunded %}
-                                <span class="field-help">Estornado</span>
+                                <span class="field-help">Refunded</span>
                             {% else %}
-                                <form method="post" action="/financeiro/estornos/notas/{{ d.id }}" data-confirm="Estornar {{ format_notas(-d.delta) }} Notas pra {{ d.user_name }}?">
+                                <form method="post" action="/financeiro/estornos/notas/{{ d.id }}" data-confirm="Refund {{ format_notas(-d.delta) }} Notas to {{ d.user_name }}?">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <button type="submit" class="button-link">Estornar</button>
+                                    <button type="submit" class="button-link">Refund</button>
                                 </form>
                             {% endif %}
                         </td>
@@ -73,22 +71,20 @@
 </div>
 
 <div class="red-zone-box">
-    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> Assinaturas (dinheiro)</h2>
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-money"></use></svg> Subscriptions (money)</h2>
     <p class="field-help">
-        Ainda sem nenhuma compra real (Capitalism Mode desligado, sem
-        gateway de pagamento conectado) — essa lista fica pronta pro
-        dia que existir.
+        No real purchases yet (Capitalism Mode off) — this list is ready for when there are.
     </p>
     {% if subscriptions_to_refund|length == 0 %}
-        <p class="empty-state">Nenhuma assinatura ativa pra estornar.</p>
+        <p class="empty-state">No active subscriptions to refund.</p>
     {% else %}
         <table class="admin-users-table">
             <thead>
                 <tr>
-                    <th>Usuário</th>
-                    <th>Valor pago</th>
-                    <th>País</th>
-                    <th>Data</th>
+                    <th>User</th>
+                    <th>Amount paid</th>
+                    <th>Country</th>
+                    <th>Date</th>
                     <th></th>
                 </tr>
             </thead>
@@ -101,13 +97,13 @@
                         <td>{{ s.started_at }}</td>
                         <td>
                             <details>
-                                <summary class="block-user-summary">Estornar</summary>
-                                <form method="post" action="/financeiro/estornos/assinatura/{{ s.id }}" class="stacked-form narrow" data-confirm="Estornar essa assinatura? Isso tira da receita de fechamentos futuros — não devolve dinheiro de verdade sozinho.">
+                                <summary class="block-user-summary">Refund</summary>
+                                <form method="post" action="/financeiro/estornos/assinatura/{{ s.id }}" class="stacked-form narrow" data-confirm="Refund this subscription? It is removed from future closings — no real money is returned automatically.">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <label>Confirme sua senha atual
+                                    <label>Confirm your current password
                                         <input type="password" name="current_password" required autocomplete="current-password">
                                     </label>
-                                    <button type="submit" class="danger">Confirmar estorno</button>
+                                    <button type="submit" class="danger">Confirm refund</button>
                                 </form>
                             </details>
                         </td>

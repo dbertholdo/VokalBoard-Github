@@ -36,6 +36,8 @@ from app.receipts import save_receipt, RECEIPT_DIR
 from app.notas_wallet import refund_ledger_entry, credit_notas, debit_notas_atomic, get_credit_balance
 from app.shop_catalog import get_active_catalog, grant_catalog_item_to_user
 
+from app.system_flags import is_compatibility_score_visible
+
 router = APIRouter()
 
 EXPENSE_CATEGORIES = ["hosting", "domain", "software", "marketing", "legal_accounting", "other"]
@@ -91,7 +93,7 @@ def zona_vermelha(request: Request):
         FROM audit_log al
         LEFT JOIN users u ON u.id = al.actor_user_id
         ORDER BY al.created_at DESC
-        LIMIT 20
+        LIMIT 5
         """
     )
 
@@ -101,10 +103,38 @@ def zona_vermelha(request: Request):
         "price_eur": _cents_to_amount(int(settings.get("subscription_price_eur_cents") or 590)),
         "price_chf": _cents_to_amount(int(settings.get("subscription_price_chf_cents") or 690)),
         "recent_audit": recent_audit,
+        "compatibility_score_visible": is_compatibility_score_visible(),
         "error": request.query_params.get("error"),
         "saved": request.query_params.get("saved"),
     }
     return render(request, "zona_vermelha.html", context)
+
+
+AUDIT_PAGE_SIZE = 50
+
+
+@router.get("/financeiro/audit", response_class=HTMLResponse)
+def audit_log_page(request: Request, page: int = 1, q: str = ""):
+    """The whole audit log (docs/specs/ADMIN_REORG.md) — God Mode only."""
+    god = _god(request)
+    if not god:
+        return RedirectResponse(url="/", status_code=303)
+    page = max(1, page)
+    q = q.strip()[:60]
+    rows = fetch_all(
+        """
+        SELECT al.action, al.details, al.ip_address, al.created_at, u.full_name AS actor_name
+        FROM audit_log al
+        LEFT JOIN users u ON u.id = al.actor_user_id
+        WHERE (:q = '' OR al.action ILIKE '%' || :q || '%')
+        ORDER BY al.created_at DESC, al.id DESC
+        LIMIT :limit OFFSET :offset
+        """,
+        {"q": q, "limit": AUDIT_PAGE_SIZE + 1, "offset": (page - 1) * AUDIT_PAGE_SIZE},
+    )
+    return render(request, "admin_audit.html", {
+        "user": god, "entries": rows[:AUDIT_PAGE_SIZE], "has_next": len(rows) > AUDIT_PAGE_SIZE, "page": page, "q": q,
+    })
 
 
 @router.post("/financeiro/toggle-capitalismo")

@@ -2,15 +2,15 @@
 from urllib.parse import urlsplit
 from app.database import fetch_all
 
-AUDIENCES = {'all': 'Todos (inclui visitantes)', 'singer': 'Cantores',
-             'conductor': 'Regentes', 'no_subscription': 'Usuários sem assinatura ativa'}
+AUDIENCES = {'all': 'Everyone (incl. visitors)', 'singer': 'Singers',
+             'conductor': 'Conductors', 'no_subscription': 'Users without an active subscription'}
 
 def safe_banner_link(value):
     value = value.strip()
     if not value:
         return None
     if any(ord(c) <= 32 for c in value) or '\\' in value:
-        raise ValueError('Link inválido.')
+        raise ValueError('Invalid link.')
     parsed = urlsplit(value)
     if value.startswith('/') and not value.startswith('//'):
         return value

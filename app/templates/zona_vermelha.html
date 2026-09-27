@@ -64,25 +64,32 @@
 </div>
 
 <div class="red-zone-box">
-    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-book"></use></svg> Financial dashboard</h2>
-    <p><a class="button-link" href="/financeiro/painel">Open financial dashboard →</a></p>
-    <p><a class="button-link" href="/financeiro/extrato-geral">Extrato Geral (money in vs money out) →</a></p>
-    <p><a class="button-link" href="/financeiro/extrato">Import bank statement →</a></p>
-    <p><a class="button-link" href="/financeiro/estornos">Estornos (Loja + dinheiro) →</a></p>
-    <p><a class="button-link" href="/financeiro/conceder">Ad-hoc grant (Notas / shop item) →</a></p>
+    <h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-bolt"></use></svg> Feature switches</h2>
+    <div class="admin-toggle-row">
+        <div>
+            <strong>Compatibility score visible</strong>
+            <p class="field-help">Whether the "% match" signal (voice type &gt; city &gt; rating) is shown to users.
+                It already sorts the Home page either way. Currently <strong>{{ "ON" if compatibility_score_visible else "OFF" }}</strong>.</p>
+        </div>
+        <form method="post" action="/admin/toggle-compatibility-score-visible">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="button-secondary">{{ "Turn off" if compatibility_score_visible else "Turn on" }}</button>
+        </form>
+    </div>
 </div>
 
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-scroll"></use></svg> Recent audit log</h2>
+<h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-scroll"></use></svg> Latest audit entries</h2>
 {% if recent_audit|length == 0 %}
     <p class="empty-state">No actions recorded yet.</p>
 {% else %}
     <ul class="admin-list">
         {% for a in recent_audit %}
             <li>
-                <p><strong>{{ a.action }}</strong> — {{ a.actor_name or "?" }} ({{ a.ip_address }})</p>
-                <p class="field-help">{{ a.details }} — {{ a.created_at }}</p>
+                <p><strong>{{ a.action }}</strong> — {{ a.actor_name or "?" }}</p>
+                <p class="field-help">{{ a.details }} — {{ a.created_at | local_time('%d.%m.%Y %H:%M') }}</p>
             </li>
         {% endfor %}
     </ul>
 {% endif %}
+<p><a class="button-link" href="/financeiro/audit">Full audit log →</a></p>
 {% endblock %}

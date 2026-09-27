@@ -2,82 +2,75 @@
 {% block title %}Admin — E-mails{% endblock %}
 
 {% block content %}
-<a class="back-link" href="/admin">&larr; Admin</a>
 <h1>E-mails</h1>
 <p class="field-help">
-    Layout compartilhado por TODOS os e-mails automáticos do site
-    (confirmação de cadastro, convites, lembretes, faturas, etc.) —
-    mudar algo aqui muda o visual de todos eles de uma vez, sem
-    precisar editar cada um. O texto de cada e-mail (o "corpo") já
-    muda sozinho conforme o motivo do envio — isso aqui é só o
-    logo/cor/assinatura/rodapé ao redor.
+    The layout shared by ALL automatic e-mails of the site (sign-up confirmation, invitations,
+    reminders, invoices, …). Changing it here changes all of them at once. The text of each e-mail
+    (the "body") depends on why it is sent — this is only the logo, colour, sign-off and footer around it.
 </p>
 
 {% if updated == '1' %}
-    <p class="success"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Layout atualizado.</p>
+    <p class="success"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-check"></use></svg> Layout updated.</p>
 {% endif %}
 {% if error == 'invalid_template' %}
-    <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Não salvei — o código precisa conter o placeholder <code>{{ '{{BODY}}' }}</code> (senão o corpo do e-mail some de todo envio) e ter no máximo 20.000 caracteres.</p>
+    <p class="error" role="alert"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-warning"></use></svg> Not saved — the code must contain the placeholder <code>{{ '{{BODY}}' }}</code> (otherwise every e-mail loses its body) and be at most 20,000 characters.</p>
 {% endif %}
 
-<div class="tool-tabs">
-    <a class="tool-tab {% if tab == 'form' %}active{% endif %}" href="/admin/emails?tab=form">
-        <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-edit"></use></svg> Formulário
+<nav class="tool-tabs" aria-label="E-mail settings">
+    <a class="tool-tab {% if tab == 'form' %}active{% endif %}" href="/admin/emails?tab=form" {% if tab == 'form' %}aria-current="page"{% endif %}>
+        <svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-edit"></use></svg> Design
     </a>
-    <a class="tool-tab {% if tab == 'code' %}active{% endif %}" href="/admin/emails?tab=code">
-        <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-scroll"></use></svg> Código
+    <a class="tool-tab {% if tab == 'code' %}active{% endif %}" href="/admin/emails?tab=code" {% if tab == 'code' %}aria-current="page"{% endif %}>
+        <svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-scroll"></use></svg> HTML code
     </a>
-    <a class="tool-tab {% if tab == 'periodic' %}active{% endif %}" href="/admin/emails?tab=periodic">
-        <svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> E-mails periódicos
+    <a class="tool-tab {% if tab == 'periodic' %}active{% endif %}" href="/admin/emails?tab=periodic" {% if tab == 'periodic' %}aria-current="page"{% endif %}>
+        <svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Periodic e-mails
     </a>
-</div>
+</nav>
 
 {% if tab == 'form' %}
-    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-edit"></use></svg> Editar</h2>
+    <h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-edit"></use></svg> Edit</h2>
     <form method="post" action="/admin/emails" enctype="multipart/form-data" class="stacked-form narrow">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-        <label>Logo (opcional)
+        <label>Logo (optional)
             {% if settings.email_layout_logo_url %}
-                <p class="field-help">Atual: <code>{{ settings.email_layout_logo_url }}</code></p>
+                <p class="field-help">Current: <code>{{ settings.email_layout_logo_url }}</code></p>
             {% endif %}
             <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif">
-            <span class="field-help">Deixe em branco pra manter o logo atual. Só aparece no e-mail se a variável de ambiente SITE_BASE_URL estiver configurada no servidor.</span>
+            <span class="field-help">Leave empty to keep the current logo. It only appears in e-mails when SITE_BASE_URL is set on the server.</span>
         </label>
 
-        <label>Cor de destaque
+        <label>Accent colour
             <input type="color" name="accent_color" value="{{ settings.email_layout_accent_color }}">
         </label>
 
-        <label>Emoji de cabeçalho
+        <label>Header emoji
             <input type="text" name="header_emoji" value="{{ settings.email_layout_header_emoji }}" maxlength="8">
-            <span class="field-help">Ícones do site (icons.svg) não funcionam em e-mail — um emoji simples (ex.: 🎵) funciona em qualquer cliente.</span>
+            <span class="field-help">The site's icons (icons.svg) don't work in e-mail — a plain emoji (e.g. 🎵) works in every mail app.</span>
         </label>
 
-        <label>Assinatura
+        <label>Sign-off
             <textarea name="signature" maxlength="300" required>{{ settings.email_layout_signature }}</textarea>
         </label>
 
-        <label>Rodapé
+        <label>Footer
             <textarea name="footer" maxlength="500" required>{{ settings.email_layout_footer }}</textarea>
         </label>
         <p class="field-help">Keep the default texts ("From Team VokalBoard.com" / "You received this e-mail…") to have them sent in each recipient's own language. Any other text you type is sent as-is to everyone.</p>
 
-        <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-save"></use></svg> Salvar layout</button>
+        <button type="submit" class="button-link"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-save"></use></svg> Save layout</button>
     </form>
 {% elif tab == 'code' %}
-    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-scroll"></use></svg> Código do e-mail</h2>
+    <h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-scroll"></use></svg> E-mail HTML code</h2>
     <p class="field-help">
-        O HTML completo do "molde" que envolve todo e-mail — pra
-        ajustes finos que o Formulário não cobre (padding, borda,
-        tamanho de fonte, etc.), sem precisar de deploy. Placeholders
-        disponíveis: <code>{{ '{{BODY}}' }}</code> (obrigatório — o
-        corpo de cada e-mail entra aqui), <code>{{ '{{LOGO}}' }}</code>,
+        The full HTML "frame" around every e-mail — for fine-tuning the Design tab doesn't cover
+        (padding, borders, font size, …), without a deploy. Placeholders: <code>{{ '{{BODY}}' }}</code>
+        (required — each e-mail's body goes here), <code>{{ '{{LOGO}}' }}</code>,
         <code>{{ '{{ACCENT}}' }}</code>, <code>{{ '{{EMOJI}}' }}</code>,
-        <code>{{ '{{SIGNATURE}}' }}</code>, <code>{{ '{{FOOTER}}' }}</code>
-        (esses 5 vêm da aba Formulário). É HTML cru, sem filtro de
-        segurança do editor de posts (aquele não suporta tabela/estilo
-        embutido, que e-mail precisa) — só quem é Admin chega aqui.
+        <code>{{ '{{SIGNATURE}}' }}</code>, <code>{{ '{{FOOTER}}' }}</code> (these five come from the Design tab).
+        Raw HTML, without the post editor's safety filter (that one can't do the tables/inline styles
+        e-mail needs) — only admins reach this page.
     </p>
     <form method="post" action="/admin/emails/template" class="stacked-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -85,26 +78,25 @@
             <textarea name="template_html" rows="22" maxlength="20000" required
                       class="code-editor">{{ settings.email_layout_template_html }}</textarea>
         </label>
-        <div style="display:flex; gap:12px;">
-            <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-save"></use></svg> Salvar código</button>
+        <div class="admin-actions">
+            <button type="submit" class="button-link"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-save"></use></svg> Save code</button>
         </div>
     </form>
-    <form method="post" action="/admin/emails/template/reset" data-confirm="Restaurar o molde padrão? Isso substitui o código atual." style="margin-top:12px;">
+    <form method="post" action="/admin/emails/template/reset" data-confirm="Restore the default frame? This replaces the current code." class="admin-actions">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="btn-secondary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Restaurar padrão</button>
+        <button type="submit" class="button-secondary"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-refresh"></use></svg> Restore default</button>
     </form>
 {% elif tab == 'periodic' %}
-    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-calendar"></use></svg> E-mails periódicos</h2>
+    <h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-calendar"></use></svg> Periodic e-mails</h2>
     <p class="field-help">
-        Envios diários, semanais ou mensais recorrentes — pra relatórios e
-        avisos regulares. Vão pro time Admin (nível 2+), não pros usuários
-        do site. Cada um edita só o próprio corpo; o layout ao redor
-        (logo/cor/assinatura/rodapé) é o mesmo da aba Formulário, acima.
+        Recurring daily, weekly or monthly e-mails — for reports and regular notices. They go to the
+        admin team (level 2+), not to site users. Each one only edits its own body; the frame around it
+        (logo, colour, sign-off, footer) is the same as in the Design tab.
     </p>
-    <p><a class="button-link button-primary" href="/admin/emails/periodic/new"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> Novo e-mail periódico</a></p>
+    <p><a class="button-link button-primary" href="/admin/emails/periodic/new"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-mail"></use></svg> New periodic e-mail</a></p>
 
     {% if periodic_mails|length == 0 %}
-        <p class="empty-state">Nenhum e-mail periódico criado ainda.</p>
+        <p class="empty-state">No periodic e-mails yet.</p>
     {% else %}
         <ul class="periodic-mail-list">
             {% for mail in periodic_mails %}
@@ -112,31 +104,31 @@
                     <div class="periodic-mail-info">
                         <strong>{{ mail.name }}</strong>
                         {% if mail.is_active %}
-                            <span class="badge badge-active-mail">Ativo</span>
+                            <span class="badge badge-active-mail">Active</span>
                         {% else %}
-                            <span class="badge badge-paused-mail"><svg class="icon" width="14" height="14"><use href="/static/img/icons.svg#icon-off"></use></svg> Pausado</span>
+                            <span class="badge badge-paused-mail"><svg class="icon" width="14" height="14" aria-hidden="true"><use href="/static/img/icons.svg#icon-off"></use></svg> Paused</span>
                         {% endif %}
                         <p class="field-help">
-                            Assunto: {{ mail.subject }} ·
-                            {% if mail.frequency == 'daily' %}Diário{% elif mail.frequency == 'weekly' %}Semanal{% else %}Mensal{% endif %}
-                            {% if mail.is_active %} · Próximo envio: {{ mail.next_send_at }}{% endif %}
-                            {% if mail.last_sent_at %} · Último envio: {{ mail.last_sent_at }}{% endif %}
+                            Subject: {{ mail.subject }} ·
+                            {% if mail.frequency == 'daily' %}Daily{% elif mail.frequency == 'weekly' %}Weekly{% else %}Monthly{% endif %}
+                            {% if mail.is_active %} · Next send: {{ mail.next_send_at | local_time('%d.%m.%Y %H:%M') }}{% endif %}
+                            {% if mail.last_sent_at %} · Last sent: {{ mail.last_sent_at | local_time('%d.%m.%Y %H:%M') }}{% endif %}
                         </p>
                     </div>
                     <div class="periodic-mail-actions">
-                        <a class="button-link" href="/admin/emails/periodic/{{ mail.id }}/edit"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-edit"></use></svg> Editar</a>
+                        <a class="button-link" href="/admin/emails/periodic/{{ mail.id }}/edit"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-edit"></use></svg> Edit</a>
                         <form method="post" action="/admin/emails/periodic/{{ mail.id }}/toggle">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <input type="hidden" name="is_active" value="{{ '0' if mail.is_active else '1' }}">
                             {% if mail.is_active %}
-                                <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-off"></use></svg> Pausar</button>
+                                <button type="submit" class="button-link"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-off"></use></svg> Pause</button>
                             {% else %}
-                                <button type="submit" class="button-link"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> Retomar</button>
+                                <button type="submit" class="button-link"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-check"></use></svg> Resume</button>
                             {% endif %}
                         </form>
-                        <form method="post" action="/admin/emails/periodic/{{ mail.id }}/delete" data-confirm="Excluir o e-mail periódico &quot;{{ mail.name }}&quot;? Não tem como desfazer.">
+                        <form method="post" action="/admin/emails/periodic/{{ mail.id }}/delete" data-confirm="Delete the periodic e-mail &quot;{{ mail.name }}&quot;? This can't be undone.">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button type="submit" class="button-link button-danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-trash"></use></svg> Excluir</button>
+                            <button type="submit" class="button-link button-danger"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-trash"></use></svg> Delete</button>
                         </form>
                     </div>
                 </li>
@@ -146,8 +138,8 @@
 {% endif %}
 
 {% if tab != 'periodic' %}
-<h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-eye"></use></svg> Pré-visualização</h2>
-<p class="field-help">Como um e-mail fica com o layout atual (corpo de exemplo — o texto real varia por e-mail).</p>
-<iframe srcdoc="{{ preview_html | e }}" style="width:100%; max-width:640px; height:420px; border:1px solid var(--border); border-radius:8px; background:#fff;"></iframe>
+<h2><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-eye"></use></svg> Preview</h2>
+<p class="field-help">How an e-mail looks with the current layout (sample body — the real text varies per e-mail).</p>
+<iframe title="E-mail preview" srcdoc="{{ preview_html | e }}" class="email-preview-frame"></iframe>
 {% endif %}
 {% endblock %}
