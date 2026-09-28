@@ -33,6 +33,10 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
+from app.invoice_countries import (
+    CURRENCIES, DOC_LABELS, country_or_default, doc_lang_or_default, format_amount, format_date, tax_id_label, tax_name,
+)
+
 # Brand tokens (VokalBoard identity v1.0, 19/09/2026 — see CLAUDE.md §1 and
 # app/static/css/style.css :root). Kept as literal hex here since ReportLab
 # has no access to CSS custom properties; keep in sync by hand if the
@@ -74,6 +78,21 @@ class InvoiceDocument:
     # comprovante é resolvido diretamente entre as partes, fora daqui).
     expense_travel_amount: str = "0"
     expense_lodging_amount: str = "0"
+    # Rechnungmaker v2 (2026-09-28): the issuer's country decides number
+    # format / tax wording; doc_lang is the invoice's own language. Empty
+    # values (drafts saved before v2) mean Germany / German, as before.
+    country: str = "DE"
+    doc_lang: str = "de"
+    tax_name: str = ""
+    client_vat_id: str = ""
+
+    @property
+    def country_code(self) -> str:
+        return country_or_default(self.country or "DE")
+
+    @property
+    def lang(self) -> str:
+        return doc_lang_or_default(self.doc_lang or "de", self.country_code)
 
     def validate(self) -> tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
         required = {
@@ -89,7 +108,7 @@ class InvoiceDocument:
         }
         if any(not str(value).strip() for value in required.values()):
             raise InvoiceValidationError("Missing required invoice information")
-        if self.currency not in {"EUR", "CHF"}:
+        if self.currency not in CURRENCIES:
             raise InvoiceValidationError("Unsupported currency")
         try:
             net = Decimal(self.net_amount.replace(",", "."))
@@ -156,10 +175,9 @@ def _styles():
     }
 
 
-def _header_flowable(styles):
-    """Logo + 'VokalBoard' wordmark on the left, 'Rechnung' as the
-    document title on the right — the layout Daniel asked for
-    ('lá em cima o logo do VokalBoard')."""
+def _header_flowable(styles, title: str = "Rechnung"):
+    """Logo + 'VokalBoard' wordmark on the left, the document title
+    (Rechnung / Invoice / Facture / Fattura) on the right."""
     brand_cell = [Paragraph("VokalBoard", styles["brand"])]
     if _LOGO_PATH.exists():
         logo = Image(str(_LOGO_PATH), width=9 * mm, height=9 * mm)
@@ -171,7 +189,7 @@ def _header_flowable(styles):
             ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ]))
         brand_cell = brand_table
-    header = Table([[brand_cell, Paragraph("Rechnung", styles["doc_title"])]], colWidths=[95 * mm, 75 * mm])
+    header = Table([[brand_cell, Paragraph(_escape(title), styles["doc_title"])]], colWidths=[95 * mm, 75 * mm])
     header.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -186,19 +204,27 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     body = styles["body"]
     stream = BytesIO()
     document = SimpleDocTemplate(stream, pagesize=A4, rightMargin=20 * mm, leftMargin=20 * mm, topMargin=16 * mm, bottomMargin=16 * mm)
-    story = [_header_flowable(styles), Spacer(1, 10 * mm)]
+    labels = DOC_LABELS[invoice.lang]
+    country = invoice.country_code
+
+    def money(value):
+        return format_amount(value, country)
+
+    story = [_header_flowable(styles, labels["title"]), Spacer(1, 10 * mm)]
 
     # Rechnungssteller / Rechnungsempfänger — two-column address block,
     # matching the reference layout's "issuer top area / recipient
     # window" pattern.
     story.append(Table([
         [
-            Paragraph(f"<b>Rechnungssteller</b>", styles["kicker"]),
-            Paragraph(f"<b>Rechnungsempfänger</b>", styles["kicker"]),
+            Paragraph(f"<b>{_escape(labels['issuer'])}</b>", styles["kicker"]),
+            Paragraph(f"<b>{_escape(labels['recipient'])}</b>", styles["kicker"]),
         ],
         [
-            Paragraph(f"{_escape(invoice.issuer_name)}<br/>{_escape(invoice.issuer_address)}<br/>Steuer-Nr./USt-IdNr.: {_escape(invoice.issuer_tax_id)}", body),
-            Paragraph(f"{_escape(invoice.recipient_name)}<br/>{_escape(invoice.recipient_address)}", body),
+            Paragraph(f"{_escape(invoice.issuer_name)}<br/>{_escape(invoice.issuer_address)}<br/>"
+                      f"{_escape(tax_id_label(country, invoice.lang))}: {_escape(invoice.issuer_tax_id)}", body),
+            Paragraph(f"{_escape(invoice.recipient_name)}<br/>{_escape(invoice.recipient_address)}"
+                      + (f"<br/>{_escape(labels['client_vat'])}: {_escape(invoice.client_vat_id)}" if invoice.client_vat_id.strip() else ""), body),
         ],
     ], colWidths=[85 * mm, 85 * mm]))
     story.append(Spacer(1, 7 * mm))
@@ -206,9 +232,9 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     # Metadata bar — Rechnungs-Nr./Rechnungsdatum/Leistungsdatum, in the
     # shaded strip the reference sample uses for this row.
     meta = Table([[
-        Paragraph(f"<font color='#5B6B82' size=8>Rechnungs-Nr.</font><br/><b>{_escape(invoice.number)}</b>", body),
-        Paragraph(f"<font color='#5B6B82' size=8>Rechnungsdatum</font><br/><b>{_escape(invoice.issue_date)}</b>", body),
-        Paragraph(f"<font color='#5B6B82' size=8>Leistungsdatum</font><br/><b>{_escape(invoice.service_date)}</b>", body),
+        Paragraph(f"<font color='#5B6B82' size=8>{_escape(labels['number'])}</font><br/><b>{_escape(invoice.number)}</b>", body),
+        Paragraph(f"<font color='#5B6B82' size=8>{_escape(labels['issue_date'])}</font><br/><b>{_escape(format_date(invoice.issue_date, invoice.lang))}</b>", body),
+        Paragraph(f"<font color='#5B6B82' size=8>{_escape(labels['service_date'])}</font><br/><b>{_escape(format_date(invoice.service_date, invoice.lang))}</b>", body),
     ]], colWidths=[56.6 * mm, 56.7 * mm, 56.7 * mm])
     meta.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), _BG_MINERAL),
@@ -223,16 +249,17 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     # reference sample's item-table columns. The data model has one
     # service line (+ optional travel/lodging), so Menge/Einheit are
     # synthesized rather than collected per item.
-    header_row = ["Pos.", "Bezeichnung", "Menge", "Einh.", f"E-Preis ({invoice.currency})", f"Gesamt ({invoice.currency})"]
+    header_row = [labels["pos"], labels["description"], labels["qty"], labels["unit"],
+                  f"{labels['unit_price']} ({invoice.currency})", f"{labels['line_total']} ({invoice.currency})"]
     rows = [header_row]
     pos = 1
-    rows.append([str(pos), Paragraph(_escape(invoice.service_description), body), "1", "pausch.", f"{net:.2f}", f"{net:.2f}"])
+    rows.append([str(pos), Paragraph(_escape(invoice.service_description), body), "1", labels["flat"], money(net), money(net)])
     if travel:
         pos += 1
-        rows.append([str(pos), "Fahrkosten", "1", "pausch.", f"{travel:.2f}", f"{travel:.2f}"])
+        rows.append([str(pos), labels["travel"], "1", labels["flat"], money(travel), money(travel)])
     if lodging:
         pos += 1
-        rows.append([str(pos), "Übernachtungskosten", "1", "pausch.", f"{lodging:.2f}", f"{lodging:.2f}"])
+        rows.append([str(pos), labels["lodging"], "1", labels["flat"], money(lodging), money(lodging)])
     items = Table(rows, colWidths=[9 * mm, 70 * mm, 14 * mm, 17 * mm, 30 * mm, 30 * mm])
     items.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), _NAVY),
@@ -250,11 +277,12 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     story.append(Spacer(1, 6 * mm))
 
     # Totals — Summe Netto / Umsatzsteuer / Endsumme, right-aligned block.
-    tax_label = "Umsatzsteuer" + (f" ({invoice.tax_rate}%)" if tax else " (0%)")
+    shown_tax_name = invoice.tax_name.strip() or tax_name(country, invoice.lang)
+    tax_label = f"{shown_tax_name} ({invoice.tax_rate if tax else '0'} %)"
     totals_rows = [
-        ["Summe Netto", f"{net:.2f} {invoice.currency}"],
-        [tax_label, f"{tax:.2f} {invoice.currency}"],
-        ["Endsumme", f"{total:.2f} {invoice.currency}"],
+        [labels["net"], f"{money(net)} {invoice.currency}"],
+        [tax_label, f"{money(tax)} {invoice.currency}"],
+        [labels["total"], f"{money(total)} {invoice.currency}"],
     ]
     totals = Table(totals_rows, colWidths=[40 * mm, 30 * mm], hAlign="RIGHT")
     totals.setStyle(TableStyle([
@@ -282,4 +310,5 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     return stream.getvalue()
 
 
-_INVOICE_FOOTER_TEXT = "Made with assistance of VokalBoard - Rechnung Maker - www.vokalboard.com/rechnungmaker"
+# The product name stays German here in every invoice language (Daniel, 2026-09-27).
+_INVOICE_FOOTER_TEXT = "Made with assistance of VokalBoard - Rechnungmaker - www.vokalboard.com/rechnungmaker"

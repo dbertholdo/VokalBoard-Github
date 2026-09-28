@@ -30,23 +30,44 @@ from app.email_localization import (
     match_invoice_requested_email,
 )
 from app.invoice_deadlines import can_request_match_invoice, match_draft_expiry
+from app.invoice_countries import format_amount
+from app.invoice_form import FIELDS as FORM_FIELDS_V2, normalize, to_document
 from app.invoice_pdf import InvoiceDocument, InvoiceValidationError, render_invoice_pdf
 from app.invoice_security import decrypt_invoice_draft, encrypt_invoice_draft
 from app.invoice_service import InvoiceCreditUnavailable, consume_invoice_generation, record_invoice_number
 
-# Same names as app.invoice_pdf.InvoiceDocument's fields on purpose — the
-# route resolves the tax radios (app.invoice_tax_presets.resolve_tax) into
-# plain tax_rate/tax_note BEFORE calling save_issuer_form, so the encrypted
-# payload here can build an InvoiceDocument with no extra mapping step.
-FORM_FIELDS = (
+# Drafts saved before Rechnungmaker v2 (2026-09-28) hold InvoiceDocument's
+# own fields (tax already resolved into tax_rate/tax_note); they still work.
+LEGACY_DOC_FIELDS = (
     "number", "issue_date", "service_date", "issuer_name", "issuer_address", "issuer_tax_id",
     "recipient_name", "recipient_address", "service_description", "net_amount", "currency",
     "tax_rate", "tax_note", "payment_terms", "iban", "bic",
     "expense_travel_amount", "expense_lodging_amount",
 )
-# Stored with the (encrypted) draft only so the form can re-open with the same
-# tax choice; not an InvoiceDocument field.
-EXTRA_FIELDS = ("tax_preset",)
+# v2 drafts hold the whole form (app/invoice_form.FIELDS); tax is resolved
+# when the PDF is built. Everything is encrypted (CLAUDE.md §2).
+STORED_FIELDS = tuple(dict.fromkeys(FORM_FIELDS_V2 + LEGACY_DOC_FIELDS + ("tax_preset",)))
+
+
+def _document_from_payload(payload: dict):
+    if payload.get("tax_option") or payload.get("country"):
+        return to_document(normalize(payload))
+    return InvoiceDocument(**{key: payload.get(key, "") for key in LEGACY_DOC_FIELDS})
+
+
+def preview_values(payload: dict) -> dict:
+    """What the review page shows: the form values + the computed amounts."""
+    document = _document_from_payload(payload)
+    net, tax, travel, lodging, total = document.validate()
+    country = document.country_code
+
+    def money(value):
+        return f"{format_amount(value, country)} {document.currency}"
+
+    return {**{key: payload.get(key, "") for key in STORED_FIELDS}, "tax_rate": document.tax_rate,
+            "tax_note": document.tax_note, "tax_name": document.tax_name, "doc_lang": document.lang,
+            "net_fmt": money(net), "tax_fmt": money(tax), "travel_fmt": money(travel) if travel else "",
+            "lodging_fmt": money(lodging) if lodging else "", "total_fmt": money(total)}
 
 
 class InvoiceDraftNotFound(ValueError):
@@ -126,7 +147,7 @@ def save_issuer_form(match_id: int, issuer_id: int, contractor_id: int, payload:
     today = today or date.today()
     now = datetime.now(timezone.utc)
     existing = get_draft(match_id)
-    encrypted = encrypt_invoice_draft({key: payload.get(key, "") for key in FORM_FIELDS + EXTRA_FIELDS})
+    encrypted = encrypt_invoice_draft({key: payload.get(key, "") for key in STORED_FIELDS})
     with engine.begin() as conn:
         if existing:
             if issuer_id != existing["issuer_user_id"]:
@@ -168,7 +189,7 @@ def get_form_for_issuer(match_id: int, issuer_id: int) -> dict:
         return {}
     row = fetch_one("SELECT encrypted_payload FROM invoice_match_drafts WHERE id = :id", {"id": draft["id"]})
     payload = decrypt_invoice_draft(row["encrypted_payload"])
-    return {key: payload.get(key, "") for key in FORM_FIELDS + EXTRA_FIELDS}
+    return {key: payload.get(key, "") for key in STORED_FIELDS}
 
 
 def get_preview(match_id: int, viewer_id: int) -> dict | None:
@@ -185,7 +206,10 @@ def get_preview(match_id: int, viewer_id: int) -> dict | None:
     payload = decrypt_invoice_draft(row["encrypted_payload"])
     if not payload.get("number"):
         return None
-    return {key: payload.get(key, "") for key in FORM_FIELDS}
+    try:
+        return preview_values(payload)
+    except (InvoiceValidationError, TypeError):
+        return None
 
 
 def cancel_draft(match_id: int, canceling_user_id: int) -> None:
@@ -294,7 +318,7 @@ def confirm_and_send(
     row = fetch_one("SELECT encrypted_payload FROM invoice_match_drafts WHERE id = :id", {"id": draft["id"]})
     payload = decrypt_invoice_draft(row["encrypted_payload"])
     try:
-        document = InvoiceDocument(**{key: payload.get(key, "") for key in FORM_FIELDS})
+        document = _document_from_payload(payload)
         pdf_bytes = render_invoice_pdf(document)
     except (InvoiceValidationError, TypeError) as exc:
         raise InvoiceDraftNotAllowed("The stored draft is incomplete or invalid") from exc
