@@ -1230,6 +1230,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "it": "Ancora {n} referral verificati fino alla prossima Nota.",
         "pt": "Faltam {n} indicação(ões) verificada(s) para a próxima Nota.",
     },
+    "notas_how_it_works_v2": {"de": "Du bekommst 1 Nota für jede Person, die sich über deinen Link registriert, ihre E-Mail bestätigt und ihr Profil vervollständigt (oder eine Woche lang aktiv ist). Höchstens {day} pro Tag und {month} pro Monat; jede E-Mail-Adresse zählt nur einmal, Wegwerf-Adressen zählen nicht. Verdächtige Fälle prüfen wir und können Notas zurückbuchen (AGB 3.5).", "en": "You get 1 Nota for each person who signs up with your link, confirms their e-mail and completes their profile (or is active for a week). At most {day} per day and {month} per month; each e-mail address counts only once and throwaway addresses don't count. We review suspicious cases and may take Notas back (Terms 3.5).", "fr": "Vous recevez 1 Nota pour chaque personne qui s'inscrit avec votre lien, confirme son e-mail et complète son profil (ou reste active une semaine). Au maximum {day} par jour et {month} par mois ; chaque adresse e-mail ne compte qu'une fois et les adresses jetables ne comptent pas. Nous vérifions les cas suspects et pouvons reprendre des Notas (CGU 3.5).", "it": "Ricevi 1 Nota per ogni persona che si iscrive con il tuo link, conferma l'e-mail e completa il profilo (o resta attiva per una settimana). Al massimo {day} al giorno e {month} al mese; ogni indirizzo e-mail conta una sola volta e gli indirizzi usa e getta non contano. Verifichiamo i casi sospetti e possiamo stornare le Notas (Condizioni 3.5).", "pt": "Você ganha 1 Nota por cada pessoa que se cadastra pelo seu link, confirma o e-mail e completa o perfil (ou fica ativa por uma semana). No máximo {day} por dia e {month} por mês; cada endereço de e-mail conta só uma vez e e-mails descartáveis não contam. Casos suspeitos são revisados e as Notas podem ser estornadas (Termos 3.5)."},
+    "notas_referrals_pending_hint": {"de": "{n} eingeladene Person(en) zählen noch nicht — sobald das Profil vollständig ist, gibt es die Nota.", "en": "{n} invited person(s) don't count yet — you get the Nota once their profile is complete.", "fr": "{n} personne(s) invitée(s) ne compte(nt) pas encore — vous recevez la Nota dès que le profil est complet.", "it": "{n} persona/e invitata/e non conta/no ancora — ricevi la Nota quando il profilo è completo.", "pt": "{n} pessoa(s) convidada(s) ainda não conta(m) — você ganha a Nota quando o perfil estiver completo."},
+    "notas_reason_referral_reversed": {"de": "Empfehlungs-Nota zurückgebucht (Prüfung)", "en": "Referral Nota taken back (review)", "fr": "Nota de parrainage reprise (vérification)", "it": "Nota di invito stornata (verifica)", "pt": "Nota de indicação estornada (revisão)"},
     "notas_how_it_works": {
         "de": "Für alle {ratio} bestätigten Einladungen erhältst du 1 Nota — bestätigt heißt, die eingeladene Person hat ihre E-Mail verifiziert.",
         "en": "Every {ratio} verified referrals earns you 1 Nota — verified means the person you invited confirmed their e-mail.",
@@ -1319,13 +1322,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "it": "Ancora nessuna attività.",
         "pt": "Ainda sem movimentações.",
     },
-    "notas_reason_referral_bonus": {
-        "de": "Nota für bestätigte Einladungen",
-        "en": "Nota for verified referrals",
-        "fr": "Nota pour parrainages vérifiés",
-        "it": "Nota per referral verificati",
-        "pt": "Nota por indicações verificadas",
-    },
+    "notas_reason_referral_bonus": {"de": "Nota für eine Empfehlung", "en": "Nota for a referral", "fr": "Nota pour un parrainage", "it": "Nota per un invito", "pt": "Nota por indicação"},
     "notas_reason_redeem_profile_highlight_7d": {
         "de": "Eingelöst: Profil hervorheben (7 Tage)",
         "en": "Redeemed: profile highlight (7 days)",

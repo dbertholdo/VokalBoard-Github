@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Admin — Referral review{% endblock %}
+
+{% block content %}
+{# Referral rewards review (2026-09-28). Admin area = English only. #}
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-gift"></use></svg> Referral review</h1>
+<p class="field-help">1 Nota per referral, paid once the invited person confirmed their e-mail and completed their profile
+(or was active for a week). Several sign-ups from one IP are <strong>flagged</strong> here instead of paid.
+Every action asks for your password and is written to the audit log.</p>
+
+{% if not enabled %}
+    <p class="error">The 2026-09-28 referral migration is not applied yet — referrals still use the old rule (1 Nota per 10).</p>
+{% endif %}
+{% if done %}<p class="success">Done: {{ done }}.</p>{% endif %}
+{% if failed == 'auth' %}<p class="error">Wrong password — nothing changed.</p>{% elif failed %}<p class="error">Not possible for this referral (already handled?).</p>{% endif %}
+
+<form method="get" action="/admin/referrals" class="inline-form">
+    <label>Status
+        <select name="status">
+            {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if status == s }}>{{ s|capitalize }}</option>{% endfor %}
+            <option value="" {{ 'selected' if status == '' }}>All</option>
+        </select>
+    </label>
+    <button type="submit">Filter</button>
+</form>
+
+{% if events|length == 0 %}
+    <p class="empty-state">Nothing here.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for e in events %}
+            <li>
+                <p>
+                    <strong>#{{ e.id }}</strong> · <span class="tag">{{ e.status }}</span>{% if e.flag_reason %} <span class="tag">{{ e.flag_reason|replace('_', ' ') }}</span>{% endif %}<br>
+                    Referrer: <a href="/admin/users/{{ e.referrer_id }}">{{ e.referrer_name }}</a> →
+                    invited: {% if e.invitee_id %}<a href="/admin/users/{{ e.invitee_id }}">{{ e.invitee_name }}</a>{% else %}(deleted account){% endif %}<br>
+                    <small>Recorded {{ e.credited_at.strftime('%Y-%m-%d %H:%M') }}{% if e.rewarded_at %} · paid {{ e.rewarded_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}{% if e.reviewed_at %} · reviewed {{ e.reviewed_at.strftime('%Y-%m-%d') }}{% endif %}</small>
+                </p>
+                {% set actions = ['approve', 'reject'] if e.status in ('pending', 'flagged') else (['reverse'] if e.status == 'rewarded' else []) %}
+                {% for action in actions %}
+                    <form method="post" action="/admin/referrals/{{ e.id }}/{{ action }}" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="status" value="{{ status }}">
+                        <label>Your password <input type="password" name="current_password" required autocomplete="current-password"></label>
+                        <button type="submit" class="{{ 'button-danger' if action != 'approve' else 'button-primary' }}">{{ action|capitalize }}</button>
+                    </form>
+                {% endfor %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}

@@ -9,6 +9,13 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — item 3: referral rewards v2 + anti-fraud
+- `app/referrals.py`: 1 Nota per referral after e-mail + real activity; limits 3/day 20/month; same-IP (3+) → flagged; admin approve/reject/reverse (`referral_admin_routes.py`, `/admin/referrals`, password + audit_log, nav badge).
+- `app/email_identity.py`: identity (Gmail dots/+tags) + throwaway-domain list. Signup IP stored only as salted hash, referred users only.
+- Migration `2026-09-28_referral_rewards.sql` (additive); code falls back to the old 1-per-10 rule until applied.
+- Texts: `notas_how_it_works_v2`, `notas_referrals_pending_hint`, `notas_reason_referral_*` (9 langs); Terms 3.5 en+de.
+- Tests: tests/test_referral_rewards.py (7); full suite 391 passed / 7 skipped + retention; bandit clean.
+
 ## 2026-09-28 — Claude — items 1+2: Rechnungmaker name translated, visitor gate
 - `nav_rechnungmaker`/`invoice_go_to_rechnungmaker` translated in 8 langs (de unchanged); rechnungmaker.html h1/title use the key; `rechnungmaker_subtitle` → tagline.
 - pt: 14 UI strings + 4 e-mails say "fatura" instead of "Rechnung". Invoice document/PDF stays German.

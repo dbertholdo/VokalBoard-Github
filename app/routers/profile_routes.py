@@ -1,4 +1,5 @@
 import json
+from app.referrals import settle_for_invitee
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request, Form, BackgroundTasks, HTTPException
@@ -167,6 +168,7 @@ async def update_profile(request: Request, background_tasks: BackgroundTasks, cs
         execute("UPDATE users SET avatar_url = :avatar_url WHERE id = :id", {"avatar_url": new_avatar_url, "id": user["id"]})
 
     background_tasks.add_task(check_and_notify_new_badges, user["id"], str(request.base_url))
+    settle_for_invitee(user["id"])  # a complete profile unlocks the referrer's Nota
     return RedirectResponse(url="/profile?saved=1", status_code=303)
 
 

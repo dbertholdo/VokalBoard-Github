@@ -1,4 +1,5 @@
 import secrets
+from app.referrals import remember_signup_ip, settle_for_invitee
 from app.safe_redirect import safe_path
 from datetime import datetime, timedelta, timezone
 
@@ -178,6 +179,7 @@ async def register_submit(
         audio_links=parse_audio_links(audio_links) if role == "singer" else [],
     )
     record_registration(client_ip)
+    remember_signup_ip(user_id, client_ip)  # referral fraud review (salted hash, referred sign-ups only)
 
     # Profile photo is optional at signup — if an invalid file comes in
     # (type/size), simply ignore it instead of blocking the entire
@@ -253,6 +255,7 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
     # since the last session.
     request.session["show_welcome_toast"] = True
     request.session.pop("mascot_reminder_shown", None)
+    settle_for_invitee(user["id"])  # a referral waiting on this person's activity
     # Same-site path only (e.g. back to /rechnungmaker from its visitor gate).
     return RedirectResponse(url=safe_path(next, "/"), status_code=303)
 

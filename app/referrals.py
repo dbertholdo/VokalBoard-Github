@@ -6,16 +6,29 @@ them (referred_by_user_id) — this lets us count how many people each
 person brought in.
 """
 import hashlib
+import os
 import secrets
 import string
+import time
+from datetime import datetime, timedelta, timezone
 
-from app.database import fetch_one, fetch_all, execute, execute_returning
-from app.notas_wallet import credit_notas
+from sqlalchemy import text
 
-# How many verified referrals earn one "nota" (credit). Kept as a
-# constant instead of a config value since changing the ratio later
-# would be an intentional business decision, not a deploy-time setting.
+from app.database import engine, fetch_one, fetch_all, execute, execute_returning
+from app.email_identity import identity_email, is_disposable
+from app.notas_wallet import credit_in_tx, credit_notas, debit_in_tx
+
+# Old rule (still used until the 2026-09-28 migration is applied): one
+# Nota per this many verified referrals.
 CREDIT_REFERRALS_PER_CREDIT = 10
+
+# Rewards v2 (2026-09-28, Daniel): 1 Nota per successful referral, paid once
+# the invitee confirmed their e-mail AND shows real activity. Anti-fraud:
+REWARD_NOTAS = 1
+MAX_REWARDS_PER_DAY = 3          # per referrer; extra ones wait (stay pending)
+MAX_REWARDS_PER_MONTH = 20
+SAME_IP_FLAG_THRESHOLD = 3       # referred sign-ups from one IP -> admin review
+ACTIVE_DAYS = 7                  # "real activity" without a complete profile
 
 CODE_ALPHABET = string.ascii_uppercase + string.digits
 CODE_LENGTH = 7
@@ -101,6 +114,14 @@ def _hash_email(email: str) -> str:
 
 
 def record_referral_verification(user_id: int) -> None:
+    """Call right after a user's e-mail gets verified (v2 once migrated)."""
+    if rewards_v2_enabled():
+        _record_v2(user_id)
+    else:
+        _record_legacy(user_id)
+
+
+def _record_legacy(user_id: int) -> None:
     """
     Call this right after a user's e-mail gets verified. If they were
     referred by someone, this permanently records that referral (as an
@@ -156,6 +177,231 @@ def record_referral_verification(user_id: int) -> None:
             user["referred_by_user_id"], 1, "referral_bonus",
             reference_id=inserted["id"], idempotency_key=f"referral_bonus:{inserted['id']}",
         )
+
+
+# ---------------------------------------------------------------------------
+# Rewards v2 (2026-09-28)
+# ---------------------------------------------------------------------------
+
+_V2_CHECK = {"ok": False, "checked": 0.0}
+
+
+def rewards_v2_enabled() -> bool:
+    """True once the 2026-09-28 migration columns exist (cached; while they
+    are missing, re-checked at most once a minute)."""
+    if _V2_CHECK["ok"] or (_V2_CHECK["checked"] and time.monotonic() - _V2_CHECK["checked"] < 60):
+        return _V2_CHECK["ok"]
+    row = fetch_one(
+        """SELECT count(*) AS n FROM information_schema.columns
+           WHERE table_schema = current_schema()
+             AND ((table_name = 'referral_events' AND column_name IN ('status', 'rewarded_at', 'reviewed_by'))
+               OR (table_name = 'users' AND column_name = 'signup_ip_hash'))"""
+    )
+    _V2_CHECK.update(ok=bool(row and row["n"] == 4), checked=time.monotonic())
+    return _V2_CHECK["ok"]
+
+
+def hash_ip(ip: str) -> str:
+    """Salted, one-way: lets us compare sign-up IPs without storing them."""
+    salt = os.getenv("SECRET_KEY", "")
+    return hashlib.sha256(f"{salt}|{ip}".encode("utf-8")).hexdigest()
+
+
+def remember_signup_ip(user_id: int, ip: str) -> None:
+    """Only for referred sign-ups (the only place it's used)."""
+    if ip and rewards_v2_enabled():
+        execute(
+            "UPDATE users SET signup_ip_hash = :h WHERE id = :id AND referred_by_user_id IS NOT NULL",
+            {"h": hash_ip(ip), "id": user_id},
+        )
+
+
+def _record_v2(user_id: int) -> None:
+    user = fetch_one("SELECT id, email, referred_by_user_id FROM users WHERE id = :id", {"id": user_id})
+    if not user or not user["referred_by_user_id"]:
+        return
+    identity_hash = _hash_email(identity_email(user["email"]))
+    legacy_hash = _hash_email(user["email"])  # rows recorded before normalization
+    if fetch_one(
+        "SELECT 1 FROM referral_events WHERE referred_email_hash IN (:a, :b)", {"a": identity_hash, "b": legacy_hash}
+    ):
+        return  # one reward per e-mail address, ever
+    blocked = is_disposable(user["email"])
+    inserted = execute_returning(
+        """
+        INSERT INTO referral_events (referrer_user_id, referred_email_hash, referred_user_id, status, flag_reason)
+        VALUES (:referrer_id, :email_hash, :referred_id, :status, :reason)
+        ON CONFLICT (referred_email_hash) DO NOTHING
+        RETURNING id
+        """,
+        {"referrer_id": user["referred_by_user_id"], "email_hash": identity_hash, "referred_id": user_id,
+         "status": "blocked" if blocked else "pending", "reason": "disposable_email" if blocked else None},
+    )
+    if inserted and not blocked:
+        settle_referral(inserted["id"])
+
+
+def _has_real_activity(invitee: dict) -> bool:
+    """Complete profile, or came back on another day and is 7+ days old."""
+    from app.mascot_moments import profile_incomplete
+    if not profile_incomplete(invitee):
+        return True
+    created, seen = invitee["created_at"], invitee["last_seen_at"]
+    now = datetime.now(timezone.utc)
+    return bool(seen and now - created >= timedelta(days=ACTIVE_DAYS) and seen - created >= timedelta(days=1))
+
+
+def settle_referral(event_id: int) -> str:
+    """Pays a pending referral if every rule allows it now. Returns the
+    event's status afterwards ('pending' = not yet; tried again later)."""
+    event = fetch_one(
+        "SELECT id, referrer_user_id, referred_user_id, status FROM referral_events WHERE id = :id", {"id": event_id}
+    )
+    if not event or event["status"] != "pending":
+        return event["status"] if event else "missing"
+    invitee = fetch_one(
+        """SELECT id, role, avatar_url, email_verified, created_at, last_seen_at, signup_ip_hash, deleted_at
+           FROM users WHERE id = :id""",
+        {"id": event["referred_user_id"]},
+    )
+    if not invitee or invitee["deleted_at"] or not invitee["email_verified"] or not _has_real_activity(invitee):
+        return "pending"
+    if invitee["signup_ip_hash"]:
+        same_ip = fetch_one(
+            "SELECT count(*) AS n FROM users WHERE referred_by_user_id = :r AND signup_ip_hash = :h",
+            {"r": event["referrer_user_id"], "h": invitee["signup_ip_hash"]},
+        )["n"]
+        if same_ip >= SAME_IP_FLAG_THRESHOLD:
+            execute(
+                "UPDATE referral_events SET status = 'flagged', flag_reason = 'same_ip' WHERE id = :id AND status = 'pending'",
+                {"id": event_id},
+            )
+            return "flagged"
+    return "rewarded" if _pay(event, enforce_limits=True) else "pending"
+
+
+def _pay(event: dict, enforce_limits: bool, admin_id: int | None = None) -> bool:
+    referrer = event["referrer_user_id"]
+    with engine.begin() as conn:
+        conn.execute(text("SELECT id FROM users WHERE id = :id FOR UPDATE"), {"id": referrer})
+        if enforce_limits:
+            counts = conn.execute(
+                text(
+                    """SELECT count(*) FILTER (WHERE rewarded_at > now() - interval '1 day') AS day,
+                              count(*) FILTER (WHERE rewarded_at > now() - interval '30 days') AS month
+                       FROM referral_events WHERE referrer_user_id = :r AND status IN ('rewarded', 'reversed')"""
+                ),
+                {"r": referrer},
+            ).mappings().one()
+            if counts["day"] >= MAX_REWARDS_PER_DAY or counts["month"] >= MAX_REWARDS_PER_MONTH:
+                return False
+        updated = conn.execute(
+            text(
+                """UPDATE referral_events SET status = 'rewarded', rewarded_at = now(),
+                          reviewed_at = CASE WHEN CAST(:admin AS BIGINT) IS NULL THEN reviewed_at ELSE now() END,
+                          reviewed_by = COALESCE(CAST(:admin AS BIGINT), reviewed_by)
+                   WHERE id = :id AND status IN ('pending', 'flagged') RETURNING id"""
+            ),
+            {"id": event["id"], "admin": admin_id},
+        ).first()
+        if not updated:
+            return False
+        credit_in_tx(conn, referrer, REWARD_NOTAS, "referral_bonus", reference_id=event["id"],
+                     idempotency_key=f"referral_bonus:{event['id']}")
+    return True
+
+
+def settle_for_invitee(user_id: int) -> None:
+    """Hook: login and profile save of the invited person."""
+    if not rewards_v2_enabled():
+        return
+    row = fetch_one(
+        "SELECT id FROM referral_events WHERE referred_user_id = :id AND status = 'pending'", {"id": user_id}
+    )
+    if row:
+        settle_referral(row["id"])
+
+
+def settle_for_referrer(referrer_id: int) -> None:
+    """Hook: the referrer opens /notas (pays what waited on limits or the 7 days)."""
+    if not rewards_v2_enabled():
+        return
+    for row in fetch_all(
+        "SELECT id FROM referral_events WHERE referrer_user_id = :id AND status = 'pending' ORDER BY id LIMIT 50",
+        {"id": referrer_id},
+    ):
+        settle_referral(row["id"])
+
+
+def count_pending_referrals(referrer_id: int) -> int:
+    """Invited friends not paid yet (waiting for activity, limits or review)."""
+    if not rewards_v2_enabled():
+        return 0
+    return fetch_one(
+        "SELECT count(*) AS n FROM referral_events WHERE referrer_user_id = :id AND status IN ('pending', 'flagged')",
+        {"id": referrer_id},
+    )["n"]
+
+
+# --- Admin review (routes re-check the password and write audit_log) ---
+
+REVIEW_STATUSES = ("flagged", "pending", "rewarded", "blocked", "rejected", "reversed", "legacy")
+
+
+def list_referral_events(status: str = "flagged", limit: int = 100) -> list[dict]:
+    if not rewards_v2_enabled():
+        return []
+    return fetch_all(
+        """
+        SELECT e.id, e.status, e.flag_reason, e.credited_at, e.rewarded_at, e.reviewed_at,
+               r.id AS referrer_id, r.full_name AS referrer_name,
+               i.id AS invitee_id, i.full_name AS invitee_name, i.created_at AS invitee_created_at
+        FROM referral_events e
+        JOIN users r ON r.id = e.referrer_user_id
+        LEFT JOIN users i ON i.id = e.referred_user_id
+        WHERE (:status = '' OR e.status = :status)
+        ORDER BY e.id DESC LIMIT :limit
+        """,
+        {"status": status, "limit": limit},
+    )
+
+
+def count_flagged_referrals() -> int:
+    if not rewards_v2_enabled():
+        return 0
+    return fetch_one("SELECT count(*) AS n FROM referral_events WHERE status = 'flagged'")["n"]
+
+
+def admin_approve(event_id: int, admin_id: int) -> bool:
+    """Pays a pending/flagged referral now (skips activity and limits)."""
+    event = fetch_one("SELECT id, referrer_user_id, status FROM referral_events WHERE id = :id", {"id": event_id})
+    return bool(event and event["status"] in ("pending", "flagged") and _pay(event, enforce_limits=False, admin_id=admin_id))
+
+
+def admin_reject(event_id: int, admin_id: int) -> bool:
+    row = execute_returning(
+        """UPDATE referral_events SET status = 'rejected', reviewed_at = now(), reviewed_by = :admin
+           WHERE id = :id AND status IN ('pending', 'flagged') RETURNING id""",
+        {"id": event_id, "admin": admin_id},
+    )
+    return bool(row)
+
+
+def admin_reverse(event_id: int, admin_id: int) -> bool:
+    """Takes a paid referral Nota back (may leave a debt if already spent)."""
+    with engine.begin() as conn:
+        event = conn.execute(
+            text(
+                """UPDATE referral_events SET status = 'reversed', reviewed_at = now(), reviewed_by = :admin
+                   WHERE id = :id AND status = 'rewarded' RETURNING id, referrer_user_id"""
+            ),
+            {"id": event_id, "admin": admin_id},
+        ).mappings().first()
+        if not event:
+            return False
+        debit_in_tx(conn, event["referrer_user_id"], REWARD_NOTAS, "referral_reversed", reference_id=event_id,
+                    idempotency_key=f"referral_reversed:{event_id}", allow_negative=True)
+    return True
 
 
 def get_credit_ledger(user_id: int, limit: int = 50) -> list[dict]:

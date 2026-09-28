@@ -31,6 +31,9 @@ contrário:
   uma instalação limpa a partir de `db/schema.sql` (que já é cumulativo) é
   mais simples e segura do que encadear migração por migração.
 
+## 2026-09-28 — `2026-09-28_referral_rewards.sql` (PENDING in production)
+Additive only (`ADD COLUMN IF NOT EXISTS`, no `$$`): `users.signup_ip_hash`, `referral_events.status/flag_reason/rewarded_at/reviewed_at/reviewed_by`; old rows become `legacy`. Until it's applied the app keeps the old referral rule (`app/referrals.rewards_v2_enabled()` checks the columns). Apply with `psql -f` when Daniel says so.
+
 ## 2026-09-26 — Messenger + #55 also folded in
 
 `2026-09-26_messenger.sql` (conversations, contact pairs, reports, 60-day

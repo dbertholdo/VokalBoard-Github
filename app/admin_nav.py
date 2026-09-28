@@ -15,4 +15,6 @@ def admin_attention_counts() -> dict:
     )
     counts = dict(row) if row else {"listing_reports": 0, "message_reports": 0, "tickets": 0}
     counts["reports"] = counts["listing_reports"] + counts["message_reports"]
+    from app.referrals import count_flagged_referrals  # tolerates the 2026-09-28 migration missing
+    counts["referrals"] = count_flagged_referrals()
     return counts

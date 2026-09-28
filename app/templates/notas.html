@@ -25,13 +25,20 @@
         {% if balances.debt > 0 %}
             <p class="notas-balance-next">{{ t('notas_debt_hint').replace('{amount}', format_notas(balances.debt)) }}</p>
         {% endif %}
+        {% if referrals_pending %}
+            <p class="notas-balance-next">{{ t('notas_referrals_pending_hint').replace('{n}', referrals_pending | string) }}</p>
+        {% endif %}
         {% if referrals_until_next_credit > 0 %}
             <p class="notas-balance-next">{{ t('notas_next_credit_hint').replace('{n}', referrals_until_next_credit | string) }}</p>
         {% endif %}
     </div>
 </div>
 
+{% if referrals_v2 %}
+<p class="field-help">{{ t('notas_how_it_works_v2').replace('{day}', referral_limits.day | string).replace('{month}', referral_limits.month | string) }}</p>
+{% else %}
 <p class="field-help">{{ t('notas_how_it_works').replace('{ratio}', credit_ratio | string) }}</p>
+{% endif %}
 <p class="field-help">{{ t('notas_rules_hint') }} <a href="/agb">{{ t('footer_terms') }}</a></p>
 
 <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('notas_catalog_title') }}</h2>
@@ -92,6 +99,8 @@
                            None cai pro texto do i18n (só o item que já existia de início). #}
                         {% set redeemed_key = entry.reason[7:] %}
                         {{ catalog_titles.get(redeemed_key) or t('notas_item_' ~ redeemed_key ~ '_title') }}
+                    {% elif entry.reason == 'referral_reversed' %}
+                        {{ t('notas_reason_referral_reversed') }}
                     {% elif entry.reason in ('purchase', 'earned_expired', 'admin_refund', 'stripe_refund', 'stripe_dispute', 'stripe_dispute_won', 'admin_grant_credit', 'admin_grant_debit') %}
                         {{ t('notas_reason_' ~ entry.reason) }}
                     {% else %}

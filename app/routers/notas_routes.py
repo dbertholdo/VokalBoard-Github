@@ -34,7 +34,12 @@ from app.referrals import (
     get_referrals_until_next_credit,
     get_hall_of_fame,
     ensure_referral_code,
+    count_pending_referrals,
+    rewards_v2_enabled,
+    settle_for_referrer,
     CREDIT_REFERRALS_PER_CREDIT,
+    MAX_REWARDS_PER_DAY,
+    MAX_REWARDS_PER_MONTH,
 )
 
 router = APIRouter()
@@ -47,6 +52,8 @@ def notas_page(request: Request, redeemed: str = "", error: str = "", purchase: 
         return RedirectResponse(url="/login", status_code=303)
     if not user["email_verified"]:
         return RedirectResponse(url="/?verify_required=1", status_code=303)
+    settle_for_referrer(user["id"])  # pays referrals that waited on limits / the 7 days
+    referrals_v2 = rewards_v2_enabled()
 
     context = {
         "user": user,
@@ -60,8 +67,11 @@ def notas_page(request: Request, redeemed: str = "", error: str = "", purchase: 
         # de itens já desativados depois de resgatados (ver
         # get_catalog_titles_by_key — None = usa o texto do i18n).
         "catalog_titles": get_catalog_titles_by_key(),
-        "referrals_until_next_credit": get_referrals_until_next_credit(user["id"]),
+        "referrals_v2": referrals_v2,
+        "referrals_until_next_credit": 0 if referrals_v2 else get_referrals_until_next_credit(user["id"]),
+        "referrals_pending": count_pending_referrals(user["id"]),
         "credit_ratio": CREDIT_REFERRALS_PER_CREDIT,
+        "referral_limits": {"day": MAX_REWARDS_PER_DAY, "month": MAX_REWARDS_PER_MONTH},
         "redeemed": redeemed,
         "error": error,
         # Antifraud pass, 19/09/2026: a fresh, unguessable token per page

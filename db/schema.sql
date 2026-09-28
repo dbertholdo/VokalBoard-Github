@@ -148,6 +148,7 @@ CREATE TABLE users (
     -- (see app/referrals.py), used in a link like /register?ref=CODE.
     referral_code       VARCHAR(12) UNIQUE,
     referred_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    signup_ip_hash  CHAR(64),        -- salted SHA-256 of the signup IP (referral fraud review); never the IP
     -- Special user level for simple administrative tasks
     -- INSIDE the app (see /admin in app/routers/admin_routes.py) — much
     -- more restricted than Adminer (which already gives full database
@@ -217,6 +218,7 @@ CREATE INDEX idx_users_city ON users(city);
 CREATE INDEX idx_users_state ON users(state);
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX idx_users_referred_by ON users(referred_by_user_id);
+CREATE INDEX idx_users_referrer_ip ON users(referred_by_user_id, signup_ip_hash);
 CREATE INDEX idx_users_role_level ON users(role_level);
 CREATE INDEX idx_users_appear_in_search ON users(appear_in_search);
 
@@ -1145,10 +1147,19 @@ CREATE TABLE referral_events (
     referrer_user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     referred_email_hash  CHAR(64) NOT NULL UNIQUE,
     referred_user_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
-    credited_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+    credited_at          TIMESTAMPTZ NOT NULL DEFAULT now(),  -- when the referral was recorded (e-mail verified)
+    -- Rewards v2 (2026-09-28): pending -> rewarded | flagged | blocked | rejected; rewarded -> reversed.
+    -- 'legacy' = recorded under the old 1-per-10 rule (never paid individually).
+    status               VARCHAR(20) NOT NULL DEFAULT 'pending',
+    flag_reason          VARCHAR(40),
+    rewarded_at          TIMESTAMPTZ,
+    reviewed_at          TIMESTAMPTZ,
+    reviewed_by          BIGINT REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_referral_events_referrer ON referral_events(referrer_user_id);
+CREATE INDEX idx_referral_events_status ON referral_events(status);
+CREATE INDEX idx_referral_events_referred ON referral_events(referred_user_id);
 
 -- credit_ledger: append-only history of "notas" earned (positive
 -- delta) and redeemed (negative delta). Balance = SUM(delta). Never
