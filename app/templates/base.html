@@ -241,22 +241,21 @@
             {% if user %}
                 {# .nav-dup = duplicated in the side menu; hidden on mobile to keep
                    the header to one row (Codex QA 25/09: ~250px tall at 320px). #}
-                <a class="nav-dup" href="/">{{ t('nav_home') }}</a>
-                <span class="nav-sep" aria-hidden="true">|</span>
-                {# Daniel 2026-09-27: Rechnungmaker is the site's highlight tool — purple pill. #}
+                {# Menu reorg (Daniel, 2026-09-28): [Rechnungmaker] Jobs▾ People
+                   Messages Matches 🔔 avatar▾ 🌐 — the logo is the way home. #}
+                {% set matches_badge = (pending_invitations_count or 0) + (pending_evaluations_count or 0) %}
                 <a class="nav-dup nav-highlight {{ 'active' if request.url.path.startswith('/rechnungmaker') else '' }}" href="/rechnungmaker" title="{{ t('rechnungmaker_subtitle') }}">{{ t('nav_rechnungmaker') }}{% if pending_invoice_actions_count and pending_invoice_actions_count > 0 %} <span class="badge-count">{{ pending_invoice_actions_count }}</span>{% endif %}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
-                <a class="nav-dup" href="/board">{{ t('nav_board') }}</a>
-                <span class="nav-sep" aria-hidden="true">|</span>
                 <details class="profile-menu nav-dup">
-                    <summary>{{ t('nav_profile') }}</summary>
-                    <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
+                    <summary>{{ t('nav_board') }}</summary>
+                    <div class="profile-menu-links">{% include '_jobs_menu.html' %}</div>
                 </details>
+                <span class="nav-sep" aria-hidden="true">|</span>
+                <a class="nav-dup" href="/people">{{ t('nav_people') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
                 <a class="nav-dup" href="/messages">{{ t('nav_messages') }}<span class="badge-count badge-alert" data-messages-badge {% if not unread_count %}hidden{% endif %}>{{ unread_count or 0 }}</span></a>
                 <span class="nav-sep" aria-hidden="true">|</span>
-                <a class="nav-dup" href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
-                {% if user.role_level and user.role_level >= 2 %}<span class="nav-sep" aria-hidden="true">|</span><a href="/admin">Admin</a>{% endif %}
+                <a class="nav-dup" href="/matches">{{ t('nav_invitations') }}{% if matches_badge %} <span class="badge-count">{{ matches_badge }}</span>{% endif %}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
                 {# Central de Notificações (task #50) — bell dropdown.
                    Menu reorg (task #51, Daniel's own top-bar sketch):
@@ -310,12 +309,13 @@
                         {% endif %}
                     </div>
                 </details>
-                <span class="nav-sep" aria-hidden="true">|</span>
-                <a href="/logout">{{ t('nav_logout') }}</a>
-                <span class="whoami">
-                    {% if user.avatar_url %}<img class="nav-avatar" src="{{ user.avatar_url }}" alt="">{% endif %}
-                    {{ user.full_name.split(' ')[0] if user.full_name else '' }} ({{ t('role_singer') if user.role == "singer" else t('role_conductor') }})
-                </span>
+                <details class="profile-menu account-menu">
+                    <summary aria-label="{{ t('nav_profile') }}">
+                        {% if user.avatar_url %}<img class="nav-avatar" src="{{ user.avatar_url }}" alt="">{% else %}<span class="nav-avatar nav-avatar-initial" aria-hidden="true">{{ (user.full_name or '?')[:1] }}</span>{% endif %}
+                        <span class="account-menu-name">{{ user.full_name.split(' ')[0] if user.full_name else '' }}</span>
+                    </summary>
+                    <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
+                </details>
             {% else %}
                 <a class="nav-highlight" href="/rechnungmaker" title="{{ t('rechnungmaker_subtitle') }}">{{ t('nav_rechnungmaker') }}</a>
                 <span class="nav-sep" aria-hidden="true">|</span>
@@ -371,43 +371,30 @@
                     <span class="side-nav-highlight-text">{{ t('nav_rechnungmaker') }}<small>{{ t('rechnungmaker_subtitle') }}</small></span>
                     {% if pending_invoice_actions_count and pending_invoice_actions_count > 0 %}<span class="badge-count">{{ pending_invoice_actions_count }}</span>{% endif %}
                 </a>
-                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path == '/' else '' }}" href="/">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-home"></use></svg>{{ t('nav_home') }}
-                </a>
-                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/people') else '' }}" href="/people">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-users"></use></svg>{{ t('nav_search_people') }}
-                </a>
-
-                {# Menu reorg (19/09/2026, task #51 — Daniel's own side-menu
-                   sketch, see AI_CHANGELOG.md): Start / My Profile / Jobs /
-                   Hall of Fame / Notas, in that order. "My Profile" reuses
-                   the exact same _profile_menu.html partial as the top-nav
-                   dropdown (Anti-Spaghetti — one partial, not two lists to
-                   keep in sync), now including Digital Pass/Favorites/
-                   Messages alongside the items that were already there. #}
-                <details class="side-nav-group" name="side-nav-group" {% if request.url.path.startswith('/profile') or request.url.path.startswith('/users/') or request.url.path.startswith('/my-favorites') or request.url.path.startswith('/messages') or request.url.path.startswith('/rechnungmaker') %}open{% endif %}>
-                    <summary class="side-nav-row side-nav-tone-1"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}</summary>
-                    <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
-                </details>
-
-                <details class="side-nav-group" name="side-nav-group" {% if request.url.path.startswith('/board') or request.url.path.startswith('/listings') or request.url.path.startswith('/my-listings') or request.url.path.startswith('/invitations') %}open{% endif %}>
+                {% set p = request.url.path %}
+                <details class="side-nav-group" name="side-nav-group" {% if p.startswith('/board') or p.startswith('/listings') or p.startswith('/my-listings') %}open{% endif %}>
                     <summary class="side-nav-row side-nav-tone-2"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-board"></use></svg>{{ t('nav_board') }}</summary>
+                    <div class="profile-menu-links">{% include '_jobs_menu.html' %}</div>
+                </details>
+                <a class="side-nav-row side-nav-tone-1 {{ 'active' if p.startswith('/people') else '' }}" href="/people">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-users"></use></svg>{{ t('nav_people') }}
+                </a>
+                <a class="side-nav-row side-nav-tone-2 {{ 'active' if p.startswith('/messages') else '' }}" href="/messages">
+                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-mail"></use></svg>{{ t('nav_messages') }}
+                    <span class="badge-count badge-alert" data-messages-badge {% if not unread_count %}hidden{% endif %}>{{ unread_count or 0 }}</span>
+                </a>
+                <details class="side-nav-group" name="side-nav-group" {% if p.startswith('/invitations') or p.startswith('/profile/matches') %}open{% endif %}>
+                    <summary class="side-nav-row side-nav-tone-1"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-check"></use></svg>{{ t('nav_invitations') }}{% if matches_badge %} <span class="badge-count">{{ matches_badge }}</span>{% endif %}</summary>
                     <div class="profile-menu-links">
-                        <a href="/board">{{ t('nav_search_for_job') }}</a>
-                        <a href="/listings/new">{{ t('nav_post_job') }}</a>
-                        <a href="/my-listings">{{ t('nav_my_listings') }}</a>
-                        <a href="/invitations">{{ t('nav_invitations') }}{% if pending_invitations_count and pending_invitations_count > 0 %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
-                        <a class="side-nav-subrow {{ 'active' if request.url.path.startswith('/invitations') and request.query_params.get('tab') == 'pending' else '' }}" href="/invitations?tab=pending">{{ t('invitations_tab_pending') }}</a>
-                        <a class="side-nav-subrow {{ 'active' if request.url.path.startswith('/invitations') and request.query_params.get('tab') == 'history' else '' }}" href="/invitations?tab=history">{{ t('invitations_tab_history') }}</a>
+                        <a href="/invitations?tab=pending">{{ t('matches_tab_open') }}{% if pending_invitations_count %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
+                        <a href="/profile/matches?view=confirmed">{{ t('matches_tab_confirmed') }}</a>
+                        <a href="/profile/matches?view=history">{{ t('matches_tab_history') }}{% if pending_evaluations_count %} <span class="badge-count">{{ pending_evaluations_count }}</span>{% endif %}</a>
                     </div>
                 </details>
-
-                <a class="side-nav-row side-nav-tone-1 {{ 'active' if request.url.path.startswith('/hall-da-fama') else '' }}" href="/hall-da-fama">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-crown"></use></svg>{{ t('nav_hall_da_fama') }}
-                </a>
-                <a class="side-nav-row side-nav-tone-2 {{ 'active' if request.url.path.startswith('/notas') else '' }}" href="/notas">
-                    <svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-bank"></use></svg>{{ t('nav_notas') }}
-                </a>
+                <details class="side-nav-group" name="side-nav-group" {% if p.startswith('/profile') and not p.startswith('/profile/matches') or p.startswith('/users/') or p.startswith('/my-favorites') or p.startswith('/notas') or p.startswith('/hall-da-fama') %}open{% endif %}>
+                    <summary class="side-nav-row side-nav-tone-2"><svg class="icon side-nav-icon" width="20" height="20"><use href="/static/img/icons.svg#icon-profile"></use></svg>{{ t('nav_profile') }}</summary>
+                    <div class="profile-menu-links">{% include '_profile_menu.html' %}</div>
+                </details>
             {% endif %}
         </aside>
         {% endif %}
@@ -573,7 +560,7 @@
                 6000,
                 {# B2 (2026-09-28): every nudge opens the page it talks about
                    (was: only the profile one). Longer hold since it's a link. #}
-                {href: {{ {'mascot_reminder_profile': '/profile/wizard', 'mascot_reminder_evaluation': '/profile/matches', 'mascot_reminder_invitation': '/invitations?tab=pending'}.get(mascot_reminder_key, '/profile') | tojson }}},
+                {href: {{ {'mascot_reminder_profile': '/profile/wizard', 'mascot_reminder_evaluation': '/profile/matches?view=history', 'mascot_reminder_invitation': '/invitations?tab=pending'}.get(mascot_reminder_key, '/profile') | tojson }}},
             ]);
             {% endif %}
             if (!queue.length) return;

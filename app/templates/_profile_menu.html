@@ -1,6 +1,12 @@
+{# Avatar menu (menu reorg, Daniel 2026-09-28): profile pages, Rewards, Log
+   out — top-bar avatar dropdown and phone side menu share it. Messages and
+   Matches are top-level items now, so they are not repeated here. #}
 <a href="/users/{{ user.id }}">{{ t('nav_view_my_profile') }}</a>
 <a href="/profile">{{ t('nav_edit_profile') }}</a>
 <a href="/profile/digital-pass">{{ t('nav_digital_pass') }}</a>
 <a href="/my-favorites">{{ t('nav_favorites') }}</a>
-<a href="/messages">{{ t('nav_messages') }}<span class="badge-count badge-alert" data-messages-badge {% if not unread_count %}hidden{% endif %}>{{ unread_count or 0 }}</span></a>
-<a href="/profile/matches">{{ t('nav_match_history') }}{% if pending_evaluations_count and pending_evaluations_count > 0 %} <span class="badge-count">{{ pending_evaluations_count }}</span>{% endif %}</a>
+<p class="profile-menu-heading">{{ t('nav_rewards') }}</p>
+<a href="/notas">{{ t('nav_notas') }}</a>
+<a href="/hall-da-fama">{{ t('nav_hall_da_fama') }}</a>
+{% if user.role_level and user.role_level >= 2 %}<a href="/admin">Admin</a>{% endif %}
+<a class="profile-menu-logout" href="/logout">{{ t('nav_logout') }}</a>

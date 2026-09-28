@@ -39,6 +39,11 @@
   "_invoice_preview.html": {
     "[\"<form>\", [], []]": 1
   },
+  "_jobs_menu.html": {
+    "[\"<a\", [[\"href\", \"\\\"/board\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/listings/new\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/my-listings\\\"\"]], []]": 1
+  },
   "_location_fields.html": {
     "[\"<select\", [[\"id\", \"\\\"loc-country-select\\\"\"], [\"name\", \"\\\"country\\\"\"]], []]": 1,
     "[\"<select\", [[\"id\", \"\\\"loc-state-select\\\"\"], [\"name\", \"\\\"state\\\"\"]], [\"required\"]]": 1,
@@ -47,13 +52,20 @@
     "[\"<input\", [[\"id\", \"\\\"loc-city-other-input\\\"\"], [\"maxlength\", \"\\\"100\\\"\"], [\"name\", \"\\\"city\\\"\"], [\"type\", \"\\\"text\\\"\"]], [\"disabled\"]]": 1,
     "[\"<button\", [[\"id\", \"\\\"loc-city-toggle-other\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 1
   },
+  "_matches_tabs.html": {
+    "[\"<a\", [[\"href\", \"\\\"/invitations?tab=pending\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/profile/matches?view=confirmed\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/profile/matches?view=history\\\"\"]], []]": 1
+  },
   "_profile_menu.html": {
     "[\"<a\", [[\"href\", \"\\\"/users/{{ user.id }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/profile\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/profile/digital-pass\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/my-favorites\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/profile/matches\\\"\"]], []]": 1
+    "[\"<a\", [[\"href\", \"\\\"/notas\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/hall-da-fama\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/logout\\\"\"]], []]": 1
   },
   "_retention_warning.html": {},
   "_search_error.html": {
@@ -95,6 +107,11 @@
     "[\"<form\", [[\"action\", \"\\\"/admin/banners/{{ banner.id }}/{{ action }}\\\"\"], [\"data-confirm\", \"\\\"Delete this banner? It stays available under Deleted.\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/banners?state={{ state }}&page={{ page - 1 }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/banners?state={{ state }}&page={{ page + 1 }}\\\"\"]], []]": 1
+  },
+  "admin_bot_traffic.html": {
+    "[\"<form\", [[\"action\", \"\\\"/financeiro/bots\\\"\"], [\"method\", \"\\\"get\\\"\"]], []]": 1,
+    "[\"<select\", [[\"name\", \"\\\"days\\\"\"]], []]": 1,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
   },
   "admin_emails.html": {
     "[\"<a\", [[\"href\", \"\\\"/admin/emails?tab=form\\\"\"]], []]": 1,
@@ -156,6 +173,17 @@
     "[\"<form\", [[\"action\", \"\\\"/admin/posts/{{ p.id }}/toggle-publish\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/posts/{{ p.id }}/delete\\\"\"], [\"data-confirm\", \"\\\"Delete this post for good?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
   },
+  "admin_referrals.html": {
+    "[\"<form\", [[\"action\", \"\\\"/admin/referrals\\\"\"], [\"method\", \"\\\"get\\\"\"]], []]": 1,
+    "[\"<select\", [[\"name\", \"\\\"status\\\"\"]], []]": 1,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 2,
+    "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ e.referrer_id }}\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ e.invitee_id }}\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/referrals/{{ e.id }}/{{ action }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"status\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"current_password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\"]]": 1
+  },
   "admin_reports.html": {
     "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=listings\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=messages\\\"\"]], []]": 1,
@@ -171,15 +199,20 @@
     "[\"<form\", [[\"action\", \"\\\"/admin/message-reports/{{ r.id }}/dismiss\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
   },
   "admin_tickets.html": {
+    "[\"<a\", [[\"href\", \"\\\"/admin/tickets?status=spam\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/tickets/delete-spam\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
+    "[\"<input\", [[\"name\", \"\\\"current_password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\"]]": 2,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 4,
     "[\"<form\", [[\"action\", \"\\\"/admin/tickets\\\"\"], [\"method\", \"\\\"get\\\"\"]], []]": 1,
     "[\"<select\", [[\"name\", \"\\\"status\\\"\"]], []]": 1,
     "[\"<select\", [[\"name\", \"\\\"type\\\"\"]], []]": 1,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ ticket.user_id }}\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/tickets/{{ ticket.id }}/respond\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<textarea\", [[\"maxlength\", \"\\\"2000\\\"\"], [\"minlength\", \"\\\"2\\\"\"], [\"name\", \"\\\"admin_response\\\"\"]], [\"required\"]]": 1,
     "[\"<input\", [[\"name\", \"\\\"resolve\\\"\"], [\"type\", \"\\\"checkbox\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/tickets/{{ ticket.id }}/delete\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"back\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/tickets?status={{ status }}&type={{ type }}&page={{ page - 1 }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/tickets?status={{ status }}&type={{ type }}&page={{ page + 1 }}\\\"\"]], []]": 1
   },
@@ -229,29 +262,24 @@
   "base.html": {
     "[\"<form\", [[\"data-confirm\", \"\\\"message\\\"\"]], []]": 1,
     "[\"<button\", [[\"id\", \"\\\"sidebar-toggle\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 3,
+    "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/rechnungmaker\\\"\"]], []]": 3,
-    "[\"<a\", [[\"href\", \"\\\"/board\\\"\"]], []]": 3,
-    "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/invitations\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/people\\\"\"]], []]": 2,
+    "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 2,
+    "[\"<a\", [[\"href\", \"\\\"/matches\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/notifications/mark-all-read\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 3,
     "[\"<a\", [[\"href\", \"\\\"{{ n.link_url if n.synthetic else '/notifications/' ~ n.id ~ '/open' }}\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/logout\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/board\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/login\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/register\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"{{ lang_urls[code] }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/assinar\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/resend-verification\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/people\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/listings/new\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/my-listings\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/invitations?tab=pending\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/invitations?tab=history\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/hall-da-fama\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/notas\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/profile/matches?view=confirmed\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/profile/matches?view=history\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"{{ banner.link_url }}\\\"\"], [\"rel\", \"\\\"noopener noreferrer\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/datenschutz\\\"\"]], []]": 1,
@@ -264,6 +292,7 @@
     "[\"<input\", [[\"id\", \"\\\"bug-report-page-url\\\"\"], [\"name\", \"\\\"page_url\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<input\", [[\"id\", \"\\\"bug-report-page-name\\\"\"], [\"name\", \"\\\"page_name\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<textarea\", [[\"id\", \"\\\"bug-report-description\\\"\"], [\"maxlength\", \"\\\"4000\\\"\"], [\"minlength\", \"\\\"10\\\"\"], [\"name\", \"\\\"description\\\"\"]], [\"required\"]]": 1,
+    "[\"<input\", [[\"name\", \"\\\"website\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1,
     "[\"<button\", [[\"id\", \"\\\"bug-report-cancel\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 1
   },
   "board.html": {
@@ -302,6 +331,7 @@
   "contato.html": {
     "[\"<form\", [[\"action\", \"\\\"/contato\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"website\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1,
     "[\"<input\", [[\"maxlength\", \"\\\"200\\\"\"], [\"name\", \"\\\"subject\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1,
     "[\"<textarea\", [[\"maxlength\", \"\\\"4000\\\"\"], [\"minlength\", \"\\\"10\\\"\"], [\"name\", \"\\\"description\\\"\"]], [\"required\"]]": 1,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
@@ -434,9 +464,10 @@
     "[\"<a\", [[\"href\", \"\\\"/datenschutz\\\"\"]], []]": 1
   },
   "invitations.html": {
-    "[\"<a\", [[\"href\", \"\\\"/invitations\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/invitations?tab=pending\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/profile/matches?view=history\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/invitations?tab=history\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/invitations?tab=pending\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/invitations\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/listings/{{ i.listing_id }}\\\"\"]], []]": 4,
     "[\"<a\", [[\"href\", \"\\\"/users/{{ i.contractor_id }}\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/invitations/{{ i.id }}/respond\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 4,
@@ -524,6 +555,7 @@
     "[\"<a\", [[\"href\", \"\\\"/register\\\"\"]], []]": 1
   },
   "match_history.html": {
+    "[\"<a\", [[\"href\", \"\\\"/invitations?tab=history\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/profile/matches/{{ match.id }}/evaluate\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<select\", [[\"name\", \"\\\"{{ cat }}\\\"\"]], [\"required\"]]": 1,

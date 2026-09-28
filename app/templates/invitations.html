@@ -2,16 +2,17 @@
 {% block title %}{{ t('nav_invitations') }}{% endblock %}
 
 {% block content %}
-<h1>{{ t('nav_invitations') }}</h1>
-
-{# Menu reorg (19/09/2026, task #51) — mirrors the Pending/History
-   sub-links in the side-nav's "Matches" group, so landing here via
-   ?tab= isn't a dead end and the tabs stay reachable without the
-   side-nav open. #}
-<div class="tool-tabs">
-    <a class="tool-tab {{ 'active' if active_tab == 'all' else '' }}" href="/invitations">{{ t('invitations_tab_all') }}</a>
-    <a class="tool-tab {{ 'active' if active_tab == 'pending' else '' }}" href="/invitations?tab=pending">{{ t('invitations_tab_pending') }}</a>
-    <a class="tool-tab {{ 'active' if active_tab == 'history' else '' }}" href="/invitations?tab=history">{{ t('invitations_tab_history') }}</a>
+{% set matches_tab = 'history' if active_tab == 'history' else 'open' %}
+{% include '_matches_tabs.html' %}
+{# Filters inside the tab (the old All/Pending/History tabs). #}
+<div class="messenger-filters">
+    {% if active_tab == 'history' %}
+        <a href="/profile/matches?view=history">&larr; {{ t('matches_tab_history') }}</a>
+        <a href="/invitations?tab=history" class="active">{{ t('matches_past_invitations_link') }}</a>
+    {% else %}
+        <a href="/invitations?tab=pending" class="{{ 'active' if active_tab == 'pending' else '' }}">{{ t('invitations_tab_pending') }}</a>
+        <a href="/invitations" class="{{ 'active' if active_tab == 'all' else '' }}">{{ t('invitations_tab_all') }}</a>
+    {% endif %}
 </div>
 
 {% if responded == 'accepted' %}

@@ -1,0 +1,10 @@
+{# ONE Matches page (menu reorg, Daniel 2026-09-28): Open = invitations and
+   applications waiting for an answer (/invitations); Confirmed and
+   History & ratings = /profile/matches?view=. Set `matches_tab` before
+   including. #}
+<h1>{{ t('nav_invitations') }}</h1>
+<div class="tool-tabs" role="navigation" aria-label="{{ t('nav_invitations') }}">
+    <a class="tool-tab {{ 'active' if matches_tab == 'open' else '' }}" href="/invitations?tab=pending" {% if matches_tab == 'open' %}aria-current="page"{% endif %}>{{ t('matches_tab_open') }}{% if pending_invitations_count %} <span class="badge-count">{{ pending_invitations_count }}</span>{% endif %}</a>
+    <a class="tool-tab {{ 'active' if matches_tab == 'confirmed' else '' }}" href="/profile/matches?view=confirmed" {% if matches_tab == 'confirmed' %}aria-current="page"{% endif %}>{{ t('matches_tab_confirmed') }}</a>
+    <a class="tool-tab {{ 'active' if matches_tab == 'history' else '' }}" href="/profile/matches?view=history" {% if matches_tab == 'history' %}aria-current="page"{% endif %}>{{ t('matches_tab_history') }}{% if pending_evaluations_count %} <span class="badge-count">{{ pending_evaluations_count }}</span>{% endif %}</a>
+</div>

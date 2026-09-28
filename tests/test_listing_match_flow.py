@@ -54,3 +54,33 @@ def test_wrong_role_gets_an_explanation_instead_of_nothing(client):
     assert "vacancy-apply-form" not in page
     assert 'class="field-help"' in page and ("conductor" in page.lower() or "Dirigent" in page)
     assert 'id="candidates"' not in page
+
+
+def test_matches_entry_opens_open_tab_only_when_something_waits(client):
+    author_id, author_email, author_pw = _verified_user(client, "Entry Author")
+    artist_id, _, _ = _verified_user(client, "Entry Artist")
+    _as(client, author_email, author_pw)
+    assert client.get("/matches", follow_redirects=False).headers["location"] == "/profile/matches?view=confirmed"
+
+    listing_id, vacancy_id = _make_vacancy(author_id)
+    assert create_invitation(vacancy_id, artist_id, artist_id)["ok"]
+    assert client.get("/matches", follow_redirects=False).headers["location"] == "/invitations?tab=pending"
+    page = client.get("/invitations?tab=pending").text
+    assert 'href="/profile/matches?view=confirmed"' in page and 'href="/profile/matches?view=history"' in page
+    assert client.get("/profile/matches?view=history").status_code == 200
+
+
+def test_confirmed_and_history_views_split_by_event_date(client):
+    from app.match_service import respond_invitation
+    author_id, author_email, author_pw = _verified_user(client, "Views Author")
+    artist_id, _, _ = _verified_user(client, "Views Artist")
+    listing_id, vacancy_id = _make_vacancy(author_id)  # event in 10 days
+    invite = create_invitation(vacancy_id, artist_id, artist_id)
+    assert respond_invitation(invite["id"], author_id, "accept")["ok"]
+
+    _as(client, author_email, author_pw)
+    assert "Sectest Reward Listing" in client.get("/profile/matches?view=confirmed").text
+    assert "Sectest Reward Listing" not in client.get("/profile/matches?view=history").text
+    execute("UPDATE listings SET event_date = CURRENT_DATE - 3 WHERE id = :id", {"id": listing_id})
+    execute("UPDATE job_matches SET listing_snapshot = listing_snapshot - 'event_date' WHERE listing_id = :id", {"id": listing_id})
+    assert "Sectest Reward Listing" in client.get("/profile/matches?view=history").text

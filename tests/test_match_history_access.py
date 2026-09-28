@@ -21,7 +21,7 @@ class MatchHistoryTests(unittest.TestCase):
     def make_route(self, viewer):
         source = (ROOT / 'app/routers/match_history_routes.py').read_text(encoding='utf-8')
         tree = ast.parse(source)
-        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef))
+        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'match_history')
         fn.decorator_list = []
         calls = []
         namespace = {
@@ -43,6 +43,9 @@ class MatchHistoryTests(unittest.TestCase):
             'get_drafts': lambda *a, **k: {},
             'translate': lambda key, lang: key,
             'format_fee': lambda *a, **k: None,
+            # 2026-09-28: Confirmed / History views.
+            '_VIEW_CLAUSES': {'all': '', 'confirmed': '', 'history': ''},
+            '_HISTORY_SQL': '', '_HISTORY_ORDER': '',
         }
         exec(compile(ast.Module(body=[fn], type_ignores=[]), '<history route>', 'exec'), namespace)
         return namespace['match_history'], calls
@@ -80,8 +83,13 @@ class MatchHistoryTests(unittest.TestCase):
         # disabled "download" placeholder was replaced by the real
         # Digital Pass page — so no fake/disabled entry may remain.
         # 2026-09-27: Rechnungmaker left this menu — it's the highlighted top-bar item now.
-        self.assertEqual(source.count('<a '), 6)
-        self.assertIn('href="/profile/matches"', source)
+        # 2026-09-28 menu reorg: avatar menu = profile pages + Rewards (Notas,
+        # Hall of Fame) + Admin (admins only) + Log out; Messages and Matches
+        # are top-level items and must not be repeated here.
+        self.assertEqual(source.count('<a '), 8)
+        self.assertNotIn('href="/profile/matches"', source)
+        self.assertNotIn('href="/messages"', source)
+        self.assertIn('href="/logout"', source)
         self.assertNotIn('href="/rechnungmaker"', source)
         self.assertIn('href="/profile/digital-pass"', source)
         self.assertNotIn('aria-disabled="true"', source)

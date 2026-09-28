@@ -12,20 +12,22 @@ from app.invoice_match_drafts import get_drafts
 from app.fees import format_fee
 from app.i18n import translate
 from app.render import render
+from app.match_service import count_pending_for_user
 
 router = APIRouter()
 
 
-@router.get('/profile/matches')
-def match_history(request: Request, user_id: int | None = None, page: int = 1):
-    viewer = get_current_user(request)
-    if not viewer:
-        return RedirectResponse('/login', status_code=303)
-    owner_id = viewer['id'] if user_id is None else user_id
-    if not can_view_match_history(viewer, owner_id):
-        raise HTTPException(status_code=403)
-    page = max(1, page)
-    rows = fetch_all('''
+# ONE Matches page (menu reorg 2026-09-28): "Confirmed" = confirmed and the
+# event hasn't passed; "History & ratings" = everything else (where the
+# 14-day evaluation happens). An admin looking at someone (?user_id=) sees all.
+_EVENT_DATE_SQL = "NULLIF(COALESCE(m.listing_snapshot->>'event_date', l.event_date::text), '')::date"
+_VIEW_CLAUSES = {
+    'all': '',
+    'confirmed': f"AND m.status = 'confirmed' AND ({_EVENT_DATE_SQL} IS NULL OR {_EVENT_DATE_SQL} >= CURRENT_DATE)",
+    'history': f"AND NOT (m.status = 'confirmed' AND ({_EVENT_DATE_SQL} IS NULL OR {_EVENT_DATE_SQL} >= CURRENT_DATE))",
+}
+
+_HISTORY_SQL = '''
         SELECT m.id, m.status, m.created_at, m.completed_at, m.invoice_sent_at,
                COALESCE(m.listing_snapshot->>'title',l.title) AS title,
                COALESCE(m.listing_snapshot->>'event_date',l.event_date::text) AS event_date,
@@ -42,10 +44,32 @@ def match_history(request: Request, user_id: int | None = None, page: int = 1):
         LEFT JOIN listing_vacancies v ON v.id = m.vacancy_id
         JOIN users artist ON artist.id = m.artist_user_id
         JOIN users contractor ON contractor.id = m.contractor_user_id
-        WHERE m.artist_user_id = :owner OR m.contractor_user_id = :owner
-        ORDER BY m.created_at DESC, m.id DESC
-        LIMIT 21 OFFSET :offset
-    ''', {'owner': owner_id, 'offset': (page - 1) * 20})
+        WHERE (m.artist_user_id = :owner OR m.contractor_user_id = :owner) '''
+_HISTORY_ORDER = ' ORDER BY m.created_at DESC, m.id DESC LIMIT 21 OFFSET :offset'
+
+
+@router.get('/matches')
+def matches_entry(request: Request):
+    """Top-bar "Matches": Open when something waits for my answer, else Confirmed."""
+    viewer = get_current_user(request)
+    if not viewer:
+        return RedirectResponse('/login', status_code=303)
+    return RedirectResponse('/invitations?tab=pending' if count_pending_for_user(viewer['id']) else '/profile/matches?view=confirmed',
+                            status_code=303)
+
+
+@router.get('/profile/matches')
+def match_history(request: Request, user_id: int | None = None, page: int = 1, view: str = 'confirmed'):
+    viewer = get_current_user(request)
+    if not viewer:
+        return RedirectResponse('/login', status_code=303)
+    owner_id = viewer['id'] if user_id is None else user_id
+    if not can_view_match_history(viewer, owner_id):
+        raise HTTPException(status_code=403)
+    page = max(1, page)
+    view = 'all' if user_id is not None and owner_id != viewer['id'] else (view if view in ('confirmed', 'history') else 'confirmed')
+    rows = fetch_all(_HISTORY_SQL + _VIEW_CLAUSES[view] + _HISTORY_ORDER,  # nosec B608 - fixed clause from _VIEW_CLAUSES
+                     {'owner': owner_id, 'offset': (page - 1) * 20})
 
     # P2.C: e-mail and phone are only ever shown here, once a Match
     # exists between the two people — regardless of the phone's own
@@ -101,7 +125,7 @@ def match_history(request: Request, user_id: int | None = None, page: int = 1):
         matches.append(m)
 
     response = render(request, 'match_history.html', {
-        'user': viewer, 'matches': matches, 'has_next': len(rows) > 20, 'page': page,
+        'user': viewer, 'matches': matches, 'has_next': len(rows) > 20, 'page': page, 'view': view,
         'eval_categories': list(CATEGORIES.keys()),
     })
     response.headers['Cache-Control'] = 'private, no-store'

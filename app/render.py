@@ -6,6 +6,7 @@ page and current filters; the form's CSRF token (`csrf_token` — see
 app/csrf.py); and, if someone is logged in, the unread message count
 (`unread_count`), used in the menu badge.
 """
+from app.match_service import count_pending_for_user
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
@@ -158,21 +159,7 @@ def render(request: Request, template_name: str, context: dict | None = None, st
         # else started it) + candidaturas recebidas (I'm the
         # contractor of the vacancy's listing, and the artist started
         # it) — the two cases where I'M the one who owes a response.
-        invitations_row = fetch_one(
-            """
-            SELECT count(*) AS n
-            FROM job_invitations ji
-            JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
-            JOIN listings l ON l.id = lv.listing_id
-            WHERE ji.status = 'pending' AND ji.expires_at > now()
-              AND (
-                (ji.artist_user_id = :id AND ji.initiated_by_user_id <> :id)
-                OR (l.author_id = :id AND ji.initiated_by_user_id = ji.artist_user_id)
-              )
-            """,
-            {"id": user_id},
-        )
-        context["pending_invitations_count"] = invitations_row["n"] if invitations_row else 0
+        context["pending_invitations_count"] = count_pending_for_user(user_id)
 
         # P3.F nav badge: quantos Matches dentro da janela de 14 dias eu
         # ainda não avaliei (ver app/match_evaluations.py). Não faz

@@ -1,8 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{{ t('nav_match_history') }}{% endblock %}
 {% block content %}
+{% if view == 'all' %}
 <h1>{{ t('nav_match_history') }}</h1>
+{% else %}
+{% set matches_tab = view %}
+{% include '_matches_tabs.html' %}
+{% if view == 'history' %}<p class="messenger-filters"><a href="/invitations?tab=history">{{ t('matches_past_invitations_link') }} &rarr;</a></p>{% endif %}
+{% endif %}
 <p class="field-help">{{ t('match_history_privacy') }}</p>
+{% if not matches and view != 'all' %}<p class="empty-state">{{ t('matches_confirmed_empty') if view == 'confirmed' else t('matches_history_empty') }}</p>{% endif %}
 {% if request.query_params.get('evaluated') == '1' %}<p class="success">{{ t('eval_success') }}</p>{% endif %}
 {% if request.query_params.get('eval_error') == '1' %}<p class="error">{{ t('eval_error') }}</p>{% endif %}
 {% for match in matches %}
@@ -49,7 +56,7 @@
     {% endif %}
 </article>
 {% else %}
-<p class="empty-state">{{ t('match_history_empty') }}</p>
+{% if view == 'all' %}<p class="empty-state">{{ t('match_history_empty') }}</p>{% endif %}
 {% endfor %}
 <nav class="pagination">
 {% if page > 1 %}<a href="{{ request.url.include_query_params(page=page - 1) }}">{{ t('pagination_prev') }}</a>{% endif %}

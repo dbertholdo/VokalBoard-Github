@@ -9,6 +9,13 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — item 4: menu reorganization
+- Top bar: Rechnungmaker · Jobs▾ (`_jobs_menu.html`) · People · Messages · Matches (badge = pending + evaluations) · bell · avatar▾ (`_profile_menu.html`: profile, Rewards, Admin, Log out) · language. Home link dropped (logo).
+- ONE Matches page: `_matches_tabs.html` on /invitations (Open) and /profile/matches?view=confirmed|history; `/matches` entry redirect; admin ?user_id= still sees all.
+- `match_service.count_pending_for_user` (render.py badge + /matches share it). Phone side menu = same order/partials. 8 new keys (9 langs).
+- Tests: Matches entry + views split; menu test updated; brand contract regenerated; full suite 400 passed / 7 skipped + retention; bandit clean.
+- Added 4b SEO to HANDOFF (Daniel's request).
+
 ## 2026-09-28 — Claude — 3b bots out of Analytics, 3c ticket spam
 - 3b: `app/traffic.py` — human visits only via JS beacon (POST /visit, 1/session/12 h); bots/empty UA/headless + probe paths → `bot_traffic_daily` (per day+bot, no IP/URL); Red Zone → Bot traffic (`/financeiro/bots`, level 3). Migration `2026-09-28_bot_traffic.sql` (bots unrecorded until applied).
 - 3c: bug report members-only (button + route); honeypot + 5 tickets/hour per IP and per account (`app/rate_limit.py`, in-memory); likely-spam heuristic (2 of: links, sales words, anonymous; computed live); single + bulk delete with password + audit_log.

@@ -237,3 +237,23 @@ def respond_invitation(invitation_id: int, acting_user_id: int, action: str) -> 
             ).scalars().all()
 
         return {"ok": True, "match_id": match_id, "filled_other_ids": list(filled_other_ids)}
+
+
+def count_pending_for_user(user_id: int) -> int:
+    """Invitations/applications waiting for MY answer: invites I received
+    (someone else started them) + applications to my listings. Nav badge
+    and the Matches entry point share this."""
+    with engine.connect() as conn:
+        return conn.execute(
+            text(
+                """
+                SELECT count(*) FROM job_invitations ji
+                JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
+                JOIN listings l ON l.id = lv.listing_id
+                WHERE ji.status = 'pending' AND ji.expires_at > now()
+                  AND ((ji.artist_user_id = :id AND ji.initiated_by_user_id <> :id)
+                       OR (l.author_id = :id AND ji.initiated_by_user_id = ji.artist_user_id))
+                """
+            ),
+            {"id": user_id},
+        ).scalar_one()
