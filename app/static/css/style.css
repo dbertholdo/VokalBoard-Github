@@ -3816,3 +3816,6 @@ form button.link-button:hover { color: var(--accent-dark); }
 .chat-window-composer { display: flex; align-items: flex-end; gap: var(--space-1); padding: var(--space-2); border-top: 1px solid var(--border); }
 .chat-window-composer textarea { flex: 1; min-height: 40px; resize: none; }
 @media (max-width: 1023px) { .chat-dock { display: none; } }
+
+/* Red Zone -> Bot traffic: two tables side by side, stacked on phones. */
+.admin-bot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-5); }
