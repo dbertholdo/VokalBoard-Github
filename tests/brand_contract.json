@@ -45,8 +45,7 @@
     "[\"<a\", [[\"href\", \"\\\"/profile/digital-pass\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/my-favorites\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/profile/matches\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/rechnungmaker\\\"\"]], []]": 1
+    "[\"<a\", [[\"href\", \"\\\"/profile/matches\\\"\"]], []]": 1
   },
   "_retention_warning.html": {},
   "_search_error.html": {
@@ -223,6 +222,7 @@
     "[\"<form\", [[\"data-confirm\", \"\\\"message\\\"\"]], []]": 1,
     "[\"<button\", [[\"id\", \"\\\"sidebar-toggle\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 3,
+    "[\"<a\", [[\"href\", \"\\\"/rechnungmaker\\\"\"]], []]": 3,
     "[\"<a\", [[\"href\", \"\\\"/board\\\"\"]], []]": 3,
     "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/invitations\\\"\"]], []]": 2,

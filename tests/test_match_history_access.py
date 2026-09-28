@@ -79,9 +79,10 @@ class MatchHistoryTests(unittest.TestCase):
         # Rechnungmaker. Invitations moved to the top nav, and the old
         # disabled "download" placeholder was replaced by the real
         # Digital Pass page — so no fake/disabled entry may remain.
-        self.assertEqual(source.count('<a '), 7)
+        # 2026-09-27: Rechnungmaker left this menu — it's the highlighted top-bar item now.
+        self.assertEqual(source.count('<a '), 6)
         self.assertIn('href="/profile/matches"', source)
-        self.assertIn('href="/rechnungmaker"', source)
+        self.assertNotIn('href="/rechnungmaker"', source)
         self.assertIn('href="/profile/digital-pass"', source)
         self.assertNotIn('aria-disabled="true"', source)
         self.assertNotIn('nav_profile_download', source)
