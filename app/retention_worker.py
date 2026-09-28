@@ -29,8 +29,8 @@ def run_retention(connection=None, dry_run=False):
         'listings': '(COALESCE(available_until,event_date)+30)::timestamptz',
     }
     for table, predicate in predicates.items():
-        counts[table+'_archive'] = conn.execute(text(f'SELECT count(*) FROM {table} WHERE archived_at IS NULL AND {predicate}')).scalar()
-        counts[table+'_purge'] = conn.execute(text(f"SELECT count(*) FROM {table} WHERE COALESCE(archived_at,{archive_dates[table]})+interval '60 days' <= now()")).scalar()
+        counts[table+'_archive'] = conn.execute(text(f'SELECT count(*) FROM {table} WHERE archived_at IS NULL AND {predicate}')).scalar()  # nosec B608 - table/predicate from the fixed dicts above
+        counts[table+'_purge'] = conn.execute(text(f"SELECT count(*) FROM {table} WHERE COALESCE(archived_at,{archive_dates[table]})+interval '60 days' <= now()")).scalar()  # nosec B608 - fixed literals
     # Central de Notificações (19/09/2026, task #50) — Daniel: "mesmo
     # espírito do Zero-Storage": READ notifications older than 30 days
     # get purged; UNREAD ones are never touched no matter how old, so

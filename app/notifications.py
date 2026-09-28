@@ -77,13 +77,11 @@ def _matching_recipients(listing_type: str, author_id: int, voice_type_ids: list
             f"SELECT email, full_name, preferred_language FROM users WHERE {' AND '.join(conditions)}", params  # nosec B608
         )
     elif listing_type == "seeking_conductor":
+        conditions = ["role = 'conductor'", "email_verified = TRUE", "notify_matches = TRUE",
+                      "deleted_at IS NULL", "id != :author_id", _NOT_BLOCKED]
+        # Fixed fragments only; every value is a bound parameter.
         return fetch_all(
-            """
-            SELECT email, full_name, preferred_language FROM users
-            WHERE role = 'conductor' AND email_verified = TRUE AND notify_matches = TRUE
-                AND deleted_at IS NULL AND id != :author_id AND """ + _NOT_BLOCKED + """
-            """,  # nosec B608 - _NOT_BLOCKED is a fixed fragment
-            {"author_id": author_id},
+            f"SELECT email, full_name, preferred_language FROM users WHERE {' AND '.join(conditions)}", {"author_id": author_id}  # nosec B608
         )
     return []
 

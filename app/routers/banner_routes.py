@@ -31,8 +31,7 @@ def index(request: Request, state: str = 'active', edit: int = 0, page: int = 1)
                'deleted': 'deleted_at IS NOT NULL', 'all': 'TRUE'}
     state = state if state in clauses else 'active'
     page = max(1, page)
-    rows = fetch_all('SELECT * FROM site_banners WHERE ' + clauses[state] +
-                     ' ORDER BY id DESC LIMIT 21 OFFSET :offset', {'offset': (page - 1) * 20})
+    rows = fetch_all(f'SELECT * FROM site_banners WHERE {clauses[state]} ORDER BY id DESC LIMIT 21 OFFSET :offset', {'offset': (page - 1) * 20})  # nosec B608 - clause from the fixed dict above
     return render(request, 'admin_banners.html', {
         'user': user, 'banners': rows[:20], 'has_next': len(rows) > 20,
         'page': page, 'state': state, 'states': STATES, 'audiences': AUDIENCES,
@@ -85,7 +84,7 @@ def change(request: Request, banner_id: int, action: str, csrf_token: str = Form
         raise HTTPException(404)
     assignment, condition = updates[action]
     with engine.begin() as conn:
-        row = conn.execute(text(f'UPDATE site_banners SET {assignment}, updated_at=now() WHERE id=:id AND {condition} RETURNING id'), {'id': banner_id}).first()
+        row = conn.execute(text(f'UPDATE site_banners SET {assignment}, updated_at=now() WHERE id=:id AND {condition} RETURNING id'), {'id': banner_id}).first()  # nosec B608 - fixed pairs from `updates`
         if not row:
             raise HTTPException(404)
         audit(conn, request, user, action, banner_id)

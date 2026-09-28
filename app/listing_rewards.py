@@ -71,7 +71,7 @@ def find_reward_eligible_listings(conn) -> list:
     (MIN_ACTIVE_HOURS_BEFORE_REWARD have passed since creation)."""
     rows = conn.execute(
         text(
-            f"""
+            """
             SELECT l.id, l.author_id, l.listing_type
             FROM listings l
             WHERE l.is_active = TRUE AND l.deleted_at IS NULL AND l.archived_at IS NULL
@@ -79,10 +79,11 @@ def find_reward_eligible_listings(conn) -> list:
                   SELECT 1 FROM credit_ledger cl
                   WHERE cl.idempotency_key = 'listing_posted:' || l.id
               )
-              AND (l.is_urgent = TRUE OR l.created_at <= now() - interval '{MIN_ACTIVE_HOURS_BEFORE_REWARD} hours')
+              AND (l.is_urgent = TRUE OR l.created_at <= now() - make_interval(hours => :min_hours))
             ORDER BY l.created_at
             """
-        )
+        ),
+        {"min_hours": MIN_ACTIVE_HOURS_BEFORE_REWARD},
     ).mappings().all()
     return list(rows)
 

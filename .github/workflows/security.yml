@@ -20,7 +20,7 @@ jobs:
     # banco real, não uma simulação.
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: vokalboard_ci
           POSTGRES_PASSWORD: vokalboard_ci
@@ -41,12 +41,12 @@ jobs:
 
     steps:
       - name: Baixar o código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configurar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: "pip"
 
       - name: Instalar dependências

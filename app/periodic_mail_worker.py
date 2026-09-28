@@ -31,6 +31,9 @@ from app.email import send_email
 
 log = logging.getLogger(__name__)
 
+# Interval per frequency, passed as a bound parameter (never pasted into SQL).
+_FREQUENCY_STEP = {"daily": "1 day", "weekly": "7 days", "monthly": "1 month"}
+
 _FREQUENCY_INTERVAL_SQL = {
     "daily": "interval '1 day'",
     "weekly": "interval '7 days'",
@@ -77,18 +80,15 @@ def run_periodic_mails(connection=None, dry_run=False):
         for recipient in recipients:
             send_email(recipient["email"], mail["subject"], mail["body_html"])
             emails_sent += 1
-        # nosec B608 - _FREQUENCY_INTERVAL_SQL[...] is one of 3 fixed literal strings
-        # (frequency is a DB CHECK-constrained column, never request input at this
-        # point); the id is a bound param.
         conn.execute(
             text(
-                f"""
+                """
                 UPDATE periodic_mails
-                SET last_sent_at = now(), next_send_at = now() + {_FREQUENCY_INTERVAL_SQL[mail["frequency"]]}
+                SET last_sent_at = now(), next_send_at = now() + CAST(:step AS interval)
                 WHERE id = :id
                 """
             ),
-            {"id": mail["id"]},
+            {"id": mail["id"], "step": _FREQUENCY_STEP[mail["frequency"]]},
         )
     return {"mails_sent": len(due), "emails_sent": emails_sent}
 

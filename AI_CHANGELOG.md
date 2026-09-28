@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — B5: GitHub Actions green again
+- Cause: `bandit -r app -ll` exited 1 on 7 medium B608 findings (all false positives).
+- listing_rewards, notifications, periodic_mail_worker: SQL rebuilt with bound parameters; retention_worker, banner_routes: `# nosec B608` on the flagged lines.
+- `.github/workflows/security.yml`: checkout@v5, setup-python@v6, Python 3.12, Postgres 18 (match production).
+- Tests: 378 passed / 7 skipped + retention 10 passed (docker). Next: B1 Match flow.
+
 ## 2026-09-27 — Claude — cleanup section 7 (admin): English, refund re-auth, user tabs
 - User page split into tabs (`?tab=account|notas|reviews|moderation|danger`, no JS); action redirects land on the right tab; times via `local_time`.
 - Password re-check (+ failed-attempt audit) on BOTH Notas refunds (`/admin/users/{id}/refund-notas/…` was level-2 with no check; `/financeiro/estornos/notas/…`).
