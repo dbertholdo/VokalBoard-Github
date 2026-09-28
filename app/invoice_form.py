@@ -24,7 +24,7 @@ FIELDS = (
     "number", "issue_date", "service_date", "service_description",
     "net_amount", "expense_travel_amount", "expense_lodging_amount",
     "tax_option", "tax_custom_rate", "tax_custom_name", "tax_extra_note",
-    "payment_terms", "iban", "bic",
+    "payment_terms", "iban", "bic", "girocode",
 )
 
 
@@ -49,6 +49,7 @@ def normalize(values: dict, default_country: str = "DE") -> dict:
     v["tax_option"] = find_option(country, v["tax_option"] or default_option(country))["key"]
     for amount in ("expense_travel_amount", "expense_lodging_amount"):
         v[amount] = v[amount] or "0"
+    v["girocode"] = "1" if v["girocode"] in ("1", "on", "true") else ""
     return v
 
 
@@ -65,6 +66,7 @@ def to_document(v: dict) -> InvoiceDocument:
         v["expense_travel_amount"], v["expense_lodging_amount"],
         country=v["country"], doc_lang=v["doc_lang"], tax_name=tax["name"],
         client_vat_id=v["client_vat_id"] if tax["client_vat_required"] else "",
+        girocode="1" if v.get("girocode") else "",
     )
     document.validate()
     return document

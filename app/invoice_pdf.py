@@ -29,10 +29,11 @@ from pathlib import Path
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Flowable, Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
+from app import invoice_qr as qr
 from app.invoice_countries import (
     CURRENCIES, DOC_LABELS, country_or_default, doc_lang_or_default, format_amount, format_date, tax_id_label, tax_name,
 )
@@ -85,6 +86,9 @@ class InvoiceDocument:
     doc_lang: str = "de"
     tax_name: str = ""
     client_vat_id: str = ""
+    # Phase 2 (2026-09-28): "1" = add a GiroCode (EUR + SEPA IBAN). The Swiss
+    # QR-bill needs no switch — it's added whenever it can be (app/invoice_qr.py).
+    girocode: str = ""
 
     @property
     def country_code(self) -> str:
@@ -198,6 +202,35 @@ def _header_flowable(styles, title: str = "Rechnung"):
     return header
 
 
+# Caption under the GiroCode, per invoice language.
+_GIROCODE_CAPTION = {
+    "de": "GiroCode: mit der Banking-App scannen und überweisen.",
+    "en": "GiroCode: scan with your banking app to pay.",
+    "fr": "GiroCode : scannez avec votre application bancaire pour payer.",
+    "it": "GiroCode: scansiona con l'app della tua banca per pagare.",
+}
+
+
+class _PageBottomDrawing(Flowable):
+    """Draws a drawing at the page's bottom-left corner (the Swiss QR-bill
+    payment part must sit exactly at the bottom of an A4 page, full width)."""
+
+    def __init__(self, drawing):
+        super().__init__()
+        self.drawing = drawing
+
+    def wrap(self, avail_width, avail_height):
+        return avail_width, 1
+
+    def draw(self):
+        from reportlab.graphics import renderPDF
+        x, y = self.canv.absolutePosition(0, 0)
+        self.canv.saveState()
+        self.canv.translate(-x, -y)
+        renderPDF.draw(self.drawing, self.canv, 0, 0)
+        self.canv.restoreState()
+
+
 def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     net, tax, travel, lodging, total = invoice.validate()
     styles = _styles()
@@ -299,13 +332,36 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
 
     # Notes — Lieferbedingung-equivalent: tax note, payment terms, IBAN/BIC.
     notes = [value for value in [invoice.tax_note, invoice.payment_terms, f"IBAN: {invoice.iban}" if invoice.iban else "", f"BIC: {invoice.bic}" if invoice.bic else ""] if value]
-    if notes:
-        story.extend([Spacer(1, 9 * mm), Paragraph("<br/>".join(_escape(note) for note in notes), styles["notes"])])
+    notes_block = Paragraph("<br/>".join(_escape(note) for note in notes), styles["notes"]) if notes else None
+    girocode = None
+    if invoice.girocode and qr.girocode_eligible(invoice.currency, invoice.iban):
+        payload = qr.epc_payload(invoice.issuer_name, invoice.iban, invoice.bic, total,
+                                 f"{labels['number']} {invoice.number}")
+        girocode = Table([[qr.girocode_drawing(payload)], [Paragraph(_escape(_GIROCODE_CAPTION[invoice.lang]), styles["notes"])]],
+                         colWidths=[42 * mm])
+        girocode.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("ALIGN", (0, 0), (-1, -1), "CENTER")]))
+    if notes_block or girocode:
+        story.append(Spacer(1, 9 * mm))
+        if girocode:
+            side = Table([[notes_block or "", girocode]], colWidths=[125 * mm, 45 * mm])
+            side.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+            story.append(side)
+        else:
+            story.append(notes_block)
 
     # Assinatura no rodapé (to-do do P4, adicionada em 18/09/2026) — mesmo
     # texto/estilo nos dois fluxos (Avulso e Match), já que os dois passam
     # por esta mesma função de render.
     story.extend([Spacer(1, 12 * mm), Paragraph(_INVOICE_FOOTER_TEXT, styles["footer"])])
+
+    # Swiss QR-bill on its own last page (payment part + receipt at the bottom).
+    swiss = qr.swiss_bill_drawing(
+        iban=invoice.iban, currency=invoice.currency, amount=total, creditor_name=invoice.issuer_name,
+        creditor_address=invoice.issuer_address, creditor_country="CH" if country == "CH" else "",
+        message=f"{labels['number']} {invoice.number}", lang=invoice.lang,
+    )
+    if swiss is not None:
+        story.extend([PageBreak(), _PageBottomDrawing(swiss)])
     document.build(story)
     return stream.getvalue()
 

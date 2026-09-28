@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — 6c flags + 6 payment QR codes
+- 6c: language menu uses SVG flags (flag-icons 7.2.3, MIT; `app/static/img/flags/` + MANIFEST/LICENSE) instead of emoji.
+- 6: `app/invoice_qr.py` — Swiss QR-bill (qrbill → SVG → svglib drawing, own last page, doc language; skipped for QR-IBAN/unreadable address), GiroCode EPC QR (ReportLab widget) via new `girocode` checkbox; IBAN check with python-stdnum. New pinned deps in requirements.txt (pip-audit clean).
+- 3 new texts × 9 langs (checkbox, "?", QR-bill note). Tests: tests/test_invoice_qr.py (5); full suite + bandit green.
+
 ## 2026-09-28 — Claude — 5b: cancel a confirmed Match, warnings, 30-day block, lift block
 - `app/match_cancellation.py`: rules (7-day window, reason ≥ 50), cancel transaction (slot −1, listing active, invoice draft deleted, urgency reward debited), warn/dismiss, 3 warnings → `matches_blocked_until` +30 d, `lift_block` (Daniel's "unban").
 - Blocked users can't apply/invite (`create_invitation`) or accept (`respond_invitation`) → `invitation_error_blocked`.

@@ -29,16 +29,17 @@ DEFAULT_LANGUAGE = "de"
 # Flag + native label for each supported language, used by the
 # dropdown switcher in base.html (kept here so there's one place to
 # add a language, instead of duplicating this list in the template).
+# flag_img: SVG in app/static/img/flags/ (flag-icons, MIT — emoji flags don't render on Windows).
 LANGUAGE_META = {
-    "de": {"flag": "🇩🇪", "label": "DE"},
-    "en": {"flag": "🇬🇧", "label": "EN"},
-    "fr": {"flag": "🇫🇷", "label": "FR"},
-    "it": {"flag": "🇮🇹", "label": "IT"},
-    "pt": {"flag": "🇧🇷", "label": "PT"},
-    "es": {"flag": "🇪🇸", "label": "ES"},
-    "zh": {"flag": "🇨🇳", "label": "中文"},
-    "ko": {"flag": "🇰🇷", "label": "한국어"},
-    "ro": {"flag": "🇷🇴", "label": "RO"},
+    "de": {"flag": "🇩🇪", "flag_img": "de", "label": "DE"},
+    "en": {"flag": "🇬🇧", "flag_img": "gb", "label": "EN"},
+    "fr": {"flag": "🇫🇷", "flag_img": "fr", "label": "FR"},
+    "it": {"flag": "🇮🇹", "flag_img": "it", "label": "IT"},
+    "pt": {"flag": "🇧🇷", "flag_img": "br", "label": "PT"},
+    "es": {"flag": "🇪🇸", "flag_img": "es", "label": "ES"},
+    "zh": {"flag": "🇨🇳", "flag_img": "cn", "label": "中文"},
+    "ko": {"flag": "🇰🇷", "flag_img": "kr", "label": "한국어"},
+    "ro": {"flag": "🇷🇴", "flag_img": "ro", "label": "RO"},
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
@@ -281,6 +282,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "notification_match_cancel_review": {"de": "Match abgesagt von {name} – bitte prüfen", "en": "Match cancelled by {name} — please review", "fr": "Match annulé par {name} — à examiner", "it": "Match annullato da {name} — da verificare", "pt": "Match cancelado por {name} — revisar"},
     "notification_match_warning": {"de": "Verwarnung für eine Match-Absage ({n} von 3)", "en": "Warning for a Match cancellation ({n} of 3)", "fr": "Avertissement pour l'annulation d'un Match ({n} sur 3)", "it": "Avviso per l'annullamento di un Match ({n} su 3)", "pt": "Advertência por cancelar um Match ({n} de 3)"},
     "notification_match_blocked": {"de": "3 Verwarnungen: bis {date} keine neuen Matches", "en": "3 warnings: no new Matches until {date}", "fr": "3 avertissements : pas de nouveau Match avant le {date}", "it": "3 avvisi: nessun nuovo Match fino al {date}", "pt": "3 advertências: sem novos Matches até {date}"},
+    # Rechnungmaker phase 2 (2026-09-28): payment QR codes.
+    "invc_girocode": {"de": "GiroCode hinzufügen (QR zum Bezahlen per Banking-App)", "en": "Add a GiroCode (QR code to pay with a banking app)", "fr": "Ajouter un GiroCode (QR code pour payer avec l'appli bancaire)", "it": "Aggiungi un GiroCode (QR per pagare con l'app della banca)", "pt": "Adicionar GiroCode (QR para pagar pelo app do banco)"},
+    "invh_girocode": {"de": "Ein QR-Code auf der Rechnung: Die Kund:in scannt ihn mit der Banking-App, und Name, IBAN, Betrag und Rechnungsnummer sind schon ausgefüllt. Nur für EUR und eine gültige SEPA-IBAN.", "en": "A QR code on the invoice: your client scans it with their banking app and your name, IBAN, amount and invoice number are filled in. Only for EUR and a valid SEPA IBAN.", "fr": "Un QR code sur la facture : le client le scanne avec son appli bancaire et votre nom, IBAN, montant et numéro de facture sont remplis. Uniquement en EUR avec un IBAN SEPA valide.", "it": "Un QR sulla fattura: il cliente lo scansiona con l'app della banca e nome, IBAN, importo e numero di fattura sono già compilati. Solo in EUR con un IBAN SEPA valido.", "pt": "Um QR code na fatura: o cliente escaneia com o app do banco e seu nome, IBAN, valor e número da fatura já vêm preenchidos (parecido com o Pix). Só para EUR e IBAN SEPA válido."},
+    "invc_qrbill_note": {"de": "Mit einer Schweizer IBAN (CH/LI) und CHF oder EUR kommt der offizielle QR-Einzahlungsschein automatisch auf eine eigene letzte Seite – schreib deine Adresse dafür als „Strasse Nr.“ und darunter „PLZ Ort“.", "en": "With a Swiss IBAN (CH/LI) and CHF or EUR, the official Swiss QR-bill is added automatically on its own last page — write your address as \"Street No\" with \"Postcode City\" below it.", "fr": "Avec un IBAN suisse (CH/LI) et en CHF ou EUR, la QR-facture suisse officielle est ajoutée automatiquement sur une dernière page — écrivez votre adresse sous la forme « Rue n° » puis « NPA Localité ».", "it": "Con un IBAN svizzero (CH/LI) e CHF o EUR, la QR-fattura svizzera ufficiale viene aggiunta automaticamente su un'ultima pagina — scrivi l'indirizzo come «Via n.» e sotto «NPA Località».", "pt": "Com IBAN suíço (CH/LI) e CHF ou EUR, o boleto oficial suíço (QR-bill) é incluído automaticamente numa última página — escreva o endereço como \"Rua nº\" e, abaixo, \"CEP Cidade\"."},
     "nav_rechnungmaker": {"de": "Rechnungmaker", "en": "Invoice Maker", "fr": "Créateur de factures", "it": "Generatore di fatture", "pt": "Gerador de Faturas (NF)"},
     "rechnungmaker_tab_match": {"de": "Match-Rechnungen", "en": "Match invoices", "fr": "Factures de Match", "it": "Fatture da Match", "pt": "Faturas de Match"},
     "rechnungmaker_tab_avulso": {"de": "Freier Rechnungsgenerator", "en": "Standalone generator", "fr": "Générateur libre", "it": "Generatore libero", "pt": "Gerador Avulso"},

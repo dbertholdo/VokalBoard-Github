@@ -334,10 +334,10 @@
                 <a href="/register">{{ t('nav_register') }}</a>
             {% endif %}
             <details class="lang-switch-dropdown">
-                <summary>{{ language_meta[lang].flag }} {{ language_meta[lang].label }}</summary>
+                <summary><img class="lang-flag" src="/static/img/flags/{{ language_meta[lang].flag_img }}.svg" alt="" width="20" height="15"> {{ language_meta[lang].label }}</summary>
                 <div class="lang-switch-menu">
                     {% for code in supported_languages %}
-                        <a href="{{ lang_urls[code] }}" class="{{ 'active' if lang == code else '' }}">{{ language_meta[code].flag }} {{ language_meta[code].label }}</a>
+                        <a href="{{ lang_urls[code] }}" class="{{ 'active' if lang == code else '' }}" lang="{{ code }}"><img class="lang-flag" src="/static/img/flags/{{ language_meta[code].flag_img }}.svg" alt="" width="20" height="15" loading="lazy"> {{ language_meta[code].label }}</a>
                     {% endfor %}
                 </div>
             </details>

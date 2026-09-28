@@ -40,7 +40,8 @@
     "[\"<textarea\", [[\"id\", \"\\\"inv-tax_extra_note\\\"\"], [\"maxlength\", \"\\\"500\\\"\"], [\"name\", \"\\\"tax_extra_note\\\"\"]], []]": 1,
     "[\"<textarea\", [[\"id\", \"\\\"inv-payment_terms\\\"\"], [\"name\", \"\\\"payment_terms\\\"\"]], []]": 1,
     "[\"<input\", [[\"id\", \"\\\"inv-iban\\\"\"], [\"name\", \"\\\"iban\\\"\"]], []]": 1,
-    "[\"<input\", [[\"id\", \"\\\"inv-bic\\\"\"], [\"name\", \"\\\"bic\\\"\"]], []]": 1
+    "[\"<input\", [[\"id\", \"\\\"inv-bic\\\"\"], [\"name\", \"\\\"bic\\\"\"]], []]": 1,
+    "[\"<input\", [[\"id\", \"\\\"inv-girocode\\\"\"], [\"name\", \"\\\"girocode\\\"\"], [\"type\", \"\\\"checkbox\\\"\"]], []]": 1
   },
   "_invoice_preview.html": {
     "[\"<form>\", [], []]": 1
@@ -118,6 +119,19 @@
     "[\"<form\", [[\"action\", \"\\\"/financeiro/bots\\\"\"], [\"method\", \"\\\"get\\\"\"]], []]": 1,
     "[\"<select\", [[\"name\", \"\\\"days\\\"\"]], []]": 1,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
+  },
+  "admin_cancellations.html": {
+    "[\"<a\", [[\"href\", \"\\\"/admin/cancellations\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/cancellations?show=all\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ c.cancelled_by }}\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/cancellations/{{ c.id }}/warn\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
+    "[\"<input\", [[\"maxlength\", \"\\\"1000\\\"\"], [\"name\", \"\\\"note\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"current_password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\"]]": 2,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 3,
+    "[\"<form\", [[\"action\", \"\\\"/admin/cancellations/{{ c.id }}/dismiss\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ u.id }}\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/match-blocks/{{ u.id }}/lift\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
   },
   "admin_emails.html": {
     "[\"<a\", [[\"href\", \"\\\"/admin/emails?tab=form\\\"\"]], []]": 1,
@@ -562,10 +576,12 @@
   },
   "match_history.html": {
     "[\"<a\", [[\"href\", \"\\\"/invitations?tab=history\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/profile/matches/{{ match.id }}/cancel\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
+    "[\"<textarea\", [[\"id\", \"\\\"cancel-reason-{{ match.id }}\\\"\"], [\"maxlength\", \"\\\"2000\\\"\"], [\"minlength\", \"\\\"{{ reason_min }}\\\"\"], [\"name\", \"\\\"reason\\\"\"]], [\"required\"]]": 1,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 2,
     "[\"<form\", [[\"action\", \"\\\"/profile/matches/{{ match.id }}/evaluate\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<select\", [[\"name\", \"\\\"{{ cat }}\\\"\"]], [\"required\"]]": 1,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/rechnungmaker?tab=match\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"{{ request.url.include_query_params(page=page - 1) }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"{{ request.url.include_query_params(page=page + 1) }}\\\"\"]], []]": 1

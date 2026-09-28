@@ -97,6 +97,14 @@
     {% call field('payment_terms', t('inv_payment_terms')) %}<textarea id="inv-payment_terms" name="payment_terms" aria-describedby="invh-payment_terms">{{ v.payment_terms }}</textarea>{% endcall %}
     {% call field('iban', 'IBAN') %}<input id="inv-iban" name="iban" value="{{ v.iban }}" autocomplete="off" aria-describedby="invh-iban">{% endcall %}
     {% call field('bic', 'BIC') %}<input id="inv-bic" name="bic" value="{{ v.bic }}" autocomplete="off" aria-describedby="invh-bic">{% endcall %}
+    {# Phase 2 (2026-09-28): payment QR codes (app/invoice_qr.py). #}
+    <div class="inv-field inv-check">
+        <div class="inv-label-row">
+            <label><input type="checkbox" id="inv-girocode" name="girocode" value="1" {% if v.girocode %}checked{% endif %} aria-describedby="invh-girocode"> {{ t('invc_girocode') }}</label>
+            {{ help('girocode') }}
+        </div>
+    </div>
+    <p class="field-help inv-check">{{ t('invc_qrbill_note') }}</p>
 </fieldset>
 <p class="field-help inv-disclaimer">{{ t('invc_disclaimer') }}</p>
 {% endmacro %}
