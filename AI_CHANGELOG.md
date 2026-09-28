@@ -9,6 +9,13 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — bugs B1–B4 (Match flow, mascot link, chat Enter, archive)
+- B1: listing page shows the author's applications with Accept/Decline (`_candidacy_list.html`, `vacancies.get_listing_invitations`); "I'm available!" button; wrong-role hint.
+- B2: all mascot nudges link somewhere; hover/focus pauses the hide. B3: Enter sends on /messages (messenger.js).
+- B4: Archived tab + Unarchive (`messenger.unarchive_conversation`, folder "archived"); "Hide" renamed "Archive".
+- 9 new/changed i18n keys (9 langs), CJK fonts re-subset; cache: style 20260928-1, messenger.js 20260928-1, fonts-cjk 20260928-1.
+- Tests: new test_listing_match_flow.py + archive tests; full suite 382 passed / 7 skipped + retention. Next: item 1 (translate Rechnungmaker name).
+
 ## 2026-09-28 — Claude — B5: GitHub Actions green again
 - Cause: `bandit -r app -ll` exited 1 on 7 medium B608 findings (all false positives).
 - listing_rewards, notifications, periodic_mail_worker: SQL rebuilt with bound parameters; retention_worker, banner_routes: `# nosec B608` on the flagged lines.

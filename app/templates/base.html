@@ -51,9 +51,9 @@
     <link rel="icon" type="image/svg+xml" href="/static/img/brand/icon-small-navy.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/img/brand/icon-32.png">
     <link rel="apple-touch-icon" href="/static/img/brand/icon-256.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=20260927-6">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260928-1">
     <link rel="stylesheet" href="/static/css/brand.css?v=20260927-2">
-    {% if lang in ("zh", "ko") %}<link rel="stylesheet" href="/static/css/fonts-cjk.css?v=20260927-4">{% endif %}
+    {% if lang in ("zh", "ko") %}<link rel="stylesheet" href="/static/css/fonts-cjk.css?v=20260928-1">{% endif %}
 
     {# ------------------------------------------------------------
        Mascot moment toast helper (Part 2 backlog item 4, 19/09/2026) —
@@ -95,6 +95,15 @@
                 wrap.style.cursor = 'pointer';
                 wrap.addEventListener('click', function () { window.location.href = opts.href; });
                 wrap.addEventListener('keydown', function (e) { if (e.key === 'Enter') window.location.href = opts.href; });
+                // B2 (2026-09-28): a clickable toast stays while hovered/focused,
+                // so it can't slide away under the pointer mid-click.
+                var hideTimer = null;
+                function pause() { clearTimeout(hideTimer); }
+                function resume() { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 1500); }
+                wrap.addEventListener('mouseenter', pause);
+                wrap.addEventListener('focus', pause);
+                wrap.addEventListener('mouseleave', resume);
+                wrap.addEventListener('blur', resume);
             }
 
             var img = document.createElement('img');
@@ -119,7 +128,8 @@
                         wrap.classList.add('vb-mascot-toast-visible');
                     });
                 });
-                setTimeout(hide, visibleMs);
+                if (opts.href) hideTimer = setTimeout(hide, visibleMs);
+                else setTimeout(hide, visibleMs);
             }
             if (document.body) attach();
             else document.addEventListener('DOMContentLoaded', attach);
@@ -554,11 +564,10 @@
             queue.push([
                 '/static/img/mascot/mascot-attentive.png',
                 {{ t(mascot_reminder_key).replace('{name}', (user.full_name if user else '')) | tojson }},
-                3000,
-                {# P2 cluster (19/09/2026): the "incomplete profile" nudge
-                   is the one reminder with somewhere useful to send you —
-                   opens the Profile Wizard instead of just disappearing. #}
-                {% if mascot_reminder_key == 'mascot_reminder_profile' %}{href: '/profile/wizard'}{% else %}{}{% endif %},
+                6000,
+                {# B2 (2026-09-28): every nudge opens the page it talks about
+                   (was: only the profile one). Longer hold since it's a link. #}
+                {href: {{ {'mascot_reminder_profile': '/profile/wizard', 'mascot_reminder_evaluation': '/profile/matches', 'mascot_reminder_invitation': '/invitations?tab=pending'}.get(mascot_reminder_key, '/profile') | tojson }}},
             ]);
             {% endif %}
             if (!queue.length) return;
@@ -579,6 +588,6 @@
 {# Messenger desktop dock (M5): popup bubble + small chat windows; hidden <1024px via CSS. #}
 <div id="vb-chat-dock" class="chat-dock" data-csrf="{{ csrf_token }}" data-label-minimize="{{ t('messenger_minimize') }}" data-label-close="{{ t('messenger_close') }}" data-label-send="{{ t('message_send') }}" data-label-open="{{ t('messenger_open_full') }}" data-label-new="{{ t('messenger_new_message_from') }}" data-label-error="{{ t('messenger_window_error') }}" data-placeholder="{{ t('messenger_composer_placeholder') }}"></div>
 {% endif %}
-{% if user %}<script src="/static/js/messenger.js?v=20260927-1" defer></script>{% endif %}
+{% if user %}<script src="/static/js/messenger.js?v=20260928-1" defer></script>{% endif %}
 </body>
 </html>

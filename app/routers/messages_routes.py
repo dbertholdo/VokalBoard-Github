@@ -25,7 +25,7 @@ router = APIRouter()
 
 def _page(request: Request, user: dict, folder: str, only_unread: bool, conversation: dict | None = None,
           listing_id: int | None = None, notice: str = ""):
-    folder = folder if folder in ("inbox", "requests") else "inbox"
+    folder = folder if folder in ("inbox", "requests", "archived") else "inbox"
     context = {
         "user": user,
         "folder": folder,
@@ -37,6 +37,7 @@ def _page(request: Request, user: dict, folder: str, only_unread: bool, conversa
     if conversation:
         conversation = dict(conversation)
         conversation["days_left"] = messenger.days_left(conversation["last_activity_at"])
+        conversation["archived"] = messenger.is_archived(conversation, user["id"])
         context["conversation"] = conversation
         other_id = conversation["user_high_id"] if conversation["user_low_id"] == user["id"] else conversation["user_low_id"]
         context.update({
@@ -169,7 +170,12 @@ def decline(request: Request, conversation_id: int, csrf_token: str = Form("")):
 
 @router.post("/messages/c/{conversation_id}/hide")
 def hide(request: Request, conversation_id: int, csrf_token: str = Form("")):
-    return _conversation_action(request, conversation_id, csrf_token, messenger.hide_conversation, "/messages")
+    return _conversation_action(request, conversation_id, csrf_token, messenger.hide_conversation, "/messages?folder=archived")
+
+
+@router.post("/messages/c/{conversation_id}/unarchive")
+def unarchive(request: Request, conversation_id: int, csrf_token: str = Form("")):
+    return _conversation_action(request, conversation_id, csrf_token, messenger.unarchive_conversation, f"/messages/c/{conversation_id}")
 
 
 @router.post("/messages/{message_id}/report")

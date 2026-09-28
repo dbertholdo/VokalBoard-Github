@@ -97,6 +97,18 @@ def test_hide_until_the_next_message(client):
     assert _folder_ids(a, "inbox") == [conv]
 
 
+def test_archived_folder_and_unarchive(client):
+    a, b = _users(client)
+    m.send_message(a, b, "Hi")
+    _, conv = m.send_message(b, a, "Hi")
+    assert _folder_ids(a, "archived") == []
+    m.hide_conversation(a, conv)
+    assert _folder_ids(a, "archived") == [conv]
+    assert _folder_ids(b, "archived") == []  # per side
+    assert m.unarchive_conversation(a, conv)
+    assert _folder_ids(a, "archived") == [] and _folder_ids(a, "inbox") == [conv]
+
+
 def test_report_message_snapshot_and_permissions(client):
     a, b = _users(client)
     m.send_message(a, b, "Rude text")

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Form, BackgroundTasks, HTTPException
+from app.vacancies import get_listing_invitations
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 
 from app.database import fetch_all, fetch_one, execute
@@ -641,9 +642,17 @@ def listing_detail(request: Request, listing_id: int):
         )
         already_reported = reported is not None
 
+    # B1 (2026-09-28): the author answers applications right on the
+    # listing page instead of hunting for /listings/{id}/candidates.
+    author_candidacies = []
+    if user and listing and user["id"] == listing["author_id"] and vacancies:
+        author_candidacies = get_listing_invitations(listing_id)[0]
+
     context = {
         "user": user,
         "listing": listing,
+        "author_candidacies": author_candidacies,
+        "responded": request.query_params.get("responded"),
         "already_messaged": already_messaged,
         "is_saved": is_saved,
         "already_reported": already_reported,

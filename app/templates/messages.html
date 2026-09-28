@@ -12,6 +12,7 @@
         <div class="message-tabs">
             <a href="/messages" class="{{ 'active' if folder == 'inbox' else '' }}">{{ t('messages_tab_inbox') }}{% if counts.inbox %} <span class="badge-count">{{ counts.inbox }}</span>{% endif %}</a>
             <a href="/messages?folder=requests" class="{{ 'active' if folder == 'requests' else '' }} {{ 'messenger-requests-new' if counts.requests else '' }}">{{ t('messenger_tab_requests') }}{% if counts.requests %} <span class="badge-count">{{ counts.requests }}</span>{% endif %}</a>
+            <a href="/messages?folder=archived" class="{{ 'active' if folder == 'archived' else '' }}">{{ t('messenger_tab_archived') }}</a>
         </div>
         <div class="messenger-filters">
             <a href="/messages?folder={{ folder }}" class="{{ '' if only_unread else 'active' }}">{{ t('messenger_filter_all') }}</a>
@@ -19,7 +20,7 @@
         </div>
 
         {% if conversations|length == 0 %}
-            <p class="empty-state">{{ t('messenger_empty_requests') if folder == 'requests' else t('messenger_empty_inbox') }}</p>
+            <p class="empty-state">{{ t('messenger_empty_requests') if folder == 'requests' else (t('messenger_empty_archived') if folder == 'archived' else t('messenger_empty_inbox')) }}</p>
         {% else %}
             <ul class="messenger-conversations">
                 {% for c in conversations %}
@@ -53,9 +54,9 @@
                 {% set retention_days = conversation.days_left %}
                 {% include '_retention_warning.html' %}
                 <span class="messenger-thread-actions">
-                    <form method="post" action="/messages/c/{{ conversation.id }}/hide">
+                    <form method="post" action="/messages/c/{{ conversation.id }}/{{ 'unarchive' if conversation.archived else 'hide' }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="link-button">{{ t('messenger_hide') }}</button>
+                        <button type="submit" class="link-button">{{ t('messenger_unarchive') if conversation.archived else t('messenger_hide') }}</button>
                     </form>
                     <form method="post" action="/users/{{ other.id }}/block" data-confirm="{{ t('messenger_block') }}?">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

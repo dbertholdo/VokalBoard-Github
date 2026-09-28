@@ -92,14 +92,33 @@
                             {% elif v.filled_slots < v.total_slots %}
                                 <form method="post" action="/vacancies/{{ v.id }}/apply" class="vacancy-apply-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <button type="submit" class="button-link button-primary">{{ t('invitation_apply_button') }}</button>
+                                    <button type="submit" class="button-link button-primary vacancy-apply-button">{{ t('invitation_available_button') }}</button>
                                 </form>
                             {% endif %}
                         {% endif %}
                     </li>
                 {% endfor %}
             </ul>
+            {% if user and user.id != listing.author_id and not can_apply %}
+                <p class="field-help">{{ t('apply_only_singers' if listing.listing_type == 'seeking_singer' else 'apply_only_conductors') }}</p>
+            {% endif %}
         </div>
+        {% if user and user.id == listing.author_id %}
+            {% if responded == 'accepted' %}
+                <div class="match-celebrate">
+                    <img class="mascot-inline mascot-inline-celebrate" src="/static/img/mascot/mascot-celebrating.png" alt="">
+                    <p class="success">{{ t('invitation_responded_accepted') }}</p>
+                </div>
+            {% elif responded == 'declined' %}<p class="success">{{ t('invitation_responded_declined') }}</p>{% endif %}
+            <section class="listing-vacancies-box listing-author-candidates" id="candidates">
+                <h3>{{ t('listing_candidates_applications_title') }}</h3>
+                <p class="field-help">{{ t('listing_author_candidates_help') }}</p>
+                {% set candidacies = author_candidacies %}
+                {% set next_url = '/listings/' ~ listing.id %}
+                {% include "_candidacy_list.html" %}
+                <p><a href="/listings/{{ listing.id }}/candidates">{{ t('listing_candidates_manage_link') }} &rarr;</a></p>
+            </section>
+        {% endif %}
     {% endif %}
 
     {% if lock_reason %}

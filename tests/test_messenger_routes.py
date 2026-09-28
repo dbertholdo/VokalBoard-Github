@@ -180,3 +180,19 @@ def test_message_reports_queue_moderator_views_god_acts():
     assert fetch_one("SELECT id FROM messages WHERE id = :m", {"m": msg}) is None
     assert fetch_one("SELECT 1 AS ok FROM audit_log WHERE action = 'message_report_remove' AND details = :d",
                      {"d": f"message_report_id={report}"})
+
+
+def test_archive_and_unarchive_through_the_pages():
+    alice, a = _person("Archive Alice")
+    bob, b = _person("Archive Bob")
+    conv = int(_send(alice, b, "Hello Bob").headers["location"].rsplit("/", 1)[1])
+    thread = alice.get(f"/messages/c/{conv}").text
+    assert f"/messages/c/{conv}/hide" in thread
+    r = alice.post(f"/messages/c/{conv}/hide", data={"csrf_token": extract_csrf(thread)}, follow_redirects=False)
+    assert r.headers["location"] == "/messages?folder=archived"
+    assert "Archive Bob" in alice.get("/messages?folder=archived").text
+    assert "Archive Bob" not in alice.get("/messages").text
+    thread = alice.get(f"/messages/c/{conv}").text
+    assert f"/messages/c/{conv}/unarchive" in thread
+    alice.post(f"/messages/c/{conv}/unarchive", data={"csrf_token": extract_csrf(thread)}, follow_redirects=False)
+    assert "Archive Bob" in alice.get("/messages").text

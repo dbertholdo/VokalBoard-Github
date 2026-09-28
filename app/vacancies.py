@@ -203,3 +203,27 @@ def set_vacancies(listing_id: int, vacancies: list[dict], conn=None) -> None:
                 """,
                 {"listing_id": listing_id, **v},
             )
+
+
+def get_listing_invitations(listing_id: int) -> tuple[list[dict], list[dict]]:
+    """(candidacies, invites_sent) for one listing, pending first.
+
+    A candidacy is started by the artist; an invite by the listing author.
+    """
+    rows = fetch_all(
+        """
+        SELECT ji.id, ji.status, ji.expires_at, ji.created_at, ji.initiated_by_user_id,
+               vt.name AS voice_type_name, lv.fee_amount, lv.fee_currency, lv.fee_negotiable,
+               artist.id AS artist_id, artist.full_name AS artist_name, artist.avatar_url AS artist_avatar_url
+        FROM job_invitations ji
+        JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
+        LEFT JOIN voice_types vt ON vt.id = lv.voice_type_id
+        JOIN users artist ON artist.id = ji.artist_user_id
+        WHERE lv.listing_id = :listing_id
+        ORDER BY ji.status = 'pending' DESC, ji.created_at DESC
+        """,  # LEFT JOIN: a seeking_conductor vacancy has voice_type_id NULL.
+        {"listing_id": listing_id},
+    )
+    candidacies = [r for r in rows if r["initiated_by_user_id"] == r["artist_id"]]
+    invites_sent = [r for r in rows if r["initiated_by_user_id"] != r["artist_id"]]
+    return candidacies, invites_sent

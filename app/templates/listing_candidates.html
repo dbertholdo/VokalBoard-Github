@@ -18,40 +18,8 @@
 <section class="listing-form-card">
     <h2>{{ t('listing_candidates_applications_title') }}</h2>
     <p class="field-help">{{ t('listing_candidates_applications_help') }}</p>
-    {% if candidacies|length == 0 %}
-        <p class="empty-state">{{ t('invitations_none') }}</p>
-    {% else %}
-        <ul class="invitation-list">
-            {% for c in candidacies %}
-                <li class="invitation-item">
-                    <div class="invitation-item-main">
-                        {% if c.artist_avatar_url %}<img class="nav-avatar" src="{{ c.artist_avatar_url }}" alt="">{% endif %}
-                        <a href="/users/{{ c.artist_id }}">{{ c.artist_name }}</a>
-                        {% set c_fee_display = format_fee(c.fee_amount, c.fee_currency, c.fee_negotiable) %}
-                        <span class="invitation-meta">{{ c.voice_type_name or t('role_conductor') }}{% if c_fee_display %} · {{ c_fee_display }}{% endif %}</span>
-                    </div>
-                    {% if c.status == 'pending' %}
-                        <div class="invitation-item-actions">
-                            <form method="post" action="/invitations/{{ c.id }}/respond">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <input type="hidden" name="action" value="accept">
-                                <input type="hidden" name="next" value="/listings/{{ listing.id }}/candidates">
-                                <button type="submit" class="button-link button-primary"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('invitation_accept_button') }}</button>
-                            </form>
-                            <form method="post" action="/invitations/{{ c.id }}/respond">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <input type="hidden" name="action" value="decline">
-                                <input type="hidden" name="next" value="/listings/{{ listing.id }}/candidates">
-                                <button type="submit" class="button-link button-danger"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-close"></use></svg> {{ t('invitation_decline_button') }}</button>
-                            </form>
-                        </div>
-                    {% else %}
-                        <span class="invitation-status invitation-status-{{ c.status }}">{{ t('invitation_status_' ~ c.status) }}</span>
-                    {% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+    {% set next_url = '/listings/' ~ listing.id ~ '/candidates' %}
+    {% include "_candidacy_list.html" %}
 </section>
 
 <section class="listing-form-card">

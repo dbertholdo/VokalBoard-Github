@@ -195,7 +195,7 @@
         close.addEventListener('click', function (e) { e.stopPropagation(); closeWindow(id); });
         header.addEventListener('click', function (e) { if (state.minimized && e.target !== title) setMinimized(id, false); });
         input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); }
         });
         form.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -305,3 +305,13 @@
     // A window that was narrow (or not yet laid out) at load restores its chats once it's wide.
     desktop.addEventListener('change', function (e) { if (e.matches) restore(); });
 })();
+
+/* B3 (2026-09-28): full messages page composer — Enter sends, Shift+Enter
+ * adds a line, same as the chat windows. isComposing: Enter that confirms
+ * a zh/ko/ja IME candidate must not send. */
+document.addEventListener('keydown', function (e) {
+    var input = e.target;
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing || !input.matches || !input.matches('.messenger-composer textarea[name="body"]')) return;
+    e.preventDefault();
+    if (input.value.trim()) input.form.requestSubmit();
+});

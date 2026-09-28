@@ -1586,6 +1586,8 @@ form button.link-button:hover { color: var(--accent-dark); }
 .vacancy-fee { color: #555; }
 .vacancy-slots { margin-left: auto; font-size: 0.9em; color: #666; font-variant-numeric: tabular-nums; }
 .vacancy-apply-form { margin: 0 0 0 auto; }
+.vacancy-apply-button { font-size: 1rem; font-weight: 700; padding: var(--space-2) var(--space-4); }
+.listing-author-candidates { margin-top: var(--space-4); }
 .vacancy-apply-status {
     margin-left: auto;
     padding: 2px 10px;

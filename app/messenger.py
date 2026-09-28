@@ -202,16 +202,26 @@ def decline_request(user_id: int, conversation_id: int) -> bool:
     return True
 
 
-def hide_conversation(user_id: int, conversation_id: int) -> bool:
-    """Hides it from this user's list until the next message arrives."""
+def hide_conversation(user_id: int, conversation_id: int, archived: bool = True) -> bool:
+    """Archives it for this user (the "Archived" tab) until the next message
+    arrives (DB trigger clears it); archived=False moves it back."""
     conv = conversation_for(user_id, conversation_id)
     if not conv:
         return False
     column = f"{_side(conv, user_id)}_hidden_at"  # 'low_hidden_at' / 'high_hidden_at' only
+    value = "now()" if archived else "NULL"
     with engine.begin() as conn:
-        conn.execute(text(f"UPDATE conversations SET {column} = now() WHERE id = :id"),  # nosec B608 - fixed column names
+        conn.execute(text(f"UPDATE conversations SET {column} = {value} WHERE id = :id"),  # nosec B608 - fixed column names/values
                      {"id": conversation_id})
     return True
+
+
+def unarchive_conversation(user_id: int, conversation_id: int) -> bool:
+    return hide_conversation(user_id, conversation_id, archived=False)
+
+
+def is_archived(conv: dict, user_id: int) -> bool:
+    return conv.get(f"{_side(conv, user_id)}_hidden_at") is not None
 
 
 def report_message(user_id: int, message_id: int, reason: str) -> str:
@@ -258,7 +268,7 @@ LEFT JOIN LATERAL (
 WHERE :u IN (c.user_low_id, c.user_high_id)
   AND c.last_activity_at + interval '60 days' > now()
   AND last.created_at IS NOT NULL
-  AND (CASE WHEN c.user_low_id = :u THEN c.low_hidden_at ELSE c.high_hidden_at END) IS NULL
+  AND (CASE WHEN c.user_low_id = :u THEN c.low_hidden_at ELSE c.high_hidden_at END) IS {hidden}
   AND {folder}
   {unread_filter}
 ORDER BY c.last_activity_at DESC
@@ -268,6 +278,8 @@ _FOLDERS = {
     "inbox": "(c.status = 'active' OR c.requested_by = :u)",
     # Requests others sent me that I haven't declined.
     "requests": "(c.status = 'request' AND c.requested_by <> :u AND c.declined_at IS NULL)",
+    # B4 (2026-09-28): conversations I archived (still deleted after 60 days).
+    "archived": "c.declined_at IS NULL",
 }
 
 
@@ -279,6 +291,7 @@ def days_left(last_activity_at) -> int | None:
 def list_conversations(user_id: int, folder: str = "inbox", unread_only: bool = False) -> list[dict]:
     sql = _LIST_SQL.format(
         folder=_FOLDERS.get(folder, _FOLDERS["inbox"]),
+        hidden="NOT NULL" if folder == "archived" else "NULL",
         unread_filter="AND COALESCE(unread.n, 0) > 0" if unread_only else "",
     )
     rows = fetch_all(sql, {"u": user_id})  # nosec B608 - folder/filter are fixed literals

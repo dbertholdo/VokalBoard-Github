@@ -11,6 +11,7 @@ Proibidos" — this is its own concern, not listing CRUD) and out of
 match_service.py (that module is atomic DB transitions only, no
 HTTP/template concerns).
 """
+from app.vacancies import get_listing_invitations
 from fastapi import APIRouter, Request, Form, BackgroundTasks
 from fastapi.responses import RedirectResponse, HTMLResponse
 
@@ -167,22 +168,7 @@ def listing_candidates(request: Request, listing_id: int):
     if not listing or listing["author_id"] != user["id"]:
         return RedirectResponse(url="/my-listings", status_code=303)
 
-    rows = fetch_all(
-        """
-        SELECT ji.id, ji.status, ji.expires_at, ji.created_at, ji.initiated_by_user_id,
-               vt.name AS voice_type_name, lv.fee_amount, lv.fee_currency, lv.fee_negotiable,
-               artist.id AS artist_id, artist.full_name AS artist_name, artist.avatar_url AS artist_avatar_url
-        FROM job_invitations ji
-        JOIN listing_vacancies lv ON lv.id = ji.vacancy_id
-        LEFT JOIN voice_types vt ON vt.id = lv.voice_type_id
-        JOIN users artist ON artist.id = ji.artist_user_id
-        WHERE lv.listing_id = :listing_id
-        ORDER BY ji.status = 'pending' DESC, ji.created_at DESC
-        """,  # LEFT JOIN: a seeking_conductor vacancy has voice_type_id NULL.
-        {"listing_id": listing_id},
-    )
-    candidacies = [r for r in rows if r["initiated_by_user_id"] == r["artist_id"]]
-    invites_sent = [r for r in rows if r["initiated_by_user_id"] != r["artist_id"]]
+    candidacies, invites_sent = get_listing_invitations(listing_id)
 
     context = {
         "user": user,

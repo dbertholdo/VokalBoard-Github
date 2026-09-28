@@ -3,6 +3,14 @@
     "[\"<a\", [[\"href\", \"\\\"{{ href }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 1
   },
+  "_candidacy_list.html": {
+    "[\"<a\", [[\"href\", \"\\\"/users/{{ c.artist_id }}\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/invitations/{{ c.id }}/respond\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 2,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
+    "[\"<input\", [[\"name\", \"\\\"action\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
+    "[\"<input\", [[\"name\", \"\\\"next\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 2
+  },
   "_captcha_fields.html": {
     "[\"<input\", [[\"id\", \"\\\"website-field\\\"\"], [\"name\", \"\\\"{{ honeypot_field }}\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1
   },
@@ -453,12 +461,6 @@
   },
   "listing_candidates.html": {
     "[\"<a\", [[\"href\", \"\\\"/listings/{{ listing.id }}\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/users/{{ c.artist_id }}\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/invitations/{{ c.id }}/respond\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 2,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
-    "[\"<input\", [[\"name\", \"\\\"action\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
-    "[\"<input\", [[\"name\", \"\\\"next\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"/users/{{ i.artist_id }}\\\"\"]], []]": 1
   },
   "listing_detail.html": {
@@ -467,6 +469,7 @@
     "[\"<form\", [[\"action\", \"\\\"/vacancies/{{ v.id }}/apply\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 6,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 6,
+    "[\"<a\", [[\"href\", \"\\\"/listings/{{ listing.id }}/candidates\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/register\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"/login\\\"\"]], []]": 2,
     "[\"<form\", [[\"action\", \"\\\"/resend-verification\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
@@ -541,11 +544,12 @@
   "messages.html": {
     "[\"<a\", [[\"href\", \"\\\"/messages\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"/messages?folder=requests\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/messages?folder=archived\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/messages?folder={{ folder }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/messages?folder={{ folder }}&unread=1\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/messages/c/{{ c.id }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/users/{{ other.id }}\\\"\"]], []]": 1,
-    "[\"<form\", [[\"action\", \"\\\"/messages/c/{{ conversation.id }}/hide\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/messages/c/{{ conversation.id }}/{{ 'unarchive' if conversation.archived else 'hide' }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 6,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 6,
     "[\"<form\", [[\"action\", \"\\\"/users/{{ other.id }}/block\\\"\"], [\"data-confirm\", \"\\\"{{ t('messenger_block') }}?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
