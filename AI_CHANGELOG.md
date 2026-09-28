@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — 6d readable analytics charts
+- `app/static/js/financial-charts.js` rewritten (same palette): responsive + HiDPI canvas, adaptive axis labels (horizontal / vertical / every Nth for numbers), non-overlapping values, pie legend, redraw on resize. Also used by the financial dashboard.
+- `admin_analytics.html`: charts stacked full width, short titles; day of month now a chart. `admin_routes.admin_analytics`: Mon-first short weekdays, all 24 hours, all 31 days (0 included).
+- Tests: tests/test_analytics_charts.py; full suite 433 passed / 7 skipped + retention. Browser: desktop, phone (no overflow), pie legend checked.
+
 ## 2026-09-28 — Claude — 6b Turkish
 - `tr` in SUPPORTED_LANGUAGES/LANGUAGE_META (flag tr.svg); `app/locales/tr.json` 865/865 via i18n_tool batches (informal "sen"; Rechnungmaker = "Fatura Oluşturucu", fee = "Ücret").
 - Turkish copy in every `email_localization` function + EMAIL_LANGUAGES, `email_layout` sign-off/footer; Stripe `_STRIPE_LOCALES` += tr. docs/I18N.md updated (status, glossary, Rechnungmaker rule).

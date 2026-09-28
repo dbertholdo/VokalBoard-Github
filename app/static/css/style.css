@@ -2906,7 +2906,15 @@ form button.link-button:hover { color: var(--accent-dark); }
 .chart-container canvas {
     color: var(--ink);
     max-width: 100%;
+    display: block;
 }
+/* 6d (2026-09-28): analytics charts stacked full width; pie legend. */
+.analytics-grid.analytics-stack { grid-template-columns: 1fr; }
+.chart-legend { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3); font-size: .85rem; color: var(--ink); }
+.chart-legend[hidden] { display: none; }
+.chart-legend li { display: inline-flex; align-items: center; gap: var(--space-1); }
+.chart-legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
 .chart-type-toggle {
     display: flex;

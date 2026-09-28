@@ -971,10 +971,10 @@ def admin_emails_reset_template(request: Request, csrf_token: str = Form(...)):
 
 # Weekday names for Postgres's EXTRACT(dow ...), which returns
 # 0 = Sunday, 1 = Monday, ..., 6 = Saturday.
-_WEEKDAY_NAMES = {
-    "de": ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
-    "en": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-}
+# 6d (2026-09-28): short English labels (the admin area is English-only) —
+# full names collided on the chart axis ("TuesdayWednesdayThursday").
+_WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+_WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]  # Monday first, as in Europe
 
 
 @router.get("/admin/analytics", response_class=HTMLResponse)
@@ -991,8 +991,6 @@ def admin_analytics(request: Request):
     admin = require_admin(request)
     if not admin:
         return RedirectResponse(url="/", status_code=303)
-
-    lang = getattr(request.state, "lang", "de")
 
     # --- General visits: today / week / month / year ------------------
     visits_totals = fetch_one(
@@ -1023,15 +1021,16 @@ def admin_analytics(request: Request):
         ORDER BY dow
         """
     )
-    weekday_names = _WEEKDAY_NAMES.get(lang, _WEEKDAY_NAMES["de"])
-    by_weekday = [
-        {
-            "label": weekday_names[row["dow"]],
-            "total": row["total"],
-            "avg": round(row["total"] / row["distinct_days"], 1) if row["distinct_days"] else 0,
-        }
-        for row in by_weekday_raw
-    ]
+    # All 7 days, Monday first; a day with no visits yet shows 0 instead of vanishing.
+    weekday_rows = {row["dow"]: row for row in by_weekday_raw}
+    by_weekday = []
+    for dow in _WEEK_ORDER:
+        row = weekday_rows.get(dow)
+        by_weekday.append({
+            "label": _WEEKDAY_SHORT[dow],
+            "total": row["total"] if row else 0,
+            "avg": round(row["total"] / row["distinct_days"], 1) if row and row["distinct_days"] else 0,
+        })
 
     by_hour_raw = fetch_all(
         """
@@ -1181,8 +1180,11 @@ def admin_analytics(request: Request):
         # {label, value} format that app/static/js/financial-charts.js
         # expects for the bar/pie/line selector (see Red Zone).
         "by_weekday_json": [{"label": w["label"], "value": w["avg"]} for w in by_weekday],
-        "by_hour_json": [{"label": f"{h['hour']:02d}:00", "value": h["total"]} for h in by_hour_chart if h["total"] > 0],
+        # 6d: every hour / every day with 0 where nothing happened — dropping empty
+        # ones made the axis jump (08, 09, 14 …) and the line misleading. Short labels.
+        "by_hour_json": [{"label": f"{h['hour']:02d}", "value": h["total"]} for h in by_hour_chart],
         "by_day_of_month_chart": by_day_of_month_chart,
+        "by_day_of_month_json": [{"label": str(d["day"]), "value": d["total"]} for d in by_day_of_month_chart],
         "active_users": active_users,
         "by_city": by_city,
         "by_state": by_state,

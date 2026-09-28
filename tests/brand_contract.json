@@ -85,9 +85,9 @@
   },
   "admin_analytics.html": {
     "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
-    "[\"<button\", [[\"type\", \"\\\"bar\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 2,
-    "[\"<button\", [[\"type\", \"\\\"button\\\"\"], [\"type\", \"\\\"pizza\\\"\"]], []]": 2,
-    "[\"<button\", [[\"type\", \"\\\"button\\\"\"], [\"type\", \"\\\"linha\\\"\"]], []]": 2
+    "[\"<button\", [[\"type\", \"\\\"bar\\\"\"], [\"type\", \"\\\"button\\\"\"]], []]": 3,
+    "[\"<button\", [[\"type\", \"\\\"button\\\"\"], [\"type\", \"\\\"pizza\\\"\"]], []]": 3,
+    "[\"<button\", [[\"type\", \"\\\"button\\\"\"], [\"type\", \"\\\"linha\\\"\"]], []]": 3
   },
   "admin_audit.html": {
     "[\"<form\", [[\"action\", \"\\\"/financeiro/audit\\\"\"], [\"method\", \"\\\"get\\\"\"]], []]": 1,

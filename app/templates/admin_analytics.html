@@ -38,37 +38,45 @@
 </div>
 
 <div class="analytics-section">
-    <h2>Usage thermometer — when people visit the most</h2>
-    <p class="field-help">Each chart below can switch between bar, pie and line — the original bar-chart format is still available as the default.</p>
-    <div class="analytics-grid">
+    <h2>When people visit</h2>
+    <p class="field-help">Each chart switches between bar, pie and line.</p>
+    {# 6d (2026-09-28, Daniel): charts stacked full width, short names, readable labels. #}
+    <div class="analytics-grid analytics-stack">
         <div class="analytics-card">
-            <h3>By day of week (average per day)</h3>
+            <h3>Weekday (avg. per day)</h3>
             <div class="chart-container" data-chart='{{ by_weekday_json | tojson }}' data-chart-default="bar">
                 <div class="chart-type-toggle">
                     <button type="button" data-chart-type="bar">▊ Bar</button>
                     <button type="button" data-chart-type="pizza">◔ Pie</button>
                     <button type="button" data-chart-type="linha"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Line</button>
                 </div>
-                <canvas width="360" height="220"></canvas>
+                <canvas width="800" height="260"></canvas>
             </div>
         </div>
         <div class="analytics-card">
-            <h3>By hour of day</h3>
+            <h3>Hour of day</h3>
             <div class="chart-container" data-chart='{{ by_hour_json | tojson }}' data-chart-default="linha">
                 <div class="chart-type-toggle">
                     <button type="button" data-chart-type="bar">▊ Bar</button>
                     <button type="button" data-chart-type="pizza">◔ Pie</button>
                     <button type="button" data-chart-type="linha"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Line</button>
                 </div>
-                <canvas width="360" height="220"></canvas>
+                <canvas width="800" height="260"></canvas>
             </div>
         </div>
         <div class="analytics-card">
-            <h3>By day of month</h3>
-            {% for d in by_day_of_month_chart %}{% if d.total > 0 %}{{ bar("Day " ~ d.day, d.total, d.pct) }}{% endif %}{% endfor %}
+            <h3>Day of month</h3>
+            <div class="chart-container" data-chart='{{ by_day_of_month_json | tojson }}' data-chart-default="bar">
+                <div class="chart-type-toggle">
+                    <button type="button" data-chart-type="bar">▊ Bar</button>
+                    <button type="button" data-chart-type="pizza">◔ Pie</button>
+                    <button type="button" data-chart-type="linha"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Line</button>
+                </div>
+                <canvas width="800" height="260"></canvas>
+            </div>
         </div>
     </div>
-    <script src="/static/js/financial-charts.js" nonce="{{ csp_nonce }}"></script>
+    <script src="/static/js/financial-charts.js?v=20260928-1" nonce="{{ csp_nonce }}"></script>
 </div>
 
 <div class="analytics-section">
