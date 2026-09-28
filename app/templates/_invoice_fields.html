@@ -1,35 +1,102 @@
+{# Invoice form fields shared by the Standalone Generator (rechnungmaker.html)
+   and Match invoices (invoice_match_form.html). #}
 {# ------------------------------------------------------------
-   Invoice form fields shared by the Standalone Generator (rechnungmaker.html)
-   and Match invoices (invoice_match_form.html) — 2026-09-27 cleanup: labels
-   translated (were hardcoded Portuguese/German), and the tax preset is a plain
-   named <select> read by the server (the old inline onchange handler was
-   blocked by the CSP, so every invoice silently used DE standard VAT).
-   `v` = values to re-fill (the Match draft, or the stateless form echo after
-   an error — never stored, CLAUDE.md §2).
+   Rechnungmaker v2 (2026-09-28, docs/specs/RECHNUNGMAKER_V2.md): country
+   first (tax options, tax-ID wording, number format), a separate invoice
+   language, 5 currencies, and a "?" help next to every field (site language,
+   one line; hover, click, tap or Tab+Enter; Esc closes). `v` = values from
+   app.invoice_form.normalize() — defaults, the Match draft, or the echo after
+   an error (never stored, CLAUDE.md §2). Without JS the "Apply country"
+   button re-posts the form (nothing stored, nothing in the URL);
+   app/static/js/invoice_preview.js removes it and switches live.
 ------------------------------------------------------------ #}
-{% macro invoice_fields(v, defaults) %}
-{% set preset = v.tax_preset or defaults.tax_preset %}
-<label>{{ t('inv_number') }}<input name="number" value="{{ v.number or defaults.number }}" required maxlength="60"></label>
-<label>{{ t('inv_issue_date') }}<input type="date" name="issue_date" value="{{ v.issue_date or defaults.issue_date }}" required></label>
-<label>{{ t('inv_service_date') }}<input type="date" name="service_date" value="{{ v.service_date or '' }}" required></label>
-<label>{{ t('inv_issuer_name') }}<input name="issuer_name" value="{{ v.issuer_name or defaults.issuer_name or '' }}" required autocomplete="name"></label>
-<label>{{ t('inv_issuer_address') }}<textarea name="issuer_address" required autocomplete="street-address">{{ v.issuer_address or '' }}</textarea></label>
-<label>{{ t('inv_issuer_tax_id') }}<input name="issuer_tax_id" value="{{ v.issuer_tax_id or '' }}" required></label>
-<label>{{ t('inv_recipient_name') }}<input name="recipient_name" value="{{ v.recipient_name or defaults.recipient_name or '' }}" required></label>
-<label>{{ t('inv_recipient_address') }}<textarea name="recipient_address" required>{{ v.recipient_address or '' }}</textarea></label>
-<label>{{ t('inv_service') }}<textarea name="service_description" required>{{ v.service_description or defaults.service_description or '' }}</textarea></label>
-<label>{{ t('inv_net_amount') }}<input name="net_amount" inputmode="decimal" value="{{ v.net_amount or '' }}" required></label>
-<label>{{ t('inv_currency') }}<select name="currency">
-    {% for c in ('EUR', 'CHF') %}<option value="{{ c }}" {% if (v.currency or 'EUR') == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-</select></label>
-<label>{{ t('inv_tax_preset') }}<select name="tax_preset">
-    {% for value, label_key in tax_preset_options %}<option value="{{ value }}" {% if value == preset %}selected{% endif %}>{{ t(label_key) }}</option>{% endfor %}
-</select></label>
-<label>{{ t('inv_tax_rate_override') }}<input name="tax_rate_override" inputmode="decimal" value="{{ v.tax_rate_override or '' }}" placeholder="{{ t('inv_tax_rate_placeholder') }}"></label>
-<label>{{ t('inv_tax_custom_text') }}<textarea name="tax_custom_text" placeholder="{{ t('inv_tax_custom_placeholder') }}">{{ v.tax_custom_text or v.tax_note or '' }}</textarea></label>
-<label>{{ t('inv_travel') }}<input name="expense_travel_amount" inputmode="decimal" value="{{ v.expense_travel_amount or '0' }}"></label>
-<label>{{ t('inv_lodging') }}<input name="expense_lodging_amount" inputmode="decimal" value="{{ v.expense_lodging_amount or '0' }}"></label>
-<label>{{ t('inv_payment_terms') }}<textarea name="payment_terms">{{ v.payment_terms or '' }}</textarea></label>
-<label>IBAN<input name="iban" value="{{ v.iban or '' }}" autocomplete="off"></label>
-<label>BIC<input name="bic" value="{{ v.bic or '' }}" autocomplete="off"></label>
+{% macro help(key, text=None) -%}
+<span class="inv-help"><button type="button" class="inv-help-btn" aria-label="{{ t('invc_help') }}" aria-expanded="false" aria-controls="invh-{{ key }}">?</button><span class="inv-help-text" id="invh-{{ key }}" role="tooltip" {% if key in ('tax_id', 'tax_option') %}data-help-country="{{ key }}"{% endif %}>{{ text or t('invh_' ~ key) }}</span></span>
+{%- endmacro %}
+
+{% macro field(name, label, help_key=None, help_text=None, hidden=False, show_when=None) -%}
+<div class="inv-field" {% if show_when %}data-show-when="{{ show_when }}"{% endif %} {% if hidden %}hidden{% endif %}>
+    <div class="inv-label-row"><label for="inv-{{ name }}">{{ label }}</label>{{ help(help_key or name, help_text) }}</div>
+    {{ caller() }}
+</div>
+{%- endmacro %}
+
+{% macro invoice_fields(v, match=None) %}
+{% set opt = inv_option_meta[v.country][v.tax_option] %}
+<script type="application/json" id="inv-data">{{ inv_client_data | tojson }}</script>
+
+<fieldset class="inv-group">
+    <legend>{{ t('invc_group_basics') }}</legend>
+    {% call field('country', t('invc_country')) %}
+        <select id="inv-country" name="country" aria-describedby="invh-country">
+            {% for code, label in inv_countries %}<option value="{{ code }}" {% if code == v.country %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <button type="submit" name="action" value="apply" class="button-link inv-apply" formnovalidate>{{ t('invc_apply') }}</button>
+    {% endcall %}
+    {% call field('doc_lang', t('invc_doc_lang')) %}
+        <select id="inv-doc_lang" name="doc_lang" aria-describedby="invh-doc_lang">
+            {% for code, label in inv_doc_langs %}<option value="{{ code }}" {% if code == v.doc_lang %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    {% endcall %}
+    {% call field('currency', t('inv_currency')) %}
+        <select id="inv-currency" name="currency" aria-describedby="invh-currency">
+            {% for c in inv_currencies %}<option value="{{ c }}" {% if c == v.currency %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+    {% endcall %}
+</fieldset>
+
+<fieldset class="inv-group">
+    <legend>{{ t('invc_group_you') }}</legend>
+    {% call field('issuer_name', t('inv_issuer_name')) %}<input id="inv-issuer_name" name="issuer_name" value="{{ v.issuer_name }}" required autocomplete="name" aria-describedby="invh-issuer_name">{% endcall %}
+    {% call field('issuer_address', t('inv_issuer_address')) %}<textarea id="inv-issuer_address" name="issuer_address" required autocomplete="street-address" aria-describedby="invh-issuer_address">{{ v.issuer_address }}</textarea>{% endcall %}
+    {% call field('issuer_tax_id', t('inv_issuer_tax_id'), help_key='tax_id', help_text=t('invh_tax_id_' ~ v.country|lower)) %}<input id="inv-issuer_tax_id" name="issuer_tax_id" value="{{ v.issuer_tax_id }}" required aria-describedby="invh-tax_id">{% endcall %}
+</fieldset>
+
+<fieldset class="inv-group">
+    <legend>{{ t('invc_group_client') }}</legend>
+    {% if match %}
+    {# Daniel 2026-09-28: whoever posted the job may have posted it for someone
+       else — unticking clears the pre-filled client so the real payer can be typed. #}
+    <div class="inv-field inv-check">
+        <div class="inv-label-row">
+            <label><input type="checkbox" id="inv-bill-partner" data-partner-name="{{ match.contractor_name }}" {% if not v.recipient_name or v.recipient_name == match.contractor_name %}checked{% endif %} aria-describedby="invh-bill_partner"> {{ t('invc_bill_partner') }}</label>
+            {{ help('bill_partner') }}
+        </div>
+    </div>
+    {% endif %}
+    {% call field('recipient_name', t('inv_recipient_name')) %}<input id="inv-recipient_name" name="recipient_name" value="{{ v.recipient_name }}" required aria-describedby="invh-recipient_name">{% endcall %}
+    {% call field('recipient_address', t('inv_recipient_address')) %}<textarea id="inv-recipient_address" name="recipient_address" required aria-describedby="invh-recipient_address">{{ v.recipient_address }}</textarea>{% endcall %}
+    {% call field('client_vat_id', t('invc_client_vat'), help_key='client_vat', hidden=not opt.client_vat, show_when='client_vat') %}<input id="inv-client_vat_id" name="client_vat_id" value="{{ v.client_vat_id }}" aria-describedby="invh-client_vat">{% endcall %}
+</fieldset>
+
+<fieldset class="inv-group">
+    <legend>{{ t('invc_group_service') }}</legend>
+    {% call field('number', t('inv_number')) %}<input id="inv-number" name="number" value="{{ v.number }}" required maxlength="60" aria-describedby="invh-number">{% endcall %}
+    {% call field('issue_date', t('inv_issue_date')) %}<input id="inv-issue_date" type="date" name="issue_date" value="{{ v.issue_date }}" required aria-describedby="invh-issue_date">{% endcall %}
+    {% call field('service_date', t('inv_service_date')) %}<input id="inv-service_date" type="date" name="service_date" value="{{ v.service_date }}" required aria-describedby="invh-service_date">{% endcall %}
+    {% call field('service_description', t('inv_service')) %}<textarea id="inv-service_description" name="service_description" required aria-describedby="invh-service_description">{{ v.service_description }}</textarea>{% endcall %}
+    {% call field('net_amount', t('inv_net_amount')) %}<input id="inv-net_amount" name="net_amount" inputmode="decimal" value="{{ v.net_amount }}" required aria-describedby="invh-net_amount">{% endcall %}
+    {% call field('expense_travel_amount', t('inv_travel')) %}<input id="inv-expense_travel_amount" name="expense_travel_amount" inputmode="decimal" value="{{ v.expense_travel_amount }}" aria-describedby="invh-expense_travel_amount">{% endcall %}
+    {% call field('expense_lodging_amount', t('inv_lodging')) %}<input id="inv-expense_lodging_amount" name="expense_lodging_amount" inputmode="decimal" value="{{ v.expense_lodging_amount }}" aria-describedby="invh-expense_lodging_amount">{% endcall %}
+</fieldset>
+
+<fieldset class="inv-group">
+    <legend>{{ t('invc_group_tax') }}</legend>
+    {% call field('tax_option', t('invc_tax_option'), help_key='tax_option', help_text=t('invh_tax_' ~ v.country|lower)) %}
+        <select id="inv-tax_option" name="tax_option" aria-describedby="invh-tax_option">
+            {% for key, label in inv_options[v.country] %}<option value="{{ key }}" {% if key == v.tax_option %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    {% endcall %}
+    {% call field('tax_custom_name', t('invc_tax_custom_name'), hidden=not opt.custom, show_when='custom') %}<input id="inv-tax_custom_name" name="tax_custom_name" value="{{ v.tax_custom_name }}" maxlength="40" aria-describedby="invh-tax_custom_name">{% endcall %}
+    {% call field('tax_custom_rate', t('invc_tax_custom_rate'), hidden=not opt.custom, show_when='custom') %}<input id="inv-tax_custom_rate" name="tax_custom_rate" inputmode="decimal" value="{{ v.tax_custom_rate }}" aria-describedby="invh-tax_custom_rate">{% endcall %}
+    {% call field('tax_extra_note', t('invc_tax_extra_note')) %}<textarea id="inv-tax_extra_note" name="tax_extra_note" maxlength="500" aria-describedby="invh-tax_extra_note">{{ v.tax_extra_note }}</textarea>{% endcall %}
+</fieldset>
+
+<fieldset class="inv-group">
+    <legend>{{ t('invc_group_payment') }}</legend>
+    {% call field('payment_terms', t('inv_payment_terms')) %}<textarea id="inv-payment_terms" name="payment_terms" aria-describedby="invh-payment_terms">{{ v.payment_terms }}</textarea>{% endcall %}
+    {% call field('iban', 'IBAN') %}<input id="inv-iban" name="iban" value="{{ v.iban }}" autocomplete="off" aria-describedby="invh-iban">{% endcall %}
+    {% call field('bic', 'BIC') %}<input id="inv-bic" name="bic" value="{{ v.bic }}" autocomplete="off" aria-describedby="invh-bic">{% endcall %}
+</fieldset>
+<p class="field-help inv-disclaimer">{{ t('invc_disclaimer') }}</p>
 {% endmacro %}

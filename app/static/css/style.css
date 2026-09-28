@@ -3563,7 +3563,8 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-weight: 400;
 }
 .form-grid > label:has(textarea),
-.form-grid > label:has(select[name="tax_preset"]),
+.form-grid > .inv-group,
+.form-grid > .inv-disclaimer,
 .form-grid > button {
     grid-column: 1 / -1;
 }
@@ -3828,3 +3829,23 @@ form button.link-button:hover { color: var(--accent-dark); }
     font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .profile-menu-logout { border-top: 1px solid var(--border); }
 @media (max-width: 860px) { .account-menu-name { display: none; } }
+
+/* Rechnungmaker v2 (2026-09-28): grouped fields + "?" help popovers. */
+.inv-group { margin: 0; padding: var(--space-3) var(--space-4) var(--space-4); border: 1px solid var(--border);
+    border-radius: var(--radius-card); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); }
+.inv-group > legend { padding: 0 var(--space-2); font-weight: 700; color: var(--ink); }
+.inv-field { position: relative; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.inv-field[hidden] { display: none; }
+.inv-field:has(textarea), .inv-check { grid-column: 1 / -1; }
+.inv-field input:not([type="checkbox"]), .inv-field select, .inv-field textarea { width: 100%; }
+.inv-label-row { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; }
+.inv-check label { display: flex; align-items: center; gap: var(--space-2); }
+.inv-help-btn { box-sizing: border-box; width: 24px; height: 24px; min-width: 24px; min-height: 0; max-height: 24px; flex: 0 0 24px; padding: 0; border-radius: 50%; border: 1px solid var(--border-control);
+    background: var(--card-bg); color: var(--accent); font-weight: 700; font-size: .8rem; line-height: 1; cursor: pointer; }
+.inv-help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.inv-help-text { display: none; position: absolute; z-index: 20; left: 0; right: 0; top: 2rem; padding: var(--space-2) var(--space-3);
+    background: var(--ink); color: var(--card-bg); border-radius: var(--radius-control); font-weight: 400; font-size: .85rem;
+    line-height: 1.4; box-shadow: 0 6px 18px rgba(23, 40, 63, .25); }
+.inv-help.open .inv-help-text { display: block; }
+.inv-apply { align-self: flex-start; margin-top: var(--space-1); }
+.inv-disclaimer { margin: 0; }

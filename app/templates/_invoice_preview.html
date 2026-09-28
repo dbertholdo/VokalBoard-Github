@@ -1,11 +1,11 @@
-{# Rechnungmaker — live WYSIWYG preview pane (19/09/2026).
-   Shared by rechnungmaker.html (Gerador Avulso tab) and
-   invoice_match_form.html (Match-Rechnungen), both of which use the same
-   field names. Pass the id of the <form> to watch; the JS in
-   app/static/js/invoice_preview.js does the rest — purely client-side,
-   nothing here ever reaches the server (Zero-Storage Policy, CLAUDE.md §2).
-   Layout mirrors app/invoice_pdf.py render_invoice_pdf() by hand. #}
+{# Rechnungmaker — live WYSIWYG preview pane (19/09/2026; v2 2026-09-28).
+   Shared by rechnungmaker.html (standalone tab) and invoice_match_form.html.
+   Pass the id of the <form> to watch; app/static/js/invoice_preview.js fills
+   it in — purely client-side (Zero-Storage, CLAUDE.md §2). Labels start in
+   the invoice language of `values` (data-label = key in DOC_LABELS) and
+   switch live. Layout mirrors app/invoice_pdf.py render_invoice_pdf(). #}
 {% macro invoice_preview_pane(form_id) %}
+{% set L = inv_client_data.docLabels[values.doc_lang] %}
 <div class="invoice-preview" data-invoice-preview="{{ form_id }}">
     <span class="invoice-preview-label">{{ t('invoice_preview_label') }}</span>
     <div class="invoice-paper">
@@ -14,39 +14,41 @@
                 <img src="/static/img/brand/icon-small-navy.svg" alt="">
                 <span>VokalBoard</span>
             </div>
-            <h2>Rechnung</h2>
+            <h2 data-label="title">{{ L.title }}</h2>
         </header>
         <div class="invoice-paper-parties">
             <div class="invoice-paper-party">
-                <p class="invoice-paper-kicker">Rechnungssteller</p>
+                <p class="invoice-paper-kicker" data-label="issuer">{{ L.issuer }}</p>
                 <p data-preview="issuer_name">—</p>
                 <p class="pre" data-preview="issuer_address">—</p>
-                <p class="invoice-paper-meta">Steuer-Nr./USt-IdNr.: <span data-preview="issuer_tax_id">—</span></p>
+                <p class="invoice-paper-meta"><span data-label="tax_id">{{ inv_client_data.countries[values.country].taxIdLabels[values.doc_lang] }}</span>: <span data-preview="issuer_tax_id">—</span></p>
             </div>
             <div class="invoice-paper-party">
-                <p class="invoice-paper-kicker">Rechnungsempfänger</p>
+                <p class="invoice-paper-kicker" data-label="recipient">{{ L.recipient }}</p>
                 <p data-preview="recipient_name">—</p>
                 <p class="pre" data-preview="recipient_address">—</p>
+                <p class="invoice-paper-meta" data-preview-client-vat hidden></p>
             </div>
         </div>
         <div class="invoice-paper-metabar">
-            <span>Rechnungs-Nr.<strong data-preview="number">—</strong></span>
-            <span>Rechnungsdatum<strong data-preview="issue_date">—</strong></span>
-            <span>Leistungsdatum<strong data-preview="service_date">—</strong></span>
+            <span><span data-label="number">{{ L.number }}</span><strong data-preview="number">—</strong></span>
+            <span><span data-label="issue_date">{{ L.issue_date }}</span><strong data-preview="issue_date">—</strong></span>
+            <span><span data-label="service_date">{{ L.service_date }}</span><strong data-preview="service_date">—</strong></span>
         </div>
         <div class="invoice-paper-table-wrap">
         <table class="invoice-paper-table">
-            <thead><tr><th>Pos.</th><th>Bezeichnung</th><th>Menge</th><th>Einh.</th><th>E-Preis</th><th>Gesamt</th></tr></thead>
+            <thead><tr><th data-label="pos">{{ L.pos }}</th><th data-label="description">{{ L.description }}</th><th data-label="qty">{{ L.qty }}</th><th data-label="unit">{{ L.unit }}</th><th data-label="unit_price">{{ L.unit_price }}</th><th data-label="line_total">{{ L.line_total }}</th></tr></thead>
             <tbody data-preview-rows></tbody>
         </table>
         </div>
         <div class="invoice-paper-totals">
-            <div><span>Summe Netto</span><strong data-preview="calc_net">0,00 EUR</strong></div>
-            <div><span data-preview="calc_tax_label">Umsatzsteuer</span><strong data-preview="calc_tax">0,00 EUR</strong></div>
-            <div class="invoice-paper-grandtotal"><span>Endsumme</span><strong data-preview="calc_total">0,00 EUR</strong></div>
+            <div><span data-label="net">{{ L.net }}</span><strong data-preview="calc_net">0,00</strong></div>
+            <div><span data-preview="calc_tax_label">—</span><strong data-preview="calc_tax">0,00</strong></div>
+            <div class="invoice-paper-grandtotal"><span data-label="total">{{ L.total }}</span><strong data-preview="calc_total">0,00</strong></div>
         </div>
         <div class="invoice-paper-notes" data-preview-notes></div>
-        <p class="invoice-paper-footer">Made with assistance of VokalBoard - Rechnung Maker - www.vokalboard.com/rechnungmaker</p>
+        {# The product name stays German on every invoice (Daniel, 2026-09-27). #}
+        <p class="invoice-paper-footer">Made with assistance of VokalBoard - Rechnungmaker - www.vokalboard.com/rechnungmaker</p>
     </div>
 </div>
 {% endmacro %}

@@ -9,6 +9,13 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — item 5: Rechnungmaker v2 phase 1 (+ Match fee pre-fill)
+- Country (DE/AT/CH/Other) + invoice language (DE/EN/FR/IT) + 5 currencies; tax options/notes from `invoice_countries.py`; reverse charge needs client VAT ID.
+- `invoice_pdf.py` + `_invoice_preview.html`/`invoice_preview.js` follow invoice language + country formats; footer "Rechnungmaker"; JS builds everything from embedded JSON (no duplicated tax rules).
+- `app/invoice_form.py`: shared form→document, prefs (migration `2026-09-28_invoice_prefs.sql`, tolerated missing), Match pre-fill (fee, currency, event date, client, title); drafts store the v2 form, legacy drafts still build.
+- "?" help on every field (site language, 9 langs); Daniel's "Invoice the person who posted the job" checkbox; no-JS Apply button. `invoice_tax_presets.py` removed.
+- Tests: tests/test_rechnungmaker_v2.py (6) + updated cleanup/page tests; full suite 410 passed / 7 skipped + retention; bandit clean. Also added 5b (cancel a Match) to HANDOFF.
+
 ## 2026-09-28 — Claude — 4b SEO
 - `app/seo.py`: canonical + hreflang per page (render context `seo`), JSON-LD WebSite/Organization (home) + JobPosting (active seeking_* listings), SITE_BASE_URL for public URLs, optional GOOGLE_SITE_VERIFICATION meta.
 - base.html: pages' `{% block title %}` finally used (+ " — VokalBoard"); `meta_description` / `structured_data` blocks.

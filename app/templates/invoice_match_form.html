@@ -1,22 +1,21 @@
 {% extends "base.html" %}
 {% import "_invoice_fields.html" as invoice_form with context %}
 {% import "_invoice_preview.html" as invoice_preview with context %}
-{% block title %}Rechnung — {{ match.title }}{% endblock %}
+{% block title %}{{ t('nav_rechnungmaker') }} — {{ match.title }}{% endblock %}
 {% block content %}
 <a class="back-link" href="/rechnungmaker?tab=match">&larr; {{ t('nav_rechnungmaker') }}</a>
-<h1>Rechnung — {{ match.title }}</h1>
+<h1>{{ t('nav_rechnungmaker') }} — {{ match.title }}</h1>
 <p class="field-help">{{ t('invoice_match_encrypted_help').replace('{name}', match.contractor_name) }}</p>
 {% if error %}<p class="error" role="alert">{{ t('inv_form_error') }}</p>{% endif %}
 <div class="invoice-layout">
 <section class="card">
 <form id="invoiceFormMatch" method="post" action="/profile/matches/{{ match.id }}/invoice" class="form-grid">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-{{ invoice_form.invoice_fields(existing, {"number": suggested_number, "issue_date": today, "issuer_name": match.artist_name,
-    "recipient_name": match.contractor_name, "service_description": match.title, "tax_preset": tax_preset_default}) }}
+{{ invoice_form.invoice_fields(values, match) }}
 <button class="button-primary" type="submit">{{ t('inv_save_for_review') }}</button>
 </form>
 </section>
 {{ invoice_preview.invoice_preview_pane("invoiceFormMatch") }}
 </div>
-<script src="/static/js/invoice_preview.js?v=20260927-1" defer></script>
+<script src="/static/js/invoice_preview.js?v=20260928-2" defer></script>
 {% endblock %}

@@ -83,10 +83,10 @@ def test_rechnungmaker_route_renders_both_tabs_and_defaults_to_match(client):
     # não mais radios separados de status por baixo do país.
     # 2026-09-27: the select itself is submitted (the old inline-onchange copy into
     # hidden fields was blocked by the CSP) — no inline handlers on the page.
-    assert 'name="tax_preset"' in avulso.text
+    # v2 (2026-09-28): country + tax option selects, read by the server; no inline handlers.
+    assert 'name="country"' in avulso.text and 'name="tax_option"' in avulso.text
     assert 'onchange=' not in avulso.text
-    assert 'type="radio" name="tax_status"' not in avulso.text
-    assert 'Deutschland — Kleinunternehmer' in avulso.text
+    assert 'Kleinunternehmer:in (§ 19 UStG, keine USt)' in avulso.text
 
 
 def test_legacy_rechnungen_url_redirects_to_rechnungmaker(client):

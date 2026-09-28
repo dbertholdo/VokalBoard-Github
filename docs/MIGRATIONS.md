@@ -31,6 +31,9 @@ contrário:
   uma instalação limpa a partir de `db/schema.sql` (que já é cumulativo) é
   mais simples e segura do que encadear migração por migração.
 
+## 2026-09-28 — `2026-09-28_invoice_prefs.sql` (PENDING in production)
+`users.invoice_country`, `users.invoice_doc_lang` (ADD COLUMN IF NOT EXISTS). Until applied the Rechnungmaker just doesn't remember country/language (`app/schema_features.has_columns`).
+
 ## 2026-09-28 — `2026-09-28_bot_traffic.sql` (PENDING in production)
 New table `bot_traffic_daily` (`CREATE TABLE IF NOT EXISTS`). Until applied, bot requests are not recorded (`app/traffic.py` checks the table); human visits work either way.
 

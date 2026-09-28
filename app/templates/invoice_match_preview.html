@@ -5,17 +5,19 @@
 <section class="card">
 <h1>{{ t('inv_preview_title') }} — {{ match.title }}</h1>
 {% if error %}<p class="error">{{ t('invoice_match_confirm_failed') }}</p>{% endif %}
+{# Review page in the SITE language (2026-09-28); the PDF itself uses the invoice language. #}
 <div class="invoice-preview-block">
-<p><strong>Rechnungsnummer:</strong> {{ preview.number }}</p>
-<p><strong>Ausstellungsdatum:</strong> {{ preview.issue_date }} · <strong>Leistungsdatum:</strong> {{ preview.service_date }}</p>
-<p><strong>Rechnungssteller:</strong> {{ preview.issuer_name }}<br>{{ preview.issuer_address }}</p>
-<p><strong>Rechnungsempfänger:</strong> {{ preview.recipient_name }}<br>{{ preview.recipient_address }}</p>
-<p><strong>Leistung:</strong> {{ preview.service_description }}</p>
-<p><strong>Netto:</strong> {{ preview.net_amount }} {{ preview.currency }}</p>
-{% if preview.expense_travel_amount and preview.expense_travel_amount != '0' %}<p><strong>Fahrkosten:</strong> {{ preview.expense_travel_amount }} {{ preview.currency }}</p>{% endif %}
-{% if preview.expense_lodging_amount and preview.expense_lodging_amount != '0' %}<p><strong>Übernachtungskosten:</strong> {{ preview.expense_lodging_amount }} {{ preview.currency }}</p>{% endif %}
-<p><strong>USt:</strong> {{ preview.tax_rate }}% {% if preview.tax_note %}— {{ preview.tax_note }}{% endif %}</p>
-{% if preview.payment_terms %}<p><strong>Zahlungsziel:</strong> {{ preview.payment_terms }}</p>{% endif %}
+<p><strong>{{ t('inv_number') }}:</strong> {{ preview.number }}</p>
+<p><strong>{{ t('inv_issue_date') }}:</strong> {{ preview.issue_date }} · <strong>{{ t('inv_service_date') }}:</strong> {{ preview.service_date }}</p>
+<p><strong>{{ t('inv_issuer_name') }}:</strong> {{ preview.issuer_name }}<br>{{ preview.issuer_address }}</p>
+<p><strong>{{ t('inv_recipient_name') }}:</strong> {{ preview.recipient_name }}<br>{{ preview.recipient_address }}{% if preview.client_vat_id %}<br>{{ t('invc_client_vat') }}: {{ preview.client_vat_id }}{% endif %}</p>
+<p><strong>{{ t('inv_service') }}:</strong> {{ preview.service_description }}</p>
+<p><strong>{{ t('inv_net_amount') }}:</strong> {{ preview.net_fmt }}</p>
+{% if preview.travel_fmt %}<p><strong>{{ t('inv_travel') }}:</strong> {{ preview.travel_fmt }}</p>{% endif %}
+{% if preview.lodging_fmt %}<p><strong>{{ t('inv_lodging') }}:</strong> {{ preview.lodging_fmt }}</p>{% endif %}
+<p><strong>{{ preview.tax_name or t('invc_group_tax') }} ({{ preview.tax_rate }} %):</strong> {{ preview.tax_fmt }}{% if preview.tax_note %} — {{ preview.tax_note }}{% endif %}</p>
+<p><strong>{{ preview.total_label }}:</strong> {{ preview.total_fmt }}</p>
+{% if preview.payment_terms %}<p><strong>{{ t('inv_payment_terms') }}:</strong> {{ preview.payment_terms }}</p>{% endif %}
 {% if preview.iban %}<p><strong>IBAN:</strong> {{ preview.iban }} {% if preview.bic %}· <strong>BIC:</strong> {{ preview.bic }}{% endif %}</p>{% endif %}
 </div>
 <p class="field-help">{{ t('invoice_match_after_confirm_help') }}</p>

@@ -14,7 +14,7 @@
             <section class="profile-edit-card">
                 <p class="field-help">{{ t('rechnungmaker_avulso_help') }}</p>
                 <div id="invoiceFormGate" class="form-grid">
-                    {{ invoice_form.invoice_fields({}, {"number": suggested_number, "issue_date": today, "tax_preset": tax_preset_default}) }}
+                    {{ invoice_form.invoice_fields(values) }}
                 </div>
             </section>
             {{ invoice_preview.invoice_preview_pane("invoiceFormGate") }}
@@ -103,12 +103,12 @@
     <p class="field-help">{{ t('rechnungmaker_avulso_help') }}</p>
     <form id="invoiceFormAvulso" method="post" action="/rechnungen/pdf" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ invoice_form.invoice_fields(values, {"number": suggested_number, "issue_date": today, "tax_preset": tax_preset_default}) }}
+    {{ invoice_form.invoice_fields(values) }}
     <button class="button-primary" type="submit">{{ t('inv_generate_pdf') }}</button></form>
     </section>
     {{ invoice_preview.invoice_preview_pane("invoiceFormAvulso") }}
     </div>
-    <script src="/static/js/invoice_preview.js?v=20260927-1" defer></script>
+    <script src="/static/js/invoice_preview.js?v=20260928-2" defer></script>
 {% endif %}
 {% endif %}
 {% endblock %}

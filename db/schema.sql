@@ -148,6 +148,8 @@ CREATE TABLE users (
     -- (see app/referrals.py), used in a link like /register?ref=CODE.
     referral_code       VARCHAR(12) UNIQUE,
     referred_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    invoice_country  VARCHAR(8),     -- Rechnungmaker v2: last invoice country (DE/AT/CH/OTHER)
+    invoice_doc_lang VARCHAR(2),     -- ... and invoice language (de/en/fr/it)
     signup_ip_hash  CHAR(64),        -- salted SHA-256 of the signup IP (referral fraud review); never the IP
     -- Special user level for simple administrative tasks
     -- INSIDE the app (see /admin in app/routers/admin_routes.py) — much

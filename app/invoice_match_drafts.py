@@ -30,7 +30,7 @@ from app.email_localization import (
     match_invoice_requested_email,
 )
 from app.invoice_deadlines import can_request_match_invoice, match_draft_expiry
-from app.invoice_countries import format_amount
+from app.invoice_countries import DOC_LABELS, format_amount
 from app.invoice_form import FIELDS as FORM_FIELDS_V2, normalize, to_document
 from app.invoice_pdf import InvoiceDocument, InvoiceValidationError, render_invoice_pdf
 from app.invoice_security import decrypt_invoice_draft, encrypt_invoice_draft
@@ -67,7 +67,8 @@ def preview_values(payload: dict) -> dict:
     return {**{key: payload.get(key, "") for key in STORED_FIELDS}, "tax_rate": document.tax_rate,
             "tax_note": document.tax_note, "tax_name": document.tax_name, "doc_lang": document.lang,
             "net_fmt": money(net), "tax_fmt": money(tax), "travel_fmt": money(travel) if travel else "",
-            "lodging_fmt": money(lodging) if lodging else "", "total_fmt": money(total)}
+            "lodging_fmt": money(lodging) if lodging else "", "total_fmt": money(total),
+            "total_label": DOC_LABELS[document.lang]["total"]}
 
 
 class InvoiceDraftNotFound(ValueError):

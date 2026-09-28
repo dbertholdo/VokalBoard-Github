@@ -8,7 +8,7 @@ from cryptography.fernet import Fernet
 
 from app.database import execute, fetch_one
 from app.invoice_match_drafts import get_form_for_issuer, save_issuer_form
-from app.invoice_tax_presets import parse_tax_preset
+from app.invoice_form import normalize
 from app.routers import invoice_routes
 from tests.test_invoice_match_drafts import VALID_FORM, _make_match
 from tests.test_security import DEFAULT_PASSWORD, extract_csrf, login, register_test_user
@@ -24,7 +24,7 @@ def _avulso(client, **over):
     data = {"csrf_token": token, "number": "2026-7", "issue_date": "2026-09-27", "service_date": "2026-09-20",
             "issuer_name": "Ada Sängerin", "issuer_address": "Musterweg 1, München", "issuer_tax_id": "12/345/678",
             "recipient_name": "Chor Beispiel", "recipient_address": "Platz 2, Berlin", "service_description": "Solo",
-            "net_amount": "100", "currency": "EUR", "tax_preset": "DE:kleinunternehmer"}
+            "net_amount": "100", "currency": "EUR", "country": "DE", "tax_option": "klein"}
     data.update(over)
     return client.post("/rechnungen/pdf", data=data, follow_redirects=False)
 
@@ -35,9 +35,12 @@ def _verified_member(client):
     return uid
 
 
-def test_parse_tax_preset():
-    assert parse_tax_preset("CH:kleinunternehmer") == ("CH", "kleinunternehmer", "CH:kleinunternehmer")
-    assert parse_tax_preset("XX:evil") == ("DE", "standard", "DE:standard")
+def test_normalize_rejects_unknown_country_and_option():
+    # v2 (2026-09-28): unknown values fall back to safe defaults, never pass through.
+    v = normalize({"country": "XX", "tax_option": "evil", "currency": "BTC"})
+    assert (v["country"], v["tax_option"], v["currency"]) == ("DE", "std19", "EUR")
+    assert normalize({"country": "CH", "tax_option": "evil"})["tax_option"] == "std81"
+    assert normalize({"tax_preset": "CH:kleinunternehmer"})["tax_option"] == "exempt"  # old drafts
 
 
 def test_kleinunternehmer_choice_reaches_the_pdf(client, monkeypatch):
@@ -62,7 +65,7 @@ def test_invalid_form_comes_back_filled_in_and_translated(client):
     _verified_member(client)
     r = _avulso(client, net_amount="abc")
     assert r.status_code == 400
-    assert 'value="Ada Sängerin"' in r.text and 'value="DE:kleinunternehmer" selected' in r.text
+    assert 'value="Ada Sängerin"' in r.text and '<option value="klein" selected>' in r.text
     assert "Seu nome" not in r.text and "onchange=" not in r.text
 
 
@@ -82,5 +85,5 @@ def test_closed_match_blocks_invoice_work_and_pages_are_not_cached(client):
     login(client, fetch_one("SELECT email FROM users WHERE id = :id", {"id": artist2})["email"], DEFAULT_PASSWORD)
     form_page = client.get(f"/profile/matches/{live_id}/invoice")
     assert "no-store" in form_page.headers["cache-control"]
-    assert 'value="AT:cultural" selected' in form_page.text
+    assert '<option value="AT" selected>' in form_page.text and '<option value="cultural" selected>' in form_page.text
     assert "no-store" in client.get(f"/profile/matches/{live_id}/invoice/preview").headers["cache-control"]
