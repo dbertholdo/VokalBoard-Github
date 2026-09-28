@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Admin — Match cancellations{% endblock %}
+
+{% block content %}
+{# Match cancellations review (2026-09-28, HANDOFF 5b). Admin area = English only. #}
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-flag"></use></svg> Match cancellations</h1>
+<p class="field-help">Cancelling is possible until 7 days before the event, with a reason of at least 50 characters.
+Review each one: <strong>Warn</strong> the person who cancelled, or <strong>Dismiss</strong>.
+{{ warnings_per_block }} warnings = 30 days without new Matches. Warn and Lift block ask for your password; everything goes to the audit log.</p>
+
+{% if not enabled %}
+    <p class="error">The 2026-09-28 cancellations migration is not applied yet — nobody can cancel a Match so far.</p>
+{% endif %}
+{% if done == 'blocked' %}<p class="success">Warning sent — that was the 3rd, so the person is blocked from new Matches for 30 days.</p>
+{% elif done == 'warned' %}<p class="success">Warning sent.</p>
+{% elif done == 'dismissed' %}<p class="success">Dismissed — no warning.</p>
+{% elif done == 'unblocked' %}<p class="success">Block lifted — the person can start Matches again.</p>{% endif %}
+{% if failed == 'auth' %}<p class="error">Wrong password — nothing changed.</p>{% elif failed %}<p class="error">Not possible (already reviewed?).</p>{% endif %}
+
+<div class="tool-tabs">
+    <a class="tool-tab {{ 'active' if show == 'open' else '' }}" href="/admin/cancellations">To review</a>
+    <a class="tool-tab {{ 'active' if show == 'all' else '' }}" href="/admin/cancellations?show=all">All</a>
+</div>
+
+{% if cancellations|length == 0 %}
+    <p class="empty-state">Nothing to review.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for c in cancellations %}
+            <li>
+                <p>
+                    <strong>{{ c.title or 'Match #' ~ c.match_id }}</strong>{% if c.event_date %} · event {{ c.event_date.strftime('%Y-%m-%d') }}{% endif %}<br>
+                    Cancelled by {% if c.cancelled_by %}<a href="/admin/users/{{ c.cancelled_by }}">{{ c.cancelled_by_name }}</a>{% else %}(deleted account){% endif %}
+                    · other side: {{ c.other_name or '(deleted account)' }}<br>
+                    <small>{{ c.created_at.strftime('%Y-%m-%d %H:%M') }} · warnings so far: {{ c.warnings }}{% if c.blocked_until %} · <strong>blocked until {{ c.blocked_until.strftime('%Y-%m-%d') }}</strong>{% endif %}
+                    {% if c.outcome %} · <span class="tag">{{ c.outcome }}</span>{% endif %}</small>
+                </p>
+                <blockquote class="admin-quote">{{ c.reason }}</blockquote>
+                {% if not c.reviewed_at and c.cancelled_by %}
+                    <form method="post" action="/admin/cancellations/{{ c.id }}/warn" class="stacked-form narrow">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <label>Note for the record (optional) <input name="note" maxlength="1000"></label>
+                        <label>Your password <input type="password" name="current_password" required autocomplete="current-password"></label>
+                        <button type="submit" class="button-danger">Warn {{ c.cancelled_by_name }}</button>
+                    </form>
+                    <form method="post" action="/admin/cancellations/{{ c.id }}/dismiss" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit">Dismiss (no warning)</button>
+                    </form>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<h2>Blocked from new Matches</h2>
+{% if blocked_users|length == 0 %}
+    <p class="empty-state">Nobody is blocked.</p>
+{% else %}
+    <ul class="admin-list">
+        {% for u in blocked_users %}
+            <li>
+                <p><a href="/admin/users/{{ u.id }}">{{ u.full_name }}</a> · blocked until <strong>{{ u.blocked_until.strftime('%Y-%m-%d') }}</strong> · {{ u.warnings }} warning(s) in total</p>
+                <form method="post" action="/admin/match-blocks/{{ u.id }}/lift" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <label>Your password <input type="password" name="current_password" required autocomplete="current-password"></label>
+                    <button type="submit" class="button-primary">Lift block</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}

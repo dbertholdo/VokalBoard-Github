@@ -31,6 +31,9 @@ contrário:
   uma instalação limpa a partir de `db/schema.sql` (que já é cumulativo) é
   mais simples e segura do que encadear migração por migração.
 
+## 2026-09-28 — `2026-09-28_match_cancellations.sql` (PENDING in production)
+New tables `match_cancellations`, `match_warnings`; `users.matches_blocked_until`. Until applied: no cancel option, nobody blocked (`app/match_cancellation.feature_ready`).
+
 ## 2026-09-28 — `2026-09-28_invoice_prefs.sql` (PENDING in production)
 `users.invoice_country`, `users.invoice_doc_lang` (ADD COLUMN IF NOT EXISTS). Until applied the Rechnungmaker just doesn't remember country/language (`app/schema_features.has_columns`).
 

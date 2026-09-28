@@ -148,6 +148,7 @@ CREATE TABLE users (
     -- (see app/referrals.py), used in a link like /register?ref=CODE.
     referral_code       VARCHAR(12) UNIQUE,
     referred_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    matches_blocked_until TIMESTAMPTZ, -- 3 Match-cancellation warnings = 30 days without new Matches
     invoice_country  VARCHAR(8),     -- Rechnungmaker v2: last invoice country (DE/AT/CH/OTHER)
     invoice_doc_lang VARCHAR(2),     -- ... and invoice language (de/en/fr/it)
     signup_ip_hash  CHAR(64),        -- salted SHA-256 of the signup IP (referral fraud review); never the IP
@@ -761,6 +762,32 @@ CREATE TABLE job_matches (
 );
 CREATE INDEX idx_job_invitations_artist_pending ON job_invitations (artist_user_id, status, expires_at);
 CREATE INDEX idx_job_matches_user ON job_matches (artist_user_id, contractor_user_id, status);
+
+-- Cancelled Matches (2026-09-28, app/match_cancellation.py): reason, admin review, warnings.
+CREATE TABLE match_cancellations (
+    id              BIGSERIAL PRIMARY KEY,
+    match_id        BIGINT NOT NULL UNIQUE REFERENCES job_matches(id) ON DELETE CASCADE,
+    cancelled_by    BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    other_user_id   BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    reason          TEXT NOT NULL CHECK (char_length(reason) >= 50),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    reviewed_at     TIMESTAMPTZ,
+    reviewed_by     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    outcome         VARCHAR(12) CHECK (outcome IN ('warned', 'dismissed'))
+);
+CREATE INDEX idx_match_cancellations_open ON match_cancellations (reviewed_at);
+
+CREATE TABLE match_warnings (
+    id               BIGSERIAL PRIMARY KEY,
+    user_id          BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cancellation_id  BIGINT REFERENCES match_cancellations(id) ON DELETE SET NULL,
+    note             TEXT,
+    issued_by        BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    counted_in_block BOOLEAN NOT NULL DEFAULT FALSE  -- TRUE once it helped trigger a 30-day block
+);
+CREATE INDEX idx_match_warnings_user ON match_warnings (user_id);
+
 
 -- P3.F: avaliação pós-Match, 5 categorias (1-5 estrelas cada), mútua —
 -- cada lado do Match avalia o outro (uma linha por match+rater).

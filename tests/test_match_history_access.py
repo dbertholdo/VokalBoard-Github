@@ -46,6 +46,9 @@ class MatchHistoryTests(unittest.TestCase):
             # 2026-09-28: Confirmed / History views.
             '_VIEW_CLAUSES': {'all': '', 'confirmed': '', 'history': ''},
             '_HISTORY_SQL': '', '_HISTORY_ORDER': '',
+            # 5b (2026-09-28): cancellation helpers (migration may be missing).
+            'feature_ready': lambda: False, 'cancel_state': lambda *a, **k: 'closed',
+            'blocked_until': lambda *a, **k: None, 'REASON_MIN_LENGTH': 50,
         }
         exec(compile(ast.Module(body=[fn], type_ignores=[]), '<history route>', 'exec'), namespace)
         return namespace['match_history'], calls

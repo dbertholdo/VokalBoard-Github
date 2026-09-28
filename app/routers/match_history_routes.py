@@ -1,6 +1,6 @@
 """Owner/admin-only Match history. Moderation alone does not grant access."""
 from datetime import date
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from app.auth import get_current_user
 from app.csrf import verify_csrf
@@ -12,6 +12,8 @@ from app.invoice_match_drafts import get_drafts
 from app.fees import format_fee
 from app.i18n import translate
 from app.render import render
+from app.match_cancellation import REASON_MIN_LENGTH, blocked_until, cancel_match, cancel_state, feature_ready
+from app.notifications import notify_match_cancelled
 from app.match_service import count_pending_for_user
 
 router = APIRouter()
@@ -77,6 +79,7 @@ def match_history(request: Request, user_id: int | None = None, page: int = 1, v
     # reveal contact info (the match never actually happened).
     page_rows = rows[:20]
     own_list = owner_id == viewer['id']
+    cancel_enabled = feature_ready()
     # Batched per page (CLAUDE.md §4) instead of one query per Match.
     my_evaluations = get_my_evaluations([r['id'] for r in page_rows], viewer['id']) if own_list else {}
     drafts = get_drafts([r['id'] for r in page_rows]) if own_list else {}
@@ -122,11 +125,15 @@ def match_history(request: Request, user_id: int | None = None, page: int = 1, v
             m['invoice_draft'] = drafts.get(m['id'])
             if not m['invoice_draft'] and not m['invoice_sent_at']:
                 m['can_request_invoice'] = can_request_match_invoice(event_date, date.today())
+        # 5b (2026-09-28): cancel until 7 days before the event, only on your own list.
+        m['cancel_state'] = cancel_state(m['status'], event_date) if cancel_enabled and owner_id == viewer['id'] else 'closed'
+        m['counterpart_name'] = m['contractor_name'] if is_artist else m['artist_name']
         matches.append(m)
 
     response = render(request, 'match_history.html', {
         'user': viewer, 'matches': matches, 'has_next': len(rows) > 20, 'page': page, 'view': view,
-        'eval_categories': list(CATEGORIES.keys()),
+        'eval_categories': list(CATEGORIES.keys()), 'reason_min': REASON_MIN_LENGTH,
+        'blocked_until': blocked_until(viewer['id']) if owner_id == viewer['id'] else None,
     })
     response.headers['Cache-Control'] = 'private, no-store'
     return response
@@ -169,3 +176,18 @@ def submit_match_evaluation(
     except ValueError:
         return RedirectResponse('/profile/matches?eval_error=1', status_code=303)
     return RedirectResponse('/profile/matches?evaluated=1', status_code=303)
+
+
+@router.post('/profile/matches/{match_id}/cancel')
+def cancel_confirmed_match(request: Request, background_tasks: BackgroundTasks, match_id: int,
+                           csrf_token: str = Form(''), reason: str = Form('')):
+    """5b (2026-09-28): either side, until 7 days before the event, with a reason (>= 50 chars)."""
+    verify_csrf(request, csrf_token)
+    viewer = get_current_user(request)
+    if not viewer:
+        return RedirectResponse('/login', status_code=303)
+    result = cancel_match(match_id, viewer['id'], reason)
+    if not result['ok']:
+        return RedirectResponse(f"/profile/matches?view=confirmed&cancel_error={result['error']}", status_code=303)
+    background_tasks.add_task(notify_match_cancelled, str(request.base_url), result['cancellation_id'])
+    return RedirectResponse('/profile/matches?view=history&cancelled=1', status_code=303)

@@ -12,6 +12,11 @@
 {% if not matches and view != 'all' %}<p class="empty-state">{{ t('matches_confirmed_empty') if view == 'confirmed' else t('matches_history_empty') }}</p>{% endif %}
 {% if request.query_params.get('evaluated') == '1' %}<p class="success">{{ t('eval_success') }}</p>{% endif %}
 {% if request.query_params.get('eval_error') == '1' %}<p class="error">{{ t('eval_error') }}</p>{% endif %}
+{% if request.query_params.get('cancelled') == '1' %}<p class="success">{{ t('match_cancelled_ok') }}</p>{% endif %}
+{% set cancel_error = request.query_params.get('cancel_error') %}
+{# too_late: the Match card itself explains it, with the other person's name. #}
+{% if cancel_error in ('match_cancel_error', 'match_cancel_error_reason') %}<p class="error" role="alert">{{ t(cancel_error).replace('{n}', reason_min|string) }}</p>{% endif %}
+{% if blocked_until %}<p class="error" role="status">{{ t('match_blocked_notice').replace('{date}', blocked_until.strftime('%d.%m.%Y')) }}</p>{% endif %}
 {% for match in matches %}
 <article class="profile-edit-card">
     <h2>{{ match.title }}</h2>
@@ -25,6 +30,21 @@
             {% if match.counterpart_email %}<p class="row"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ match.counterpart_email }}</p>{% endif %}
             {% if match.counterpart_phone %}<p class="row"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-phone"></use></svg> {{ match.counterpart_phone }}</p>{% endif %}
         </div>
+    {% endif %}
+    {# 5b (2026-09-28): cancel until 7 days before the event, with a reason. #}
+    {% if match.cancel_state == 'allowed' %}
+        <details class="match-cancel-box">
+            <summary>{{ t('match_cancel_title') }}</summary>
+            <p class="field-help">{{ t('match_cancel_help').replace('{n}', reason_min|string).replace('{name}', match.counterpart_name) }}</p>
+            <form method="post" action="/profile/matches/{{ match.id }}/cancel" class="stacked-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label for="cancel-reason-{{ match.id }}">{{ t('match_cancel_reason_label') }}</label>
+                <textarea id="cancel-reason-{{ match.id }}" name="reason" required minlength="{{ reason_min }}" maxlength="2000" rows="4"></textarea>
+                <button type="submit" class="button-link button-danger">{{ t('match_cancel_button') }}</button>
+            </form>
+        </details>
+    {% elif match.cancel_state == 'too_late' %}
+        <p class="field-help">{{ t('match_cancel_too_late').replace('{name}', match.counterpart_name) }}</p>
     {% endif %}
     {% if match.can_evaluate %}
         <details class="eval-box" {% if not match.my_evaluation %}open{% endif %}>

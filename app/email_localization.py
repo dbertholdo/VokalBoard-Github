@@ -583,3 +583,69 @@ def badge_unlocked_email(language: str | None, recipient_name: str, badge_name: 
         f"{_hello(lang, _GREETING[lang], escape(recipient_name))}<p>{copy[1]} <strong>{escape(badge_name)}</strong></p>"
         f"<p><a href=\"{safe_url}\">{safe_url}</a></p>",
     )
+
+
+def match_cancelled_email(language: str | None, recipient_name: str, canceller_name: str, title: str,
+                          reason: str, url: str) -> tuple[str, str]:
+    """5b (2026-09-28): the other side of a cancelled Match — who, which job, and the reason given."""
+    lang = email_language(language)
+    copy = {
+        "de": ("Match abgesagt", "hat den Match abgesagt für", "Begründung:", "Die Stelle ist wieder offen. Details:"),
+        "en": ("Match cancelled", "cancelled the Match for", "Reason given:", "The vacancy is open again. Details:"),
+        "fr": ("Match annulé", "a annulé le Match pour", "Motif :", "Le poste est de nouveau ouvert. Détails :"),
+        "it": ("Match annullato", "ha annullato il Match per", "Motivo:", "Il posto è di nuovo disponibile. Dettagli:"),
+        "pt": ("Match cancelado", "cancelou o Match de", "Motivo informado:", "A vaga está aberta de novo. Detalhes:"),
+        "es": ("Match cancelado", "canceló el Match de", "Motivo:", "La vacante vuelve a estar abierta. Detalles:"),
+        "ro": ("Match anulat", "a anulat Match-ul pentru", "Motivul:", "Postul este din nou disponibil. Detalii:"),
+        "zh": ("匹配已取消", "取消了以下职位的匹配：", "给出的理由：", "该职位已重新开放。详情："),
+        "ko": ("매치 취소", "님이 다음 공고의 매치를 취소했습니다:", "사유:", "포지션이 다시 열렸습니다. 자세히 보기:"),
+    }[lang]
+    safe_url = escape(url, quote=True)
+    who, job = escape(canceller_name), escape(title or "")
+    return (
+        f"{copy[0]} — VokalBoard",
+        f"{_hello(lang, _GREETING[lang], escape(recipient_name))}<p><strong>{who}</strong> {copy[1]} <strong>{job}</strong>{_STOP.get(lang, '.')}</p>"
+        f"<p>{copy[2]}<br><em>{escape(reason)}</em></p><p>{copy[3]} <a href=\"{safe_url}\">{safe_url}</a></p>",
+    )
+
+
+def match_warning_email(language: str | None, recipient_name: str, warnings_towards_block: int,
+                        blocked_until: str | None, url: str) -> tuple[str, str]:
+    """5b: a warning after a Match cancellation; the 3rd one blocks new Matches for 30 days."""
+    lang = email_language(language)
+    copy = {
+        "de": ("Verwarnung wegen einer Match-Absage", "Nach Prüfung deiner Match-Absage hast du eine Verwarnung erhalten.",
+               "Verwarnungen: {n} von 3. Bei 3 Verwarnungen kannst du 30 Tage lang keine neuen Matches eingehen.",
+               "Du hast 3 Verwarnungen erreicht: Bis {date} kannst du keine neuen Matches eingehen (bewerben, einladen, annehmen)."),
+        "en": ("Warning for a Match cancellation", "After reviewing your Match cancellation, we have issued a warning.",
+               "Warnings: {n} of 3. At 3 warnings you can't start new Matches for 30 days.",
+               "You have reached 3 warnings: until {date} you can't start new Matches (apply, invite or accept)."),
+        "fr": ("Avertissement pour l'annulation d'un Match", "Après examen de votre annulation, vous avez reçu un avertissement.",
+               "Avertissements : {n} sur 3. À 3 avertissements, vous ne pourrez plus conclure de Match pendant 30 jours.",
+               "Vous avez atteint 3 avertissements : jusqu'au {date}, vous ne pouvez plus conclure de nouveau Match (postuler, inviter, accepter)."),
+        "it": ("Avviso per l'annullamento di un Match", "Dopo aver esaminato il tuo annullamento, hai ricevuto un avviso.",
+               "Avvisi: {n} su 3. Con 3 avvisi non potrai avviare nuovi Match per 30 giorni.",
+               "Hai raggiunto 3 avvisi: fino al {date} non puoi avviare nuovi Match (candidarti, invitare, accettare)."),
+        "pt": ("Advertência por cancelar um Match", "Depois de analisarmos o seu cancelamento, você recebeu uma advertência.",
+               "Advertências: {n} de 3. Com 3 advertências você fica 30 dias sem poder fazer novos Matches.",
+               "Você chegou a 3 advertências: até {date} não pode fazer novos Matches (se candidatar, convidar ou aceitar)."),
+        "es": ("Aviso por cancelar un Match", "Tras revisar tu cancelación, has recibido un aviso.",
+               "Avisos: {n} de 3. Con 3 avisos no podrás hacer nuevos Matches durante 30 días.",
+               "Has llegado a 3 avisos: hasta el {date} no puedes hacer nuevos Matches (postularte, invitar ni aceptar)."),
+        "ro": ("Avertisment pentru anularea unui Match", "După analizarea anulării tale, ai primit un avertisment.",
+               "Avertismente: {n} din 3. La 3 avertismente nu poți face Match-uri noi timp de 30 de zile.",
+               "Ai ajuns la 3 avertismente: până la {date} nu poți face Match-uri noi (să aplici, să inviți sau să accepți)."),
+        "zh": ("取消匹配的警告", "经审核你的取消记录后，你收到了一次警告。",
+               "警告次数：{n}/3。累计 3 次警告将在 30 天内无法建立新的匹配。",
+               "你已累计 3 次警告：在 {date} 之前无法建立新的匹配（申请、邀请或接受）。"),
+        "ko": ("매치 취소 경고", "매치 취소 건을 검토한 결과 경고가 부여되었습니다.",
+               "경고: 3회 중 {n}회. 경고 3회가 되면 30일 동안 새 매치를 할 수 없습니다.",
+               "경고 3회에 도달했습니다. {date}까지 새 매치(지원, 초대, 수락)를 할 수 없습니다."),
+    }[lang]
+    status = copy[3].replace("{date}", escape(blocked_until)) if blocked_until else copy[2].replace("{n}", str(warnings_towards_block))
+    safe_url = escape(url, quote=True)
+    return (
+        f"{copy[0]} — VokalBoard",
+        f"{_hello(lang, _GREETING[lang], escape(recipient_name))}<p>{copy[1]}</p><p>{status}</p>"
+        f"<p><a href=\"{safe_url}\">{safe_url}</a></p>",
+    )

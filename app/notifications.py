@@ -23,6 +23,8 @@ whoever posted.
 from app.database import fetch_all, fetch_one
 from app.email import send_email
 from app.email_localization import (
+    match_cancelled_email,
+    match_warning_email,
     new_message_email,
     invitation_received_email,
     application_received_email,
@@ -219,3 +221,52 @@ def notify_vacancy_filled_elsewhere(base_url: str, invitation_id: int) -> None:
         return
     subject, html = vacancy_filled_email(row["artist_lang"], row["artist_name"], row["listing_title"])
     send_email(row["artist_email"], subject, html)
+
+
+# ---------------------------------------------------------------------------
+# 5b (2026-09-28): Match cancellations — other side + admins, and warnings.
+# ---------------------------------------------------------------------------
+
+def notify_match_cancelled(base_url: str, cancellation_id: int) -> None:
+    from app.notification_center import create_notification
+    row = fetch_one(
+        """
+        SELECT c.reason, COALESCE(m.listing_snapshot->>'title', l.title) AS title,
+               by_u.full_name AS canceller_name,
+               other.id AS other_id, other.email AS other_email, other.full_name AS other_name,
+               other.preferred_language AS other_lang
+        FROM match_cancellations c
+        JOIN job_matches m ON m.id = c.match_id
+        LEFT JOIN listings l ON l.id = m.listing_id
+        LEFT JOIN users by_u ON by_u.id = c.cancelled_by
+        LEFT JOIN users other ON other.id = c.other_user_id
+        WHERE c.id = :id
+        """,
+        {"id": cancellation_id},
+    )
+    if not row:
+        return
+    params = {"name": row["canceller_name"] or "", "title": row["title"] or ""}
+    if row["other_id"]:
+        create_notification(row["other_id"], "match_cancelled", "notification_match_cancelled", params,
+                            link_url="/profile/matches?view=history")
+        subject, html = match_cancelled_email(row["other_lang"], row["other_name"], row["canceller_name"] or "",
+                                              row["title"], row["reason"], f"{base_url.rstrip('/')}/profile/matches?view=history")
+        send_email(row["other_email"], subject, html)
+    for admin in fetch_all("SELECT id FROM users WHERE role_level >= 2 AND deleted_at IS NULL"):
+        create_notification(admin["id"], "match_cancel_review", "notification_match_cancel_review", params,
+                            link_url="/admin/cancellations")
+
+
+def notify_match_warning(base_url: str, user_id: int, towards_next_block: int, blocked_until) -> None:
+    from app.notification_center import create_notification
+    user = fetch_one("SELECT email, full_name, preferred_language FROM users WHERE id = :id", {"id": user_id})
+    if not user:
+        return
+    until = blocked_until.strftime("%d.%m.%Y") if blocked_until else None
+    create_notification(user_id, "match_warning",
+                        "notification_match_blocked" if until else "notification_match_warning",
+                        {"n": towards_next_block, "date": until or ""}, link_url="/profile/matches?view=history")
+    subject, html = match_warning_email(user["preferred_language"], user["full_name"], towards_next_block, until,
+                                        f"{base_url.rstrip('/')}/profile/matches?view=history")
+    send_email(user["email"], subject, html)

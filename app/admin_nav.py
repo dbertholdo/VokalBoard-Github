@@ -17,4 +17,6 @@ def admin_attention_counts() -> dict:
     counts["reports"] = counts["listing_reports"] + counts["message_reports"]
     from app.referrals import count_flagged_referrals  # tolerates the 2026-09-28 migration missing
     counts["referrals"] = count_flagged_referrals()
+    from app.match_cancellation import count_open_reviews  # tolerates the 2026-09-28 migration missing
+    counts["cancellations"] = count_open_reviews()
     return counts

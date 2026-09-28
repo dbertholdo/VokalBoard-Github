@@ -3849,3 +3849,10 @@ form button.link-button:hover { color: var(--accent-dark); }
 .inv-help.open .inv-help-text { display: block; }
 .inv-apply { align-self: flex-start; margin-top: var(--space-1); }
 .inv-disclaimer { margin: 0; }
+
+/* 5b (2026-09-28): cancel a Match + admin review quote. */
+.match-cancel-box { margin-top: var(--space-3); }
+.match-cancel-box > summary { cursor: pointer; color: var(--error-text); font-weight: 600; }
+.admin-quote { margin: var(--space-2) 0; padding: var(--space-2) var(--space-3); border-left: 3px solid var(--border-control);
+    background: var(--bg); white-space: pre-wrap; }
+

@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — 5b: cancel a confirmed Match, warnings, 30-day block, lift block
+- `app/match_cancellation.py`: rules (7-day window, reason ≥ 50), cancel transaction (slot −1, listing active, invoice draft deleted, urgency reward debited), warn/dismiss, 3 warnings → `matches_blocked_until` +30 d, `lift_block` (Daniel's "unban").
+- Blocked users can't apply/invite (`create_invitation`) or accept (`respond_invitation`) → `invitation_error_blocked`.
+- UI: cancel box / "too late — contact {name}" on Matches cards; `/admin/cancellations` (+ blocked list, nav badge); e-mails `match_cancelled_email`, `match_warning_email` + bells (9 langs, 14 UI keys).
+- Migration `2026-09-28_match_cancellations.sql` (tolerated missing). Tests: tests/test_match_cancellation.py (6); full suite 416 passed / 7 skipped + retention; bandit clean.
+
 ## 2026-09-28 — Claude — item 5: Rechnungmaker v2 phase 1 (+ Match fee pre-fill)
 - Country (DE/AT/CH/Other) + invoice language (DE/EN/FR/IT) + 5 currencies; tax options/notes from `invoice_countries.py`; reverse charge needs client VAT ID.
 - `invoice_pdf.py` + `_invoice_preview.html`/`invoice_preview.js` follow invoice language + country formats; footer "Rechnungmaker"; JS builds everything from embedded JSON (no duplicated tax rules).

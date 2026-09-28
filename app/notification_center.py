@@ -54,6 +54,9 @@ _TYPE_STYLE = {
     "loja_redeemed": ("icon-gift", "notif-badge-success"),
     "new_message": ("icon-mail", "notif-badge-info"),
     "profile_incomplete": ("icon-profile", "notif-badge-attention"),
+    "match_cancelled": ("icon-close", "notif-badge-attention"),
+    "match_cancel_review": ("icon-flag", "notif-badge-attention"),
+    "match_warning": ("icon-warning", "notif-badge-attention"),
 }
 _DEFAULT_TYPE_STYLE = ("icon-bell", "notif-badge-neutral")
 

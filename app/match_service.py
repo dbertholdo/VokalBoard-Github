@@ -13,6 +13,7 @@ from sqlalchemy import text
 from app.database import engine
 from app.notas_wallet import credit_in_tx
 from app.urgency import URGENCY_MATCH_REWARD_NOTAS
+from app.match_cancellation import blocked_until
 
 MAX_PENDING_INVITATIONS_PER_ARTIST = 30
 
@@ -30,6 +31,9 @@ def create_invitation(vacancy_id: int, artist_user_id: int, initiated_by_user_id
     Returns {"ok": True, "id": ...} or {"ok": False, "reason": "..."}
     (reason is an i18n key, see app/routers/invitations_routes.py).
     """
+    # 5b (2026-09-28): 3 cancellation warnings = 30 days without new Matches.
+    if blocked_until(initiated_by_user_id):
+        return {"ok": False, "reason": "invitation_error_blocked"}
     with engine.begin() as conn:
         vacancy = conn.execute(
             text(
@@ -127,6 +131,8 @@ def respond_invitation(invitation_id: int, acting_user_id: int, action: str) -> 
     """
     if action not in ("accept", "decline"):
         raise ValueError("action must be 'accept' or 'decline'")
+    if action == "accept" and blocked_until(acting_user_id):
+        return {"ok": False, "reason": "invitation_error_blocked"}
 
     with engine.begin() as conn:
         invite = conn.execute(

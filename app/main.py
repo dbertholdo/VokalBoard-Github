@@ -22,7 +22,7 @@ from app.database import engine, fetch_all
 from app.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_META, translate
 from app.render import render, templates
 from app.traffic import bot_name, is_probe, record_bot_hit
-from app.routers import traffic_routes
+from app.routers import traffic_routes, match_cancellation_admin_routes
 from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes, invoice_routes, invitations_routes, support_routes, notification_center_routes, payments_routes, referral_admin_routes
 
 load_dotenv()
@@ -385,6 +385,7 @@ app.include_router(invitations_routes.router)
 app.include_router(support_routes.router)
 app.include_router(referral_admin_routes.router)
 app.include_router(traffic_routes.router)
+app.include_router(match_cancellation_admin_routes.router)
 app.include_router(notification_center_routes.router)
 app.include_router(payments_routes.router)
 
