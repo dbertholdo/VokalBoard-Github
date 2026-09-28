@@ -7,8 +7,16 @@
        (two words), the only spot on the site that didn't match the
        brand's actual one-word name used everywhere else (og:site_name,
        nav brand link, listing_pdf.py). #}
-    <title>VokalBoard — {{ t('site_tagline') }}{% block title_suffix %}{% endblock %}</title>
-    <meta name="description" content="{{ t('og_site_description') }}">
+    {# SEO 2026-09-28: pages' own {% block title %} was never used (every page
+       had the same <title>). Now: page title + " — VokalBoard", or the tagline. #}
+    {% if false %}{% block title %}{% endblock %}{% endif %}
+    {% set page_title = self.title() | trim %}
+    <title>{% if page_title %}{{ page_title }}{% if 'VokalBoard' not in page_title %} — VokalBoard{% endif %}{% else %}VokalBoard — {{ t('site_tagline') }}{% endif %}</title>
+    <meta name="description" content="{% block meta_description %}{{ t('og_site_description') }}{% endblock %}">
+    <link rel="canonical" href="{{ seo.canonical }}">
+    {% if google_site_verification %}<meta name="google-site-verification" content="{{ google_site_verification }}">{% endif %}
+    {% for code, href in seo.alternates %}<link rel="alternate" hreflang="{{ code }}" href="{{ href }}">
+    {% endfor %}{% block structured_data %}{% endblock %}
 
     {# ------------------------------------------------------------
        Open Graph / Twitter Card — the preview that shows up when the
@@ -27,14 +35,14 @@
        every other page. #}
     <meta property="og:title" content="{% block og_title %}VokalBoard{% endblock %}">
     <meta property="og:description" content="{% block og_description %}{{ t('og_site_description') }}{% endblock %}">
-    <meta property="og:url" content="{{ request.url }}">
-    <meta property="og:image" content="{{ request.base_url }}static/img/og-preview.png">
+    <meta property="og:url" content="{{ seo.canonical }}">
+    <meta property="og:image" content="{{ seo_base }}/static/img/og-preview.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{% block twitter_title %}VokalBoard{% endblock %}">
     <meta name="twitter:description" content="{% block twitter_description %}{{ t('og_site_description') }}{% endblock %}">
-    <meta name="twitter:image" content="{{ request.base_url }}static/img/og-preview.png">
+    <meta name="twitter:image" content="{{ seo_base }}/static/img/og-preview.png">
 
     {# Extension point: pages that must NOT be indexed by Google
        (e.g. public profile — see public_profile.html) override this

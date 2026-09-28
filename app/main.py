@@ -3,6 +3,7 @@ import re
 import secrets
 import sys
 import traceback
+from app.seo import lang_url, public_base
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, HTTPException, Request
@@ -276,7 +277,7 @@ def robots_txt(request: Request):
     they're secret (robots.txt is public), but to avoid wasting
     Google's "crawl budget" on pages that require login anyway.
     """
-    base = str(request.base_url).rstrip("/")
+    base = public_base(request)
     lines = [
         "User-agent: *",
         "Disallow: /admin",
@@ -312,12 +313,14 @@ def sitemap_xml(request: Request):
     for people who verified their email and haven't deleted their
     account).
     """
-    base = str(request.base_url).rstrip("/")
+    base = public_base(request)
     urls: list[dict] = []
 
     for path, changefreq, priority in [
         ("/", "daily", "1.0"),
         ("/board", "daily", "0.9"),
+        ("/rechnungmaker", "monthly", "0.8"),
+        ("/agb", "yearly", "0.2"),
         ("/impressum", "yearly", "0.2"),
         ("/datenschutz", "yearly", "0.2"),
         ("/code-of-conduct", "yearly", "0.2"),
@@ -344,10 +347,16 @@ def sitemap_xml(request: Request):
     # Public profiles (/users/{id}) are deliberately left OUT of the
     # sitemap — see the matching comment in robots_txt() above.
 
-    xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    # SEO 2026-09-28: every URL lists its language versions (?lang=xx).
+    xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
     for u in urls:
         xml_parts.append("  <url>")
         xml_parts.append(f"    <loc>{u['loc']}</loc>")
+        path = u["loc"][len(base):] or "/"
+        for code in SUPPORTED_LANGUAGES:
+            href = lang_url(base, path, code).replace("&", "&amp;")
+            xml_parts.append(f'    <xhtml:link rel="alternate" hreflang="{"zh-Hans" if code == "zh" else code}" href="{href}"/>')
         if u["lastmod"]:
             xml_parts.append(f"    <lastmod>{u['lastmod']}</lastmod>")
         xml_parts.append(f"    <changefreq>{u['changefreq']}</changefreq>")

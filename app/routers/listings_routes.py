@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Form, BackgroundTasks, HTTPException
+from app.seo import job_posting_jsonld, public_base, website_jsonld
 from app.vacancies import get_listing_invitations
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 
@@ -236,6 +237,7 @@ def home(request: Request):
         "highlights": highlights,
         "verify_required": request.query_params.get("verify_required") == "1",
     }
+    context["website_jsonld"] = website_jsonld(public_base(request), translate("seo_home_description", getattr(request.state, "lang", "de")))
     return render(request, "home.html", context)
 
 
@@ -551,7 +553,7 @@ def listing_detail(request: Request, listing_id: int):
     listing = fetch_one(
         f"""
         SELECT
-            {LISTING_COLUMNS}, l.author_id,
+            {LISTING_COLUMNS}, l.author_id, l.is_active,
             u.full_name AS author_name, u.email AS author_email, u.phone AS author_phone,
             vt.name AS voice_type_name
         FROM visible_listings l
@@ -648,9 +650,22 @@ def listing_detail(request: Request, listing_id: int):
     if user and listing and user["id"] == listing["author_id"] and vacancies:
         author_candidacies = get_listing_invitations(listing_id)[0]
 
+    # SEO (2026-09-28): only what a logged-out visitor (= Google) sees on the page.
+    seo_listing_description = ""
+    job_posting = None
+    if listing:
+        lang = getattr(request.state, "lang", "de")
+        parts = [translate(f"listing_type_{listing['listing_type']}", lang), listing.get("repertoire"), listing.get("city")]
+        seo_listing_description = " · ".join(p for p in parts if p)
+        excerpt = (listing.get("description") or "")[:120]
+        job_posting = job_posting_jsonld(dict(listing), public_base(request),
+                                         f"{listing['title']}. {seo_listing_description}. {excerpt}".strip())
+
     context = {
         "user": user,
         "listing": listing,
+        "seo_listing_description": seo_listing_description,
+        "job_posting_jsonld": job_posting,
         "author_candidacies": author_candidacies,
         "responded": request.query_params.get("responded"),
         "already_messaged": already_messaged,

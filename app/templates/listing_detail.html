@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block title %}{{ listing.title if listing else t('listing_not_found') }}{% endblock %}
+{% block title %}{% if listing %}{{ listing.title }}{% if listing.city %} — {{ listing.city }}{% endif %}{% else %}{{ t('listing_not_found') }}{% endif %}{% endblock %}
+{% block meta_description %}{% if listing %}{{ seo_listing_description }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block structured_data %}{% if job_posting_jsonld %}<script type="application/ld+json" nonce="{{ csp_nonce }}">{{ job_posting_jsonld | safe }}</script>{% endif %}{% endblock %}
 
 {# P3.D "convite express": when this listing is a vaga (seeking_singer/
    seeking_conductor) — the only types that require repertoire+city to be

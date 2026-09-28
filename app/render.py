@@ -6,6 +6,7 @@ page and current filters; the form's CSRF token (`csrf_token` — see
 app/csrf.py); and, if someone is logged in, the unread message count
 (`unread_count`), used in the menu badge.
 """
+from app.seo import GOOGLE_SITE_VERIFICATION, page_links, public_base
 from app.match_service import count_pending_for_user
 from datetime import datetime, timedelta, timezone
 
@@ -60,6 +61,9 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     context["request"] = request
     context["lang"] = lang
     context["page_status"] = status_code
+    context["seo"] = page_links(request, lang)  # canonical + hreflang (app/seo.py)
+    context["seo_base"] = public_base(request)
+    context["google_site_verification"] = GOOGLE_SITE_VERIFICATION
     context["t"] = lambda key: translate(key, text_lang)
     # FIX (19/09/2026, Daniel: "a área Admin/God Mode precisa
     # NECESSARIAMENTE ser em inglês somente") — a handful of admin

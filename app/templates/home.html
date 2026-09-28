@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block title %}{{ t('home_title') if user else t('home_anon_title') }} — VokalBoard{% endblock %}
+{% block title %}{{ t('home_title') ~ ' — VokalBoard' if user else t('seo_home_title') }}{% endblock %}
+{% block meta_description %}{{ t('seo_home_description') }}{% endblock %}
+{% block structured_data %}<script type="application/ld+json" nonce="{{ csp_nonce }}">{{ website_jsonld | safe }}</script>{% endblock %}
 
 {% block content %}
 {% if verify_required %}
@@ -115,6 +117,14 @@
             <a class="button-link" href="/login">{{ t('home_cta_login') }}</a>
         </p>
     </div>
+
+    {# SEO 2026-09-28: plain words people search for ("music jobs",
+       "auditions", "Sänger gesucht"...), in the visitor's language. #}
+    <section class="seo-intro listing-form-card">
+        <h2>{{ t('seo_home_intro_title') }}</h2>
+        <p>{{ t('seo_home_intro_text') }}</p>
+        <p><a href="/board">{{ t('seo_board_title') }} &rarr;</a></p>
+    </section>
 
     <h2>{{ t('home_teaser_title') }}</h2>
     <ul class="listing-grid">

@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — 4b SEO
+- `app/seo.py`: canonical + hreflang per page (render context `seo`), JSON-LD WebSite/Organization (home) + JobPosting (active seeking_* listings), SITE_BASE_URL for public URLs, optional GOOGLE_SITE_VERIFICATION meta.
+- base.html: pages' `{% block title %}` finally used (+ " — VokalBoard"); `meta_description` / `structured_data` blocks.
+- Home/board keyword titles + descriptions + landing intro (`seo_*`, 9 langs); listing title "Title — City"; sitemap: xhtml:link alternates, /rechnungmaker, /agb.
+- Tests: tests/test_seo.py (4); full suite 404 passed / 7 skipped + retention; bandit clean.
+
 ## 2026-09-28 — Claude — item 4: menu reorganization
 - Top bar: Rechnungmaker · Jobs▾ (`_jobs_menu.html`) · People · Messages · Matches (badge = pending + evaluations) · bell · avatar▾ (`_profile_menu.html`: profile, Rewards, Admin, Log out) · language. Home link dropped (logo).
 - ONE Matches page: `_matches_tabs.html` on /invitations (Open) and /profile/matches?view=confirmed|history; `/matches` entry redirect; admin ?user_id= still sees all.
