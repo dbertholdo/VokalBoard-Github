@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — 6a Code of Conduct in every language
+- `code_of_conduct.html` → `conduct_r1..7_title/conduct_r1..7` + `conduct_outro` (9 langs); new rule "Keep your commitments" (Match cancellations, warnings, 30-day block).
+- agb/datenschutz/widerruf: notice for languages other than de/en ("German version binding" + "Read in English"). Full legal translations = Daniel's decision.
+- Tests: tests/test_legal_languages.py (10).
+
 ## 2026-09-28 — Claude — 6c flags + 6 payment QR codes
 - 6c: language menu uses SVG flags (flag-icons 7.2.3, MIT; `app/static/img/flags/` + MANIFEST/LICENSE) instead of emoji.
 - 6: `app/invoice_qr.py` — Swiss QR-bill (qrbill → SVG → svglib drawing, own last page, doc language; skipped for QR-IBAN/unreadable address), GiroCode EPC QR (ReportLab widget) via new `girocode` checkbox; IBAN check with python-stdnum. New pinned deps in requirements.txt (pip-audit clean).

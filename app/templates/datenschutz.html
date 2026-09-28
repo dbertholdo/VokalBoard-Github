@@ -3,6 +3,8 @@
 
 {% block content %}
 <h1>{{ t('privacy_title') }}</h1>
+{# 6a (2026-09-28): other languages see the German text — say so, in their language. #}
+{% if lang not in ('de', 'en') %}<p class="legal-lang-notice" role="note">{{ t('legal_german_binding_notice') }} <a href="{{ request.url.path }}?lang=en" lang="en">{{ t('legal_read_in_english') }} &rarr;</a></p>{% endif %}
 
 <p class="field-help">
     {{ t('privacy_disclaimer') }}

@@ -3860,3 +3860,5 @@ form button.link-button:hover { color: var(--accent-dark); }
 .lang-flag { display: inline-block; width: 20px; height: 15px; vertical-align: -2px; border-radius: 2px;
     box-shadow: 0 0 0 1px var(--border); object-fit: cover; }
 
+/* 6a (2026-09-28): legal pages exist in German (binding) + English only. */
+.legal-lang-notice { padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--info-bg); color: var(--info-text); }

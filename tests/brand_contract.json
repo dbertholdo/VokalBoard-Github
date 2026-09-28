@@ -269,6 +269,7 @@
     "[\"<a\", [[\"href\", \"\\\"/admin/users?q={{ q }}&sort={{ sort }}&active_only={{ '1' if active_only else '' }}&page={{ page + 1 }}\\\"\"]], []]": 1
   },
   "agb.html": {
+    "[\"<a\", [[\"href\", \"\\\"{{ request.url.path }}?lang=en\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"/code-of-conduct\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"/widerruf\\\"\"]], []]": 2
@@ -346,7 +347,7 @@
     "[\"<a\", [[\"href\", \"\\\"/profile\\\"\"]], []]": 1
   },
   "code_of_conduct.html": {
-    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2
+    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 1
   },
   "contato.html": {
     "[\"<form\", [[\"action\", \"\\\"/contato\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
@@ -357,6 +358,7 @@
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
   },
   "datenschutz.html": {
+    "[\"<a\", [[\"href\", \"\\\"{{ request.url.path }}?lang=en\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 4,
     "[\"<a\", [[\"href\", \"\\\"/profile\\\"\"]], []]": 2,
     "[\"<a\", [[\"href\", \"\\\"/profile/export\\\"\"]], []]": 2
@@ -815,6 +817,7 @@
     "[\"<a\", [[\"href\", \"\\\"{{ request.url.include_query_params(page=page + 1) }}\\\"\"]], []]": 1
   },
   "widerruf.html": {
+    "[\"<a\", [[\"href\", \"\\\"{{ request.url.path }}?lang=en\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2
   },
   "zona_vermelha.html": {
