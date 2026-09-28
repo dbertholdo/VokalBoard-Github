@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — 6b Turkish
+- `tr` in SUPPORTED_LANGUAGES/LANGUAGE_META (flag tr.svg); `app/locales/tr.json` 865/865 via i18n_tool batches (informal "sen"; Rechnungmaker = "Fatura Oluşturucu", fee = "Ücret").
+- Turkish copy in every `email_localization` function + EMAIL_LANGUAGES, `email_layout` sign-off/footer; Stripe `_STRIPE_LOCALES` += tr. docs/I18N.md updated (status, glossary, Rechnungmaker rule).
+- Tests: full suite 432 passed / 7 skipped + retention (email coverage test includes tr). Browser: Turkish home + flags checked.
+
 ## 2026-09-28 — Claude — 6a Code of Conduct in every language
 - `code_of_conduct.html` → `conduct_r1..7_title/conduct_r1..7` + `conduct_outro` (9 langs); new rule "Keep your commitments" (Match cancellations, warnings, 30-day block).
 - agb/datenschutz/widerruf: notice for languages other than de/en ("German version binding" + "Read in English"). Full legal translations = Daniel's decision.

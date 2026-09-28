@@ -127,6 +127,7 @@ _SIGNATURE_BY_LANG = {
     "ro": "Echipa VokalBoard.com",
     "zh": "VokalBoard.com 团队",
     "ko": "VokalBoard.com 팀 드림",
+    "tr": "VokalBoard.com ekibi",
 }
 _FOOTER_BY_LANG = {
     "de": "Du erhältst diese E-Mail, weil du ein Konto bei VokalBoard.com hast.",
@@ -138,6 +139,7 @@ _FOOTER_BY_LANG = {
     "ro": "Primești acest e-mail pentru că ai un cont pe VokalBoard.com.",
     "zh": "你收到这封邮件，是因为你在 VokalBoard.com 注册了账户。",
     "ko": "VokalBoard.com에 계정이 있어서 이 메일을 받았어요.",
+    "tr": "Bu e-postayı VokalBoard.com'da hesabın olduğu için alıyorsun.",
 }
 _BUILTIN_SIGNATURES = {"Equipe VokalBoard", _SIGNATURE_BY_LANG["en"]}
 _BUILTIN_FOOTERS = {"Você recebeu este e-mail porque tem uma conta no VokalBoard.", _FOOTER_BY_LANG["en"]}

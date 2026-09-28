@@ -8,7 +8,7 @@ from app.i18n_locales import load_locale
 
 
 def test_new_requested_languages_are_available_with_safe_english_fallback():
-    assert {"zh", "ko", "ro"}.issubset(SUPPORTED_LANGUAGES)
+    assert {"zh", "ko", "ro", "tr"}.issubset(SUPPORTED_LANGUAGES)
     # Untranslated keys fall back to English; translated ones come from
     # app/locales/<lang>.json (see tests/test_i18n_locales.py).
     for lang in ("zh", "ko", "ro"):

@@ -7,7 +7,7 @@ fall back to English deliberately.
 from html import escape
 
 # es, ro, zh, ko (2026-09-26): added languages — e-mails too (docs/I18N.md phase 3).
-EMAIL_LANGUAGES = {"de", "en", "fr", "it", "pt", "es", "ro", "zh", "ko"}
+EMAIL_LANGUAGES = {"de", "en", "fr", "it", "pt", "es", "ro", "zh", "ko", "tr"}
 
 # "This link is valid for N hours." as one sentence per language (it used to
 # end in English "hours" for everyone — "Dieser Link ist 24 hours.").
@@ -19,6 +19,7 @@ _VALID_FOR = {
     "pt": "Este link é válido por {hours} horas.",
     "es": "Este enlace es válido durante {hours} horas.",
     "ro": "Acest link este valabil {hours} ore.",
+    "tr": "Bu bağlantı {hours} saat geçerlidir.",
     "zh": "此链接的有效期为 {hours} 小时。",
     "ko": "이 링크는 {hours}시간 동안 유효해요.",
 }
@@ -38,7 +39,7 @@ def _hello(lang: str, word: str, name: str) -> str:
 
 
 _GREETING = {"de": "Hallo", "en": "Hello", "fr": "Bonjour", "it": "Ciao", "pt": "Olá", "es": "Hola", "ro": "Bună",
-             "zh": "你好", "ko": "안녕하세요"}
+             "zh": "你好", "ko": "안녕하세요", "tr": "Merhaba"}
 _STOP = {"zh": "。"}  # sentence end after a bold status word; "." elsewhere
 
 
@@ -53,6 +54,7 @@ def verification_email(language: str | None, name: str, url: str, hours: int) ->
         "pt": ("Confirme seu e-mail", "Olá", "Confirme seu endereço de e-mail do VokalBoard.", "Este link é válido por"),
         "es": ("Confirma tu dirección de correo", "Hola", "Confirma tu dirección de correo de VokalBoard.", ""),
         "ro": ("Confirmă-ți adresa de e-mail", "Bună", "Confirmă-ți adresa de e-mail pentru VokalBoard.", ""),
+        "tr": ("E-posta adresini onayla", "Merhaba", "Lütfen VokalBoard e-posta adresini onayla.", ""),
         "zh": ("确认你的邮箱地址", "你好", "请确认你在 VokalBoard 的邮箱地址。", ""),
         "ko": ("이메일 주소를 인증하세요", "안녕하세요", "VokalBoard 이메일 주소를 인증해 주세요.", ""),
     }[lang]
@@ -70,6 +72,7 @@ def password_reset_email(language: str | None, name: str, url: str, hours: int) 
         "pt": ("Redefina sua senha", "Olá", "Use este link para definir uma nova senha."),
         "es": ("Restablece tu contraseña", "Hola", "Usa este enlace para establecer una contraseña nueva."),
         "ro": ("Resetează-ți parola", "Bună", "Folosește acest link pentru a seta o parolă nouă."),
+        "tr": ("Şifreni sıfırla", "Merhaba", "Yeni bir şifre belirlemek için bu bağlantıyı kullan."),
         "zh": ("重置密码", "你好", "请使用此链接设置新密码。"),
         "ko": ("비밀번호 재설정", "안녕하세요", "이 링크로 새 비밀번호를 설정하세요."),
     }[lang]
@@ -87,6 +90,7 @@ def new_message_email(language: str | None, recipient_name: str, sender_name: st
         "pt": ("Nova mensagem de", "Olá", "enviou uma nova mensagem no VokalBoard."),
         "es": ("Nuevo mensaje de", "Hola", "te envió un mensaje nuevo en VokalBoard."),
         "ro": ("Mesaj nou de la", "Bună", "ți-a trimis un mesaj nou pe VokalBoard."),
+        "tr": ("Yeni mesaj:", "Merhaba", "sana VokalBoard'da yeni bir mesaj gönderdi."),
         "zh": ("新消息来自", "你好", "在 VokalBoard 上给你发了一条新消息。"),
         "ko": ("새 메시지:", "안녕하세요", "님이 VokalBoard에서 새 메시지를 보냈어요."),
     }[lang]
@@ -106,6 +110,7 @@ def invitation_received_email(language: str | None, recipient_name: str, listing
         "pt": ("Novo convite", "Olá", "Você foi convidado(a) para uma vaga:", "Responda em até 48 horas."),
         "es": ("Nueva invitación", "Hola", "Te han invitado a una vacante:", "Responde en un plazo de 48 horas."),
         "ro": ("Invitație nouă", "Bună", "Ai fost invitat(ă) la un post:", "Răspunde în 48 de ore."),
+        "tr": ("Yeni davet", "Merhaba", "Bir pozisyona davet edildin:", "48 saat içinde yanıt ver."),
         "zh": ("新邀请", "你好", "你被邀请参加一个职位：", "请在 48 小时内回复。"),
         "ko": ("새 초대", "안녕하세요", "포지션에 초대받았어요:", "48시간 안에 답해 주세요."),
     }[lang]
@@ -124,6 +129,7 @@ def application_received_email(language: str | None, recipient_name: str, artist
         "pt": ("Nova candidatura", "Olá", "se candidatou a uma vaga em", "."),
         "es": ("Nueva candidatura", "Hola", "se postuló a una vacante en", "."),
         "ro": ("Candidatură nouă", "Bună", "a aplicat la un post din", "."),
+        "tr": ("Yeni başvuru", "Merhaba", "şu ilandaki bir pozisyona başvurdu:", "."),
         "zh": ("新申请", "你好", "申请了", " 中的职位。"),
         "ko": ("새 지원", "안녕하세요", "님이", "의 포지션에 지원했어요."),
     }[lang]
@@ -143,6 +149,7 @@ def invitation_response_email(language: str | None, recipient_name: str, listing
         "pt": "aceita" if accepted else "recusada",
         "es": "aceptada" if accepted else "rechazada",
         "ro": "acceptată" if accepted else "refuzată",
+        "tr": "kabul edildi" if accepted else "reddedildi",
         "zh": "接受" if accepted else "拒绝",
         "ko": "수락되었어요" if accepted else "거절되었어요",
     }[lang]
@@ -154,6 +161,7 @@ def invitation_response_email(language: str | None, recipient_name: str, listing
         "pt": ("Resposta recebida", "Olá", "Sua solicitação para", "foi"),
         "es": ("Respuesta recibida", "Hola", "Tu solicitud para", "fue"),
         "ro": ("Răspuns primit", "Bună", "Cererea ta pentru", "a fost"),
+        "tr": ("Yanıt geldi", "Merhaba", "Şu talebin:", "durumu:"),
         "zh": ("已收到回复", "你好", "你对", "的申请已被"),
         "ko": ("답변이 왔어요", "안녕하세요", "요청하신", "건이"),
     }[lang]
@@ -175,12 +183,13 @@ def vacancy_filled_email(language: str | None, recipient_name: str, listing_titl
         "pt": ("Vaga já preenchida", "Olá", "já foi preenchida por outra pessoa. Obrigado pelo interesse!"),
         "es": ("Vacante ya cubierta", "Hola", "ya fue cubierta por otra persona. ¡Gracias por tu interés!"),
         "ro": ("Post deja ocupat", "Bună", "a fost între timp ocupat de altcineva. Mulțumim pentru interes!"),
+        "tr": ("Pozisyon zaten doldu", "Merhaba", "pozisyonu bu arada başka biriyle dolduruldu. İlgin için teşekkürler!"),
         "zh": ("职位已满", "你好", "职位已由他人获得。感谢你的关注！"),
         "ko": ("포지션 마감", "안녕하세요", "포지션은 이미 다른 분으로 채워졌어요. 관심 가져 주셔서 감사해요!"),
     }[lang]
     prefix = {"de": "Die Vakanz in", "en": "The vacancy in", "fr": "Le poste dans", "it": "Il posto in",
               "pt": "A vaga em", "es": "La vacante en", "ro": "Postul din",
-              "zh": "你关注的", "ko": "지원하신"}[lang]
+              "zh": "你关注的", "ko": "지원하신", "tr": "Başvurduğun"}[lang]
     return f"{copy[0]} — VokalBoard", f"{_hello(lang, copy[1], recipient)}<p>{prefix} <strong>{title}</strong> {copy[2]}</p>"
 
 
@@ -203,6 +212,7 @@ def match_evaluation_reminder_email(language: str | None, recipient_name: str, c
         "pt": ("Como foi sua experiência?", "Olá", f"Como foi sua experiência? Avalie {counterpart}!", "Avaliar agora"),
         "es": ("¿Qué tal fue tu experiencia?", "Hola", f"¿Qué tal fue tu experiencia? ¡Valora a {counterpart}!", "Valorar ahora"),
         "ro": ("Cum a fost experiența ta?", "Bună", f"Cum a fost experiența ta? Evaluează-l/o pe {counterpart}!", "Evaluează acum"),
+        "tr": ("Deneyimin nasıldı?", "Merhaba", f"Deneyimin nasıldı? {counterpart} kişisini değerlendir!", "Şimdi değerlendir"),
         "zh": ("合作体验如何？", "你好", f"这次合作体验如何？给 {counterpart} 评个分吧！", "立即评价"),
         "ko": ("함께한 경험은 어땠나요?", "안녕하세요", f"함께한 경험은 어땠나요? {counterpart} 님을 평가해 주세요!", "지금 평가하기"),
     }[lang]
@@ -228,6 +238,7 @@ def match_invoice_requested_email(language: str | None, recipient_name: str, cou
         "pt": ("Fatura solicitada", "Olá", f"{counterpart} pediu uma fatura para “{title}”.", "Abrir"),
         "es": ("Factura solicitada", "Hola", f"{counterpart} solicitó una factura para “{title}”.", "Abrir"),
         "ro": ("Factură solicitată", "Bună", f"{counterpart} a solicitat o factură pentru „{title}”.", "Deschide"),
+        "tr": ("Fatura talep edildi", "Merhaba", f"{counterpart}, “{title}” için fatura talep etti.", "Aç"),
         "zh": ("发票请求", "你好", f"{counterpart} 请求为“{title}”开具发票。", "打开"),
         "ko": ("인보이스 요청", "안녕하세요", f"{counterpart} 님이 “{title}”의 인보이스를 요청했어요.", "열기"),
     }[lang]
@@ -252,6 +263,7 @@ def match_invoice_ready_for_review_email(language: str | None, recipient_name: s
         "pt": ("Fatura pronta para revisão", "Olá", f"{counterpart} preparou uma fatura para “{title}” — revise e confirme.", "Revisar"),
         "es": ("Factura lista para revisar", "Hola", f"{counterpart} preparó una factura para “{title}”: revísala y confírmala.", "Revisar"),
         "ro": ("Factură gata de verificare", "Bună", f"{counterpart} a pregătit o factură pentru „{title}” — verific-o și confirm-o.", "Verifică"),
+        "tr": ("Fatura incelemeye hazır", "Merhaba", f"{counterpart}, “{title}” için bir fatura hazırladı — lütfen incele ve onayla.", "İncele"),
         "zh": ("发票待审核", "你好", f"{counterpart} 已为“{title}”准备好发票，请审核并确认。", "审核"),
         "ko": ("인보이스 검토 요청", "안녕하세요", f"{counterpart} 님이 “{title}”의 인보이스를 작성했어요. 검토하고 확인해 주세요.", "검토하기"),
     }[lang]
@@ -275,6 +287,7 @@ def match_invoice_confirmed_email(language: str | None, recipient_name: str, pro
         "pt": ("Sua fatura está pronta", "Olá", f"Em anexo está a fatura de “{title}”. O VokalBoard não guarda nenhuma cópia."),
         "es": ("Tu factura está lista", "Hola", f"Adjunta encontrarás la factura de “{title}”. VokalBoard no guarda ninguna copia."),
         "ro": ("Factura ta este gata", "Bună", f"Găsești atașată factura pentru „{title}”. VokalBoard nu păstrează nicio copie."),
+        "tr": ("Faturan hazır", "Merhaba", f"“{title}” faturası ektedir. VokalBoard hiçbir kopya saklamaz."),
         "zh": ("你的发票已开好", "你好", f"附件是“{title}”的发票。VokalBoard 不保留任何副本。"),
         "ko": ("인보이스가 준비되었어요", "안녕하세요", f"“{title}”의 인보이스를 첨부했어요. VokalBoard는 어떤 사본도 보관하지 않아요."),
     }[lang]
@@ -300,6 +313,7 @@ def match_invoice_expired_email(language: str | None, recipient_name: str, produ
         "pt": ("Rascunho de fatura expirado", "Olá", f"O rascunho de fatura de “{title}” não foi confirmado em 7 dias e foi apagado automaticamente. Você pode pedir uma nova, se ainda for necessário.", "Pedir de novo"),
         "es": ("Borrador de factura caducado", "Hola", f"El borrador de factura de “{title}” no se confirmó en 7 días y se eliminó automáticamente. Puedes solicitar una nueva si todavía la necesitas.", "Solicitar de nuevo"),
         "ro": ("Ciorna facturii a expirat", "Bună", f"Ciorna facturii pentru „{title}” nu a fost confirmată în 7 zile și a fost ștearsă automat. Poți solicita una nouă dacă mai este nevoie.", "Solicită din nou"),
+        "tr": ("Fatura taslağının süresi doldu", "Merhaba", f"“{title}” için fatura taslağı 7 gün içinde onaylanmadığı için otomatik olarak silindi. Hâlâ gerekiyorsa yenisini talep edebilirsin.", "Tekrar talep et"),
         "zh": ("发票草稿已过期", "你好", f"“{title}”的发票草稿在 7 天内未被确认，已自动删除。如仍需要，可以重新申请。", "重新申请"),
         "ko": ("인보이스 초안 만료", "안녕하세요", f"“{title}”의 인보이스 초안이 7일 안에 확인되지 않아 자동으로 삭제되었어요. 아직 필요하다면 다시 요청할 수 있어요.", "다시 요청하기"),
     }[lang]
@@ -326,6 +340,7 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
             "pt": f"sua denúncia sobre “{title}” foi analisada e uma ação foi tomada. Obrigado por ajudar a manter o VokalBoard seguro.",
             "es": f"tu denuncia sobre “{title}” ha sido revisada y se han tomado medidas. Gracias por ayudar a mantener VokalBoard seguro.",
             "ro": f"raportul tău despre „{title}” a fost analizat și s-au luat măsuri. Mulțumim că ajuți la menținerea siguranței pe VokalBoard.",
+            "tr": f"“{title}” hakkındaki bildirimin incelendi ve gerekli işlem yapıldı. VokalBoard'u güvenli tutmaya yardım ettiğin için teşekkürler.",
             "zh": f"你对“{title}”的举报已审核，我们已采取措施。感谢你帮助维护 VokalBoard 的安全。",
             "ko": f"“{title}”에 대한 신고를 검토하고 조치를 취했어요. VokalBoard를 안전하게 지켜 주셔서 감사해요.",
         }[lang]
@@ -338,6 +353,7 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
             "pt": f"sua denúncia sobre “{title}” foi analisada. Não encontramos uma violação das nossas regras nesse caso.",
             "es": f"tu denuncia sobre “{title}” ha sido revisada. No encontramos ninguna infracción de nuestras normas.",
             "ro": f"raportul tău despre „{title}” a fost analizat. Nu am găsit o încălcare a regulilor noastre.",
+            "tr": f"“{title}” hakkındaki bildirimin incelendi. Kurallarımızın ihlal edildiğini tespit etmedik.",
             "zh": f"你对“{title}”的举报已审核。我们没有发现违反规则的情况。",
             "ko": f"“{title}”에 대한 신고를 검토했어요. 규칙 위반은 발견되지 않았어요.",
         }[lang]
@@ -349,6 +365,7 @@ def report_resolved_email(language: str | None, recipient_name: str, listing_tit
         "pt": "Sua denúncia foi analisada",
         "es": "Tu denuncia ha sido revisada",
         "ro": "Raportul tău a fost analizat",
+        "tr": "Bildirimin incelendi",
         "zh": "你的举报已审核",
         "ko": "신고가 검토되었어요",
     }[lang]
@@ -401,6 +418,11 @@ def moderation_punishment_email(language: str | None, recipient_name: str, listi
             "suspend": f"după analizarea unui raport despre „{title}”, contul tău a fost suspendat temporar. Îl poți reactiva autentificându-te din nou.",
             "ban": "după analizarea unui raport, contul tău a fost blocat definitiv. Această decizie este finală.",
         },
+        "tr": {
+            "warning": f"“{title}” hakkındaki bir bildirimi inceledik ve sana bir uyarı verdik. Lütfen bundan sonraki içeriklerin kurallarımıza uymasına dikkat et.",
+            "suspend": f"“{title}” hakkındaki bir bildirimi inceledikten sonra hesabın geçici olarak askıya alındı. Tekrar giriş yaparak yeniden etkinleştirebilirsin.",
+            "ban": "Bir bildirimi inceledikten sonra hesabın kalıcı olarak yasaklandı. Bu karar kesindir.",
+        },
         "zh": {
             "warning": f"我们审核了关于“{title}”的举报，并对你发出警告。请确保今后发布的内容遵守我们的规则。",
             "suspend": f"在审核关于“{title}”的举报后，你的账户已被暂时停用。重新登录即可恢复。",
@@ -420,6 +442,7 @@ def moderation_punishment_email(language: str | None, recipient_name: str, listi
         "pt": {"warning": "Você recebeu um aviso", "suspend": "Sua conta foi suspensa", "ban": "Sua conta foi banida"},
         "es": {"warning": "Has recibido una advertencia", "suspend": "Tu cuenta ha sido suspendida", "ban": "Tu cuenta ha sido bloqueada"},
         "ro": {"warning": "Ai primit un avertisment", "suspend": "Contul tău a fost suspendat", "ban": "Contul tău a fost blocat"},
+        "tr": {"warning": "Bir uyarı aldın", "suspend": "Hesabın askıya alındı", "ban": "Hesabın yasaklandı"},
         "zh": {"warning": "你收到了一次警告", "suspend": "你的账户已被停用", "ban": "你的账户已被封禁"},
         "ko": {"warning": "경고를 받았어요", "suspend": "계정이 정지되었어요", "ban": "계정이 영구 정지되었어요"},
     }
@@ -445,6 +468,7 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "pt": "Esse ticket agora está marcado como resolvido." if resolved else "Deixamos ele em aberto, caso ainda falte esclarecer algo.",
         "es": "Este ticket ya está marcado como resuelto." if resolved else "Lo dejamos abierto por si queda algo por aclarar.",
         "ro": "Acest tichet este acum marcat ca rezolvat." if resolved else "Îl lăsăm deschis în caz că mai este ceva de clarificat.",
+        "tr": "Bu destek talebi artık çözüldü olarak işaretlendi." if resolved else "Netleştirilecek bir şey kalırsa diye açık tutuyoruz.",
         "zh": "此工单现已标记为已解决。" if resolved else "如还有需要澄清的地方，我们会保持工单开放。",
         "ko": "이 문의는 해결됨으로 표시되었어요." if resolved else "더 확인할 내용이 있을 수 있어 문의를 열어 둘게요.",
     }[lang]
@@ -456,6 +480,7 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "pt": "respondemos seu ticket:",
         "es": "respondimos a tu ticket:",
         "ro": "am răspuns la tichetul tău:",
+        "tr": "destek talebini yanıtladık:",
         "zh": "我们已回复你的工单：",
         "ko": "문의에 답변했어요:",
     }[lang]
@@ -467,6 +492,7 @@ def ticket_response_email(language: str | None, recipient_name: str, admin_respo
         "pt": "Resposta ao seu ticket",
         "es": "Respuesta a tu ticket",
         "ro": "Răspuns la tichetul tău",
+        "tr": "Destek talebine yanıt",
         "zh": "你的工单有新回复",
         "ko": "문의에 대한 답변",
     }[lang]
@@ -492,6 +518,7 @@ def notas_expiring_email(language: str | None, recipient_name: str, amount: str,
         "pt": ("Suas Notas vão expirar em breve", "Olá", f"{amount} das suas Notas ganhas expiram em {date}. Use-as antes disso — Notas compradas nunca expiram.", "Ver minhas Notas"),
         "es": ("Tus Notas caducan pronto", "Hola", f"{amount} de tus Notas ganadas caducan el {date}. Úsalas antes: las Notas compradas nunca caducan.", "Ver mis Notas"),
         "ro": ("Notas tale expiră în curând", "Bună", f"{amount} dintre Notas câștigate expiră pe {date}. Folosește-le înainte — Notas cumpărate nu expiră niciodată.", "Vezi Notas mele"),
+        "tr": ("Notas'ın yakında sona eriyor", "Merhaba", f"Kazandığın Notas'tan {amount} tanesi {date} tarihinde sona eriyor. Ondan önce kullan — satın alınan Notas'ın süresi hiç dolmaz.", "Notas'ıma git"),
         "zh": ("你的 Notas 即将过期", "你好", f"你获得的 Notas 中有 {amount} 个将于 {date} 过期。请在此之前使用——购买的 Notas 永不过期。", "查看我的 Notas"),
         "ko": ("Notas가 곧 만료돼요", "안녕하세요", f"적립된 Notas {amount}개가 {date}에 만료돼요. 그 전에 사용하세요 — 구매한 Notas는 만료되지 않아요.", "내 Notas 보기"),
     }[lang]
@@ -513,6 +540,7 @@ _ALERT_OPT_OUT = {
     "pt": "Você recebe este aviso porque os alertas de anúncios compatíveis estão ativados — dá para desligá-los a qualquer momento no seu perfil.",
     "es": "Recibes este aviso porque tienes activadas las alertas de anuncios compatibles; puedes desactivarlas cuando quieras en tu perfil.",
     "ro": "Primești acest mesaj pentru că ai activate alertele pentru anunțuri potrivite — le poți dezactiva oricând din profil.",
+    "tr": "Hesabında uygun ilan bildirimleri açık olduğu için bu e-postayı alıyorsun — istediğin zaman profilinden kapatabilirsin.",
     "zh": "你收到这封邮件，是因为你开启了匹配信息提醒——可以随时在个人资料中关闭。",
     "ko": "맞는 공고 알림을 켜 두셔서 이 메일을 받았어요 — 프로필에서 언제든 끌 수 있어요.",
 }
@@ -530,6 +558,7 @@ def listing_match_alert_email(language: str | None, recipient_name: str, listing
         "pt": ("Novo anúncio compatível", "Há um novo anúncio que pode combinar com o seu perfil:"),
         "es": ("Nuevo anuncio compatible", "Hay un anuncio nuevo que podría encajar con tu perfil:"),
         "ro": ("Anunț nou potrivit", "Există un anunț nou care s-ar putea potrivi profilului tău:"),
+        "tr": ("Sana uygun yeni ilan", "Profiline uyabilecek yeni bir ilan var:"),
         "zh": ("新的匹配信息", "有一条新信息可能适合你的个人资料："),
         "ko": ("맞는 새 공고", "내 프로필에 맞을 수 있는 새 공고가 올라왔어요:"),
     }[lang]
@@ -553,6 +582,7 @@ def urgent_listing_reminder_email(language: str | None, recipient_name: str, lis
         "pt": ("Ainda urgente", "Este anúncio urgente está aberto há 6 horas — se tiver interesse, agora é um bom momento:"),
         "es": ("Sigue siendo urgente", "Este anuncio urgente lleva 6 horas abierto; si te interesa, ahora es un buen momento:"),
         "ro": ("Încă urgent", "Acest anunț urgent este deschis de 6 ore — dacă te interesează, acum e momentul potrivit:"),
+        "tr": ("Hâlâ acil", "Bu acil ilan 6 saattir açık — ilgileniyorsan şimdi tam zamanı:"),
         "zh": ("仍然紧急", "这条紧急信息已开放 6 小时——如果你感兴趣，现在正是好时机："),
         "ko": ("아직 긴급해요", "이 긴급 공고가 6시간째 열려 있어요 — 관심 있다면 지금이 좋은 때예요:"),
     }[lang]
@@ -575,6 +605,7 @@ def badge_unlocked_email(language: str | None, recipient_name: str, badge_name: 
         "pt": ("Nova conquista desbloqueada", "Você desbloqueou uma nova conquista:"),
         "es": ("Nueva insignia desbloqueada", "Has desbloqueado una insignia nueva:"),
         "ro": ("Insignă nouă deblocată", "Ai deblocat o insignă nouă:"),
+        "tr": ("Yeni rozet açıldı", "Yeni bir rozet açtın:"),
         "zh": ("解锁了新徽章", "你解锁了一枚新徽章："),
         "ko": ("새 배지를 획득했어요", "새 배지를 획득했어요:"),
     }[lang]
@@ -597,6 +628,7 @@ def match_cancelled_email(language: str | None, recipient_name: str, canceller_n
         "pt": ("Match cancelado", "cancelou o Match de", "Motivo informado:", "A vaga está aberta de novo. Detalhes:"),
         "es": ("Match cancelado", "canceló el Match de", "Motivo:", "La vacante vuelve a estar abierta. Detalles:"),
         "ro": ("Match anulat", "a anulat Match-ul pentru", "Motivul:", "Postul este din nou disponibil. Detalii:"),
+        "tr": ("Match iptal edildi", "şu ilanın Match'ini iptal etti:", "Belirtilen gerekçe:", "Pozisyon yeniden açık. Ayrıntılar:"),
         "zh": ("匹配已取消", "取消了以下职位的匹配：", "给出的理由：", "该职位已重新开放。详情："),
         "ko": ("매치 취소", "님이 다음 공고의 매치를 취소했습니다:", "사유:", "포지션이 다시 열렸습니다. 자세히 보기:"),
     }[lang]
@@ -635,6 +667,9 @@ def match_warning_email(language: str | None, recipient_name: str, warnings_towa
         "ro": ("Avertisment pentru anularea unui Match", "După analizarea anulării tale, ai primit un avertisment.",
                "Avertismente: {n} din 3. La 3 avertismente nu poți face Match-uri noi timp de 30 de zile.",
                "Ai ajuns la 3 avertismente: până la {date} nu poți face Match-uri noi (să aplici, să inviți sau să accepți)."),
+        "tr": ("Match iptali için uyarı", "Match iptalini inceledikten sonra sana bir uyarı verdik.",
+               "Uyarılar: 3'te {n}. 3 uyarıda 30 gün boyunca yeni Match yapamazsın.",
+               "3 uyarıya ulaştın: {date} tarihine kadar yeni Match yapamazsın (başvuru, davet ya da kabul)."),
         "zh": ("取消匹配的警告", "经审核你的取消记录后，你收到了一次警告。",
                "警告次数：{n}/3。累计 3 次警告将在 30 天内无法建立新的匹配。",
                "你已累计 3 次警告：在 {date} 之前无法建立新的匹配（申请、邀请或接受）。"),

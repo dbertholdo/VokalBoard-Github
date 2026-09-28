@@ -43,7 +43,7 @@ BUNDLES = {
 VAT_NOTE = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."
 TERMS_VERSION = "2026-09-26"
 WAIVER_VERSION = "v1.0_2026-09-26_digital_content_waiver"
-_STRIPE_LOCALES = {"de", "en", "fr", "it", "pt", "es", "zh", "ko", "ro"}
+_STRIPE_LOCALES = {"de", "en", "fr", "it", "pt", "es", "zh", "ko", "ro", "tr"}
 
 
 def currency_for(user: dict) -> str:

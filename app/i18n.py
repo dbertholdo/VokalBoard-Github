@@ -23,7 +23,7 @@ picked by country, not by language) — see app/financial_settings.py.
 # Core five (complete, inline below) + languages added later, which live in
 # app/locales/<lang>.json and cover the PUBLIC site only (admin stays English).
 # Roadmap for the added ones: docs/I18N.md.
-SUPPORTED_LANGUAGES = ["de", "en", "fr", "it", "pt", "es", "zh", "ko", "ro"]
+SUPPORTED_LANGUAGES = ["de", "en", "fr", "it", "pt", "es", "zh", "ko", "ro", "tr"]
 DEFAULT_LANGUAGE = "de"
 
 # Flag + native label for each supported language, used by the
@@ -40,6 +40,7 @@ LANGUAGE_META = {
     "zh": {"flag": "🇨🇳", "flag_img": "cn", "label": "中文"},
     "ko": {"flag": "🇰🇷", "flag_img": "kr", "label": "한국어"},
     "ro": {"flag": "🇷🇴", "flag_img": "ro", "label": "RO"},
+    "tr": {"flag": "🇹🇷", "flag_img": "tr", "label": "TR"},
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
