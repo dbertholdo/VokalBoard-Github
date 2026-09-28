@@ -4,7 +4,6 @@ import secrets
 import sys
 import traceback
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
@@ -18,9 +17,11 @@ from dotenv import load_dotenv
 from app.avatars import AVATAR_DIR, STORAGE_EXTENSION
 from app.post_images import POST_IMAGE_DIR, STORAGE_EXTENSION as POST_IMAGE_STORAGE_EXTENSION
 from app.auth import get_current_user
-from app.database import engine, fetch_all, execute
+from app.database import engine, fetch_all
 from app.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_META, translate
 from app.render import render, templates
+from app.traffic import bot_name, is_probe, record_bot_hit
+from app.routers import traffic_routes
 from app.routers import auth_routes, listings_routes, profile_routes, messages_routes, legal_routes, admin_routes, financial_routes, search_people_routes, notas_routes, invoice_routes, invitations_routes, support_routes, notification_center_routes, payments_routes, referral_admin_routes
 
 load_dotenv()
@@ -123,67 +124,29 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Paths that don't count as a real "visit" for the Analytics dashboard
-# counter (static files, health check, robots/sitemap, and the admin
-# routes themselves — so the number isn't inflated by the admin's own
-# browsing).
-_VISIT_TRACKING_SKIP_PREFIXES = ("/static", "/avatars", "/health", "/robots.txt", "/sitemap.xml", "/admin", "/financeiro")
-_VISIT_SESSION_KEY = "last_site_visit_logged_at"
-_VISIT_COOLDOWN = timedelta(hours=12)
+# Static files and the health check are never counted, not even for bots.
+_TRAFFIC_SKIP_PREFIXES = ("/static", "/avatars", "/post-images", "/health")
 
 
 class VisitTrackingMiddleware(BaseHTTPMiddleware):
     """
-    Counts overall site visits (see the site_visits table in
-    db/schema.sql) — used in the admin "Analytics" dashboard to
-    understand peak time-of-day / day-of-week / day-of-month usage.
-
-    Deliberately does NOT store an IP or anything that identifies the
-    person — it only counts 1 visit per browser session every 12h
-    (same "cooldown" pattern already used in profile_views), along
-    with the language and the domain the person came from (e.g.
-    "google.com"), never the full URL. No cookie banner needed: this
-    isn't cross-site tracking or a personal profile, just an
-    aggregate count.
+    Bot traffic only (2026-09-28, HANDOFF 3b; see app/traffic.py). Human
+    visits are no longer counted here — the page's JS beacon (POST /visit)
+    does that, so crawlers, HEAD requests and error pages never inflate
+    the Analytics numbers. Requests from bot/empty user agents, and
+    vulnerability probes (/wp-login.php, /.env ...) answered with an
+    error, go to the separate per-day bot counter instead.
     """
 
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-
         path = request.url.path
-        if request.method == "GET" and not path.startswith(_VISIT_TRACKING_SKIP_PREFIXES):
-            last_logged = request.session.get(_VISIT_SESSION_KEY)
-            now = datetime.now(timezone.utc)
-            should_log = True
-            if last_logged:
-                try:
-                    should_log = (now - datetime.fromisoformat(last_logged)) > _VISIT_COOLDOWN
-                except ValueError:
-                    should_log = True
-
-            if should_log:
-                request.session[_VISIT_SESSION_KEY] = now.isoformat()
-                referrer_domain = None
-                referer_header = request.headers.get("referer", "")
-                if referer_header:
-                    try:
-                        parsed_host = urlparse(referer_header).netloc
-                        if parsed_host and parsed_host != request.url.netloc:
-                            referrer_domain = parsed_host[:255]
-                    except ValueError:
-                        referrer_domain = None
-                execute(
-                    """
-                    INSERT INTO site_visits (lang, referrer_domain, is_authenticated)
-                    VALUES (:lang, :referrer_domain, :is_authenticated)
-                    """,
-                    {
-                        "lang": request.cookies.get("lang", DEFAULT_LANGUAGE)[:5],
-                        "referrer_domain": referrer_domain,
-                        "is_authenticated": bool(request.session.get("user_id")),
-                    },
-                )
-
+        if not path.startswith(_TRAFFIC_SKIP_PREFIXES) and path != "/visit":
+            name = bot_name(request.headers.get("user-agent"))
+            if name is None and response.status_code >= 400 and is_probe(path):
+                name = "scanner (probe paths)"
+            if name:
+                record_bot_hit(name)
         return response
 
 
@@ -412,6 +375,7 @@ app.include_router(invoice_routes.router)
 app.include_router(invitations_routes.router)
 app.include_router(support_routes.router)
 app.include_router(referral_admin_routes.router)
+app.include_router(traffic_routes.router)
 app.include_router(notification_center_routes.router)
 app.include_router(payments_routes.router)
 

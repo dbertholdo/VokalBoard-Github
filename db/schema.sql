@@ -498,6 +498,15 @@ CREATE TABLE site_visits (
 );
 CREATE INDEX idx_site_visits_visited_at ON site_visits(visited_at);
 
+-- Bot traffic (2026-09-28): kept OUT of site_visits. One counter per day
+-- and bot label (app/traffic.py); no IP, no URL. Red Zone -> Bot traffic.
+CREATE TABLE bot_traffic_daily (
+    day       DATE NOT NULL,
+    bot_name  VARCHAR(60) NOT NULL,
+    hits      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, bot_name)
+);
+
 -- ------------------------------------------------------------
 -- Admin/moderator posts (notices, partnerships, tips) that appear
 -- in a feed on the home page — meant for "official bulletin

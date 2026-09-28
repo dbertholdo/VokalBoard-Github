@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Red Zone — Bot traffic{% endblock %}
+
+{% block content %}
+{# Bot traffic (2026-09-28, app/traffic.py). Kept out of Analytics on purpose. #}
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Bot traffic</h1>
+<p class="field-help">Search engines, AI crawlers, link previews, scripts and vulnerability scanners. None of this is in
+Analytics: a visit only counts there when a real browser runs the page. Counted per day and bot name — no IP, no URL.</p>
+
+<form method="get" action="/financeiro/bots" class="inline-form">
+    <label>Period
+        <select name="days">
+            {% for d in (7, 30, 90) %}<option value="{{ d }}" {{ 'selected' if days == d }}>Last {{ d }} days</option>{% endfor %}
+        </select>
+    </label>
+    <button type="submit">Show</button>
+</form>
+
+{% if not ready %}
+    <p class="error">The 2026-09-28 bot-traffic migration is not applied yet — bot requests are not being recorded.</p>
+{% elif total == 0 %}
+    <p class="empty-state">No bot requests recorded in this period.</p>
+{% else %}
+    <p><strong>{{ total }}</strong> bot requests in the last {{ days }} days.</p>
+    <div class="admin-bot-grid">
+        <section>
+            <h2>By bot</h2>
+            <table class="admin-table">
+                <thead><tr><th scope="col">Bot</th><th scope="col">Requests</th></tr></thead>
+                <tbody>
+                {% for row in by_bot %}<tr><td>{{ row.bot_name }}</td><td>{{ row.hits }}</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </section>
+        <section>
+            <h2>By day</h2>
+            <table class="admin-table">
+                <thead><tr><th scope="col">Day</th><th scope="col">Requests</th></tr></thead>
+                <tbody>
+                {% for row in by_day %}<tr><td>{{ row.day.strftime('%Y-%m-%d') }}</td><td>{{ row.hits }}</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+{% endif %}
+{% endblock %}

@@ -584,6 +584,23 @@
             });
         })();
     </script>
+{% if page_status < 400 and not request.url.path.startswith(('/admin', '/financeiro')) %}
+{# Visit beacon (2026-09-28, app/traffic.py): only browsers that run JS are
+   counted; the server keeps 1 visit per session every 12 h. #}
+<script nonce="{{ csp_nonce }}">
+    (function () {
+        try {
+            if (sessionStorage.getItem('vb_visit')) return;
+            sessionStorage.setItem('vb_visit', '1');
+            var data = new FormData();
+            data.append('r', document.referrer || '');
+            if (!(navigator.sendBeacon && navigator.sendBeacon('/visit', data))) {
+                fetch('/visit', { method: 'POST', body: data, credentials: 'same-origin', keepalive: true });
+            }
+        } catch (e) { /* counting must never break a page */ }
+    })();
+</script>
+{% endif %}
 {% if user and not request.url.path.startswith('/messages') %}
 {# Messenger desktop dock (M5): popup bubble + small chat windows; hidden <1024px via CSS. #}
 <div id="vb-chat-dock" class="chat-dock" data-csrf="{{ csrf_token }}" data-label-minimize="{{ t('messenger_minimize') }}" data-label-close="{{ t('messenger_close') }}" data-label-send="{{ t('message_send') }}" data-label-open="{{ t('messenger_open_full') }}" data-label-new="{{ t('messenger_new_message_from') }}" data-label-error="{{ t('messenger_window_error') }}" data-placeholder="{{ t('messenger_composer_placeholder') }}"></div>

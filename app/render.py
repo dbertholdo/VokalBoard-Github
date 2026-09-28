@@ -58,6 +58,7 @@ def render(request: Request, template_name: str, context: dict | None = None, st
 
     context["request"] = request
     context["lang"] = lang
+    context["page_status"] = status_code
     context["t"] = lambda key: translate(key, text_lang)
     # FIX (19/09/2026, Daniel: "a área Admin/God Mode precisa
     # NECESSARIAMENTE ser em inglês somente") — a handful of admin
