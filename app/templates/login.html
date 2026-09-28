@@ -12,6 +12,7 @@
 
 <form method="post" action="/login" class="stacked-form narrow">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
     <label>{{ t('login_email_label') }}
         <input type="email" name="email" required autocomplete="email" maxlength="255">
     </label>

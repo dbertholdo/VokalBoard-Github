@@ -1,9 +1,44 @@
 {% extends "base.html" %}
 {% import "_invoice_fields.html" as invoice_form with context %}
 {% import "_invoice_preview.html" as invoice_preview with context %}
-{% block title %}Rechnungmaker — VokalBoard{% endblock %}
+{% block title %}{{ t('nav_rechnungmaker') }} — VokalBoard{% endblock %}
 {% block content %}
-<h1>Rechnungmaker</h1>
+<h1>{{ t('nav_rechnungmaker') }}</h1>
+{% if visitor_gate %}
+{# Item 2 (2026-09-28): visitors (and unconfirmed accounts) see the real,
+   EMPTY form + preview blurred and inert behind a sign-up/login card.
+   Nothing is submitted from here (no <form>, no CSRF, no values). #}
+<div class="anon-gate anon-gate-overlay">
+    <div class="anon-gate-blur" aria-hidden="true" inert>
+        <div class="invoice-layout">
+            <section class="profile-edit-card">
+                <p class="field-help">{{ t('rechnungmaker_avulso_help') }}</p>
+                <div id="invoiceFormGate" class="form-grid">
+                    {{ invoice_form.invoice_fields({}, {"number": suggested_number, "issue_date": today, "tax_preset": tax_preset_default}) }}
+                </div>
+            </section>
+            {{ invoice_preview.invoice_preview_pane("invoiceFormGate") }}
+        </div>
+    </div>
+    <div class="anon-gate-card" role="dialog" aria-labelledby="rechnungmaker-gate-title">
+        {% if visitor_gate == 'unverified' %}
+            <h3 id="rechnungmaker-gate-title"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-mail"></use></svg> {{ t('locked_listing_unverified_title') }}</h3>
+            <p>{{ t('locked_listing_unverified_text') }}</p>
+            <form method="post" action="/resend-verification" class="hero-actions">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="button-link button-primary">{{ t('verify_banner_resend') }}</button>
+            </form>
+        {% else %}
+            <h3 id="rechnungmaker-gate-title"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-lock"></use></svg> {{ t('rechnungmaker_gate_title') }}</h3>
+            <p>{{ t('rechnungmaker_gate_text') }}</p>
+            <p class="hero-actions">
+                <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>
+                <a class="button-link" href="/login?next=/rechnungmaker">{{ t('home_cta_login') }}</a>
+            </p>
+        {% endif %}
+    </div>
+</div>
+{% else %}
 
 <div class="tool-tabs">
     <a class="tool-tab {% if tab == 'match' %}active{% endif %}" href="/rechnungmaker?tab=match">
@@ -74,5 +109,6 @@
     {{ invoice_preview.invoice_preview_pane("invoiceFormAvulso") }}
     </div>
     <script src="/static/js/invoice_preview.js?v=20260927-1" defer></script>
+{% endif %}
 {% endif %}
 {% endblock %}

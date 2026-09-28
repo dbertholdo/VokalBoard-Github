@@ -1,4 +1,5 @@
 import secrets
+from app.safe_redirect import safe_path
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Request, Form, UploadFile, File
@@ -194,12 +195,13 @@ async def register_submit(
 
 
 @router.get("/login", response_class=HTMLResponse)
-def login_form(request: Request):
-    return render(request, "login.html", {"user": None, "error": None})
+def login_form(request: Request, next: str = ""):
+    return render(request, "login.html", {"user": None, "error": None, "next": safe_path(next, "")})
 
 
 @router.post("/login")
-def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form(...), password: str = Form(...)):
+def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form(...), password: str = Form(...),
+                 next: str = Form("")):
     verify_csrf(request, csrf_token)
     # Normalized first: the lockout is keyed by e-mail, so "A@x.de" vs "a@x.de" must not dodge it.
     email = normalize_email(email)
@@ -251,7 +253,8 @@ def login_submit(request: Request, csrf_token: str = Form(""), email: str = Form
     # since the last session.
     request.session["show_welcome_toast"] = True
     request.session.pop("mascot_reminder_shown", None)
-    return RedirectResponse(url="/", status_code=303)
+    # Same-site path only (e.g. back to /rechnungmaker from its visitor gate).
+    return RedirectResponse(url=safe_path(next, "/"), status_code=303)
 
 
 @router.get("/reactivate-account", response_class=HTMLResponse)

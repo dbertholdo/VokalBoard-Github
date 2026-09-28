@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude — items 1+2: Rechnungmaker name translated, visitor gate
+- `nav_rechnungmaker`/`invoice_go_to_rechnungmaker` translated in 8 langs (de unchanged); rechnungmaker.html h1/title use the key; `rechnungmaker_subtitle` → tagline.
+- pt: 14 UI strings + 4 e-mails say "fatura" instead of "Rechnung". Invoice document/PDF stays German.
+- Visitors/unconfirmed: blurred inert empty tool + card (`rechnungmaker_gate_*`, 9 langs), no redirect; `/login?next=` (safe_path, same-site only).
+- Tests: test_rechnungmaker_page.py (gate, names, next); full suite 384 passed / 7 skipped + retention. Cache: style/fonts-cjk 20260928-2.
+
 ## 2026-09-28 — Claude — bugs B1–B4 (Match flow, mascot link, chat Enter, archive)
 - B1: listing page shows the author's applications with Accept/Decline (`_candidacy_list.html`, `vacancies.get_listing_invitations`); "I'm available!" button; wrong-role hint.
 - B2: all mascot nudges link somewhere; hover/focus pauses the hide. B3: Enter sends on /messages (messenger.js).

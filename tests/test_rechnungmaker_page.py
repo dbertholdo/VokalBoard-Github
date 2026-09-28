@@ -98,7 +98,32 @@ def test_legacy_rechnungen_url_redirects_to_rechnungmaker(client):
     assert r.headers["location"] == "/rechnungmaker?tab=avulso"
 
 
-def test_rechnungmaker_anonymous_redirects_to_login(client):
-    r = client.get("/rechnungmaker", follow_redirects=False)
-    assert r.status_code == 303
-    assert r.headers["location"] == "/login"
+def test_rechnungmaker_visitor_sees_blurred_tool_with_signup_card(client):
+    """Item 2 (2026-09-28): no redirect — the empty tool, blurred and inert,
+    behind a sign-up/login card; nothing can be submitted from it."""
+    client.cookies.clear()
+    r = client.get("/rechnungmaker?lang=en", follow_redirects=False)
+    assert r.status_code == 200
+    assert "anon-gate-overlay" in r.text and "inert" in r.text
+    assert 'href="/register"' in r.text and 'href="/login?next=/rechnungmaker"' in r.text
+    assert 'action="/rechnungen/pdf"' not in r.text
+    assert "<h1>Invoice Maker</h1>" in r.text
+
+
+def test_rechnungmaker_name_is_translated_but_german_in_german(client):
+    client.cookies.clear()
+    assert "<h1>Rechnungmaker</h1>" in client.get("/rechnungmaker?lang=de").text
+    assert "<h1>Gerador de Faturas (NF)</h1>" in client.get("/rechnungmaker?lang=pt").text
+    assert "<h1>Créateur de factures</h1>" in client.get("/rechnungmaker?lang=fr").text
+
+
+def test_login_next_returns_to_same_site_path_only(client):
+    from tests.test_security import extract_csrf
+    user_id, email, password = register_test_user(client, full_name="Next Tester")
+    execute("UPDATE users SET email_verified = TRUE WHERE id = :id", {"id": user_id})
+    for target, expected in (("/rechnungmaker", "/rechnungmaker"), ("//evil.example", "/"), ("https://evil.example/x", "/x")):
+        client.cookies.clear()
+        page = client.get(f"/login?next={target}").text
+        r = client.post("/login", data={"csrf_token": extract_csrf(page), "email": email, "password": password, "next": target},
+                        follow_redirects=False)
+        assert r.headers["location"] == expected

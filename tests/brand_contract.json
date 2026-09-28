@@ -516,6 +516,7 @@
   "login.html": {
     "[\"<form\", [[\"action\", \"\\\"/login\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"next\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<input\", [[\"maxlength\", \"\\\"255\\\"\"], [\"name\", \"\\\"email\\\"\"], [\"type\", \"\\\"email\\\"\"]], [\"required\"]]": 1,
     "[\"<input\", [[\"name\", \"\\\"password\\\"\"], [\"type\", \"\\\"password\\\"\"]], [\"required\"]]": 1,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1,
@@ -706,13 +707,17 @@
     "[\"<a\", [[\"href\", \"\\\"/login\\\"\"]], []]": 1
   },
   "rechnungmaker.html": {
+    "[\"<form>\", [], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/resend-verification\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 3,
+    "[\"<a\", [[\"href\", \"\\\"/register\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/login?next=/rechnungmaker\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/rechnungmaker?tab=match\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/rechnungmaker?tab=avulso\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/profile/matches/{{ match.match_id }}/invoice/preview\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/profile/matches/{{ match.match_id }}/invoice\\\"\"]], []]": 2,
     "[\"<form\", [[\"action\", \"\\\"/profile/matches/{{ match.match_id }}/invoice/request\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 2,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 2,
     "[\"<form\", [[\"action\", \"\\\"/rechnungen/pdf\\\"\"], [\"id\", \"\\\"invoiceFormAvulso\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1
   },
   "register.html": {

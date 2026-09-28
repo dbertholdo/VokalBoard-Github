@@ -3425,6 +3425,13 @@ form button.link-button:hover { color: var(--accent-dark); }
     text-align: center;
 }
 .anon-gate-card h3 { margin-top: 0; }
+/* Item 2: a tall blurred tool (Rechnungmaker) with the card floating on top. */
+.anon-gate-overlay .anon-gate-blur { max-height: 560px; overflow: hidden; }
+.anon-gate-card .hero-actions { justify-content: center; }
+.anon-gate-overlay .anon-gate-card {
+    position: absolute; top: var(--space-6, 48px); left: 50%; transform: translateX(-50%);
+    width: min(460px, calc(100% - 32px)); margin-top: 0;
+}
 .anon-gate-card .field-help { margin-top: -6px; }
 
 /* ------------------------------------------------------------

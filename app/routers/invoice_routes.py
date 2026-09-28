@@ -128,7 +128,16 @@ def _rechnungmaker_page(request: Request, user: dict, tab: str, error: str = "",
 def rechnungmaker(request: Request, tab: str = "match", error: str = ""):
     user = _member(request)
     if not user:
-        return RedirectResponse("/login", status_code=303)
+        # Item 2 (2026-09-28): show the tool blurred behind a sign-up card
+        # instead of bouncing visitors to /login.
+        viewer = get_current_user(request)
+        today = date.today()
+        return render(request, "rechnungmaker.html", {
+            "user": viewer, "visitor_gate": "unverified" if viewer else "anon",
+            "suggested_number": f"{today.year}-001", "today": today.isoformat(),
+            "tax_countries": TAX_COUNTRIES, "standard_rate_default": STANDARD_RATE_DEFAULT,
+            "tax_preset_options": TAX_PRESET_OPTIONS, "tax_preset_default": TAX_PRESET_DEFAULT,
+        })
     return _rechnungmaker_page(request, user, tab if tab in ("match", "avulso") else "match", error)
 
 
