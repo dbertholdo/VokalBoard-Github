@@ -42,6 +42,14 @@ def client():
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """In-memory form limits (app/rate_limit.py) must not leak between tests."""
+    from app.rate_limit import reset
+    reset()
+    yield
+
+
 @pytest.fixture(autouse=True, scope="session")
 def cleanup_test_data():
     # Also clean up BEFORE (not just after): if a previous run was

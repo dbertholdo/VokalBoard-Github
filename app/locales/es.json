@@ -702,6 +702,7 @@
   "spoken_language_none": "—",
   "spoken_language_other": "Otro",
   "spoken_language_other_placeholder": "Escribe un idioma",
+  "support_rate_limited": "Demasiados mensajes en poco tiempo. Vuelve a intentarlo dentro de una hora.",
   "terms_title": "Términos y condiciones",
   "terms_version": "Versión: 26 de septiembre de 2026",
   "unblock_user_button": "Desbloquear",

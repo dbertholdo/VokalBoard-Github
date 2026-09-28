@@ -702,6 +702,7 @@
   "spoken_language_none": "—",
   "spoken_language_other": "기타",
   "spoken_language_other_placeholder": "언어 입력",
+  "support_rate_limited": "짧은 시간에 너무 많은 메시지를 보냈습니다. 한 시간 후에 다시 시도해 주세요.",
   "terms_title": "이용 약관",
   "terms_version": "버전: 2026년 9월 26일",
   "unblock_user_button": "차단 해제",

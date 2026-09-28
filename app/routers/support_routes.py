@@ -25,15 +25,21 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.rate_limit import allow
+from app.client_ip import get_client_ip
 from app.auth import get_current_user
 from app.render import render
 from app.csrf import verify_csrf
-from app.permissions import require_level, log_audit_action, LEVEL_ADMIN
+from app.permissions import require_level, log_audit_action, reauthenticate, LEVEL_ADMIN
 from app.email import send_email
 from app.email_localization import ticket_response_email
 from app.support_tickets import (
     create_ticket,
+    delete_tickets,
+    get_likely_spam_tickets,
     get_tickets,
+    likely_spam,
+    spam_signals,
     respond_ticket,
     TICKET_STATUSES,
     TICKETS_PAGE_SIZE,
@@ -80,17 +86,32 @@ def contato_form(request: Request, sent: str = ""):
     return render(request, "contato.html", {"user": user, "sent": sent})
 
 
+# Anti-spam (2026-09-28): a hidden "website" field humans never fill, and at
+# most TICKETS_PER_HOUR tickets per IP and per account.
+TICKETS_PER_HOUR = 5
+
+
+def _ticket_allowed(request: Request, user_id: int) -> bool:
+    return allow(f"ticket:ip:{get_client_ip(request)}", TICKETS_PER_HOUR, 3600) and \
+        allow(f"ticket:user:{user_id}", TICKETS_PER_HOUR, 3600)
+
+
 @router.post("/contato")
 def contato_submit(
     request: Request,
     subject: str = Form(""),
     description: str = Form(...),
     csrf_token: str = Form(...),
+    website: str = Form(""),
 ):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login?next=/contato", status_code=303)
     verify_csrf(request, csrf_token)
+    if website:
+        return RedirectResponse(url="/contato?sent=1", status_code=303)  # honeypot: look successful, store nothing
+    if not _ticket_allowed(request, user["id"]):
+        return RedirectResponse(url="/contato?error=limite", status_code=303)
 
     description = description.strip()
     if len(description) < MIN_DESCRIPTION_LENGTH:
@@ -116,12 +137,20 @@ def report_bug(
     page_url: str = Form(""),
     page_name: str = Form(""),
     csrf_token: str = Form(""),
+    website: str = Form(""),
 ):
     verify_csrf(request, csrf_token)
     user = get_current_user(request)
+    # Members only since 2026-09-28 (anonymous reports were mostly SEO spam).
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
 
     redirect_base = _safe_redirect_target(page_url)
     separator = "&" if "?" in redirect_base else "?"
+    if website:
+        return RedirectResponse(url=f"{redirect_base}{separator}bug_report_sent=1", status_code=303)
+    if not _ticket_allowed(request, user["id"]):
+        return RedirectResponse(url=f"{redirect_base}{separator}bug_report_error=limit", status_code=303)
 
     description = description.strip()
     if len(description) < MIN_DESCRIPTION_LENGTH:
@@ -133,7 +162,7 @@ def report_bug(
     create_ticket(
         "bug_report",
         description[:MAX_DESCRIPTION_LENGTH],
-        user_id=user["id"] if user else None,
+        user_id=user["id"],
         page_url=page_url.strip()[:MAX_PAGE_URL_LENGTH] or None,
         page_name=page_name.strip()[:MAX_PAGE_NAME_LENGTH] or None,
     )
@@ -155,11 +184,16 @@ def admin_tickets(request: Request, status: str = "open", type: str = "", page: 
     if not admin:
         return RedirectResponse(url="/", status_code=303)
 
-    status = status if status in TICKET_STATUSES or status == "" else "open"
+    status = status if status in TICKET_STATUSES or status in ("", "spam") else "open"
     page = max(page, 1)
     offset = (page - 1) * TICKETS_PAGE_SIZE
 
-    tickets = get_tickets(status=status, ticket_type=type, limit=TICKETS_PAGE_SIZE, offset=offset)
+    if status == "spam":
+        tickets, page = get_likely_spam_tickets(), 1
+    else:
+        tickets = get_tickets(status=status, ticket_type=type, limit=TICKETS_PAGE_SIZE, offset=offset)
+    for ticket in tickets:
+        ticket["spam_signals"] = spam_signals(ticket) if likely_spam(ticket) else []
 
     context = {
         "user": admin,
@@ -167,9 +201,12 @@ def admin_tickets(request: Request, status: str = "open", type: str = "", page: 
         "status": status,
         "type": type,
         "page": page,
-        "has_next": len(tickets) == TICKETS_PAGE_SIZE,
+        "has_next": status != "spam" and len(tickets) == TICKETS_PAGE_SIZE,
         "has_prev": page > 1,
         "responded": request.query_params.get("responded"),
+        "spam_count": len(get_likely_spam_tickets()),
+        "deleted": request.query_params.get("deleted"),
+        "auth_failed": request.query_params.get("auth_failed"),
     }
     return render(request, "admin_tickets.html", context)
 
@@ -209,3 +246,36 @@ def admin_respond_ticket(
 
     log_audit_action(request, admin, "admin_respond_ticket", f"ticket_id={ticket_id} resolved={resolve == '1'}")
     return RedirectResponse(url="/admin/tickets?responded=1", status_code=303)
+
+
+# Deleting is destructive: password re-check + audit_log (CLAUDE.md §2.4).
+@router.post("/admin/tickets/delete-spam")
+def admin_delete_spam_tickets(request: Request, csrf_token: str = Form(""), current_password: str = Form("")):
+    admin = require_level(request, LEVEL_ADMIN)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+    if not reauthenticate(request, admin, current_password):
+        log_audit_action(request, admin, "tickets_delete_spam_failed_auth", "")
+        return RedirectResponse(url="/admin/tickets?status=spam&auth_failed=1", status_code=303)
+    ids = [t["id"] for t in get_likely_spam_tickets()]
+    deleted = delete_tickets(ids)
+    log_audit_action(request, admin, "tickets_delete_spam", f"count={deleted} ids={','.join(map(str, ids))[:900]}")
+    return RedirectResponse(url=f"/admin/tickets?status=spam&deleted={deleted}", status_code=303)
+
+
+@router.post("/admin/tickets/{ticket_id}/delete")
+def admin_delete_ticket(request: Request, ticket_id: int, csrf_token: str = Form(""),
+                        current_password: str = Form(""), back: str = Form("open")):
+    admin = require_level(request, LEVEL_ADMIN)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+    back = back if back in TICKET_STATUSES or back in ("", "spam") else "open"
+    if not reauthenticate(request, admin, current_password):
+        log_audit_action(request, admin, "ticket_delete_failed_auth", f"ticket_id={ticket_id}")
+        return RedirectResponse(url=f"/admin/tickets?status={back}&auth_failed=1", status_code=303)
+    deleted = delete_tickets([ticket_id])
+    if deleted:
+        log_audit_action(request, admin, "ticket_delete", f"ticket_id={ticket_id}")
+    return RedirectResponse(url=f"/admin/tickets?status={back}&deleted={deleted}", status_code=303)

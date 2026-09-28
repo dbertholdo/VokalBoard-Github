@@ -12,12 +12,29 @@
     <p class="error"><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-warning"></use></svg> Write a response before saving.</p>
 {% endif %}
 
+{% if deleted %}<p class="success">Deleted {{ deleted }} ticket(s).</p>{% endif %}
+{% if auth_failed %}<p class="error">Wrong password — nothing was deleted.</p>{% endif %}
+{% if spam_count %}
+    <div class="listing-form-card">
+        <p><strong>{{ spam_count }}</strong> ticket(s) look like spam (links, sales words, anonymous — at least two of these).
+        <a href="/admin/tickets?status=spam">Review them</a> before deleting.</p>
+        {% if status == 'spam' %}
+        <form method="post" action="/admin/tickets/delete-spam" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label>Your password <input type="password" name="current_password" required autocomplete="current-password"></label>
+            <button type="submit" class="button-danger">Delete all {{ spam_count }} likely-spam tickets</button>
+        </form>
+        {% endif %}
+    </div>
+{% endif %}
+
 <form method="get" action="/admin/tickets" class="inline-form">
     <label>Status
         <select name="status">
             <option value="open" {{ 'selected' if status == 'open' }}>Open</option>
             <option value="answered" {{ 'selected' if status == 'answered' }}>Answered</option>
             <option value="resolved" {{ 'selected' if status == 'resolved' }}>Resolved</option>
+            <option value="spam" {{ 'selected' if status == 'spam' }}>Likely spam</option>
             <option value="" {{ 'selected' if status == '' }}>All</option>
         </select>
     </label>
@@ -40,6 +57,7 @@
                 <p>
                     <span class="badge {{ 'badge-danger' if ticket.type == 'bug_report' else '' }}">{{ 'Bug report' if ticket.type == 'bug_report' else 'Contact' }}</span>
                     <span class="badge {{ 'badge-success' if ticket.status == 'resolved' else '' }}">{{ ticket.status }}</span>
+                    {% if ticket.spam_signals %}<span class="badge badge-danger" title="{{ ticket.spam_signals|join(', ') }}">Likely spam</span>{% endif %}
                     {% if ticket.subject %}<strong>{{ ticket.subject }}</strong>{% endif %}
                 </p>
                 <p>
@@ -72,6 +90,15 @@
                         </form>
                     </details>
                 {% endif %}
+                <details>
+                    <summary class="block-user-summary">Delete</summary>
+                    <form method="post" action="/admin/tickets/{{ ticket.id }}/delete" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="back" value="{{ status }}">
+                        <label>Your password <input type="password" name="current_password" required autocomplete="current-password"></label>
+                        <button type="submit" class="button-danger">Delete ticket</button>
+                    </form>
+                </details>
             </li>
         {% endfor %}
     </ul>

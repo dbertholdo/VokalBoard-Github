@@ -702,6 +702,7 @@
   "spoken_language_none": "—",
   "spoken_language_other": "其他",
   "spoken_language_other_placeholder": "输入一种语言",
+  "support_rate_limited": "短时间内发送的消息过多，请一小时后再试。",
   "terms_title": "条款与条件",
   "terms_version": "版本：2026 年 9 月 26 日",
   "unblock_user_button": "取消屏蔽",

@@ -20,7 +20,11 @@ reach (the submitter's account email, or the one they typed while
 logged out) — sends it, mirroring report_resolved_email() in
 app/email_localization.py.
 """
-from app.database import fetch_all, fetch_one, execute, execute_returning
+import re
+
+from sqlalchemy import text
+
+from app.database import engine, fetch_all, fetch_one, execute, execute_returning
 
 TICKET_TYPES = ("contact", "bug_report")
 TICKET_STATUSES = ("open", "answered", "resolved")
@@ -125,3 +129,45 @@ def respond_ticket(ticket_id: int, admin_response: str, admin_id: int, mark_reso
         {"response": admin_response.strip()[:2000], "status": new_status, "admin_id": admin_id, "id": ticket_id},
     )
     return ticket
+
+
+# ---------------------------------------------------------------------------
+# Spam (2026-09-28, HANDOFF 3c). Computed live, never stored: a ticket is
+# "likely spam" when at least two signals agree. Admins confirm by deleting.
+# ---------------------------------------------------------------------------
+
+_SPAM_WORDS = re.compile(
+    r"\b(seo|backlinks?|casino|crypto|bitcoin|forex|viagra|cialis|loan|guest ?posts?|link ?building"
+    r"|rank(ing)? (your|on)|traffic to your|web ?design services|marketing services|lead generation"
+    r"|whatsapp me|telegram me|dear (sir|webmaster))\b",
+    re.IGNORECASE,
+)
+_LINK = re.compile(r"https?://|www\.", re.IGNORECASE)
+
+
+def spam_signals(ticket: dict) -> list[str]:
+    text = f"{ticket.get('subject') or ''} {ticket.get('description') or ''}"
+    anonymous = not ticket.get("user_id")
+    signals = []
+    if len(_LINK.findall(text)) >= (1 if anonymous else 2):
+        signals.append("links")
+    if _SPAM_WORDS.search(text):
+        signals.append("spam words")
+    if anonymous:
+        signals.append("anonymous")
+    return signals
+
+
+def likely_spam(ticket: dict) -> bool:
+    return len(spam_signals(ticket)) >= 2
+
+
+def get_likely_spam_tickets(limit: int = 500) -> list[dict]:
+    return [t for t in get_tickets(limit=limit) if likely_spam(t)]
+
+
+def delete_tickets(ticket_ids: list[int]) -> int:
+    if not ticket_ids:
+        return 0
+    with engine.begin() as conn:
+        return conn.execute(text("DELETE FROM support_tickets WHERE id = ANY(:ids)"), {"ids": list(ticket_ids)}).rowcount
