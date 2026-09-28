@@ -19,4 +19,6 @@ def admin_attention_counts() -> dict:
     counts["referrals"] = count_flagged_referrals()
     from app.match_cancellation import count_open_reviews  # tolerates the 2026-09-28 migration missing
     counts["cancellations"] = count_open_reviews()
+    from app.store import count_pending_verifications  # Verified badge requests (2026-09-28)
+    counts["shop"] = count_pending_verifications()
     return counts

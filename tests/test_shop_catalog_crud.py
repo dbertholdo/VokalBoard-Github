@@ -191,6 +191,8 @@ def test_notas_page_shows_buy_missing_link_when_balance_insufficient(client):
         {"id": user_id},
     )
     login(client, email, password)
+    # The original item is off since the Store (2026-09-28); switch it on for this check.
+    execute("UPDATE shop_catalog_items SET active = TRUE WHERE item_key = 'profile_highlight_7d'")
 
     page = client.get("/notas")
     assert page.status_code == 200

@@ -69,6 +69,7 @@
     "[\"<a\", [[\"href\", \"\\\"/profile\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/profile/digital-pass\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/my-favorites\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/store\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/notas\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/hall-da-fama\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin\\\"\"]], []]": 1,
@@ -78,6 +79,7 @@
   "_search_error.html": {
     "[\"<a\", [[\"href\", \"\\\"{{ request.url }}\\\"\"]], []]": 1
   },
+  "_store_marks.html": {},
   "admin.html": {
     "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=listings\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/reports?tab=messages\\\"\"]], []]": 1,
@@ -157,13 +159,24 @@
   "admin_loja.html": {
     "[\"<a\", [[\"href\", \"\\\"/admin/users\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/loja/catalog/{{ item.id }}/toggle-active\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
-    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 3,
-    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 3,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 6,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 7,
+    "[\"<form\", [[\"action\", \"\\\"/admin/loja/catalog/{{ item.id }}/pricing\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"cost\\\"\"], [\"type\", \"\\\"text\\\"\"]], [\"required\"]]": 3,
+    "[\"<input\", [[\"max\", \"\\\"90\\\"\"], [\"min\", \"\\\"1\\\"\"], [\"name\", \"\\\"discount_percent\\\"\"], [\"type\", \"\\\"number\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"discount_from\\\"\"], [\"type\", \"\\\"date\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"discount_until\\\"\"], [\"type\", \"\\\"date\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/loja/catalog/{{ item.id }}/edit\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"maxlength\", \"\\\"150\\\"\"], [\"name\", \"\\\"title\\\"\"], [\"type\", \"\\\"text\\\"\"]], [\"required\"]]": 2,
     "[\"<textarea\", [[\"maxlength\", \"\\\"500\\\"\"], [\"name\", \"\\\"description\\\"\"]], [\"required\"]]": 2,
-    "[\"<input\", [[\"name\", \"\\\"cost\\\"\"], [\"type\", \"\\\"text\\\"\"]], [\"required\"]]": 2,
     "[\"<select\", [[\"name\", \"\\\"icon\\\"\"]], []]": 2,
+    "[\"<form\", [[\"action\", \"\\\"/admin/loja#sales\\\"\"], [\"method\", \"\\\"get\\\"\"]], []]": 1,
+    "[\"<select\", [[\"name\", \"\\\"days\\\"\"]], []]": 1,
+    "[\"<select\", [[\"name\", \"\\\"sort\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ v.user_id }}\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"{{ v.proof_url }}\\\"\"], [\"rel\", \"\\\"noopener noreferrer nofollow\\\"\"], [\"target\", \"\\\"_blank\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/loja/verifications/{{ v.id }}/approve\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/admin/loja/verifications/{{ v.id }}/reject\\\"\"], [\"data-confirm\", \"\\\"Reject and refund the Notas?\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/admin/loja/catalog/new\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/users/{{ h.user_id }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/admin/loja?page={{ page - 1 }}\\\"\"]], []]": 1,
@@ -638,6 +651,7 @@
   },
   "notas.html": {
     "[\"<a\", [[\"href\", \"\\\"/agb\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/store\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"/notas/comprar-notas?faltam={{ item.cost - balance }}\\\"\"]], []]": 1,
     "[\"<form\", [[\"data-confirm\", \"\\\"...\\\"\"]], []]": 1,
     "[\"<form\", [[\"action\", \"\\\"/notas/redeem\\\"\"], [\"data-confirm\", \"\\\"{{ t('notas_redeem_confirm').replace('{item}', item_title).replace('{cost}', format_notas(item.cost) ~ ' ' ~ t('notas_unit')) }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
@@ -815,6 +829,20 @@
     "[\"<a\", [[\"href\", \"\\\"{{ '/u/' ~ p.profile_slug if p.profile_slug else '/users/' ~ p.id }}\\\"\"], [\"rel\", \"\\\"noopener noreferrer\\\"\"], [\"target\", \"\\\"_blank\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"{{ request.url.include_query_params(page=page - 1) }}\\\"\"]], []]": 1,
     "[\"<a\", [[\"href\", \"\\\"{{ request.url.include_query_params(page=page + 1) }}\\\"\"]], []]": 1
+  },
+  "store.html": {
+    "[\"<a\", [[\"href\", \"\\\"/notas\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/notas/comprar-notas?faltam={{ p.price - balance }}\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/listings/new\\\"\"]], []]": 1,
+    "[\"<form\", [[\"action\", \"\\\"/store/buy\\\"\"], [\"data-confirm\", \"\\\"{{ t('notas_redeem_confirm').replace('{item}', title).replace('{cost}', format_notas(p.price) ~ ' ' ~ t('notas_unit')) }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"item_key\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<input\", [[\"name\", \"\\\"token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
+    "[\"<select\", [[\"name\", \"\\\"listing_id\\\"\"]], [\"required\"]]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"500\\\"\"], [\"name\", \"\\\"proof_url\\\"\"], [\"type\", \"\\\"url\\\"\"]], [\"required\"]]": 1,
+    "[\"<textarea\", [[\"maxlength\", \"\\\"1000\\\"\"], [\"name\", \"\\\"note\\\"\"]], []]": 1,
+    "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/agb\\\"\"]], []]": 1
   },
   "widerruf.html": {
     "[\"<a\", [[\"href\", \"\\\"{{ request.url.path }}?lang=en\\\"\"]], []]": 1,

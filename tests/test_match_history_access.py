@@ -89,7 +89,7 @@ class MatchHistoryTests(unittest.TestCase):
         # 2026-09-28 menu reorg: avatar menu = profile pages + Rewards (Notas,
         # Hall of Fame) + Admin (admins only) + Log out; Messages and Matches
         # are top-level items and must not be repeated here.
-        self.assertEqual(source.count('<a '), 8)
+        self.assertEqual(source.count('<a '), 9)  # + Store (2026-09-28)
         self.assertNotIn('href="/profile/matches"', source)
         self.assertNotIn('href="/messages"', source)
         self.assertIn('href="/logout"', source)

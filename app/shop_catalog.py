@@ -137,10 +137,24 @@ def get_redeemable_item(item_key: str) -> dict | None:
 def list_all_catalog_items() -> list[dict]:
     """Todos os itens (ativos e inativos) — usado pelo painel de
     Admin (/admin/loja)."""
+    from app.store import ready as store_ready  # local: app.store imports this module's neighbours
+    discount = ("discount_percent, discount_from, discount_until" if store_ready()
+                else "NULL AS discount_percent, NULL AS discount_from, NULL AS discount_until")
     return fetch_all(
-        "SELECT id, item_key, cost, active, title, description, icon, updated_at "
+        f"SELECT id, item_key, cost, active, title, description, icon, updated_at, {discount} "  # nosec B608 - fixed columns
         "FROM shop_catalog_items ORDER BY id"
     )
+
+
+def update_item_pricing(item_id: int, cost: Decimal, discount_percent: int | None, discount_from, discount_until) -> bool:
+    """Store (2026-09-28): price + optional discount window ("−XX% off!" badge) of one item."""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("""UPDATE shop_catalog_items SET cost = :cost, discount_percent = :pct, discount_from = :start,
+                           discount_until = :until, updated_at = now() WHERE id = :id"""),
+            {"cost": cost, "pct": discount_percent, "start": discount_from, "until": discount_until, "id": item_id},
+        )
+    return result.rowcount > 0
 
 
 def get_catalog_titles_by_key() -> dict[str, str | None]:

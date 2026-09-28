@@ -7,8 +7,8 @@ import pytest
 
 from app.database import execute, execute_returning, fetch_one
 from app.notas_wallet import credit_notas, get_credit_balance
+from app.store import urgent_price
 from app.urgency import (
-    URGENCY_PURCHASE_COST_NOTAS,
     ListingNotEligible,
     UrgencyUnavailable,
     get_urgency_status,
@@ -72,7 +72,7 @@ def test_second_mark_same_week_charges_notas(client):
 
     assert mark_listing_urgent(user_id, listing_1) == "free"
     assert mark_listing_urgent(user_id, listing_2) == "purchased"
-    assert get_credit_balance(user_id) == Decimal("5") - URGENCY_PURCHASE_COST_NOTAS
+    assert get_credit_balance(user_id) == Decimal("5") - urgent_price(user_id)  # Store price (welcome discount)
 
 
 def test_second_mark_without_notas_raises_unavailable(client):

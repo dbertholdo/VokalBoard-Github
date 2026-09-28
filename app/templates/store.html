@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ t('store_title') }}{% endblock %}
+
+{% block content %}
+{# Notas Store (2026-09-28, docs/specs/STORE.md; prices/effects in app/store.py). #}
+<h1><svg class="icon" width="20" height="20"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('store_title') }}</h1>
+<p class="subtitle">{{ t('store_subtitle') }}</p>
+<p class="store-balance">{{ t('store_balance').replace('{n}', format_notas(balance)) }} · <a href="/notas">{{ t('nav_notas') }} &rarr;</a></p>
+
+{% if bought %}<p class="success" role="status">{{ t('store_bought') }}</p>{% endif %}
+{% if error %}<p class="error" role="alert">{{ t(error) }}</p>{% endif %}
+{% if not ready %}<p class="empty-state">{{ t('feature_coming_soon') }}</p>{% endif %}
+
+{% for category in categories %}
+{% set items = items_by_category[category] %}
+{% if items %}
+<section class="store-section">
+    <h2>{{ t('store_cat_' ~ category) }}</h2>
+    <ul class="store-grid">
+    {% for item in items %}
+        {% set p = item.pricing %}
+        {% set title = item.title or t('notas_item_' ~ item.key ~ '_title') %}
+        <li class="store-card" id="item-{{ item.key }}">
+            {% if p.kind == 'admin' %}<span class="store-badge store-badge-off">{{ t('store_off_badge').replace('{n}', p.percent|string) }}</span>
+            {% elif p.kind == 'welcome' %}<span class="store-badge store-badge-welcome">{{ t('store_welcome_badge').replace('{date}', p.welcome_until.strftime('%d.%m.%Y')) }}</span>{% endif %}
+            <span class="store-card-icon"><svg class="icon" width="22" height="22"><use href="/static/img/icons.svg#{{ item.icon }}"></use></svg></span>
+            <h3>{{ title }}</h3>
+            <p class="store-card-desc">{{ item.description or t('notas_item_' ~ item.key ~ '_desc') }}</p>
+            <p class="store-price">
+                {% if p.percent %}<s>{{ format_notas(p.base) }}</s> {% endif %}<strong>{{ format_notas(p.price) }} {{ t('notas_unit') }}</strong>
+            </p>
+            {% if item.until %}<p class="store-status">{{ t('store_active_until').replace('{date}', item.until.strftime('%d.%m.%Y')) }}</p>{% endif %}
+
+            {% if item.owned %}
+                <p class="store-status store-status-owned">{{ t('store_owned') }}</p>
+            {% elif item.pending %}
+                <p class="store-status">{{ t('store_pending') }}</p>
+            {% elif balance < p.price %}
+                <p class="field-help">{{ t('notas_insufficient_short').replace('{n}', format_notas(p.price - balance)) }}</p>
+                <a class="button-link" href="/notas/comprar-notas?faltam={{ p.price - balance }}">{{ t('notas_buy_missing_link') }}</a>
+            {% elif item.key == 'featured_listing_30d' and not my_listings %}
+                <p class="field-help">{{ t('store_no_listing') }} <a href="/listings/new">{{ t('nav_post_job') }}</a></p>
+            {% else %}
+                <form method="post" action="/store/buy" class="stacked-form store-buy-form"
+                      data-confirm="{{ t('notas_redeem_confirm').replace('{item}', title).replace('{cost}', format_notas(p.price) ~ ' ' ~ t('notas_unit')) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="item_key" value="{{ item.key }}">
+                    <input type="hidden" name="token" value="{{ buy_token }}">
+                    {% if item.key == 'featured_listing_30d' %}
+                        <label>{{ t('store_choose_listing') }}
+                            <select name="listing_id" required>
+                                {% for l in my_listings %}<option value="{{ l.id }}">{{ l.title }}{% if l.featured_until %} ({{ t('store_active_until').replace('{date}', l.featured_until.strftime('%d.%m.%Y')) }}){% endif %}</option>{% endfor %}
+                            </select>
+                        </label>
+                    {% elif item.key == 'verified_badge' %}
+                        <label>{{ t('store_proof_url_label') }}
+                            <input type="url" name="proof_url" required maxlength="500" placeholder="https://">
+                        </label>
+                        <p class="field-help">{{ t('store_proof_help') }}</p>
+                        <label>{{ t('store_proof_note_label') }}
+                            <textarea name="note" rows="2" maxlength="1000"></textarea>
+                        </label>
+                    {% endif %}
+                    <button type="submit" class="button-link button-primary">{{ t('store_buy') }}</button>
+                </form>
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+</section>
+{% endif %}
+{% endfor %}
+<p class="field-help store-footnote">{{ t('notas_rules_hint') }} <a href="/agb">{{ t('footer_terms') }}</a></p>
+{% endblock %}

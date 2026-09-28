@@ -25,8 +25,11 @@ from sqlalchemy import text
 
 from app.database import engine, fetch_one
 from app.notas_wallet import debit_in_tx
+from app.store import urgent_price
 
-URGENCY_PURCHASE_COST_NOTAS = Decimal("2")
+# Store (2026-09-28): the price lives in the catalogue row "urgent_listing" (1 Nota,
+# editable + discounts, app/store.py); this is only the fallback before the migration.
+URGENCY_PURCHASE_COST_NOTAS = Decimal("1")
 URGENCY_MATCH_REWARD_NOTAS = Decimal("0.50")
 FREE_TOKENS_PER_WEEK = 1
 
@@ -57,7 +60,7 @@ def get_urgency_status(user_id: int, today: date | None = None) -> dict:
     free_used = row["free_used"] if row else 0
     return {
         "free_tokens_left": max(0, FREE_TOKENS_PER_WEEK - free_used),
-        "purchase_cost_notas": URGENCY_PURCHASE_COST_NOTAS,
+        "purchase_cost_notas": urgent_price(user_id),
     }
 
 
@@ -108,7 +111,7 @@ def mark_listing_urgent(user_id: int, listing_id: int, today: date | None = None
             result = "free"
         else:
             # Notas v2: spend order (purchased first) + lot tracking live in the wallet.
-            if not debit_in_tx(conn, user_id, URGENCY_PURCHASE_COST_NOTAS, "urgency_purchase", reference_id=listing_id):
+            if not debit_in_tx(conn, user_id, urgent_price(user_id), "urgency_purchase", reference_id=listing_id):
                 raise UrgencyUnavailable("insufficient_balance")
             result = "purchased"
 

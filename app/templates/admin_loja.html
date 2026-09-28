@@ -14,6 +14,10 @@
 {% if updated == '1' %}
     <p class="success"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-check"></use></svg> Item updated.</p>
 {% endif %}
+{% if error == 'invalid_pricing' %}
+    <p class="error" role="alert">Price must be positive; discount 1–90 %; dates as YYYY-MM-DD (or empty), start not after end.</p>
+{% endif %}
+{% if reviewed %}<p class="success">Verification {{ 'approved — the badge is on the profile' if reviewed == 'approve' else 'rejected — the Notas were refunded' }}.</p>{% endif %}
 {% if error == 'invalid_item' %}
     <p class="error" role="alert"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-warning"></use></svg> Title, description and a positive price are required.</p>
 {% endif %}
@@ -37,13 +41,19 @@
             {% for item in catalog_items %}
                 <tr>
                     <td>
-                        <strong>{{ item.title or ('(uses the default text — ' ~ item.item_key ~ ')') }}</strong><br>
+                        <strong>{{ item.title or t('notas_item_' ~ item.item_key ~ '_title') }}</strong> <code>{{ item.item_key }}</code><br>
                         <span class="field-help">{{ item.description or '—' }}</span>
                     </td>
-                    <td>{{ format_notas(item.cost) }}</td>
+                    <td>{{ format_notas(item.cost) }}
+                        {% if item.discount_percent and (not item.discount_until or item.discount_until > now_utc) %}
+                            {% set scheduled = item.discount_from and item.discount_from > now_utc %}
+                            <br><span class="store-badge store-badge-off">−{{ item.discount_percent }}% off!</span>{% if scheduled %} <span class="field-help">(scheduled)</span>{% endif %}
+                            <br><span class="field-help">{% if item.discount_from %}from {{ item.discount_from | local_time('%d.%m.%Y') }} {% endif %}{% if item.discount_until %}until {{ item.discount_until | local_time('%d.%m.%Y') }}{% endif %}</span>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if item.active %}
-                            <span class="success">Active</span>
+                            <span class="success nowrap">Active</span>
                         {% else %}
                             <span class="error">Off</span>
                         {% endif %}
@@ -57,6 +67,20 @@
                                 {{ "Turn off" if item.active else "Turn on" }}
                             </button>
                         </form>
+                        {% if store_ready %}
+                        <details class="block-user-details">
+                            <summary class="block-user-summary">Price &amp; discount</summary>
+                            <form method="post" action="/admin/loja/catalog/{{ item.id }}/pricing" class="stacked-form narrow">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <label>Price (Notas) <input type="text" name="cost" value="{{ format_notas(item.cost) }}" required></label>
+                                <label>Discount % (1–90, empty = none) <input type="number" name="discount_percent" min="1" max="90" value="{{ item.discount_percent or '' }}"></label>
+                                <label>Discount starts (optional) <input type="date" name="discount_from" value="{{ item.discount_from.strftime('%Y-%m-%d') if item.discount_from else '' }}"></label>
+                                <label>Discount ends (optional) <input type="date" name="discount_until" value="{{ item.discount_until.strftime('%Y-%m-%d') if item.discount_until else '' }}"></label>
+                                <p class="field-help">Shows a <span class="store-badge store-badge-off">−XX% off!</span> badge in the store. New members' −50% welcome price wins if it's bigger (never on the subscription).</p>
+                                <button type="submit" class="button-link">Save price</button>
+                            </form>
+                        </details>
+                        {% endif %}
                         <details class="block-user-details">
                             <summary class="block-user-summary"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-edit"></use></svg> Edit</summary>
                             <form method="post" action="/admin/loja/catalog/{{ item.id }}/edit" class="stacked-form narrow">
@@ -93,6 +117,67 @@
         uses the site's default text (the original "Profile highlight" item) — once you edit it, your text
         applies to everyone, in every language.
     </p>
+{% endif %}
+
+{% if store_ready %}
+<h2 id="sales"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-analytics"></use></svg> Sales per item</h2>
+<form method="get" action="/admin/loja#sales" class="inline-form">
+    <label>Period
+        <select name="days">
+            <option value="0" {{ 'selected' if sales_days == 0 }}>All time</option>
+            <option value="30" {{ 'selected' if sales_days == 30 }}>Last 30 days</option>
+            <option value="90" {{ 'selected' if sales_days == 90 }}>Last 90 days</option>
+        </select>
+    </label>
+    <label>Sort
+        <select name="sort">
+            <option value="sold_desc" {{ 'selected' if sales_sort == 'sold_desc' }}>Most sold first</option>
+            <option value="sold_asc" {{ 'selected' if sales_sort == 'sold_asc' }}>Least sold first</option>
+            <option value="notas_desc" {{ 'selected' if sales_sort == 'notas_desc' }}>Most Notas first</option>
+            <option value="notas_asc" {{ 'selected' if sales_sort == 'notas_asc' }}>Least Notas first</option>
+        </select>
+    </label>
+    <button type="submit">Show</button>
+</form>
+<div class="table-scroll">
+<table class="admin-users-table">
+    <thead><tr><th>Item</th><th>Sold</th><th>Notas</th><th>Buyers</th><th>Last sale</th></tr></thead>
+    <tbody>
+    {% for s in sales %}
+        <tr{% if not s.active %} class="field-help"{% endif %}>
+            <td>{{ s.title or t('notas_item_' ~ s.item_key ~ '_title') }}{% if not s.active %} (off){% endif %}</td>
+            <td>{{ s.sold }}</td><td>{{ format_notas(s.notas) }}</td><td>{{ s.buyers }}</td>
+            <td>{{ s.last_sale | local_time('%d.%m.%Y') if s.last_sale else '—' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<h2 id="verifications"><svg class="icon" width="16" height="16" aria-hidden="true"><use href="/static/img/icons.svg#icon-check"></use></svg> Verified badge requests</h2>
+{% if not verifications %}
+    <p class="empty-state">No requests waiting.</p>
+{% else %}
+    <ul class="admin-list">
+    {% for v in verifications %}
+        <li>
+            <p><a href="/admin/users/{{ v.user_id }}">{{ v.full_name }}</a> · {{ v.role }}{% if v.city %} · {{ v.city }}{% endif %} · {{ v.created_at | local_time('%d.%m.%Y') }}<br>
+               Proof: <a href="{{ v.proof_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ v.proof_url }}</a></p>
+            {% if v.note %}<blockquote class="admin-quote">{{ v.note }}</blockquote>{% endif %}
+            <div class="admin-actions">
+                <form method="post" action="/admin/loja/verifications/{{ v.id }}/approve">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-primary">Approve</button>
+                </form>
+                <form method="post" action="/admin/loja/verifications/{{ v.id }}/reject" data-confirm="Reject and refund the Notas?">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="button-danger">Reject (refund)</button>
+                </form>
+            </div>
+        </li>
+    {% endfor %}
+    </ul>
+{% endif %}
 {% endif %}
 
 <h3>Add a new item</h3>

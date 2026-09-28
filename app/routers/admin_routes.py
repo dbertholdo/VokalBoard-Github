@@ -16,6 +16,9 @@ direct UPDATE on the database:
 (see README, "Admin level" section). After that, promoting other
 people can be done from here (/admin/users/{id}).
 """
+from datetime import date, datetime, timezone
+from app.shop_catalog import update_item_pricing
+from app import store
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Request, Form, UploadFile, File
@@ -663,7 +666,8 @@ ADMIN_LOJA_HISTORY_PAGE_SIZE = SHOP_HISTORY_PAGE_SIZE
 
 
 @router.get("/admin/loja", response_class=HTMLResponse)
-def admin_loja(request: Request, page: int = 1, created: str = "", updated: str = "", error: str = ""):
+def admin_loja(request: Request, page: int = 1, created: str = "", updated: str = "", error: str = "",
+               sort: str = "sold_desc", days: int = 0):
     admin = require_admin(request)
     if not admin:
         return RedirectResponse(url="/", status_code=303)
@@ -685,8 +689,66 @@ def admin_loja(request: Request, page: int = 1, created: str = "", updated: str 
         "created": created,
         "updated": updated,
         "error": error,
+        # Store (2026-09-28): sales per item (sortable) + Verified badge queue.
+        "store_ready": store.ready(),
+        "sales": store.sales_stats(days if days in (30, 90) else None, sort),
+        "sales_sort": sort,
+        "sales_days": days if days in (30, 90) else 0,
+        "verifications": store.pending_verifications(),
+        "reviewed": request.query_params.get("reviewed"),
     }
     return render(request, "admin_loja.html", context)
+
+
+@router.post("/admin/loja/catalog/{item_id}/pricing")
+def admin_loja_item_pricing(request: Request, item_id: int, cost: str = Form(...), discount_percent: str = Form(""),
+                            discount_from: str = Form(""), discount_until: str = Form(""), csrf_token: str = Form(...)):
+    """Store (2026-09-28): price + discount per item. Audit-logged (money-like setting)."""
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+    parsed_cost = _parse_catalog_cost(cost)
+    pct = None
+    if discount_percent.strip():
+        try:
+            pct = int(discount_percent.strip().rstrip("%"))
+        except ValueError:
+            pct = -1
+    def day(value: str, end: bool):
+        """'' -> None; 'YYYY-MM-DD' -> start/end of that day (UTC); anything else -> False."""
+        if not value.strip():
+            return None
+        try:
+            d = date.fromisoformat(value.strip())
+        except ValueError:
+            return False
+        return datetime.combine(d, datetime.max.time() if end else datetime.min.time(), tzinfo=timezone.utc)
+
+    start, until = day(discount_from, False), day(discount_until, True)
+    if (parsed_cost is None or (pct is not None and not 1 <= pct <= 90) or start is False or until is False
+            or (start and until and start > until) or not store.ready()):
+        return RedirectResponse(url="/admin/loja?error=invalid_pricing", status_code=303)
+    if not update_item_pricing(item_id, parsed_cost, pct, start, until):
+        return RedirectResponse(url="/admin/loja?error=invalid_pricing", status_code=303)
+    log_audit_action(request, admin, "store_pricing",
+                     f"item_id={item_id} cost={parsed_cost} discount={pct or 0}% from={discount_from or '-'} until={discount_until or '-'}")
+    return RedirectResponse(url="/admin/loja?updated=1", status_code=303)
+
+
+@router.post("/admin/loja/verifications/{request_id}/{decision}")
+def admin_loja_review_verification(request: Request, request_id: int, decision: str, csrf_token: str = Form(...)):
+    """Verified badge: approve → badge; reject → Notas refunded (app/store.py). Audit-logged."""
+    admin = require_admin(request)
+    if not admin:
+        return RedirectResponse(url="/", status_code=303)
+    verify_csrf(request, csrf_token)
+    if decision not in ("approve", "reject"):
+        return RedirectResponse(url="/admin/loja", status_code=303)
+    user_id = store.review_verification(request_id, admin["id"], decision == "approve")
+    if user_id:
+        log_audit_action(request, admin, f"verification_{decision}", f"request_id={request_id} user_id={user_id}")
+    return RedirectResponse(url=f"/admin/loja?reviewed={decision}#verifications", status_code=303)
 
 
 @router.post("/admin/loja/catalog/{item_id}/toggle-active")

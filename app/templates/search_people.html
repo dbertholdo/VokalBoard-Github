@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_store_marks.html" as store_marks with context %}
 {% block title %}{{ t('search_people_title') }} — VokalBoard{% endblock %}
 
 {% block content %}
@@ -60,7 +61,7 @@
 
 <ul class="listing-grid">
     {% for p in people %}
-    <li class="person-card">
+    <li class="person-card {{ 'super-user-frame' if p.is_super_user else '' }}">
         <a href="{{ '/u/' ~ p.profile_slug if p.profile_slug else '/users/' ~ p.id }}" target="_blank" rel="noopener noreferrer">
             {% if p.avatar_url %}
                 <img class="person-card-avatar" src="{{ p.avatar_url }}" alt="">
@@ -68,6 +69,7 @@
                 <div class="person-card-avatar avatar-placeholder">{{ p.full_name[0] | upper }}</div>
             {% endif %}
             <p class="person-card-name">{{ p.full_name.split(' ')[0] }}</p>
+            {{ store_marks.person_marks(p) }}
             <p class="person-card-subtitle">
                 {{ t('role_singer') if p.role == "singer" else t('role_conductor') }}{% if p.all_voice_type_names %} · {{ p.all_voice_type_names }}{% elif p.voice_type_name %} · {{ p.voice_type_name }}{% endif %}
             </p>

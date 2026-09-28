@@ -9,6 +9,13 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-28 — Claude: Notas Store (item 7)
+- New `app/store.py`, `app/routers/store_routes.py`, `store.html`, `_store_marks.html`; migration `2026-09-28_store.sql` (+ schema.sql).
+- Prices/discounts (welcome −50% 1st year, admin discount window from/until, bigger wins), 9 product effects, verification queue with refund, sales stats; urgent listing priced from the catalogue.
+- Admin Shop catalog: price & discount form, sales table, verification queue; audit-logged. Super User frame on people search / profile / board.
+- 47 texts × 10 langs. Tests: new `tests/test_store.py` (15); full suite 448 passed, 7 skipped + retention; bandit clean; brand contract regenerated; style.css v=20260928-9.
+- Next: 7b multi-service invoice lines, 7c invoice PDF without logo. Daniel: apply the store migration via psql.
+
 ## 2026-09-28 — Claude — 6d readable analytics charts
 - `app/static/js/financial-charts.js` rewritten (same palette): responsive + HiDPI canvas, adaptive axis labels (horizontal / vertical / every Nth for numbers), non-overlapping values, pie legend, redraw on resize. Also used by the financial dashboard.
 - `admin_analytics.html`: charts stacked full width, short titles; day of month now a chart. `admin_routes.admin_analytics`: Mon-first short weekdays, all 24 hours, all 31 days (0 included).

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Form, BackgroundTasks, HTTPException
+from app import store
 from app.seo import job_posting_jsonld, public_base, website_jsonld
 from app.vacancies import get_listing_invitations
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
@@ -402,6 +403,9 @@ def board(
     total_pages = max(1, (total + BOARD_PAGE_SIZE - 1) // BOARD_PAGE_SIZE)
     page = min(page, total_pages)
     offset = (page - 1) * BOARD_PAGE_SIZE
+    # Store (2026-09-28): up to 3 random featured listings matching the filters
+    # go first — page 1 only, so paging stays stable.
+    pinned = store.pinned_featured_ids(where_clause, params) if page == 1 else []
 
     # "is_saved": to draw the little favorite star already correctly
     # marked on each card, without needing a second query per listing
@@ -414,6 +418,8 @@ def board(
             {LISTING_COLUMNS},
             u.id AS author_id, u.full_name AS author_name,
             vt.name AS voice_type_name,
+            {store.super_user_sql('u')} AS author_super_user,
+            (l.id = ANY(:pinned)) AS is_pinned,
             EXISTS (
                 SELECT 1 FROM saved_listings sl
                 WHERE sl.listing_id = l.id AND sl.user_id = :viewer_id
@@ -423,10 +429,11 @@ def board(
         {LISTING_SUMMARY_JOIN}
         LEFT JOIN voice_types vt ON vt.id = ls.voice_type_id
         WHERE {where_clause}
-        ORDER BY l.is_urgent DESC, l.created_at DESC, l.id DESC
+        ORDER BY (l.id = ANY(:pinned)) DESC, l.is_urgent DESC, l.created_at DESC, l.id DESC
         LIMIT :limit OFFSET :offset
         """,  # nosec B608 - same fixed-fragment where_clause explained above.
-        {**params, "limit": BOARD_PAGE_SIZE, "offset": offset, "viewer_id": user["id"] if user else None},
+        {**params, "limit": BOARD_PAGE_SIZE, "offset": offset, "viewer_id": user["id"] if user else None,
+         "pinned": pinned},
     )
 
     voice_types = fetch_all("SELECT id, name FROM voice_types ORDER BY sort_order")

@@ -148,7 +148,11 @@ CREATE TABLE users (
     -- (see app/referrals.py), used in a link like /register?ref=CODE.
     referral_code       VARCHAR(12) UNIQUE,
     referred_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
-    matches_blocked_until TIMESTAMPTZ, -- 3 Match-cancellation warnings = 30 days without new Matches
+    matches_blocked_until TIMESTAMPTZ,
+    super_user_until TIMESTAMPTZ,    -- Store: Super User frame + label (docs/specs/STORE.md)
+    people_top_until TIMESTAMPTZ,    -- Store: first in People search
+    verified_at      TIMESTAMPTZ,    -- Store: Verified badge (forever)
+    supporter_since  TIMESTAMPTZ,    -- Store: Supporter badge (forever) -- 3 Match-cancellation warnings = 30 days without new Matches
     invoice_country  VARCHAR(8),     -- Rechnungmaker v2: last invoice country (DE/AT/CH/OTHER)
     invoice_doc_lang VARCHAR(2),     -- ... and invoice language (de/en/fr/it)
     signup_ip_hash  CHAR(64),        -- salted SHA-256 of the signup IP (referral fraud review); never the IP
@@ -1278,6 +1282,9 @@ CREATE TABLE shop_catalog_items (
     title       VARCHAR(150),
     description VARCHAR(500),
     icon        VARCHAR(50) NOT NULL DEFAULT 'icon-gift',
+    discount_percent SMALLINT CHECK (discount_percent IS NULL OR (discount_percent BETWEEN 1 AND 90)),
+    discount_from    TIMESTAMPTZ,     -- admin discount window: from ... until (both optional)
+    discount_until   TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -1295,7 +1302,41 @@ INSERT INTO voice_types (name, sort_order) VALUES
 -- title/description ficam NULL de propósito — usa o texto de
 -- app/i18n.py até o Admin sobrescrever pela tela /admin/loja.
 INSERT INTO shop_catalog_items (item_key, cost, active, icon) VALUES
-    ('profile_highlight_7d', 3, TRUE, 'icon-sparkle');
+    ('profile_highlight_7d', 3, FALSE, 'icon-sparkle');  -- replaced by super_user_1y (2026-09-28)
+
+-- Notas Store (2026-09-28, docs/specs/STORE.md): products + their state.
+INSERT INTO shop_catalog_items (item_key, cost, active, icon) VALUES
+    ('super_user_1y', 5, TRUE, 'icon-crown'),
+    ('featured_listing_30d', 2, TRUE, 'icon-star'),
+    ('people_top_30d', 2, TRUE, 'icon-sparkle'),
+    ('invoice_single', 0.50, TRUE, 'icon-scroll'),
+    ('invoice_pack_5', 2, TRUE, 'icon-book'),
+    ('verified_badge', 5, TRUE, 'icon-trophy'),
+    ('supporter_badge', 5, TRUE, 'icon-gift'),
+    ('urgent_listing', 1, TRUE, 'icon-tip'),
+    ('subscription_1y', 15, TRUE, 'icon-card');
+
+CREATE TABLE featured_listings (
+    listing_id     BIGINT PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
+    featured_until TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX idx_featured_listings_until ON featured_listings (featured_until);
+
+-- Verified badge requests: a public proof link + note, reviewed by an admin.
+-- Nothing else is stored (Zero-Storage). Rejected = the Notas are refunded.
+CREATE TABLE verification_requests (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    proof_url    VARCHAR(500) NOT NULL,
+    note         VARCHAR(1000),
+    debit_id     BIGINT REFERENCES credit_ledger(id) ON DELETE SET NULL,
+    status       VARCHAR(10) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    reviewed_at  TIMESTAMPTZ,
+    reviewed_by  BIGINT REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_verification_requests_status ON verification_requests (status, created_at);
+
 
 -- ------------------------------------------------------------
 -- Seed data — cities of Germany, Austria and Switzerland

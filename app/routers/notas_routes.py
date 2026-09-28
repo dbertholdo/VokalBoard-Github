@@ -15,6 +15,7 @@ Both pages are members-only + verified-only, same gate as /people.
 """
 import random
 import secrets
+from app.store import PRODUCTS as STORE_PRODUCTS, ready as store_ready
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Request, Form
@@ -62,7 +63,9 @@ def notas_page(request: Request, redeemed: str = "", error: str = "", purchase: 
         "balances": get_balances(user["id"]),
         "purchase_success": purchase == "success",
         "ledger": get_credit_ledger(user["id"]),
-        "catalog": get_active_catalog(),
+        # Store products are sold on /store; the rest of the catalogue stays here.
+        "catalog": [i for i in get_active_catalog() if not (store_ready() and i["key"] in STORE_PRODUCTS)],
+        "store_ready": store_ready(),
         # Título de cada item pro extrato mostrar o nome certo mesmo
         # de itens já desativados depois de resgatados (ver
         # get_catalog_titles_by_key — None = usa o texto do i18n).
@@ -103,6 +106,9 @@ def redeem_notas(
     if not user["email_verified"]:
         return RedirectResponse(url="/?verify_required=1", status_code=303)
 
+    # Store products (2026-09-28) are bought on /store, where their effects run.
+    if item_key in STORE_PRODUCTS or item_key == "urgent_listing":
+        return RedirectResponse(url=f"/store#item-{item_key}", status_code=303)
     # Debit + effect in one transaction, double-submit safe (app/shop_catalog.redeem_item).
     status, item = redeem_item(user["id"], item_key, idempotency_token)
     if status == "not_found":

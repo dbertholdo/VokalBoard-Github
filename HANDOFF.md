@@ -1,13 +1,13 @@
 # HANDOFF — current state (read this first)
 
 > **Rewrite, don't append.** Every agent updates this file at the end of a task so it always reflects *now*. Keep it under ~80 lines. History goes in `AI_CHANGELOG.md` (≤10-line entries).
-> Last updated: 2026-09-27 — Claude (cleanup sweep sections 1–6: account, profile/search, jobs/Matches, Messenger/notifications, Rechnungmaker, Notas; mascot size + 3 s minimum). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
+> Last updated: 2026-09-28 — Claude (item 7 Notas Store done; 7b multi-service invoice + 7c PDF without logo next). Before reading any big file, see the "Large files" list in `CLAUDE.md` §0.
 
 ## 1. Repo state
 - Branch `main`, pushed to GitHub (Daniel pushes; the agent never does). Tagged `v1.1.3` = cleanup sections 1–7 done (2026-09-27).
-- **Tests GREEN:** 375 passed + 10 retention, 0 failed, **0 warnings**. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
+- **Tests GREEN:** 448 passed, 7 skipped + 10 retention, 0 failed, **0 warnings**. Run `scripts/test_in_docker.sh` (isolated DBs, throwaway `vb-test` container; needs `docker compose up -d db web`; `--recreate` after schema changes).
 - Security: `bandit` — 0 high; 7 medium/low-confidence B608 reviewed, all false positives (fixed allowlisted SQL fragments). `pip-audit` — prod + dev clean (2026-09-26). passlib removed (bcrypt direct, hashes compatible), ReportLab 4.5.1, httpx2 for tests.
-- Static assets are cache-versioned: style.css `?v=20260927-6`, brand.css `20260927-2`, listing-form.js `-2`, messenger.js `20260927-1`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
+- Static assets are cache-versioned: style.css `?v=20260928-9`, brand.css `20260927-2`, listing-form.js `-2`, messenger.js `20260927-1`. Bump on every CSS/JS change; `tests/test_brand_visual.py` asserts the brand.css version.
 
 ## 2. Work split (Daniel's decision, 2026-09-24)
 - **Codex:** visual/CSS. **Claude:** functional code, tests, business flows. On 2026-09-26 Daniel had Claude take Codex's open a11y list (done, §4).
@@ -38,10 +38,12 @@
 6b. ~~Turkish (tr)~~ DONE 2026-09-28: UI 865/865 keys (`app/locales/tr.json`, informal "sen"), all e-mails + layout sign-off/footer, SVG flag, Stripe locale; admin stays English. Native-speaker review = Daniel's go-live item (with es/ro/zh/ko).
 6d. ~~Analytics charts~~ DONE 2026-09-28: charts stacked full width (Daniel), short titles/labels (Mon…Sun, 00–23, 1–31), all hours/days incl. 0, day-of-month is a switchable chart too; `financial-charts.js`: container-width + HiDPI canvas, horizontal→vertical/thinned axis labels, values only where they fit, pie legend. Colours unchanged.
 6c. ~~Language-menu flags~~ DONE 2026-09-28: SVG flags from flag-icons 7.2.3 (MIT) in `app/static/img/flags/` (MANIFEST + LICENSE), `LANGUAGE_META[..]['flag_img']`; tr.svg already there for 6b.
-7. **Notas Store** (= Daniel's "function catalogue"): design COMPLETE 2026-09-28 in `docs/specs/STORE.md` — Super User frame, Featured listing, Top of People search, invoice single/pack, Verified badge (proof link), Supporter badge, urgent listing 1 Nota, 1-year subscription 15; welcome −50% first year (not subscription), admin discounts + sales stats. **Not built — waiting for Daniel's go.**
+7. ~~Notas Store~~ DONE 2026-09-28 (`app/store.py`, `/store`, spec `docs/specs/STORE.md`): 9 products at Daniel's prices; welcome −50% first 365 days (not subscription), admin discount with **start + end date** and "−XX% off!" badge, bigger discount wins; Super User purple frame + label (people search, profile, board), Featured listing (max 3 pinned, rotating), Top of People search, invoice single/pack, Verified badge (proof link → admin queue, reject = refund), Supporter badge, urgent listing now priced from the catalogue, 1-year subscription (Notas, 365 days). Admin Shop catalog: price & discount form, sales per item (period + sort), verification queue (nav badge); all audit-logged. /notas links to the store; admin-created vouchers stay on /notas. **Needs `2026-09-28_store.sql`** (until then /notas works as before, store effects off).
+7b. **Invoice Maker: several service lines** (Daniel 2026-09-28): the "Service" field allows only one line — add "+ Add service" (description + amount per line, maybe quantity), in form, live preview, PDF (DOC_LABELS already has pos/qty/unit columns), Match drafts; totals/tax over all lines.
+7c. **Invoice PDF without the VokalBoard logo** (Daniel 2026-09-28): drop the brand header (logo + "VokalBoard") from `app/invoice_pdf.py`; VokalBoard stays only in the footer line as today. Also in the live preview if it shows the logo.
 8. Later: admin browser/phone check, accessibility pass.
 
-**Daniel's go-live items:** DONE 2026-09-27 — DB update applied, latest deployed, Postgres password reset, SITE_BASE_URL, Railway settings. Still: Stripe last; native-speaker review of es/ro/zh/ko/tr. New: apply `2026-09-28_referral_rewards.sql` + `2026-09-28_bot_traffic.sql` + `2026-09-28_invoice_prefs.sql` + `2026-09-28_match_cancellations.sql` (psql, not the Query box). Google Search Console (4b).
+**Daniel's go-live items:** DONE 2026-09-27 — DB update applied, latest deployed, Postgres password reset, SITE_BASE_URL, Railway settings. Still: Stripe last; native-speaker review of es/ro/zh/ko/tr. New: apply `2026-09-28_referral_rewards.sql` + `2026-09-28_bot_traffic.sql` + `2026-09-28_invoice_prefs.sql` + `2026-09-28_match_cancellations.sql` + `2026-09-28_store.sql` (psql, not the Query box). Google Search Console (4b). **Railway is serving an old build** (live style.css `?v=20260928-2`) — Daniel: check Railway → Deployments; features like the invoice country dropdown (item 5) only appear after a successful deploy.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
 - `/listings/new` vacancy rows: every control has a visible, associated label; conductor mode hides the whole labelled field.

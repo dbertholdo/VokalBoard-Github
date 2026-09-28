@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_store_marks.html" as store_marks with context %}
 {% block title %}{{ profile_user.full_name if profile_user else t('listing_not_found') }}{% endblock %}
 
 {# Privacy: public profiles must not show up on Google (a real
@@ -68,13 +69,14 @@
 
     <div class="profile-hero">
         <div class="profile-grid">
-            <div class="card id-card">
+            <div class="card id-card {{ 'super-user-frame' if profile_user.is_super_user else '' }}">
                 {% if profile_user.avatar_url %}
                     <img class="avatar-preview" src="{{ profile_user.avatar_url }}" alt="">
                 {% else %}
                     <div class="avatar-preview avatar-placeholder">{{ profile_user.full_name[0] | upper }}</div>
                 {% endif %}
                 <p class="full-name">{{ profile_user.full_name }}</p>
+                {{ store_marks.person_marks(profile_user) }}
                 <p class="role-line">
                     {{ t('role_singer') if profile_user.role == "singer" else t('role_conductor') }}
                     {% if all_voice_names %} · {{ all_voice_names | join(', ') }}{% elif singer_profile and singer_profile.voice_type_name %} · {{ singer_profile.voice_type_name }}{% endif %}

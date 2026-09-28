@@ -1,0 +1,10 @@
+{# Store marks (2026-09-28, docs/specs/STORE.md): small labels next to a person's
+   name. The purple frame itself is the `super-user-frame` class on the card.
+   Pass any dict with is_super_user / is_verified / is_supporter. #}
+{% macro person_marks(p) -%}
+{% if p.is_super_user or p.is_verified or p.is_supporter %}<span class="store-marks">
+    {%- if p.is_super_user %}<span class="store-mark store-mark-super">{{ t('store_mark_super_user') }}</span>{% endif -%}
+    {%- if p.is_verified %}<span class="store-mark store-mark-verified" title="{{ t('store_mark_verified') }}"><svg class="icon" width="12" height="12" aria-hidden="true"><use href="/static/img/icons.svg#icon-check"></use></svg> {{ t('store_mark_verified') }}</span>{% endif -%}
+    {%- if p.is_supporter %}<span class="store-mark store-mark-supporter">{{ t('store_mark_supporter') }}</span>{% endif -%}
+</span>{% endif %}
+{%- endmacro %}

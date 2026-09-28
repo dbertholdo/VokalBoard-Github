@@ -31,6 +31,9 @@ contrário:
   uma instalação limpa a partir de `db/schema.sql` (que já é cumulativo) é
   mais simples e segura do que encadear migração por migração.
 
+## 2026-09-28 — `2026-09-28_store.sql` (PENDING in production)
+Notas Store: `shop_catalog_items.discount_percent/discount_from/discount_until`; users `super_user_until`, `people_top_until`, `verified_at`, `supporter_since`; tables `featured_listings`, `verification_requests`; seeds the 9 store products; switches `profile_highlight_7d` off. Until applied: `/store` empty, /notas shows the old catalogue (`app/store.ready`).
+
 ## 2026-09-28 — `2026-09-28_match_cancellations.sql` (PENDING in production)
 New tables `match_cancellations`, `match_warnings`; `users.matches_blocked_until`. Until applied: no cancel option, nobody blocked (`app/match_cancellation.feature_ready`).
 

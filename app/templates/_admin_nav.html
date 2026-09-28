@@ -33,7 +33,7 @@
 {{ item('/admin/emails', 'icon-mail', 'E-mails', p.startswith('/admin/emails')) }}
 
 <p class="side-nav-group">Shop</p>
-{{ item('/admin/loja', 'icon-gift', 'Shop catalog', p.startswith('/admin/loja')) }}
+{{ item('/admin/loja', 'icon-gift', 'Shop catalog', p.startswith('/admin/loja'), c.shop) }}
 
 {% if user.role_level >= 3 %}
 <p class="side-nav-group side-nav-group-danger">Red Zone</p>

@@ -13,6 +13,7 @@ gating harder than a handful of listing cards.
 `users.appear_in_search` decides whether someone shows up here at
 all — it defaults to TRUE (opt-out), editable on /profile.
 """
+from app import store
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse
 
@@ -105,6 +106,8 @@ def search_people(
         f"""
         SELECT u.id, u.full_name, u.role, u.city, u.state, u.country, u.avatar_url, u.profile_slug,
                vt.name AS voice_type_name,
+               {store.super_user_sql('u')} AS is_super_user, {store.verified_sql('u')} AS is_verified,
+               {store.supporter_sql('u')} AS is_supporter,
                (
                    SELECT string_agg(DISTINCT vt2.name, ', ' ORDER BY vt2.name)
                    FROM voice_types vt2
@@ -115,7 +118,7 @@ def search_people(
         LEFT JOIN singer_profiles sp ON sp.user_id = u.id
         LEFT JOIN voice_types vt ON vt.id = sp.voice_type_id
         WHERE {where_clause}
-        ORDER BY u.last_seen_at DESC NULLS LAST, u.created_at DESC, u.id DESC
+        ORDER BY {store.people_top_order_sql('u')}u.last_seen_at DESC NULLS LAST, u.created_at DESC, u.id DESC
         LIMIT :limit OFFSET :offset
         """,  # nosec B608 - same fixed where_clause explained above.
         {**params, "limit": PEOPLE_PAGE_SIZE, "offset": offset},

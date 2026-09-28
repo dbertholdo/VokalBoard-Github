@@ -41,6 +41,16 @@
 {% endif %}
 <p class="field-help">{{ t('notas_rules_hint') }} <a href="/agb">{{ t('footer_terms') }}</a></p>
 
+{# Store (2026-09-28): store products live on /store once the store migration is in;
+   other catalogue items (e.g. ones an admin created) stay redeemable here. #}
+{% if store_ready %}
+<div class="listing-form-card store-cta">
+    <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('store_title') }}</h2>
+    <p>{{ t('store_subtitle') }}</p>
+    <p><a class="button-link button-primary" href="/store">{{ t('store_open') }} &rarr;</a></p>
+</div>
+{% endif %}
+{% if catalog or not store_ready %}
 <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-gift"></use></svg> {{ t('notas_catalog_title') }}</h2>
 <ul class="catalog-grid">
     {% for item in catalog %}
@@ -71,8 +81,10 @@
             {% endif %}
         </li>
     {% endfor %}
-    <li class="catalog-item-empty">{{ t('notas_catalog_more_soon') }}</li>
+    {% if not store_ready %}<li class="catalog-item-empty">{{ t('notas_catalog_more_soon') }}</li>{% endif %}
 </ul>
+
+{% endif %}
 
 <h2><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-receipt"></use></svg> {{ t('notas_ledger_title') }}</h2>
 {% if ledger and ledger|length > 0 %}
@@ -101,7 +113,7 @@
                         {{ catalog_titles.get(redeemed_key) or t('notas_item_' ~ redeemed_key ~ '_title') }}
                     {% elif entry.reason == 'referral_reversed' %}
                         {{ t('notas_reason_referral_reversed') }}
-                    {% elif entry.reason in ('purchase', 'earned_expired', 'admin_refund', 'stripe_refund', 'stripe_dispute', 'stripe_dispute_won', 'admin_grant_credit', 'admin_grant_debit') %}
+                    {% elif entry.reason in ('purchase', 'store_refund', 'earned_expired', 'admin_refund', 'stripe_refund', 'stripe_dispute', 'stripe_dispute_won', 'admin_grant_credit', 'admin_grant_debit') %}
                         {{ t('notas_reason_' ~ entry.reason) }}
                     {% else %}
                         {{ entry.reason }}

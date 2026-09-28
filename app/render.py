@@ -61,6 +61,7 @@ def render(request: Request, template_name: str, context: dict | None = None, st
     context["request"] = request
     context["lang"] = lang
     context["page_status"] = status_code
+    context["now_utc"] = datetime.now(timezone.utc)  # e.g. hide expired store discounts
     context["seo"] = page_links(request, lang)  # canonical + hreflang (app/seo.py)
     context["seo_base"] = public_base(request)
     context["google_site_verification"] = GOOGLE_SITE_VERIFICATION

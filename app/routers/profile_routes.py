@@ -1,4 +1,5 @@
 import json
+from app import store
 from app.referrals import settle_for_invitee
 from datetime import datetime, timezone
 
@@ -576,10 +577,12 @@ def rate_user(
 @router.get("/users/{user_id}", response_class=HTMLResponse)
 def public_profile(request: Request, user_id: int, background_tasks: BackgroundTasks):
     profile_user = fetch_one(
-        """
-        SELECT id, email, full_name, role, city, phone, phone_visibility, avatar_url, profile_slug, profile_highlighted_until
+        f"""
+        SELECT id, email, full_name, role, city, phone, phone_visibility, avatar_url, profile_slug, profile_highlighted_until,
+               {store.super_user_sql("users")} AS is_super_user, {store.verified_sql("users")} AS is_verified,
+               {store.supporter_sql("users")} AS is_supporter
         FROM users WHERE id = :id AND deleted_at IS NULL
-        """,
+        """,  # nosec B608 - fixed fragments from app/store.py
         {"id": user_id},
     )
     if not profile_user:
