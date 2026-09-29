@@ -365,8 +365,10 @@
     "[\"<form\", [[\"action\", \"\\\"/contato\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"csrf_token\\\"\"], [\"type\", \"\\\"hidden\\\"\"]], []]": 1,
     "[\"<input\", [[\"name\", \"\\\"website\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"255\\\"\"], [\"name\", \"\\\"email\\\"\"], [\"type\", \"\\\"email\\\"\"]], [\"required\"]]": 1,
     "[\"<input\", [[\"maxlength\", \"\\\"200\\\"\"], [\"name\", \"\\\"subject\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1,
     "[\"<textarea\", [[\"maxlength\", \"\\\"4000\\\"\"], [\"minlength\", \"\\\"10\\\"\"], [\"name\", \"\\\"description\\\"\"]], [\"required\"]]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/datenschutz\\\"\"]], []]": 1,
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
   },
   "datenschutz.html": {

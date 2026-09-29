@@ -9,6 +9,11 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-29 — Claude: public contact form, footer, DPF
+- `/contato` open to visitors (Impressum 2nd channel): e-mail required, Turnstile + honeypot, 3/h per IP (`support_routes.py`, `contato.html`); 3 new texts × 10 langs.
+- Footer "Learning project" removed (`footer_text`, 10 langs). Datenschutz: DPF-certified providers, contact form in Turnstile/contact sections.
+- Tests: visitor contact test replaces the login-required one; 449 passed, 9 skipped + 12 retention.
+
 ## 2026-09-29 — Claude: legal check L2–L4
 - `impressum.html` (§ 5 DDG, German only) and `datenschutz.html` rewritten from the real data flows; obsolete keys `impressum_operated_from_notice`, `privacy_disclaimer` removed.
 - `app/traffic.py`: visits deduped by a daily-salted in-memory hash (no cookie/sessionStorage); beacon in base.html no longer uses sessionStorage.

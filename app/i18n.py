@@ -386,13 +386,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "nav_logout": {"de": "Abmelden", "en": "Log out", "fr": "Déconnexion", "it": "Esci", "pt": "Sair"},
     "role_singer": {"de": "Sänger(in)", "en": "Singer", "fr": "Chanteur(euse)", "it": "Cantante", "pt": "Cantor(a)"},
     "role_conductor": {"de": "Dirigent(in)", "en": "Conductor", "fr": "Chef(fe) de chœur", "it": "Direttore/Direttrice", "pt": "Regente"},
-    "footer_text": {
-        "de": "Lernprojekt — verbindet Sänger(innen) und Dirigent(innen) in Deutschland.",
-        "en": "Learning project — connecting singers and conductors in Germany.",
-        "fr": "Projet pédagogique — met en relation chanteurs et chefs de chœur en Allemagne.",
-        "it": "Progetto didattico — mette in contatto cantanti e direttori in Germania.",
-        "pt": "Projeto de estudo — conecta cantores e regentes na Alemanha.",
-    },
+    "footer_text": {"de": "Verbindet Sänger(innen) und Dirigent(innen) in Deutschland.", "en": "Connecting singers and conductors in Germany.", "fr": "Met en relation chanteurs et chefs de chœur en Allemagne.", "it": "Mette in contatto cantanti e direttori in Germania.", "pt": "Conecta cantores e regentes na Alemanha."},
 
     # --- home (boas-vindas + matches) ----------------------------------------
     "home_title": {"de": "Schwarzes Brett", "en": "Bulletin board", "fr": "Petites annonces", "it": "Bacheca", "pt": "Mural de avisos"},
@@ -2023,6 +2017,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "contact_submit": {"en": "Send message", "pt": "Enviar mensagem", "de": "Nachricht senden", "fr": "Envoyer le message", "it": "Invia messaggio"},
     "contact_sent": {"en": "Message sent — we'll reply by email.", "pt": "Mensagem enviada — responderemos por e-mail.", "de": "Nachricht gesendet — wir antworten per E-Mail.", "fr": "Message envoyé — nous répondrons par e-mail.", "it": "Messaggio inviato — risponderemo via e-mail."},
     "support_rate_limited": {"de": "Zu viele Nachrichten in kurzer Zeit. Bitte versuche es in einer Stunde erneut.", "en": "Too many messages in a short time. Please try again in an hour.", "fr": "Trop de messages en peu de temps. Réessayez dans une heure.", "it": "Troppi messaggi in poco tempo. Riprova tra un'ora.", "pt": "Muitas mensagens em pouco tempo. Tente de novo daqui a uma hora."},
+    "contact_error_email": {"de": "Bitte gib eine gültige E-Mail-Adresse an, damit wir antworten können.", "en": "Please enter a valid e-mail address so we can reply.", "fr": "Indiquez une adresse e-mail valide pour que nous puissions répondre.", "it": "Inserisci un indirizzo email valido così possiamo risponderti.", "pt": "Informe um e-mail válido para podermos responder."},
+    "contact_error_captcha": {"de": "Die Spam-Prüfung ist fehlgeschlagen. Bitte versuche es noch einmal.", "en": "The spam check failed. Please try again.", "fr": "La vérification anti-spam a échoué. Veuillez réessayer.", "it": "Il controllo anti-spam non è riuscito. Riprova.", "pt": "A verificação anti-spam falhou. Tente de novo."},
+    "contact_visitor_privacy": {"de": "Wir verwenden deine E-Mail-Adresse nur, um dir zu antworten.", "en": "We only use your e-mail address to reply to you.", "fr": "Nous utilisons votre adresse e-mail uniquement pour vous répondre.", "it": "Usiamo il tuo indirizzo email solo per risponderti.", "pt": "Usamos seu e-mail só para responder você."},
     "contact_error_short": {"en": "Write at least 10 characters.", "pt": "Escreva pelo menos 10 caracteres.", "de": "Schreib mindestens 10 Zeichen.", "fr": "Écrivez au moins 10 caractères.", "it": "Scrivi almeno 10 caratteri."},
     "bug_report_button": {"en": "Report a bug", "pt": "Reportar erro", "de": "Fehler melden", "fr": "Signaler un bug", "it": "Segnala un errore"},
     "bug_report_title": {"en": "Report a bug", "pt": "Reportar erro", "de": "Fehler melden", "fr": "Signaler un bug", "it": "Segnala un errore"},

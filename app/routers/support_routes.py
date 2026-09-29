@@ -4,9 +4,9 @@ close-out (19/09/2026). Daniel's request ("Make p6 done"), scoped via
 AskUserQuestion: one unified ticket inbox for both (see
 app/support_tickets.py), reached from two different entry points:
 
-  - GET/POST /contato — a normal contact form, members-only (same
-    "logged in" gate as most of the site; no anonymous submission
-    here, unlike the bug report below).
+  - GET/POST /contato — a normal contact form. Open to visitors since
+    2026-09-29 (the Impressum's second contact channel, § 5 DDG): they
+    give an e-mail address and pass Turnstile + honeypot + an IP limit.
   - POST /support/report-bug — the floating "Reportar erro" button
     that appears on every page (see app/templates/base.html). Works
     whether or not the person is logged in (a bug can happen on a
@@ -19,6 +19,7 @@ require_level LEVEL_ADMIN, same floor as the rest of day-to-day admin
 work; punishing/banning stays LEVEL_GOD elsewhere, this is just
 reading and replying to a message).
 """
+import re
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Request, Form
@@ -28,6 +29,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.rate_limit import allow
 from app.client_ip import get_client_ip
 from app.auth import get_current_user
+from app.captcha import is_bot, verify_turnstile
 from app.render import render
 from app.csrf import verify_csrf
 from app.permissions import require_level, log_audit_action, reauthenticate, LEVEL_ADMIN
@@ -81,17 +83,19 @@ MAX_PAGE_NAME_LENGTH = 200
 @router.get("/contato", response_class=HTMLResponse)
 def contato_form(request: Request, sent: str = ""):
     user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login?next=/contato", status_code=303)
     return render(request, "contato.html", {"user": user, "sent": sent})
 
 
 # Anti-spam (2026-09-28): a hidden "website" field humans never fill, and at
 # most TICKETS_PER_HOUR tickets per IP and per account.
 TICKETS_PER_HOUR = 5
+VISITOR_TICKETS_PER_HOUR = 3  # visitors (no account) — also need Turnstile + e-mail
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _ticket_allowed(request: Request, user_id: int) -> bool:
+def _ticket_allowed(request: Request, user_id: int | None) -> bool:
+    if user_id is None:
+        return allow(f"ticket:visitor:{get_client_ip(request)}", VISITOR_TICKETS_PER_HOUR, 3600)
     return allow(f"ticket:ip:{get_client_ip(request)}", TICKETS_PER_HOUR, 3600) and \
         allow(f"ticket:user:{user_id}", TICKETS_PER_HOUR, 3600)
 
@@ -103,14 +107,20 @@ def contato_submit(
     description: str = Form(...),
     csrf_token: str = Form(...),
     website: str = Form(""),
+    email: str = Form(""),
+    cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
 ):
     user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login?next=/contato", status_code=303)
     verify_csrf(request, csrf_token)
-    if website:
+    if is_bot(website):
         return RedirectResponse(url="/contato?sent=1", status_code=303)  # honeypot: look successful, store nothing
-    if not _ticket_allowed(request, user["id"]):
+    email = email.strip()[:255]
+    if not user:
+        if not EMAIL_RE.match(email):
+            return RedirectResponse(url="/contato?error=email", status_code=303)
+        if not verify_turnstile(cf_turnstile_response):
+            return RedirectResponse(url="/contato?error=captcha", status_code=303)
+    if not _ticket_allowed(request, user["id"] if user else None):
         return RedirectResponse(url="/contato?error=limite", status_code=303)
 
     description = description.strip()
@@ -120,7 +130,8 @@ def contato_submit(
     create_ticket(
         "contact",
         description[:MAX_DESCRIPTION_LENGTH],
-        user_id=user["id"],
+        user_id=user["id"] if user else None,
+        email=None if user else email,
         subject=subject.strip()[:MAX_SUBJECT_LENGTH] or None,
     )
     return RedirectResponse(url="/contato?sent=1", status_code=303)

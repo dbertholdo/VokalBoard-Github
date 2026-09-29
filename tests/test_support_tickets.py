@@ -28,10 +28,24 @@ def _cleanup_ticket_test_rows():
     execute("DELETE FROM support_tickets WHERE id > :max_id", {"max_id": max_id})
 
 
-def test_contact_requires_login(client):
-    resp = client.get("/contato", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"].startswith("/login")
+def test_contact_is_open_to_visitors_with_email(client):
+    """2026-09-29: the Impressum's second contact channel — visitors can write too."""
+    client.cookies.clear()
+    page = client.get("/contato")
+    assert page.status_code == 200 and 'name="email"' in page.text
+    token = extract_csrf(page.text)
+    bad = client.post("/contato", data={"csrf_token": token, "description": "Hallo, eine Frage zum Impressum.", "email": "nope"},
+                      follow_redirects=False)
+    assert bad.headers["location"] == "/contato?error=email"
+    ok = client.post("/contato", data={"csrf_token": token, "description": "Hallo, eine Frage zum Impressum.",
+                                       "email": "visitor@example.com"}, follow_redirects=False)
+    assert ok.headers["location"] == "/contato?sent=1"
+    row = fetch_one("SELECT user_id, email FROM support_tickets ORDER BY id DESC LIMIT 1")
+    assert row["user_id"] is None and row["email"] == "visitor@example.com"
+    trap = client.post("/contato", data={"csrf_token": token, "description": "Buy cheap stuff now!!!",
+                                         "email": "bot@example.com", "website": "x"}, follow_redirects=False)
+    assert trap.headers["location"] == "/contato?sent=1"
+    assert fetch_one("SELECT email FROM support_tickets ORDER BY id DESC LIMIT 1")["email"] == "visitor@example.com"
 
 
 def test_contact_submission_creates_ticket(client):
