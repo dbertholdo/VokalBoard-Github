@@ -11,7 +11,9 @@ per-bot counter in `bot_traffic_daily` (Red Zone → Bot traffic). That
 table comes from the 2026-09-28 migration; until it exists bot hits are
 simply not recorded.
 """
+import hashlib
 import re
+import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
@@ -20,8 +22,13 @@ from sqlalchemy.exc import ProgrammingError
 
 from app.database import execute, fetch_all, fetch_one
 
-VISIT_SESSION_KEY = "last_site_visit_logged_at"
 VISIT_COOLDOWN = timedelta(hours=12)
+# Cookie-free counting (legal check L4, 2026-09-29): nothing is stored in the
+# visitor's browser (§ 25 TDDDG). A visitor = hash(daily random salt + IP +
+# User-Agent), kept only in this process's memory; the salt is never saved and
+# changes every day, so yesterday's hashes can't be linked to anyone.
+_salt = {"day": None, "value": b""}
+_seen: dict[str, datetime] = {}
 
 # Named bots first (the name shown on the Bot traffic page), then generic tools.
 _NAMED_BOTS = (
@@ -101,17 +108,24 @@ def bot_traffic_summary(days: int = 30) -> dict:
 
 # --- human visits (JS beacon) ------------------------------------------
 
-def record_human_visit(session: dict, lang: str, referrer_url: str, own_host: str, is_authenticated: bool) -> bool:
-    """One visit per browser session every 12 h. Returns True if counted."""
+def _visitor_key(ip: str, user_agent: str, now: datetime) -> str:
+    today = now.date()
+    if _salt["day"] != today:
+        _salt["day"], _salt["value"] = today, secrets.token_bytes(32)
+        _seen.clear()  # old hashes are useless with the new salt
+    return hashlib.sha256(_salt["value"] + f"{ip}|{user_agent}".encode()).hexdigest()
+
+
+def record_human_visit(ip: str, user_agent: str, lang: str, referrer_url: str, own_host: str,
+                       is_authenticated: bool) -> bool:
+    """One visit per visitor (salted IP + browser hash, memory only) every 12 h
+    and per day. Returns True if counted."""
     now = datetime.now(timezone.utc)
-    last = session.get(VISIT_SESSION_KEY)
-    if last:
-        try:
-            if now - datetime.fromisoformat(last) <= VISIT_COOLDOWN:
-                return False
-        except ValueError:
-            pass
-    session[VISIT_SESSION_KEY] = now.isoformat()
+    key = _visitor_key(ip or "", (user_agent or "")[:300], now)
+    last = _seen.get(key)
+    if last and now - last <= VISIT_COOLDOWN:
+        return False
+    _seen[key] = now
     referrer_domain = None
     if referrer_url:
         try:

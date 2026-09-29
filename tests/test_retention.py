@@ -80,6 +80,34 @@ def test_retention_boundaries_and_audit(db):
     assert db.execute(text('SELECT count(*) FROM content_lifecycle_log')).scalar()==count
 
 
+def test_ip_addresses_are_dropped_after_their_retention(db):
+    """Legal check L4 (2026-09-29): signup-throttle IPs 7 days, audit-log IPs 90 days."""
+    db.execute(text("""INSERT INTO registration_attempts(ip_address,attempt_count,window_started_at)
+        VALUES('203.0.113.7',1,now()-interval '8 days'),('203.0.113.8',1,now()) ON CONFLICT DO NOTHING"""))
+    old_id = db.execute(text("""INSERT INTO audit_log(action,ip_address,created_at)
+        VALUES('sectest_old','203.0.113.9',now()-interval '91 days') RETURNING id""")).scalar_one()
+    new_id = db.execute(text("INSERT INTO audit_log(action,ip_address) VALUES('sectest_new','203.0.113.9') RETURNING id")).scalar_one()
+    run_retention(db)
+    ips = db.execute(text("SELECT ip_address FROM registration_attempts WHERE ip_address LIKE '203.0.113.%'")).scalars().all()
+    assert ips == ['203.0.113.8']
+    assert db.execute(text('SELECT ip_address FROM audit_log WHERE id=:id'), {'id': old_id}).scalar() is None
+    assert db.execute(text('SELECT ip_address FROM audit_log WHERE id=:id'), {'id': new_id}).scalar() == '203.0.113.9'
+
+
+def test_old_tickets_and_profile_viewers_are_dropped(db):
+    owner, viewer = user(db), user(db)
+    old_ticket = db.execute(text("""INSERT INTO support_tickets(type,user_id,description,status,resolved_at)
+        VALUES('contact',:u,'sectest old ticket','resolved',now()-interval '13 months') RETURNING id"""), {'u': owner}).scalar_one()
+    open_ticket = db.execute(text("""INSERT INTO support_tickets(type,user_id,description,created_at)
+        VALUES('contact',:u,'sectest open ticket',now()-interval '2 years') RETURNING id"""), {'u': owner}).scalar_one()
+    view = db.execute(text("""INSERT INTO profile_views(profile_user_id,viewer_user_id,viewed_at)
+        VALUES(:p,:v,now()-interval '91 days') RETURNING id"""), {'p': owner, 'v': viewer}).scalar_one()
+    run_retention(db)
+    assert db.execute(text('SELECT id FROM support_tickets WHERE id=:id'), {'id': old_ticket}).scalar() is None
+    assert db.execute(text('SELECT id FROM support_tickets WHERE id=:id'), {'id': open_ticket}).scalar() == open_ticket
+    assert db.execute(text('SELECT viewer_user_id FROM profile_views WHERE id=:id'), {'id': view}).scalar() is None
+
+
 def test_match_survives_listing_purge(db):
     artist,contractor=user(db),user(db)
     job=listing(db,contractor,'CURRENT_DATE-91')

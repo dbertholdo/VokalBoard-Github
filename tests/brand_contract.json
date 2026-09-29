@@ -370,9 +370,8 @@
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
   },
   "datenschutz.html": {
-    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/profile\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/profile/export\\\"\"]], []]": 1
+    "[\"<a\", [[\"href\", \"\\\"/profile/export\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"https://www.lda.bayern.de\\\"\"], [\"rel\", \"\\\"noopener\\\"\"]], []]": 1
   },
   "digital_pass_stub.html": {
     "[\"<a\", [[\"href\", \"\\\"#digital-pass-cv\\\"\"]], []]": 1,

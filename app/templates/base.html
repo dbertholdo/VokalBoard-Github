@@ -587,12 +587,11 @@
     </script>
 {% if page_status < 400 and not request.url.path.startswith(('/admin', '/financeiro')) %}
 {# Visit beacon (2026-09-28, app/traffic.py): only browsers that run JS are
-   counted; the server keeps 1 visit per session every 12 h. #}
+   counted; the server keeps 1 visit per visitor every 12 h. Nothing is stored
+   in the browser (legal check L4, 2026-09-29). #}
 <script nonce="{{ csp_nonce }}">
     (function () {
         try {
-            if (sessionStorage.getItem('vb_visit')) return;
-            sessionStorage.setItem('vb_visit', '1');
             var data = new FormData();
             data.append('r', document.referrer || '');
             if (!(navigator.sendBeacon && navigator.sendBeacon('/visit', data))) {

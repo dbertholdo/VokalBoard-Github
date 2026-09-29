@@ -26,6 +26,7 @@ def test_bot_detection():
 
 
 def test_page_views_no_longer_count_only_the_beacon_does(client):
+    client.cookies.clear()
     before = _visits()
     client.get("/", headers={"User-Agent": BROWSER})
     assert _visits() == before  # a plain GET (crawler, HEAD, prefetch) never counts
@@ -35,7 +36,8 @@ def test_page_views_no_longer_count_only_the_beacon_does(client):
     row = fetch_one("SELECT referrer_domain FROM site_visits ORDER BY id DESC LIMIT 1")
     assert row["referrer_domain"] == "www.google.com"
     client.post("/visit", data={"r": ""}, headers={"User-Agent": BROWSER})
-    assert _visits() == before + 1  # 1 per session every 12 h
+    assert _visits() == before + 1  # 1 per visitor every 12 h
+    assert "set-cookie" not in {k.lower() for k in client.post("/visit", data={"r": ""}, headers={"User-Agent": BROWSER}).headers}
 
 
 def test_bots_go_to_their_own_counter_never_to_visits(client):

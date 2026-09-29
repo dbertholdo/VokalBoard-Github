@@ -3,134 +3,180 @@
 
 {% block content %}
 <h1>{{ t('privacy_title') }}</h1>
-{# Daniel 2026-09-29: German only — the German text is the only valid version; other languages get a notice. #}
+{# Daniel 2026-09-29: German only — the German text is the only valid version; other languages get a notice.
+   Legal check L3 (2026-09-29): written from what the code does. When a feature starts collecting
+   new data or a retention rule changes (app/retention_worker.py, app/account_purge.py), update this page. #}
 {% if lang != 'de' %}<p class="legal-lang-notice" role="note">{{ t('legal_german_only_notice') }}</p>{% endif %}
 
-<p class="field-help">
-    {{ t('privacy_disclaimer') }}
-</p>
-
 <div lang="de">
+<p class="field-help">Stand: 29.09.2026</p>
+
 <div class="legal-block">
     <h3>1. Verantwortlicher</h3>
     <p>
-        Verantwortlich für die Datenverarbeitung auf dieser Website ist der
-        Betreiber, der im <a href="/impressum">Impressum</a> genannt ist
-        (dort auch die Kontaktdaten). Dieses Portal wird von Brasilien aus
-        betrieben.
+        Daniel Bachhuber, Franziskanerstr. 16 1510, 81669 München, Deutschland<br>
+        E-Mail: daniel (a) vokalboard.com<br>
+        Ein(e) Datenschutzbeauftragte(r) ist nicht benannt, weil dafür keine gesetzliche Pflicht besteht.
     </p>
 </div>
 
-<h3>2. Welche Daten wir erfassen und warum</h3>
-<p><strong>Beim bloßen Besuch</strong> (ohne Konto): Der Server unseres
-Hosting-Anbieters protokolliert automatisch technische Daten bei jedem
-Zugriff (IP-Adresse, Browser-/Geräteinformationen, Datum/Uhrzeit,
-aufgerufene Seite) für kurze Zeit, um den Betrieb und die Sicherheit der
-Seite zu gewährleisten (berechtigtes Interesse, Art. 6 Abs. 1 lit. f
-DSGVO).</p>
-<p><strong>Cookies</strong>: ein Session-Cookie (hält dich eingeloggt) und
-ein Sprach-Cookie (merkt sich DE/EN). Beide sind technisch notwendig —
-es werden keine Tracking-, Werbe- oder Analyse-Cookies verwendet, und es
-wird kein Cookie-Banner angezeigt, weil dafür nach deutschem Recht
-(§ 25 Abs. 2 TTDSG) keine Einwilligung nötig ist.</p>
-<p><strong>Bei der Registrierung</strong>: Name, E-Mail, Passwort (als
-Einweg-Hash gespeichert, niemals im Klartext), Rolle (Sänger(in)/
-Dirigent(in)) sowie alle optionalen Angaben, die du hinzufügst — Stadt,
-Telefon, Biografie, Stimmtyp, Komponisten-Hashtags, Audio-Links,
-Social-Media-Links, Profilfoto. Rechtsgrundlage: Vertragserfüllung
-(Art. 6 Abs. 1 lit. b DSGVO), da diese Daten die Grundlage des Dienstes
-sind.</p>
-<p><strong>Anzeigen und Nachrichten</strong>: der Inhalt jeder Anzeige,
-die du veröffentlichst, und jeder Nachricht, die du verschickst, wird
-gespeichert, damit der Dienst funktioniert (Art. 6 Abs. 1 lit. b).
-Nachrichten sind nur für Absender(in) und Empfänger(in) sichtbar.</p>
-<p><strong>Empfehlungen (Freunde einladen)</strong>: dein eindeutiger
-Empfehlungscode und, falls du über den Link einer anderen Person
-beigetreten bist, ein Verweis darauf, wer dich eingeladen hat.</p>
-<p><strong>Optionale E-Mails</strong>: wenn in deinem Profil aktiviert,
-schicken wir dir E-Mails über passende Anzeigen oder neue Nachrichten
-(Art. 6 Abs. 1 lit. a — Einwilligung, da du jede davon jederzeit einzeln
-in <a href="/profile">deinem Profil</a> abschalten kannst).</p>
-<p><strong>Profilbesuche</strong>: wir protokollieren, dass dein Profil
-angesehen wurde (und von wem, falls eingeloggt) rein als interne
-Nutzungsmetrik für den Betreiber — das wird dir oder sonst jemandem
-niemals in der Oberfläche angezeigt, auch nicht über das
-Auszeichnungssystem, das immer nur zeigt, dass eine Schwelle überschritten
-wurde (z. B. "100+"), nie die genaue Zahl.</p>
-<p><strong>Meldungen und Blockierungen</strong>: wenn du eine Anzeige
-meldest oder eine andere Person blockierst, speichern wir das (bei
-Meldungen inklusive des von dir angegebenen Grundes), um die Community
-sicher zu halten (Art. 6 Abs. 1 lit. f, berechtigtes Interesse an
-Vertrauen und Sicherheit).</p>
+<h3>2. Besuch der Website</h3>
+<p><strong>Server-Protokolle</strong>: Bei jedem Aufruf verarbeitet der Server unseres
+Hosting-Anbieters technisch notwendige Daten (IP-Adresse, Datum/Uhrzeit, aufgerufene Seite,
+Browser-Kennung), um die Seite auszuliefern und vor Angriffen zu schützen. Rechtsgrundlage:
+Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einem sicheren Betrieb).</p>
+<p><strong>Besuchsstatistik</strong>: Wir zählen Besuche ohne Cookies und ohne Speicherung im
+Browser. Um einen Besuch nicht doppelt zu zählen, bilden wir aus IP-Adresse und Browser-Kennung
+einen Hashwert mit einem täglich wechselnden Zufallsschlüssel; dieser Wert liegt nur im
+Arbeitsspeicher und wird spätestens nach einem Tag unbrauchbar. Gespeichert werden nur
+Zeitpunkt, Sprache, die Domain der verweisenden Seite (z. B. „google.com“) und ob jemand
+eingeloggt war — nie die IP-Adresse und nie, wer die Seite besucht hat. Rechtsgrundlage:
+Art. 6 Abs. 1 lit. f DSGVO (Reichweitenmessung zur Verbesserung des Angebots).</p>
+<p><strong>Cookies und Speicher im Browser</strong> (§ 25 Abs. 2 Nr. 2 TDDDG — technisch
+notwendig, keine Einwilligung erforderlich, daher kein Cookie-Banner):</p>
+<ul>
+    <li>Sitzungs-Cookie: hält dich eingeloggt und schützt Formulare (CSRF); läuft nach 24 Stunden
+        Inaktivität ab.</li>
+    <li>Sprach-Cookie „lang“: nur, wenn du eine Sprache auswählst; merkt sich deine Wahl bis zu 1 Jahr.</li>
+    <li>Sitzungsspeicher des Browsers (nur eingeloggt): merkt sich, welche Chat-Fenster offen sind;
+        wird beim Schließen des Tabs gelöscht.</li>
+    <li>Lokaler Speicher: merkt sich, dass du einen Hinweis auf der Startseite geschlossen hast.</li>
+</ul>
+<p>Es gibt keine Tracking-, Werbe- oder Social-Media-Cookies. Schriften und Bilder werden von
+unserem eigenen Server geladen.</p>
+<p><strong>Spamschutz (Cloudflare Turnstile)</strong>: Bei der Registrierung und beim
+Zurücksetzen des Passworts prüft Cloudflare Turnstile, ob ein Mensch das Formular ausfüllt.
+Dabei verarbeitet Cloudflare, Inc. (USA) u. a. IP-Adresse und Browser-Merkmale. Rechtsgrundlage:
+Art. 6 Abs. 1 lit. f DSGVO (Schutz vor automatisierten Massenregistrierungen). Außerdem begrenzen
+wir die Zahl neuer Konten pro IP-Adresse; diese Zähler löschen wir nach 7 Tagen.</p>
 
-<h3>3. Mit wem wir Daten teilen</h3>
-<p>Wir verkaufen deine Daten nicht. Sie können verarbeitet werden von:</p>
-<p>
-- Unserem Hosting-/Datenbank-Anbieter, um die Seite zu betreiben.<br>
-- Unserem Anbieter für Transaktions-E-Mails (aktuell Resend,
-  api.resend.com, oder keinem im lokalen/Konsolen-Modus — siehe
-  EMAIL_BACKEND in der Projektkonfiguration), ausschließlich um
-  Verifizierungs-, Passwort-Reset-, Match- und
-  Nachrichten-Benachrichtigungs-E-Mails zuzustellen.<br>
-- Stripe (Stripe Payments Europe, Ltd., Irland), nur wenn du Notas kaufst:
-  Stripe wickelt die Zahlung auf der eigenen Bezahlseite ab — VokalBoard
-  sieht und speichert keine Karten- oder Bankdaten. Wir übermitteln Stripe
-  deine E-Mail-Adresse und den Kauf (Paket, Betrag, deine Zustimmung zu
-  den AGB und zur sofortigen Ausführung).<br>
-- Anderen Nutzer(innen), aber nur das, was du selbst auf deinem Profil
-  oder in einer Anzeige öffentlich machst; deine E-Mail/Telefonnummer
-  werden nur Personen gezeigt, mit denen du über eine Anzeige bereits in
-  Kontakt stehst.
-</p>
+<h3>3. Dein Konto und die Nutzung von VokalBoard</h3>
+<p>Rechtsgrundlage ist, soweit nicht anders angegeben, die Erfüllung des Nutzungsvertrags
+(Art. 6 Abs. 1 lit. b DSGVO). Ohne die Pflichtangaben (Name, E-Mail, Passwort, Rolle) können wir
+kein Konto anlegen; alle anderen Angaben sind freiwillig.</p>
+<ul>
+    <li><strong>Registrierung und Profil</strong>: Name, E-Mail, Passwort (nur als bcrypt-Hash),
+        Rolle, Ort/Region/Land, Telefon und alles, was du freiwillig ergänzt (Biografie, Stimmfach,
+        Komponisten, Audio- und Social-Media-Links, Profilfoto). Öffentlich sichtbar ist nur, was du
+        im Profil zeigst; E-Mail und Telefon sehen nur Personen, mit denen du über eine Anzeige in
+        Kontakt stehst.</li>
+    <li><strong>Anzeigen, Bewerbungen, Einladungen und Matches</strong>: Inhalt deiner Anzeigen,
+        wer sich wo beworben hat bzw. eingeladen wurde, bestätigte Matches. Vollständige
+        Anzeigentexte sind auch für nicht eingeloggte Besucher und Suchmaschinen sichtbar;
+        Honorar, Datum, Ort der Veranstaltung und Kontakt nur für Mitglieder.</li>
+    <li><strong>Nachrichten</strong>: Inhalte deiner Chats. Sie sind nur für die beiden
+        Beteiligten sichtbar. Meldest du eine Nachricht, sehen Administrator(inn)en eine Kopie der
+        gemeldeten Nachricht, um den Fall zu prüfen.</li>
+    <li><strong>Benachrichtigungen und E-Mails</strong>: Systemnachrichten (Bestätigung,
+        Passwort, Matches, Rechnungen) gehören zum Vertrag. Optionale E-Mails (passende Anzeigen,
+        neue Nachrichten, Berichte) schicken wir nur mit deiner Einwilligung (Art. 6 Abs. 1 lit. a
+        DSGVO); du kannst jede einzeln in deinem Profil abschalten.</li>
+    <li><strong>Bewertungen nach einem Match</strong>: Beide Seiten bewerten sich in fünf
+        Kategorien. Einzelbewertungen sieht niemand; nur der Durchschnitt je Kategorie ist für
+        dich selbst und die Administration sichtbar.</li>
+    <li><strong>Absagen und Verwarnungen</strong>: Sagst du ein bestätigtes Match ab, speichern
+        wir Zeitpunkt und Begründung. Administrator(inn)en können daraufhin verwarnen; nach drei
+        Verwarnungen sind Bewerbungen und Einladungen für 30 Tage gesperrt. Die Entscheidung
+        trifft immer ein Mensch. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (verlässliche
+        Zusammenarbeit auf der Plattform).</li>
+    <li><strong>Meldungen und Blockierungen</strong>: Wenn du Inhalte meldest oder jemanden
+        blockierst, speichern wir das inklusive Grund (Art. 6 Abs. 1 lit. f DSGVO, Sicherheit der
+        Community).</li>
+    <li><strong>Profilaufrufe</strong>: Wir zählen, wie oft dein Profil angesehen wurde. Wer es
+        angesehen hat, wird nie angezeigt und nach 90 Tagen aus der Statistik entfernt.</li>
+    <li><strong>Empfehlungen</strong>: dein Empfehlungscode, wer dich eingeladen hat, und ein
+        gesalzener Hashwert der IP-Adresse bei der Registrierung (nie die IP-Adresse selbst), um
+        Missbrauch des Empfehlungsprogramms zu erkennen (Art. 6 Abs. 1 lit. f DSGVO).</li>
+    <li><strong>Kontakt und Fehlermeldungen</strong>: dein Anliegen, deine E-Mail-Adresse und
+        bei Fehlermeldungen die betroffene Seite. Erledigte Anfragen löschen wir 12 Monate nach
+        Abschluss.</li>
+</ul>
 
-<h3>4. Internationale Datenübermittlung</h3>
-<p>
-Da dieses Portal von Brasilien aus betrieben wird, aber sich vor allem an
-Personen in Deutschland, Österreich und der Schweiz richtet, können
-personenbezogene Daten zwischen diesen Ländern übermittelt werden.
-<strong>[NOCH MIT ANWALT/ANWÄLTIN ZU PRÜFEN]</strong> — welcher konkrete
-Schutzmechanismus verwendet wird (z. B. EU-Standardvertragsklauseln oder
-ein Angemessenheitsbeschluss), hängt vom endgültigen Hosting-/
-E-Mail-Anbieter ab und sollte geklärt und hier dokumentiert werden, bevor
-die Seite echte Nutzerdaten entgegennimmt.
-</p>
+<h3>4. Rechnungmaker</h3>
+<p>Steuernummer, IBAN/BIC und vollständige Anschrift speichern wir nicht dauerhaft: Sie werden
+nur zum Erzeugen der Rechnung verwendet. Die fertige PDF liegt höchstens 7 Tage in einem
+geschützten Bereich und wird dann automatisch gelöscht. Rechnungsentwürfe zu einem Match werden
+verschlüsselt gespeichert und nach 7 Tagen gelöscht, wenn sie nicht bestätigt werden. Dauerhaft
+merken wir uns nur deine Voreinstellungen (Land und Sprache der Rechnung), die Rechnungsnummer
+und wie viele Rechnungen du im Monat erstellt hast.</p>
 
-<h3>5. Wie lange wir Daten speichern</h3>
-<p>
-Kontodaten werden gespeichert, solange dein Konto aktiv ist. Wenn du dein
-Konto löschst, wird es sofort deaktiviert (für alle unsichtbar) und nach
-6 Monaten endgültig gelöscht, außer du loggst dich innerhalb dieser Frist
-wieder ein und reaktivierst es. Eine schnellere vollständige Löschung
-kannst du jederzeit anfragen (Kontakt siehe Impressum). Einen
-herunterladbaren Export deiner eigenen Daten gibt es jederzeit unter
-<a href="/profile/export">/profile/export</a> (DSGVO Art. 20).
-</p>
-<p>
-Deine Notas (Verlauf und Guthaben) werden zusammen mit dem Konto gelöscht.
-Belege über Notas-Käufe (Datum, Betrag, Rechnung) werden bei Stripe und in
-unserer Buchhaltung für die steuerrechtlich vorgeschriebene Dauer
-aufbewahrt (8–10 Jahre, DSGVO Art. 17 Abs. 3 lit. b, § 147 AO) — nicht in
-der VokalBoard-Datenbank.
-</p>
+<h3>5. Notas, Store und Zahlungen</h3>
+<p>Jede Gutschrift und jede Ausgabe von Notas wird in einem Kontoauszug gespeichert (Datum,
+Betrag, Anlass), ebenso deine Käufe im Store (z. B. Super User, hervorgehobene Anzeige,
+Rechnungspakete, Abzeichen, Abonnement) und deren Laufzeit. Für das Abzeichen „Verifiziert“
+speichern wir den öffentlichen Link, den du als Nachweis angibst, und deine Notiz, bis die
+Administration entschieden hat — danach nur das Ergebnis. Rechtsgrundlage: Art. 6 Abs. 1 lit. b
+DSGVO.</p>
+<p>Beim Kauf von Notas mit Geld wickelt Stripe die Zahlung auf der eigenen Bezahlseite ab;
+VokalBoard sieht und speichert keine Karten- oder Bankdaten. Wir übermitteln Stripe deine
+E-Mail-Adresse und den Kauf (Paket, Betrag, deine Zustimmungen).</p>
 
-<h3>6. Deine Rechte</h3>
-<p>Nach Art. 15–21 DSGVO hast du das Recht auf: Auskunft über die bei uns
-gespeicherten Daten; Berichtigung unrichtiger Daten; Löschung; Einschränkung
-oder Widerspruch gegen bestimmte Verarbeitungen; sowie Erhalt deiner Daten
-in einem übertragbaren Format. Um eines dieser Rechte auszuüben, kontaktiere
-uns über die Angaben im <a href="/impressum">Impressum</a>. Du hast
-außerdem das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu
-beschweren.</p>
+<h3>6. Empfänger und Auftragsverarbeiter</h3>
+<p>Wir verkaufen keine Daten. Folgende Dienstleister verarbeiten Daten in unserem Auftrag
+(Art. 28 DSGVO) bzw. als eigene Verantwortliche (Stripe):</p>
+<ul>
+    <li><strong>Railway Corporation</strong>, USA — Hosting von Website und Datenbank.</li>
+    <li><strong>Resend</strong> (Plus Five Five, Inc.), USA — Versand von E-Mails.</li>
+    <li><strong>Cloudflare, Inc.</strong>, USA — Spamschutz Turnstile (siehe Abschnitt 2).</li>
+    <li><strong>Stripe Payments Europe, Ltd.</strong>, Irland — Zahlungsabwicklung; Stripe kann
+        Daten an die Stripe, Inc. in den USA übermitteln.</li>
+</ul>
+<p><strong>Übermittlung in die USA</strong>: Die Übermittlung erfolgt auf Grundlage des
+Angemessenheitsbeschlusses der EU-Kommission zum EU-US Data Privacy Framework (Art. 45 DSGVO),
+soweit der Anbieter danach zertifiziert ist, und im Übrigen auf Grundlage der
+EU-Standardvertragsklauseln (Art. 46 Abs. 2 lit. c DSGVO). Andere Nutzer(innen) sehen nur, was du
+selbst veröffentlichst (siehe Abschnitt 3).</p>
 
-<h3>7. Sicherheit</h3>
-<p>Passwörter werden mit bcrypt gehasht (nie im Klartext gespeichert oder
-protokolliert); die Verbindung ist bei der Übertragung geschützt, und
-Formular-Übermittlungen sind gegen Cross-Site-Request-Forgery (CSRF)
-abgesichert.</p>
+<h3>7. Speicherdauer</h3>
+<ul>
+    <li>Konto und Profil: solange das Konto besteht. Löschst du dein Konto, ist es sofort für alle
+        unsichtbar und wird nach 6 Monaten endgültig gelöscht (innerhalb dieser Frist kannst du es
+        durch Einloggen reaktivieren; eine sofortige Löschung kannst du per E-Mail verlangen).</li>
+    <li>Nachrichten: 60 Tage nach der letzten Nachricht einer Unterhaltung; gemeldete Nachrichten
+        60 Tage nach Abschluss der Prüfung.</li>
+    <li>Anzeigen: 30 Tage nach dem Termin archiviert, 60 Tage später gelöscht; die Eckdaten eines
+        bestätigten Matches bleiben für beide Beteiligten erhalten.</li>
+    <li>Gelesene Benachrichtigungen: 30 Tage.</li>
+    <li>Rechnungs-PDFs und unbestätigte Entwürfe: 7 Tage.</li>
+    <li>IP-Adressen: Registrierungszähler 7 Tage; im internen Protokoll von
+        Administrationsaktionen 90 Tage.</li>
+    <li>Erledigte Kontakt- und Fehlermeldungen: 12 Monate.</li>
+    <li>Notas und Käufe: mit dem Konto. Belege über Zahlungen mit Geld bewahren Stripe und unsere
+        Buchhaltung für die gesetzliche Frist auf (bis zu 10 Jahre, § 147 AO, § 257 HGB; Art. 6
+        Abs. 1 lit. c DSGVO).</li>
+</ul>
 
-<h3>8. Änderungen dieser Erklärung</h3>
-<p>Wir können diese Seite aktualisieren, wenn sich die Funktionen der
-Website ändern. Schau gelegentlich vorbei, um die aktuelle Version zu
-sehen.</p>
+<h3>8. Deine Rechte</h3>
+<p>Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17),
+Einschränkung der Verarbeitung (Art. 18) und Datenübertragbarkeit (Art. 20 — einen Export deiner
+Daten gibt es jederzeit unter <a href="/profile/export">/profile/export</a>). Eine Einwilligung
+kannst du jederzeit mit Wirkung für die Zukunft widerrufen (Art. 7 Abs. 3 DSGVO), z. B. indem
+du optionale E-Mails im Profil abschaltest. Schreib uns einfach an
+daniel (a) vokalboard.com.</p>
+<div class="legal-block">
+    <h3>Widerspruchsrecht (Art. 21 DSGVO)</h3>
+    <p><strong>Soweit wir Daten auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO (berechtigtes
+    Interesse) verarbeiten, kannst du aus Gründen, die sich aus deiner besonderen Situation
+    ergeben, jederzeit widersprechen. Wir verarbeiten die Daten dann nicht mehr, es sei denn, wir
+    können zwingende schutzwürdige Gründe nachweisen oder die Verarbeitung dient der
+    Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen.</strong></p>
+</div>
+<p>Du kannst dich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren (Art. 77 DSGVO),
+z. B. bei der für uns zuständigen: Bayerisches Landesamt für Datenschutzaufsicht (BayLDA),
+Promenade 18, 91522 Ansbach, <a href="https://www.lda.bayern.de" rel="noopener">www.lda.bayern.de</a>.</p>
+
+<h3>9. Automatisierte Entscheidungen</h3>
+<p>Es gibt keine automatisierten Entscheidungen im Sinne von Art. 22 DSGVO. Sortierungen (z. B.
+hervorgehobene Anzeigen oder Profile) beruhen auf gekauften Store-Produkten, nicht auf einer
+Bewertung deiner Person.</p>
+
+<h3>10. Sicherheit</h3>
+<p>Passwörter werden mit bcrypt gehasht und nie im Klartext gespeichert; die Verbindung ist
+verschlüsselt (HTTPS), Formulare sind gegen CSRF geschützt, sensible Aktionen der Administration
+verlangen eine erneute Passworteingabe und werden protokolliert.</p>
+
+<h3>11. Änderungen</h3>
+<p>Wir passen diese Erklärung an, wenn sich Funktionen der Website ändern. Es gilt die jeweils
+hier veröffentlichte Fassung.</p>
 </div>
 {% endblock %}

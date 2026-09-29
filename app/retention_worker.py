@@ -70,6 +70,14 @@ def run_retention(connection=None, dry_run=False):
     conn.execute(text("DELETE FROM message_reports WHERE status <> 'open' AND resolved_at + interval '60 days' <= now()"))
     conn.execute(text("DELETE FROM listings WHERE archived_at+interval '60 days'<=now()"))
     conn.execute(text("DELETE FROM notifications WHERE read_at IS NOT NULL AND read_at + interval '30 days' <= now()"))
+    # IP addresses (legal check L4, 2026-09-29): signup rate-limit rows after 7 days,
+    # IPs in the admin audit log after 90 days (the entry itself stays).
+    conn.execute(text("DELETE FROM registration_attempts WHERE window_started_at + interval '7 days' <= now()"))
+    conn.execute(text("UPDATE audit_log SET ip_address = NULL WHERE ip_address IS NOT NULL AND created_at + interval '90 days' <= now()"))
+    # Resolved support tickets / bug reports: 12 months after resolution.
+    # Profile views: who viewed is never shown or read — drop it after 90 days (counts stay).
+    conn.execute(text("DELETE FROM support_tickets WHERE status = 'resolved' AND resolved_at + interval '12 months' <= now()"))
+    conn.execute(text("UPDATE profile_views SET viewer_user_id = NULL WHERE viewer_user_id IS NOT NULL AND viewed_at + interval '90 days' <= now()"))
     return counts
 
 

@@ -27,3 +27,18 @@ def test_legal_pages_are_german_only_with_a_notice_for_other_languages(client):
         assert '<div lang="de">' in en
     assert str(escape(translate("legal_german_only_notice", "fr"))) in client.get("/datenschutz?lang=fr").text
     assert "?lang=en" not in client.get("/widerruf?lang=ko").text.split("legal-lang-notice")[1][:300]
+
+
+def test_impressum_and_privacy_are_complete(client):
+    """Legal check L2/L3 (2026-09-29): real operator data, § 5 DDG, no placeholders."""
+    client.cookies.clear()
+    for path in ("/impressum", "/datenschutz"):
+        page = client.get(f"{path}?lang=de").text
+        assert "FILL IN" not in page and "NOCH MIT ANWALT" not in page and "Brasil" not in page
+        assert "Daniel Bachhuber" in page and "81669 München" in page
+        assert "daniel (a) vokalboard.com" in page and "daniel@vokalboard.com" not in page  # Daniel: against spam
+        assert "legal-lang-notice" in client.get(f"{path}?lang=en").text
+    assert "§ 5 DDG" in client.get("/impressum").text and "TMG" not in client.get("/impressum").text
+    privacy = client.get("/datenschutz").text
+    for must in ("Art. 21 DSGVO", "BayLDA", "Cloudflare", "Railway", "Resend", "Stripe", "TDDDG"):
+        assert must in privacy

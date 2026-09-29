@@ -1847,23 +1847,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # --- Impressum -------------------------------------------------------------
     "impressum_title": {"de": "Impressum", "en": "Legal notice (Impressum)", "fr": "Mentions légales", "it": "Note legali", "pt": "Aviso legal"},
-    "impressum_operated_from_notice": {
-        "de": "Dieses Portal wird von Brasilien aus betrieben.",
-        "en": "This site is operated from Brazil.",
-        "fr": "Ce site est exploité depuis le Brésil.",
-        "it": "Questo sito è gestito dal Brasile.",
-        "pt": "Este site é operado a partir do Brasil.",
-    },
 
     # --- Datenschutzerklärung ---------------------------------------------------
     "privacy_title": {"de": "Datenschutzerklärung", "en": "Privacy policy", "fr": "Politique de confidentialité", "it": "Informativa sulla privacy", "pt": "Política de privacidade"},
-    "privacy_disclaimer": {
-        "de": "Diese Erklärung ist eine solide Vorlage, ersetzt aber keine juristische Prüfung — insbesondere Abschnitt 4 (internationale Datenübermittlung) muss noch bestätigt werden, bevor die Seite echte Nutzerdaten verarbeitet.",
-        "en": "This notice is a solid template but does not replace legal review — section 4 (international data transfer) in particular still needs confirmation before the site processes real users' data.",
-        "fr": "Cette notice est un modèle solide mais ne remplace pas un contrôle juridique — la section 4 (transfert international de données) en particulier doit encore être confirmée avant que le site ne traite de vraies données d'utilisateurs.",
-        "it": "Questa informativa è un modello solido ma non sostituisce una revisione legale — in particolare la sezione 4 (trasferimento internazionale dei dati) deve ancora essere confermata prima che il sito tratti dati reali degli utenti.",
-        "pt": "Este texto é um modelo sólido, mas não substitui revisão jurídica — a seção 4 (transferência internacional de dados) em especial ainda precisa ser confirmada antes de o site processar dados reais de usuários.",
-    },
 
     # --- code of conduct -----------------------------------------------------
     # 6a (2026-09-28): Code of Conduct in every language (was en + German fallback).

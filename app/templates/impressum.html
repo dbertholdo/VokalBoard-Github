@@ -3,43 +3,41 @@
 
 {% block content %}
 <h1>{{ t('impressum_title') }}</h1>
+{# Legal check L2 (Daniel 2026-09-29): German only, § 5 DDG. Keep in sync with datenschutz.html §1. #}
+{% if lang != 'de' %}<p class="legal-lang-notice" role="note">{{ t('legal_german_only_notice') }}</p>{% endif %}
 
-<p class="field-help">
-    {{ t('impressum_operated_from_notice') }}
-    Angaben gemäß Art. 5 TMG bzw. § 5 ECG (Anbieterkennzeichnung), soweit auf
-    dieses in Brasilien betriebene Angebot anwendbar.
-</p>
-
+<div lang="de">
 <div class="legal-block">
-    <h3>Betreiber / Operator</h3>
+    <h3>Angaben gemäß § 5 DDG</h3>
     <p>
-        [FILL IN: Full name or company name]<br>
-        [FILL IN: Full address — street, number, city, postal code, country]<br>
-        Brasil
+        Daniel Bachhuber<br>
+        Franziskanerstr. 16 1510<br>
+        81669 München<br>
+        Deutschland
     </p>
 
-    <h3>Kontakt / Contact</h3>
-    <p>
-        E-Mail: [FILL IN: contact email]<br>
-        Telefon (optional): [FILL IN: phone number, if you want to provide one]
-    </p>
+    <h3>Kontakt</h3>
+    <p>E-Mail: daniel (a) vokalboard.com</p>
 
-    <h3>Verantwortlich für den Inhalt / Responsible for content</h3>
-    <p>[FILL IN: name of the person responsible for the content, if different from the operator]</p>
+    <h3>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h3>
+    <p>Daniel Bachhuber, Anschrift wie oben</p>
 </div>
 
-<h3>Haftungsausschluss / Disclaimer</h3>
+<h3>Verbraucherstreitbeilegung</h3>
 <p>
-    VokalBoard ist ein Lernprojekt und dient als Schwarzes Brett, über
-    das Sänger(innen) und Dirigent(innen) selbst Kontakt aufnehmen. Für die
-    Inhalte der veröffentlichten Anzeigen sind ausschließlich die jeweiligen
-    Verfasser(innen) verantwortlich.
+    Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren
+    vor einer Verbraucherschlichtungsstelle teilzunehmen.
 </p>
-<p class="field-help">
-    (EN) VokalBoard is a learning project and bulletin board through
-    which singers and conductors contact each other directly. The authors of
-    each listing are solely responsible for its content.
+
+<h3>Haftung für Inhalte</h3>
+<p>
+    VokalBoard ist ein Schwarzes Brett, über das Sänger(innen) und
+    Dirigent(innen) selbst Kontakt aufnehmen. Für die Inhalte der
+    veröffentlichten Anzeigen und Profile sind ausschließlich die jeweiligen
+    Verfasser(innen) verantwortlich. Wird uns ein rechtswidriger Inhalt
+    bekannt, entfernen wir ihn umgehend.
 </p>
+</div>
 
 <p><a href="/datenschutz">{{ t('footer_privacy') }} →</a></p>
 {% endblock %}
