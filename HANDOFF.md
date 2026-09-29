@@ -49,7 +49,7 @@
    - **L4 Code (Claude):** visit counter without sessionStorage (no consent needed); check whether admins can read messages and document it; retention for `registration_attempts` IPs and `audit_log` IPs.
    - **L5 Lawyer (Daniel):** final review of Impressum, Datenschutz, AGB, Widerruf (German = only valid version).
 
-**Daniel's go-live items:** DONE 2026-09-27 — DB update applied, latest deployed, Postgres password reset, SITE_BASE_URL, Railway settings. Still: Stripe last; native-speaker review of es/ro/zh/ko/tr. New: apply `2026-09-28_referral_rewards.sql` + `2026-09-28_bot_traffic.sql` + `2026-09-28_invoice_prefs.sql` + `2026-09-28_match_cancellations.sql` + `2026-09-28_store.sql` (psql, not the Query box). Google Search Console (4b). **Railway is serving an old build** (live style.css `?v=20260928-2`) — Daniel: check Railway → Deployments; features like the invoice country dropdown (item 5) only appear after a successful deploy.
+**Daniel's go-live items:** ALL DONE (Daniel, 2026-09-29): 2026-09-28 migrations applied, Railway deploying again, QR-bill/GiroCode scanned, Search Console, Turnstile keys, native reviews. Only Stripe left — at release.
 
 ## 4. Visual/a11y — fixed and browser-verified 2026-09-26 (Chromium, 320px + desktop)
 - `/listings/new` vacancy rows: every control has a visible, associated label; conductor mode hides the whole labelled field.
