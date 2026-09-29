@@ -137,15 +137,17 @@
                public excerpt plus two fake placeholder bars) — no
                description/contact data beyond what was already sent to an
                anonymous visitor before this change. #}
+            {# Daniel 2026-09-29: the full description is public (Google Jobs ranks full
+               texts higher); fee, date, venue, applying and contact stay members-only. #}
+            <p class="description listing-detail-description">{{ listing.description }}</p>
             <div class="anon-gate">
                 <div class="anon-gate-blur" aria-hidden="true">
-                    <p class="description listing-detail-description">{{ listing.description[:120] }}{% if listing.description|length > 120 %}…{% endif %}</p>
                     <div class="anon-gate-fake-line"></div>
                     <div class="anon-gate-fake-line anon-gate-fake-line-short"></div>
                 </div>
                 <div class="anon-gate-card">
                     <h3><svg class="icon" width="16" height="16"><use href="/static/img/icons.svg#icon-lock"></use></svg> {{ t('locked_listing_title') }}</h3>
-                    <p>{{ t('locked_listing_text') }}</p>
+                    <p>{{ t('listing_anon_gate_text') }}</p>
                     <p class="field-help">{{ t('listing_anon_teaser_hint') }}</p>
                     <p class="hero-actions">
                         <a class="button-link button-primary" href="/register">{{ t('home_cta_register') }}</a>

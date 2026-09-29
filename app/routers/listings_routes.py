@@ -664,9 +664,10 @@ def listing_detail(request: Request, listing_id: int):
         lang = getattr(request.state, "lang", "de")
         parts = [translate(f"listing_type_{listing['listing_type']}", lang), listing.get("repertoire"), listing.get("city")]
         seo_listing_description = " · ".join(p for p in parts if p)
-        excerpt = (listing.get("description") or "")[:120]
+        # Daniel 2026-09-29: the full description is public (visitors see it too), so Google gets it all.
+        full_text = (listing.get("description") or "").strip()
         job_posting = job_posting_jsonld(dict(listing), public_base(request),
-                                         f"{listing['title']}. {seo_listing_description}. {excerpt}".strip())
+                                         f"{listing['title']}. {seo_listing_description}. {full_text}".strip())
 
     context = {
         "user": user,

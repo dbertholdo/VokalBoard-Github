@@ -47,6 +47,14 @@ def test_job_listing_has_google_jobs_markup_with_public_data_only(client):
     assert email not in html.split("</head>")[0]
     assert _title(html) == "Sectest Reward Listing — München — VokalBoard"
 
+    # Daniel 2026-09-29: the full description is public (page and Google); contact stays locked.
+    long_text = "Wir suchen eine Sopranistin für Bachs Magnificat. " * 6
+    execute("UPDATE listings SET description = :d WHERE id = :id", {"d": long_text, "id": listing_id})
+    html = client.get(f"/listings/{listing_id}?lang=en").text
+    assert long_text.strip() in html.split("</head>")[1]
+    assert long_text.strip() in next(d for d in _jsonld(html) if d.get("@type") == "JobPosting")["description"]
+    assert "anon-gate-card" in html and "vacancy-apply-form" not in html
+
     execute("UPDATE listings SET is_active = FALSE WHERE id = :id", {"id": listing_id})  # paused = no longer a job offer
     assert not [d for d in _jsonld(client.get(f"/listings/{listing_id}").text) if d.get("@type") == "JobPosting"]
 

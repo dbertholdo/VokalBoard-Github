@@ -6,68 +6,11 @@
    lawyer review (Daniel's decision). Keep §3 in sync with app/notas_wallet.py
    (spend order, 18-month expiry) and §6 with app/account_purge.py. #}
 <h1>{{ t('terms_title') }}</h1>
-{# 6a (2026-09-28): other languages see the German text — say so, in their language. #}
-{% if lang not in ('de', 'en') %}<p class="legal-lang-notice" role="note">{{ t('legal_german_binding_notice') }} <a href="{{ request.url.path }}?lang=en" lang="en">{{ t('legal_read_in_english') }} &rarr;</a></p>{% endif %}
+{# Daniel 2026-09-29: German only — the German text is the only valid version; other languages get a notice. #}
+{% if lang != 'de' %}<p class="legal-lang-notice" role="note">{{ t('legal_german_only_notice') }}</p>{% endif %}
 <p class="field-help">{{ t('terms_version') }}</p>
 
-{% if lang == 'en' %}
-<div class="legal-block">
-<p><em>The German version is binding; this English version is provided for convenience.</em></p>
-
-<h3>1. Scope and provider</h3>
-<p>These Terms apply to the use of VokalBoard (www.vokalboard.com), a platform connecting singers,
-conductors and ensembles. The provider is named in the <a href="/impressum">Impressum</a>.
-Using the platform itself is free of charge; Notas (below) are optional.</p>
-
-<h3>2. Account</h3>
-<p>You must provide truthful information and keep your password secret. The
-<a href="/code-of-conduct">Code of Conduct</a> applies to all content and contact on the platform.
-We may suspend or close accounts that violate it.</p>
-
-<h3>3. Notas</h3>
-<p>3.1 Notas are platform credits for services inside VokalBoard (e.g. urgent listings, profile highlights).
-They have no cash value and cannot be paid out, exchanged for money or transferred to other accounts.</p>
-<p>3.2 <strong>Purchased Notas never expire.</strong> <strong>Earned Notas</strong> (bonuses, rewards, referrals,
-credits from the team) <strong>expire 18 months after the date they were credited</strong>. We notify you
-30 days before earned Notas expire.</p>
-<p>3.3 When you use Notas, purchased Notas are used first, then earned Notas, starting with those that expire soonest.</p>
-<p>3.4 VokalBoard may change the prices of services in Notas. Changes are announced at least 4 weeks in
-advance and do not affect services already paid for.</p>
-<p>3.5 <strong>Referrals.</strong> You earn 1 Nota for each person who registers through your link, confirms
-their e-mail address and then completes their profile or stays active for a week. Each e-mail address counts
-only once; throwaway addresses and self-referrals do not count, and rewards are limited per day and month.
-We review suspicious referrals (for example many sign-ups from one connection) and may withhold or take
-back the Notas concerned.</p>
-
-<h3>4. Buying Notas and payment</h3>
-<p>Notas are sold in bundles at the prices shown before checkout, in EUR or CHF. Payment is processed by
-Stripe on its own checkout page; VokalBoard never receives your card or bank details. The contract is
-concluded when you complete the payment; the Notas are credited to your account immediately afterwards.
-In accordance with § 19 UStG, no VAT is charged (small business).</p>
-
-<h3>5. Right of withdrawal</h3>
-<p>As a consumer you have a statutory right of withdrawal — see the
-<a href="/widerruf">withdrawal notice</a>. By ticking the checkbox at checkout you expressly request that
-the Notas be credited immediately and acknowledge that you thereby lose your right of withdrawal once
-they have been credited (§ 356 (5) BGB).</p>
-
-<h3>6. Deleting your account</h3>
-<p>You can delete your account at any time in your profile. It is deactivated immediately and can be
-reactivated — including your Notas — within 6 months by logging in again. After 6 months your account
-data and all remaining Notas are permanently erased; they cannot be restored or paid out.</p>
-
-<h3>7. Liability</h3>
-<p>VokalBoard only provides the platform; contracts between musicians and organisers are concluded
-directly between them. Otherwise, liability is governed by the statutory provisions.</p>
-
-<h3>8. Changes to these Terms</h3>
-<p>We announce changes at least 4 weeks before they take effect, by e-mail or in the Notification Center.</p>
-
-<h3>9. Final provisions</h3>
-<p>German law applies. If you are a consumer, mandatory consumer-protection rules of the country where
-you live remain unaffected.</p>
-</div>
-{% else %}
+<div lang="de">
 <div class="legal-block">
 <h3>1. Geltungsbereich und Anbieter</h3>
 <p>Diese AGB gelten für die Nutzung von VokalBoard (www.vokalboard.com), einer Plattform, die
@@ -127,5 +70,5 @@ Benachrichtigungszentrale an.</p>
 <p>Es gilt deutsches Recht. Für Verbraucher(innen) bleiben zwingende Verbraucherschutzvorschriften des
 Landes, in dem sie leben, unberührt.</p>
 </div>
-{% endif %}
+</div>
 {% endblock %}

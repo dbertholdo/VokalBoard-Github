@@ -6,43 +6,10 @@
    § 1 Abs. 2 EGBGB) for digital content. Written 2026-09-26 without a
    lawyer review (Daniel's decision). #}
 <h1>{{ t('withdrawal_title') }}</h1>
-{# 6a (2026-09-28): other languages see the German text — say so, in their language. #}
-{% if lang not in ('de', 'en') %}<p class="legal-lang-notice" role="note">{{ t('legal_german_binding_notice') }} <a href="{{ request.url.path }}?lang=en" lang="en">{{ t('legal_read_in_english') }} &rarr;</a></p>{% endif %}
+{# Daniel 2026-09-29: German only — the German text is the only valid version; other languages get a notice. #}
+{% if lang != 'de' %}<p class="legal-lang-notice" role="note">{{ t('legal_german_only_notice') }}</p>{% endif %}
 
-{% if lang == 'en' %}
-<div class="legal-block">
-<p><em>The German version is binding; this English version is provided for convenience.</em></p>
-
-<h3>Right of withdrawal</h3>
-<p>You have the right to withdraw from this contract within 14 days without giving any reason. The
-withdrawal period is 14 days from the day the contract is concluded.</p>
-<p>To exercise your right of withdrawal, you must inform us (contact details in the
-<a href="/impressum">Impressum</a>) of your decision to withdraw by means of a clear statement (e.g. an
-e-mail). You may use the model form below, but it is not obligatory. To meet the deadline, it is
-sufficient to send your notice before the withdrawal period has expired.</p>
-
-<h3>Effects of withdrawal</h3>
-<p>If you withdraw, we will reimburse all payments received from you without undue delay and at the latest
-within 14 days of the day we receive your notice. We use the same means of payment you used for the
-original transaction, unless expressly agreed otherwise; you will not be charged any fees for this
-reimbursement.</p>
-
-<h3>Early expiry of the right of withdrawal</h3>
-<p>Your right of withdrawal expires as soon as the Notas have been credited to your account, if you have
-expressly agreed at checkout that we begin before the end of the withdrawal period and confirmed your
-knowledge that you thereby lose your right of withdrawal (§ 356 (5) BGB).</p>
-
-<h3>Model withdrawal form</h3>
-<p>(Complete and return this form only if you wish to withdraw from the contract.)<br>
-To: [see Impressum]<br>
-I/We (*) hereby give notice that I/we (*) withdraw from my/our (*) contract for the purchase of the
-following digital content: ______<br>
-Ordered on (*): ______<br>
-Name of consumer(s): ______ · Address of consumer(s): ______<br>
-Date: ______<br>
-(*) Delete as appropriate.</p>
-</div>
-{% else %}
+<div lang="de">
 <div class="legal-block">
 <h3>Widerrufsrecht</h3>
 <p>Du hast das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die
@@ -76,5 +43,5 @@ Name des/der Verbraucher(s): ______ · Anschrift des/der Verbraucher(s): ______<
 Datum: ______<br>
 (*) Unzutreffendes streichen.</p>
 </div>
-{% endif %}
+</div>
 {% endblock %}

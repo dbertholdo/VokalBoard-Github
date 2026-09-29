@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-29 — Claude: open decisions + legal check
+- Legal pages German only (agb/datenschutz/widerruf English branches removed); `legal_german_only_notice` (10 langs) replaces the binding/English-link notice.
+- Listings: full description public for visitors and in JobPosting JSON-LD; gate card `listing_anon_gate_text` (apply + contact stay locked).
+- Legal check of Impressum/Datenschutz vs. code → HANDOFF item 9 (groups L1–L5). CJK fonts re-subset (v=20260929-1).
+- Tests: 448 passed, 7 skipped + retention. Next: L1 from Daniel, then L2–L4.
+
 ## 2026-09-28 — Claude: Notas Store (item 7)
 - New `app/store.py`, `app/routers/store_routes.py`, `store.html`, `_store_marks.html`; migration `2026-09-28_store.sql` (+ schema.sql).
 - Prices/discounts (welcome −50% 1st year, admin discount window from/until, bigger wins), 9 product effects, verification queue with refund, sales stats; urgent listing priced from the catalogue.

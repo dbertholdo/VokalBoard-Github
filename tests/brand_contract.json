@@ -282,10 +282,9 @@
     "[\"<a\", [[\"href\", \"\\\"/admin/users?q={{ q }}&sort={{ sort }}&active_only={{ '1' if active_only else '' }}&page={{ page + 1 }}\\\"\"]], []]": 1
   },
   "agb.html": {
-    "[\"<a\", [[\"href\", \"\\\"{{ request.url.path }}?lang=en\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/code-of-conduct\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/widerruf\\\"\"]], []]": 2
+    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/code-of-conduct\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/widerruf\\\"\"]], []]": 1
   },
   "assinar_stub.html": {
     "[\"<a\", [[\"href\", \"\\\"/\\\"\"]], []]": 1
@@ -371,10 +370,9 @@
     "[\"<button\", [[\"type\", \"\\\"submit\\\"\"]], []]": 1
   },
   "datenschutz.html": {
-    "[\"<a\", [[\"href\", \"\\\"{{ request.url.path }}?lang=en\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 4,
-    "[\"<a\", [[\"href\", \"\\\"/profile\\\"\"]], []]": 2,
-    "[\"<a\", [[\"href\", \"\\\"/profile/export\\\"\"]], []]": 2
+    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2,
+    "[\"<a\", [[\"href\", \"\\\"/profile\\\"\"]], []]": 1,
+    "[\"<a\", [[\"href\", \"\\\"/profile/export\\\"\"]], []]": 1
   },
   "digital_pass_stub.html": {
     "[\"<a\", [[\"href\", \"\\\"#digital-pass-cv\\\"\"]], []]": 1,
@@ -845,8 +843,7 @@
     "[\"<a\", [[\"href\", \"\\\"/agb\\\"\"]], []]": 1
   },
   "widerruf.html": {
-    "[\"<a\", [[\"href\", \"\\\"{{ request.url.path }}?lang=en\\\"\"]], []]": 1,
-    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 2
+    "[\"<a\", [[\"href\", \"\\\"/impressum\\\"\"]], []]": 1
   },
   "zona_vermelha.html": {
     "[\"<form\", [[\"action\", \"\\\"/financeiro/toggle-capitalismo\\\"\"], [\"data-confirm\", \"\\\"{{ 'Are you sure you want to turn OFF Capitalism Mode?' if capitalismo_enabled else 'Are you sure you want to turn ON Capitalism Mode? The subscription banner will show to everyone, everywhere.' }}\\\"\"], [\"method\", \"\\\"post\\\"\"]], []]": 1,

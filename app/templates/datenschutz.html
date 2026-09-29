@@ -3,121 +3,14 @@
 
 {% block content %}
 <h1>{{ t('privacy_title') }}</h1>
-{# 6a (2026-09-28): other languages see the German text — say so, in their language. #}
-{% if lang not in ('de', 'en') %}<p class="legal-lang-notice" role="note">{{ t('legal_german_binding_notice') }} <a href="{{ request.url.path }}?lang=en" lang="en">{{ t('legal_read_in_english') }} &rarr;</a></p>{% endif %}
+{# Daniel 2026-09-29: German only — the German text is the only valid version; other languages get a notice. #}
+{% if lang != 'de' %}<p class="legal-lang-notice" role="note">{{ t('legal_german_only_notice') }}</p>{% endif %}
 
 <p class="field-help">
     {{ t('privacy_disclaimer') }}
 </p>
 
-{% if lang == 'en' %}
-<div class="legal-block">
-    <h3>1. Data controller</h3>
-    <p>
-        The data controller for this site is the operator named in the
-        <a href="/impressum">legal notice (Impressum)</a>, which also lists
-        contact details. This site is operated from Brazil.
-    </p>
-</div>
-
-<h3>2. What we collect and why</h3>
-<p><strong>When you just browse</strong> (no account): our hosting provider's
-server automatically logs technical data for every request (IP address,
-browser/device info, date/time, requested page) for a short period, to
-operate and secure the site (legitimate interest, Art. 6(1)(f) GDPR).</p>
-<p><strong>Cookies</strong>: a session cookie (keeps you logged in) and a
-language cookie (remembers DE/EN). Both are technically necessary — no
-tracking, advertising, or analytics cookies are used, and no cookie banner
-is shown because none of these require consent under German law (§ 25(2)
-TTDSG).</p>
-<p><strong>When you register</strong>: name, email, password (stored as a
-one-way hash, never in plain text), role (singer/conductor), and any
-optional details you add — city, phone, bio, voice type, composer tags,
-audio links, social links, profile photo. Legal basis: performance of a
-contract with you (Art. 6(1)(b) GDPR), since this data is what makes the
-service work.</p>
-<p><strong>Listings and messages</strong>: the content of any listing you
-post and any message you send is stored so the service can function
-(Art. 6(1)(b)). Messages are visible only to sender and recipient.</p>
-<p><strong>Referrals</strong>: your unique referral code and, if you signed
-up through someone else's link, a reference to who referred you.</p>
-<p><strong>Optional emails</strong>: if enabled in your profile, we email
-you about matching listings or new messages (Art. 6(1)(a) — consent, since
-you can turn each off independently at any time in <a href="/profile">your
-profile</a>).</p>
-<p><strong>Profile visits</strong>: we log that your profile was viewed
-(and by whom, if logged in) purely as an internal usage metric for the
-site operator — this is never shown to you or to anyone else in the
-interface, including through the badge system, which only ever reveals
-that a milestone was crossed (e.g. "100+"), never the exact figure.</p>
-<p><strong>Reports and blocks</strong>: if you report a listing or block
-another user, we store that action (and your stated reason, for reports)
-to keep the community safe (Art. 6(1)(f), legitimate interest in trust
-and safety).</p>
-
-<h3>3. Who we share data with</h3>
-<p>We do not sell your data. It may be processed by:</p>
-<p>
-- Our hosting/database provider, to run the site.<br>
-- Our transactional email provider (currently Resend, api.resend.com, or
-  none in local/console mode — see EMAIL_BACKEND in the project's
-  configuration), solely to deliver verification, password-reset, match,
-  and message-notification emails.<br>
-- Stripe (Stripe Payments Europe, Ltd., Ireland), only if you buy Notas:
-  Stripe processes the payment on its own checkout page — VokalBoard never
-  sees or stores your card or bank details. We pass Stripe your e-mail
-  address and the purchase (bundle, amount, your consent to the Terms and
-  to immediate delivery).<br>
-- Other users, but only what you choose to make public on your profile or
-  in a listing; your email/phone are shown only to someone you're already
-  in contact with through a listing you or they posted.
-</p>
-
-<h3>4. International data transfer</h3>
-<p>
-Because this site is operated from Brazil while primarily serving people
-in Germany, Austria and Switzerland, personal data may be transferred
-between these countries. <strong>[TO REVIEW WITH A LAWYER]</strong> — the
-specific safeguard used (e.g. EU Standard Contractual Clauses, or reliance
-on an adequacy mechanism) depends on the final hosting/email-provider
-setup and should be confirmed and documented here before the site accepts
-real users' data.
-</p>
-
-<h3>5. How long we keep data</h3>
-<p>
-Account data is kept while your account is active. If you delete your
-account, it is deactivated immediately (hidden from everyone) and fully
-erased after 6 months, unless you log back in and reactivate it within
-that window. You can request full erasure sooner by contacting us (see
-Impressum). A downloadable export of your own data is available anytime
-at <a href="/profile/export">/profile/export</a> (GDPR Art. 20).
-</p>
-<p>
-Your Notas (history and balance) are erased together with the account.
-Records of Notas purchases (date, amount, invoice) are kept by Stripe and
-in our accounting for the period required by tax law (8–10 years, GDPR
-Art. 17(3)(b), § 147 AO) — not in the VokalBoard database.
-</p>
-
-<h3>6. Your rights</h3>
-<p>Under GDPR Art. 15–21, you have the right to: access the data we hold
-about you; have inaccurate data corrected; have your data erased; restrict
-or object to certain processing; and receive your data in a portable
-format. To exercise any of these, contact us using the details in the
-<a href="/impressum">Impressum</a>. You also have the right to lodge a
-complaint with a data protection supervisory authority.</p>
-
-<h3>7. Security</h3>
-<p>Passwords are hashed with bcrypt (never stored or logged in plain
-text); the connection is protected in transit, and form submissions are
-protected against cross-site request forgery (CSRF).</p>
-
-<h3>8. Changes to this notice</h3>
-<p>We may update this page as the site's features change. Check back
-occasionally for the latest version.</p>
-
-{% else %}
+<div lang="de">
 <div class="legal-block">
     <h3>1. Verantwortlicher</h3>
     <p>
@@ -239,5 +132,5 @@ abgesichert.</p>
 <p>Wir können diese Seite aktualisieren, wenn sich die Funktionen der
 Website ändern. Schau gelegentlich vorbei, um die aktuelle Version zu
 sehen.</p>
-{% endif %}
+</div>
 {% endblock %}
