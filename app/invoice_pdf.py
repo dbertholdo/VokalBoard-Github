@@ -29,7 +29,7 @@ from pathlib import Path
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Flowable, Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Flowable, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
@@ -47,8 +47,6 @@ _BG_MINERAL = colors.HexColor("#F5F7FA")
 _ACCENT_VIOLET = colors.HexColor("#635BDE")
 _GRID_LINE = colors.HexColor("#D8DEE8")
 _MUTED_TEXT = colors.HexColor("#5B6B82")
-
-_LOGO_PATH = Path(__file__).resolve().parent / "static" / "img" / "brand" / "icon-256.png"
 
 
 class InvoiceValidationError(ValueError):
@@ -89,6 +87,9 @@ class InvoiceDocument:
     # Phase 2 (2026-09-28): "1" = add a GiroCode (EUR + SEPA IBAN). The Swiss
     # QR-bill needs no switch — it's added whenever it can be (app/invoice_qr.py).
     girocode: str = ""
+    # 7b (Daniel 2026-09-28): more services after the first one —
+    # ((description, net amount), ...). Tax applies to all service lines.
+    extra_services: tuple = ()
 
     @property
     def country_code(self) -> str:
@@ -114,8 +115,9 @@ class InvoiceDocument:
             raise InvoiceValidationError("Missing required invoice information")
         if self.currency not in CURRENCIES:
             raise InvoiceValidationError("Unsupported currency")
+        lines = self.service_lines()
         try:
-            net = Decimal(self.net_amount.replace(",", "."))
+            net = sum((amount for _, amount in lines), Decimal("0"))
             rate = Decimal(self.tax_rate.replace(",", "."))
             travel = Decimal(str(self.expense_travel_amount or "0").replace(",", "."))
             lodging = Decimal(str(self.expense_lodging_amount or "0").replace(",", "."))
@@ -129,6 +131,21 @@ class InvoiceDocument:
         lodging_q = lodging.quantize(Decimal("0.01"))
         total = (net_q + tax + travel_q + lodging_q).quantize(Decimal("0.01"))
         return net_q, tax, travel_q, lodging_q, total
+
+    def service_lines(self) -> list[tuple[str, Decimal]]:
+        """[(description, net amount)] — the first service, then the extra ones."""
+        lines = []
+        for description, amount in ((self.service_description, self.net_amount), *self.extra_services):
+            if not str(description or "").strip():
+                raise InvoiceValidationError("Every service line needs a description")
+            try:
+                value = Decimal(str(amount or "").replace(",", "."))
+            except InvalidOperation as exc:
+                raise InvoiceValidationError("Amounts must be valid numbers") from exc
+            if value < 0:
+                raise InvoiceValidationError("Amounts or tax rate are outside the allowed range")
+            lines.append((str(description), value.quantize(Decimal("0.01"))))
+        return lines
 
 
 def _escape(value: str) -> str:
@@ -146,11 +163,6 @@ def _styles():
     kicker.leading = 10
     kicker.textColor = _MUTED_TEXT
     kicker.spaceAfter = 2
-
-    brand = base["BodyText"].clone("InvoiceBrand")
-    brand.fontName = "Helvetica-Bold"
-    brand.fontSize = 13
-    brand.textColor = _NAVY
 
     doc_title = base["BodyText"].clone("InvoiceDocTitle")
     doc_title.fontName = "Helvetica-Bold"
@@ -174,32 +186,16 @@ def _styles():
     notes.textColor = _MUTED_TEXT
 
     return {
-        "body": body, "kicker": kicker, "brand": brand, "doc_title": doc_title,
+        "body": body, "kicker": kicker, "doc_title": doc_title,
         "meta_label": meta_label, "footer": footer, "notes": notes,
     }
 
 
 def _header_flowable(styles, title: str = "Rechnung"):
-    """Logo + 'VokalBoard' wordmark on the left, the document title
-    (Rechnung / Invoice / Facture / Fattura) on the right."""
-    brand_cell = [Paragraph("VokalBoard", styles["brand"])]
-    if _LOGO_PATH.exists():
-        logo = Image(str(_LOGO_PATH), width=9 * mm, height=9 * mm)
-        brand_table = Table([[logo, Paragraph("VokalBoard", styles["brand"])]], colWidths=[11 * mm, 60 * mm])
-        brand_table.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ]))
-        brand_cell = brand_table
-    header = Table([[brand_cell, Paragraph(_escape(title), styles["doc_title"])]], colWidths=[95 * mm, 75 * mm])
-    header.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    return header
+    """The document title (Rechnung / Invoice / Facture / Fattura), right-aligned.
+    7c (Daniel 2026-09-28): no VokalBoard logo on the invoice — it is the
+    issuer's document; VokalBoard appears only in the footer line."""
+    return Paragraph(_escape(title), styles["doc_title"])
 
 
 # Caption under the GiroCode, per invoice language.
@@ -279,14 +275,15 @@ def render_invoice_pdf(invoice: InvoiceDocument) -> bytes:
     story.append(Spacer(1, 9 * mm))
 
     # Line items — Pos./Bezeichnung/Menge/Einheit/Einzelpreis/Gesamt, the
-    # reference sample's item-table columns. The data model has one
-    # service line (+ optional travel/lodging), so Menge/Einheit are
-    # synthesized rather than collected per item.
+    # reference sample's item-table columns. Each service line (7b) and the
+    # optional travel/lodging are flat amounts, so Menge/Einheit are synthesized.
     header_row = [labels["pos"], labels["description"], labels["qty"], labels["unit"],
                   f"{labels['unit_price']} ({invoice.currency})", f"{labels['line_total']} ({invoice.currency})"]
     rows = [header_row]
-    pos = 1
-    rows.append([str(pos), Paragraph(_escape(invoice.service_description), body), "1", labels["flat"], money(net), money(net)])
+    pos = 0
+    for description, amount in invoice.service_lines():
+        pos += 1
+        rows.append([str(pos), Paragraph(_escape(description), body), "1", labels["flat"], money(amount), money(amount)])
     if travel:
         pos += 1
         rows.append([str(pos), labels["travel"], "1", labels["flat"], money(travel), money(travel)])

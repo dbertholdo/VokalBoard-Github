@@ -46,7 +46,7 @@ LEGACY_DOC_FIELDS = (
 )
 # v2 drafts hold the whole form (app/invoice_form.FIELDS); tax is resolved
 # when the PDF is built. Everything is encrypted (CLAUDE.md §2).
-STORED_FIELDS = tuple(dict.fromkeys(FORM_FIELDS_V2 + LEGACY_DOC_FIELDS + ("tax_preset",)))
+STORED_FIELDS = tuple(dict.fromkeys(FORM_FIELDS_V2 + LEGACY_DOC_FIELDS + ("tax_preset", "extra_services")))
 
 
 def _document_from_payload(payload: dict):
@@ -66,6 +66,7 @@ def preview_values(payload: dict) -> dict:
 
     return {**{key: payload.get(key, "") for key in STORED_FIELDS}, "tax_rate": document.tax_rate,
             "tax_note": document.tax_note, "tax_name": document.tax_name, "doc_lang": document.lang,
+            "services_fmt": [(description, money(amount)) for description, amount in document.service_lines()],
             "net_fmt": money(net), "tax_fmt": money(tax), "travel_fmt": money(travel) if travel else "",
             "lodging_fmt": money(lodging) if lodging else "", "total_fmt": money(total),
             "total_label": DOC_LABELS[document.lang]["total"]}

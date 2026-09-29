@@ -28,10 +28,34 @@ FIELDS = (
 )
 
 
+MAX_EXTRA_SERVICES = 19  # + the first service = 20 lines
+
+
 def read_form(form) -> dict:
     """Plain dict of the known fields from a submitted form (missing -> "")."""
-    return {key: (form.get(key) or "").strip() if key not in ("issuer_address", "recipient_address") else (form.get(key) or "")
-            for key in FIELDS}
+    values = {key: (form.get(key) or "").strip() if key not in ("issuer_address", "recipient_address") else (form.get(key) or "")
+              for key in FIELDS}
+    getlist = getattr(form, "getlist", None)
+    if getlist:
+        values["extra_services"] = [{"description": d, "amount": a} for d, a in
+                                    zip(getlist("extra_service_description"), getlist("extra_service_amount"))]
+    return values
+
+
+def clean_extra_services(rows) -> list[dict]:
+    """7b: extra service lines as [{"description", "amount"}]; fully empty rows dropped."""
+    cleaned = []
+    for row in rows if isinstance(rows, list) else []:
+        if isinstance(row, dict):
+            description, amount = row.get("description"), row.get("amount")
+        elif isinstance(row, (list, tuple)) and len(row) == 2:
+            description, amount = row
+        else:
+            continue
+        description, amount = str(description or "").strip()[:500], str(amount or "").strip()[:20]
+        if description or amount:
+            cleaned.append({"description": description, "amount": amount})
+    return cleaned[:MAX_EXTRA_SERVICES]
 
 
 def normalize(values: dict, default_country: str = "DE") -> dict:
@@ -50,6 +74,7 @@ def normalize(values: dict, default_country: str = "DE") -> dict:
     for amount in ("expense_travel_amount", "expense_lodging_amount"):
         v[amount] = v[amount] or "0"
     v["girocode"] = "1" if v["girocode"] in ("1", "on", "true") else ""
+    v["extra_services"] = clean_extra_services(values.get("extra_services"))
     return v
 
 
@@ -67,6 +92,7 @@ def to_document(v: dict) -> InvoiceDocument:
         country=v["country"], doc_lang=v["doc_lang"], tax_name=tax["name"],
         client_vat_id=v["client_vat_id"] if tax["client_vat_required"] else "",
         girocode="1" if v.get("girocode") else "",
+        extra_services=tuple((row["description"], row["amount"]) for row in v.get("extra_services") or ()),
     )
     document.validate()
     return document

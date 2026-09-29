@@ -3630,19 +3630,8 @@ form button.link-button:hover { color: var(--accent-dark); }
     gap: var(--space-3);
     margin-bottom: var(--space-4);
 }
-.invoice-paper-brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    color: var(--ink);
-}
-.invoice-paper-brand img {
-    width: 20px;
-    height: 20px;
-}
 .invoice-paper-head h2 {
-    margin: 0;
+    margin: 0 0 0 auto;
     font-size: 1.3rem;
     color: var(--ink);
 }
@@ -3901,3 +3890,14 @@ form button.link-button:hover { color: var(--accent-dark); }
 .store-status-owned { color: var(--success-text); font-weight: 700; }
 .store-buy-form { gap: var(--space-2); }
 
+
+/* 7b (2026-09-29): extra service lines in the invoice form. */
+.inv-extra-services { grid-column: 1 / -1; display: flex; flex-direction: column; gap: var(--space-3); }
+.inv-extra-services:empty { display: none; }
+.inv-extra-service { display: grid; grid-template-columns: minmax(0, 1fr) 10rem auto; gap: var(--space-3); align-items: end;
+    padding-top: var(--space-3); border-top: 1px dashed var(--border); }
+.inv-extra-service .inv-field { font-weight: 600; }
+.inv-remove-service { justify-self: start; }
+@media (max-width: 640px) {
+    .inv-extra-service { grid-template-columns: 1fr; }
+}

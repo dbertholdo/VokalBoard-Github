@@ -110,6 +110,17 @@ def test_issuer_fills_form_and_contractor_can_preview(client):
     assert form["issuer_name"] == "Ada Sängerin"
 
 
+def test_match_draft_keeps_extra_service_lines_7b(client):
+    match_id, artist_id, contractor_id = _make_match(client, date.today())
+    form = {**VALID_FORM, "country": "DE", "tax_option": "klein",
+            "extra_services": [{"description": "Probe am Vortag", "amount": "80"}]}
+    save_issuer_form(match_id, artist_id, contractor_id, form, date.today())
+    preview = get_preview(match_id, contractor_id)
+    assert [d for d, _ in preview["services_fmt"]] == ["Solo im Konzert", "Probe am Vortag"]
+    assert preview["net_fmt"].startswith("200,00")
+    assert get_form_for_issuer(match_id, artist_id)["extra_services"] == [{"description": "Probe am Vortag", "amount": "80"}]
+
+
 def test_only_the_issuer_can_fill_the_form(client):
     match_id, artist_id, contractor_id = _make_match(client, date.today())
     save_issuer_form(match_id, artist_id, contractor_id, VALID_FORM, date.today())

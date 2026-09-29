@@ -21,6 +21,19 @@
 </div>
 {%- endmacro %}
 
+{# 7b (Daniel 2026-09-28): one extra service line (description + net amount). #}
+{% macro extra_service_row(description='', amount='') -%}
+<div class="inv-extra-service" data-extra-service>
+    <label class="inv-field">{{ t('invc_extra_service') }}
+        <textarea name="extra_service_description" rows="2" maxlength="500">{{ description }}</textarea>
+    </label>
+    <label class="inv-field">{{ t('inv_net_amount') }}
+        <input name="extra_service_amount" inputmode="decimal" maxlength="20" value="{{ amount }}">
+    </label>
+    <button type="button" class="button-link inv-remove-service" data-remove-service hidden>{{ t('invc_remove_service') }}</button>
+</div>
+{%- endmacro %}
+
 {% macro invoice_fields(v, match=None) %}
 {% set opt = inv_option_meta[v.country][v.tax_option] %}
 <script type="application/json" id="inv-data">{{ inv_client_data | tojson }}</script>
@@ -76,6 +89,13 @@
     {% call field('service_date', t('inv_service_date')) %}<input id="inv-service_date" type="date" name="service_date" value="{{ v.service_date }}" required aria-describedby="invh-service_date">{% endcall %}
     {% call field('service_description', t('inv_service')) %}<textarea id="inv-service_description" name="service_description" required aria-describedby="invh-service_description">{{ v.service_description }}</textarea>{% endcall %}
     {% call field('net_amount', t('inv_net_amount')) %}<input id="inv-net_amount" name="net_amount" inputmode="decimal" value="{{ v.net_amount }}" required aria-describedby="invh-net_amount">{% endcall %}
+    <div class="inv-extra-services" data-extra-services>
+        {% for row in v.extra_services or [] %}{{ extra_service_row(row.description, row.amount) }}{% endfor %}
+        {# Without JavaScript: one empty extra line is always there. #}
+        <noscript>{{ extra_service_row() }}</noscript>
+    </div>
+    <template data-extra-service-template>{{ extra_service_row() }}</template>
+    <p class="inv-check"><button type="button" class="button-link inv-add-service" data-add-service hidden>+ {{ t('invc_add_service') }}</button></p>
     {% call field('expense_travel_amount', t('inv_travel')) %}<input id="inv-expense_travel_amount" name="expense_travel_amount" inputmode="decimal" value="{{ v.expense_travel_amount }}" aria-describedby="invh-expense_travel_amount">{% endcall %}
     {% call field('expense_lodging_amount', t('inv_lodging')) %}<input id="inv-expense_lodging_amount" name="expense_lodging_amount" inputmode="decimal" value="{{ v.expense_lodging_amount }}" aria-describedby="invh-expense_lodging_amount">{% endcall %}
 </fieldset>

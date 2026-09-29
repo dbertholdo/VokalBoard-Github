@@ -9,11 +9,8 @@
 <div class="invoice-preview" data-invoice-preview="{{ form_id }}">
     <span class="invoice-preview-label">{{ t('invoice_preview_label') }}</span>
     <div class="invoice-paper">
+        {# 7c (Daniel 2026-09-28): no VokalBoard logo — only the footer line names it. #}
         <header class="invoice-paper-head">
-            <div class="invoice-paper-brand">
-                <img src="/static/img/brand/icon-small-navy.svg" alt="">
-                <span>VokalBoard</span>
-            </div>
             <h2 data-label="title">{{ L.title }}</h2>
         </header>
         <div class="invoice-paper-parties">

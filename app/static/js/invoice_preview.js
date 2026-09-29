@@ -11,6 +11,7 @@
  *  - tax option change: shows client VAT ID (reverse charge) / own tax fields;
  *  - "?" buttons: click/tap/Enter toggles, Esc or a click elsewhere closes;
  *  - "Invoice the person who posted the job" (Match form) fills/clears the client;
+ *  - "+ Add service" / "Remove" for extra service lines (7b);
  *  - the preview mirrors app/invoice_pdf.py (labels, number/date formats, totals).
  */
 (function () {
@@ -147,6 +148,48 @@
             });
         }
 
+        // ---- 7b: extra service lines --------------------------------------
+        var MAX_EXTRA = 19;
+        var extraBox = form.querySelector("[data-extra-services]");
+        var extraTpl = form.querySelector("template[data-extra-service-template]");
+        var addBtn = form.querySelector("[data-add-service]");
+
+        function extraRows() {
+            return extraBox ? Array.prototype.slice.call(extraBox.querySelectorAll("[data-extra-service]")) : [];
+        }
+        function updateAddButton() {
+            if (addBtn) addBtn.hidden = extraRows().length >= MAX_EXTRA;
+        }
+        extraRows().forEach(function (row) {
+            var b = row.querySelector("[data-remove-service]");
+            if (b) b.hidden = false;
+        });
+        if (addBtn && extraBox && extraTpl) {
+            addBtn.addEventListener("click", function () {
+                var row = extraTpl.content.firstElementChild.cloneNode(true);
+                row.querySelector("[data-remove-service]").hidden = false;
+                extraBox.appendChild(row);
+                row.querySelector("textarea").focus();
+                updateAddButton();
+                render();
+            });
+            updateAddButton();
+        }
+        form.addEventListener("click", function (e) {
+            var btn = e.target.closest && e.target.closest("[data-remove-service]");
+            if (!btn) return;
+            var row = btn.closest("[data-extra-service]");
+            if (row) row.remove();
+            if (addBtn) addBtn.focus();
+            updateAddButton();
+            render();
+        });
+        function extraServices() {
+            return extraRows().map(function (row) {
+                return [row.querySelector("textarea").value || "", row.querySelector("input").value || ""];
+            }).filter(function (r) { return r[0].trim() || r[1].trim(); });
+        }
+
         var rowsBody = root && root.querySelector("[data-preview-rows]");
         var notesBox = root && root.querySelector("[data-preview-notes]");
 
@@ -169,7 +212,9 @@
             var opt = option();
             var rate = opt.custom ? num(val("tax_custom_rate")) : num(opt.rate);
             var taxName = (opt.custom && val("tax_custom_name").trim()) || c.taxNames[lang];
-            var net = num(val("net_amount"));
+            var services = [[val("service_description") || "—", num(val("net_amount"))]].concat(
+                extraServices().map(function (r) { return [r[0] || "—", num(r[1])]; }));
+            var net = services.reduce(function (sum, r) { return sum + r[1]; }, 0);
             var travel = num(val("expense_travel_amount"));
             var lodging = num(val("expense_lodging_amount"));
             var tax = Math.round(net * rate) / 100;
@@ -190,7 +235,7 @@
             }
 
             if (rowsBody) {
-                var rows = [[val("service_description") || "—", net]];
+                var rows = services.slice();
                 if (travel > 0) rows.push([L.travel, travel]);
                 if (lodging > 0) rows.push([L.lodging, lodging]);
                 rowsBody.innerHTML = rows.map(function (r, i) {

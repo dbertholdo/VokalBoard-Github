@@ -9,6 +9,12 @@
 - **Rotation:** when this file passes ~300 lines, move the oldest entries verbatim to `docs/changelog-archive/` (one file per period). Moving is not deleting.
 - Older history: `docs/changelog-archive/` (`AI_CHANGELOG_until_2026-09-19.md`, `AI_CHANGELOG_2026-09-21_to_2026-09-24.md`) — grep it, never read it in full. Also see git history and `docs/changelog-archive/CHANGELOG_2026-09-14.md`.
 
+## 2026-09-29 — Claude: 7b several service lines, 7c invoice without logo
+- `app/invoice_pdf.py`: `extra_services` + `service_lines()` (tax over all lines); header = title only (logo/wordmark removed).
+- `app/invoice_form.py` reads/cleans `extra_service_*` lists (max 19 extra); drafts store `extra_services`; review page lists every line.
+- `_invoice_fields.html` extra rows + template + "+ Add another service"; `invoice_preview.js` add/remove + preview rows; `_invoice_preview.html` no logo. 3 texts × 10 langs; style.css v=20260929-1, invoice_preview.js v=20260929-1.
+- Tests: new PDF/form/draft tests (invoice files 15 passed). Next: 8 admin/phone check + accessibility.
+
 ## 2026-09-29 — Claude: public contact form, footer, DPF
 - `/contato` open to visitors (Impressum 2nd channel): e-mail required, Turnstile + honeypot, 3/h per IP (`support_routes.py`, `contato.html`); 3 new texts × 10 langs.
 - Footer "Learning project" removed (`footer_text`, 10 langs). Datenschutz: DPF-certified providers, contact form in Turnstile/contact sections.

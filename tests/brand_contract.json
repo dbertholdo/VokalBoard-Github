@@ -15,7 +15,9 @@
     "[\"<input\", [[\"id\", \"\\\"website-field\\\"\"], [\"name\", \"\\\"{{ honeypot_field }}\\\"\"], [\"type\", \"\\\"text\\\"\"]], []]": 1
   },
   "_invoice_fields.html": {
-    "[\"<button\", [[\"type\", \"\\\"button\\\"\"]], []]": 1,
+    "[\"<button\", [[\"type\", \"\\\"button\\\"\"]], []]": 3,
+    "[\"<textarea\", [[\"maxlength\", \"\\\"500\\\"\"], [\"name\", \"\\\"extra_service_description\\\"\"]], []]": 1,
+    "[\"<input\", [[\"maxlength\", \"\\\"20\\\"\"], [\"name\", \"\\\"extra_service_amount\\\"\"]], []]": 1,
     "[\"<select\", [[\"id\", \"\\\"inv-country\\\"\"], [\"name\", \"\\\"country\\\"\"]], []]": 1,
     "[\"<button\", [[\"name\", \"\\\"action\\\"\"], [\"type\", \"\\\"submit\\\"\"]], []]": 1,
     "[\"<select\", [[\"id\", \"\\\"inv-doc_lang\\\"\"], [\"name\", \"\\\"doc_lang\\\"\"]], []]": 1,

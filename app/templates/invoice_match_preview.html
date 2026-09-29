@@ -11,7 +11,7 @@
 <p><strong>{{ t('inv_issue_date') }}:</strong> {{ preview.issue_date }} · <strong>{{ t('inv_service_date') }}:</strong> {{ preview.service_date }}</p>
 <p><strong>{{ t('inv_issuer_name') }}:</strong> {{ preview.issuer_name }}<br>{{ preview.issuer_address }}</p>
 <p><strong>{{ t('inv_recipient_name') }}:</strong> {{ preview.recipient_name }}<br>{{ preview.recipient_address }}{% if preview.client_vat_id %}<br>{{ t('invc_client_vat') }}: {{ preview.client_vat_id }}{% endif %}</p>
-<p><strong>{{ t('inv_service') }}:</strong> {{ preview.service_description }}</p>
+{% for description, amount in preview.services_fmt %}<p><strong>{{ t('inv_service') }}{% if preview.services_fmt|length > 1 %} {{ loop.index }}{% endif %}:</strong> {{ description }} — {{ amount }}</p>{% endfor %}
 <p><strong>{{ t('inv_net_amount') }}:</strong> {{ preview.net_fmt }}</p>
 {% if preview.travel_fmt %}<p><strong>{{ t('inv_travel') }}:</strong> {{ preview.travel_fmt }}</p>{% endif %}
 {% if preview.lodging_fmt %}<p><strong>{{ t('inv_lodging') }}:</strong> {{ preview.lodging_fmt }}</p>{% endif %}
